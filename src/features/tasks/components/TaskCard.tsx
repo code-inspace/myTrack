@@ -32,10 +32,17 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   onDeleteTask,
 }) => {
   const isCompleted = task.isCompletedToday;
-  const isQuantitative =
-    task.trackingType === "NUMBER" ||
-    task.trackingType === "QUANTITY" ||
+
+  // No quantitative counter if it's duration / minutes (handled in real-time or agenda)
+  const isDurationUnit =
+    task.unit === "min" ||
+    task.unit === "minute" ||
+    task.unit === "minutes" ||
     task.trackingType === "DURATION";
+
+  const isQuantitative =
+    (task.trackingType === "NUMBER" || task.trackingType === "QUANTITY") &&
+    !isDurationUnit;
 
   const handleCircleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -122,11 +129,11 @@ export const TaskCard: React.FC<TaskCardProps> = ({
       </div>
 
       {/* Level 2: Metadata Badges (Hours, Recurrence, Category) & Action Controls */}
-      <div className="flex items-center justify-between gap-2 pt-2 border-t border-[#252830] text-xs">
+      <div className="flex items-center justify-between gap-3 pt-2.5 border-t border-[#252830] text-xs">
         {/* Left Metadata Pills */}
-        <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+        <div className="flex flex-wrap items-center gap-1.5 min-w-0 flex-1">
           {hasTime && (
-            <span className="flex items-center gap-1 bg-[#141518] px-2.5 py-1 rounded-lg border border-[#252830] font-semibold text-white text-[11px]">
+            <span className="inline-flex items-center gap-1 bg-[#141518] px-2.5 py-1 rounded-lg border border-[#252830] font-semibold text-white text-[11px] whitespace-nowrap">
               <Clock className="w-3 h-3 text-[#D4F63D]" />
               <span>
                 {task.startTime || "05:30"}
@@ -135,20 +142,20 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             </span>
           )}
 
-          <span className="flex items-center gap-1 bg-[#141518] px-2 py-1 rounded-lg border border-[#252830] text-[#8E929E] text-[11px] font-medium">
+          <span className="inline-flex items-center gap-1 bg-[#141518] px-2 py-1 rounded-lg border border-[#252830] text-[#8E929E] text-[11px] font-medium whitespace-nowrap">
             <Repeat className="w-3 h-3 text-[#6B7280]" />
             <span>{RECURRENCE_LABEL_MAP[task.recurrence] || "Quotidien"}</span>
           </span>
 
           {task.category && task.category !== "General" && (
-            <span className="px-2 py-0.5 rounded-md bg-[#252830] text-[#9CA3AF] text-[10px] font-semibold">
+            <span className="px-2 py-0.5 rounded-md bg-[#252830] text-[#9CA3AF] text-[10px] font-semibold whitespace-nowrap">
               {task.category}
             </span>
           )}
         </div>
 
-        {/* Right Actions: Quantitative logger & Start pill */}
-        <div className="flex items-center gap-2 flex-shrink-0">
+        {/* Right Actions: Progression counter placed ABOVE Démarrer */}
+        <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
           {isQuantitative && (
             <button
               onClick={() => onOpenLogModal(task)}
@@ -162,14 +169,14 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                 <span className="text-[#6B7280]">/ {task.targetValue}</span>
               )}
               {task.unit && <span className="text-[#9CA3AF] text-[10px]">{task.unit}</span>}
-              <Plus className="w-3.5 h-3.5 text-[#D4F63D] ml-0.5" />
+              <Plus className="w-3 h-3 text-[#D4F63D] ml-0.5" />
             </button>
           )}
 
           {!isCompleted && (
             <button
               onClick={() => onToggleActive(task.id)}
-              className="px-3.5 py-1.5 rounded-full bg-[#D4F63D] hover:bg-[#c2e42f] text-black font-extrabold text-xs flex items-center gap-1 shadow-md transition-all active:scale-95 cursor-pointer"
+              className="px-4 py-1.5 rounded-full bg-[#D4F63D] hover:bg-[#c2e42f] text-black font-extrabold text-xs flex items-center gap-1 shadow-md transition-all active:scale-95 cursor-pointer"
             >
               <Play className="w-3 h-3 fill-current" />
               <span>Démarrer</span>

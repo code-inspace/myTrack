@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Task, TaskFormValues, TaskWithCompletion } from "../types";
 import { TASK_CATEGORIES, TRACKING_TYPE_OPTIONS, RECURRENCE_OPTIONS, DAYS_OF_WEEK } from "../options";
-import { X, Plus, Check, Edit3 } from "lucide-react";
+import { X, Plus, Check, Edit3, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface TaskFormModalProps {
@@ -11,6 +11,17 @@ interface TaskFormModalProps {
   initialTask?: Task | TaskWithCompletion | null;
   onClose: () => void;
   onSubmit: (values: TaskFormValues, taskId?: string) => void;
+}
+
+function addHoursToTimeString(timeStr: string, hoursToAdd: number = 1): string {
+  if (!timeStr || !timeStr.includes(":")) return "08:00";
+  const [hStr, mStr] = timeStr.split(":");
+  const h = parseInt(hStr, 10) || 0;
+  const m = parseInt(mStr, 10) || 0;
+  const totalMinutes = (h * 60 + m + hoursToAdd * 60) % (24 * 60);
+  const newH = Math.floor(totalMinutes / 60);
+  const newM = totalMinutes % 60;
+  return `${String(newH).padStart(2, "0")}:${String(newM).padStart(2, "0")}`;
 }
 
 export const TaskFormModal: React.FC<TaskFormModalProps> = ({
@@ -41,7 +52,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
       setTargetValue(initialTask.targetValue || undefined);
       setUnit(initialTask.unit || "");
       setStartTime(initialTask.startTime || "07:00");
-      setEndTime(initialTask.endTime || "08:00");
+      setEndTime(initialTask.endTime || addHoursToTimeString(initialTask.startTime || "07:00", 1));
       setRecurrence(initialTask.recurrence || "DAILY");
       setSelectedDays(initialTask.recurrenceConfig?.days || [1, 2, 3, 4, 5]);
     } else {
@@ -59,6 +70,14 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
   }, [initialTask, isOpen]);
 
   if (!isOpen) return null;
+
+  const handleStartTimeChange = (newStart: string) => {
+    setStartTime(newStart);
+    if (newStart) {
+      const computedEnd = addHoursToTimeString(newStart, 1);
+      setEndTime(computedEnd);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -216,7 +235,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                 </label>
                 <input
                   type="text"
-                  placeholder="ex: reps, min, pages"
+                  placeholder="ex: reps, pages, verres"
                   value={unit}
                   onChange={(e) => setUnit(e.target.value)}
                   className="w-full px-3 py-2.5 rounded-xl bg-[#1C1D22] border border-[#343740] text-white text-sm focus:border-[#D4F63D] outline-none"
@@ -273,29 +292,36 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
             )}
           </div>
 
-          {/* Time Window */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-[#8E929E] mb-1.5">
-                Heure de début
+          {/* Time Window with clean separate styled inputs */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold text-[#8E929E] flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-[#D4F63D]" />
+                <span>Heure de début</span>
               </label>
-              <input
-                type="time"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl bg-[#252830] border border-[#343740] text-white text-sm focus:border-[#D4F63D] outline-none"
-              />
+              <div className="relative">
+                <input
+                  type="time"
+                  value={startTime}
+                  onChange={(e) => handleStartTimeChange(e.target.value)}
+                  className="w-full px-3.5 py-3 rounded-2xl bg-[#252830] border border-[#343740] text-white font-semibold text-sm focus:border-[#D4F63D] focus:ring-1 focus:ring-[#D4F63D] outline-none transition-all"
+                />
+              </div>
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-[#8E929E] mb-1.5">
-                Heure de fin
+
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold text-[#8E929E] flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-[#8E929E]" />
+                <span>Heure de fin</span>
               </label>
-              <input
-                type="time"
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl bg-[#252830] border border-[#343740] text-white text-sm focus:border-[#D4F63D] outline-none"
-              />
+              <div className="relative">
+                <input
+                  type="time"
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
+                  className="w-full px-3.5 py-3 rounded-2xl bg-[#252830] border border-[#343740] text-white font-semibold text-sm focus:border-[#D4F63D] focus:ring-1 focus:ring-[#D4F63D] outline-none transition-all"
+                />
+              </div>
             </div>
           </div>
 
