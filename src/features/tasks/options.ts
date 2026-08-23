@@ -1,10 +1,10 @@
 export const TASK_CATEGORIES = [
+  { id: "General", label: "Général", icon: "CheckCircle", color: "#9CA3AF" },
   { id: "Fitness", label: "Fitness & Sport", icon: "Dumbbell", color: "#D4F63D" },
   { id: "Health", label: "Santé & Nutrition", icon: "Heart", color: "#34D399" },
   { id: "Productivity", label: "Productivité & Travail", icon: "Briefcase", color: "#60A5FA" },
   { id: "Learning", label: "Apprentissage & Lecture", icon: "BookOpen", color: "#F472B6" },
   { id: "Mindfulness", label: "Méditation & Sommeil", icon: "Sparkles", color: "#A78BFA" },
-  { id: "General", label: "Général", icon: "CheckCircle", color: "#9CA3AF" },
 ] as const;
 
 export const TRACKING_TYPE_OPTIONS = [
@@ -15,11 +15,11 @@ export const TRACKING_TYPE_OPTIONS = [
 ] as const;
 
 export const RECURRENCE_OPTIONS = [
+  { id: "ONCE", label: "Une fois" },
   { id: "DAILY", label: "Quotidien" },
   { id: "WEEKDAYS", label: "Lun - Ven" },
   { id: "WEEKLY", label: "Hebdomadaire" },
   { id: "CUSTOM", label: "Jours personnalisés" },
-  { id: "ONCE", label: "Une fois" },
 ] as const;
 
 // Ordered starting on Monday (1 to 6, then 0 for Dimanche)
