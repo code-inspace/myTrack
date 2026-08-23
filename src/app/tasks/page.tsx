@@ -14,6 +14,8 @@ import { Plus, CheckCircle2, Sparkles, Inbox } from "lucide-react";
 
 import { sendNativeNotification } from "@/lib/notifications/service";
 
+import { NotificationPermissionButton } from "@/features/notifications/components/NotificationPermissionButton";
+
 export default function TasksPage() {
   const [selectedDate, setSelectedDate] = useState<string>(getTodayDateString());
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
@@ -82,6 +84,9 @@ export default function TasksPage() {
 
       {/* Main Content Area */}
       <div className="px-4 mt-3 space-y-3.5 max-w-md mx-auto w-full">
+        {/* Cross-Device Notification Permission Banner */}
+        <NotificationPermissionButton />
+
         <div className="flex items-center justify-between px-1">
           <h2 className="text-xl font-bold text-white tracking-tight">Aujourd'hui</h2>
           <button

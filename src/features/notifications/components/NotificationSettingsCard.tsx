@@ -6,6 +6,8 @@ import { Bell, Clock, Plus, Trash2, Send, CheckCircle } from "lucide-react";
 import { requestNotificationPermission } from "@/lib/onesignal/client";
 import { sendNativeNotification } from "@/lib/notifications/service";
 
+import { NotificationPermissionButton } from "./NotificationPermissionButton";
+
 interface NotificationSettingsCardProps {
   preferences: NotificationPreference;
   reminders: CustomReminder[];
@@ -24,27 +26,11 @@ export const NotificationSettingsCard: React.FC<NotificationSettingsCardProps> =
   onTestNotification,
 }) => {
   const [prefs, setPrefs] = useState(preferences);
-  const [testSent, setTestSent] = useState(false);
 
   const handleToggle = async (key: keyof NotificationPreference) => {
     const updated = { ...prefs, [key]: !prefs[key] };
     setPrefs(updated);
     onUpdatePreferences(updated);
-
-    if (key === "pushEnabled" && updated.pushEnabled) {
-      await requestNotificationPermission();
-    }
-  };
-
-  const handleSendTestPush = async () => {
-    setTestSent(true);
-    await requestNotificationPermission();
-    await sendNativeNotification({
-      title: "MyTrack • Rappel d'habitude",
-      body: "As-tu réalisé ta séance de musculation aujourd'hui ? 💪",
-      tag: "test-push",
-    });
-    setTimeout(() => setTestSent(false), 3000);
   };
 
   return (
@@ -61,39 +47,11 @@ export const NotificationSettingsCard: React.FC<NotificationSettingsCardProps> =
               <p className="text-xs text-[#8E929E]">Activer sur l'appareil et le navigateur</p>
             </div>
           </div>
-
-          <button
-            onClick={() => handleToggle("pushEnabled")}
-            className={`w-12 h-6 rounded-full transition-colors relative cursor-pointer ${
-              prefs.pushEnabled ? "bg-[#D4F63D]" : "bg-[#282A30]"
-            }`}
-          >
-            <div
-              className={`w-5 h-5 rounded-full bg-black transition-transform transform ${
-                prefs.pushEnabled ? "translate-x-6" : "translate-x-0.5"
-              }`}
-            />
-          </button>
         </div>
 
-        {/* Test Push Button */}
-        <div className="pt-2">
-          <button
-            onClick={handleSendTestPush}
-            className="w-full py-2.5 px-3 rounded-xl bg-[#252830] hover:bg-[#323642] text-[#D4F63D] font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer border border-[#343740]"
-          >
-            {testSent ? (
-              <>
-                <CheckCircle className="w-4 h-4 text-[#22C55E]" />
-                <span className="text-[#22C55E]">Notification envoyée à votre appareil !</span>
-              </>
-            ) : (
-              <>
-                <Send className="w-3.5 h-3.5" />
-                <span>Envoyer une notification push de test</span>
-              </>
-            )}
-          </button>
+        {/* Universal Cross-Device Activation & Test Button */}
+        <div className="pt-1">
+          <NotificationPermissionButton />
         </div>
 
         <div className="pt-3 border-t border-[#282A30] space-y-3">
