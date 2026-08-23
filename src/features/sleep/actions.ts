@@ -1,6 +1,11 @@
 import { DailySleepLog } from "./types";
 import { getStoredUserSession, DEMO_USER } from "@/features/auth/actions";
-import { subtractMinutesFromTime, createUtcIsoFromLocalDateTime } from "@/lib/dates";
+import {
+  subtractMinutesFromTime,
+  createUtcIsoFromLocalDateTime,
+  convertLocalTimeToUtc,
+  convertUtcTimeToLocal,
+} from "@/lib/dates";
 import { scheduleTaskPushNotification } from "@/lib/onesignal/client";
 import { createDbReminder } from "@/features/notifications/reminderActions";
 import { createClient } from "@/utils/supabase/client";
@@ -82,16 +87,21 @@ export function computeSleepDuration(
 }
 
 function mapDbSleepLogToModel(row: any): DailySleepLog {
-  const defaultBedtime = row.bedtime || "23:00";
+  const localBedtime = convertUtcTimeToLocal(row.bedtime || "23:00", row.date);
+  const localWakeTime = convertUtcTimeToLocal(row.wake_time || "07:00", row.date);
   const offsets = row.bedtime_offsets || DEFAULT_BEDTIME_OFFSETS;
+  const localReminders = row.bedtime_reminders && row.bedtime_reminders.length > 0
+    ? row.bedtime_reminders.map((r: string) => convertUtcTimeToLocal(r, row.date))
+    : computeBedtimeRemindersFromOffsets(localBedtime, offsets);
+
   return {
     date: row.date,
-    bedtime: defaultBedtime,
-    wakeTime: row.wake_time || "07:00",
+    bedtime: localBedtime,
+    wakeTime: localWakeTime,
     bedtimeValidated: Boolean(row.bedtime_validated),
     wakeTimeValidated: Boolean(row.wake_time_validated),
     bedtimeOffsets: offsets,
-    bedtimeReminders: row.bedtime_reminders || computeBedtimeRemindersFromOffsets(defaultBedtime, offsets),
+    bedtimeReminders: localReminders,
     enableBedtimeReminders: row.enable_bedtime_reminders !== false,
     notes: row.notes || "",
     updatedAt: row.updated_at || new Date().toISOString(),
@@ -256,19 +266,25 @@ export async function saveStoredSleepLog(
     }
   }
 
-  // 2. Database persistence in Supabase
+  // 2. Database persistence in Supabase (Timezone normalized to UTC)
   try {
+    const utcBedtime = convertLocalTimeToUtc(updatedLog.bedtime || "23:00", updatedLog.date);
+    const utcWakeTime = convertLocalTimeToUtc(updatedLog.wakeTime || "07:00", updatedLog.date);
+    const utcReminders = (updatedLog.bedtimeReminders || []).map((r) =>
+      convertLocalTimeToUtc(r, updatedLog.date)
+    );
+
     const { error } = await supabase.from("sleep_logs").upsert(
       [
         {
           user_id: targetId,
           date: updatedLog.date,
-          bedtime: updatedLog.bedtime || "23:00",
-          wake_time: updatedLog.wakeTime || "07:00",
+          bedtime: utcBedtime,
+          wake_time: utcWakeTime,
           bedtime_validated: Boolean(updatedLog.bedtimeValidated),
           wake_time_validated: Boolean(updatedLog.wakeTimeValidated),
           bedtime_offsets: updatedLog.bedtimeOffsets || DEFAULT_BEDTIME_OFFSETS,
-          bedtime_reminders: updatedLog.bedtimeReminders || [],
+          bedtime_reminders: utcReminders,
           enable_bedtime_reminders: updatedLog.enableBedtimeReminders !== false,
           notes: updatedLog.notes || null,
           updated_at: nowIso,
