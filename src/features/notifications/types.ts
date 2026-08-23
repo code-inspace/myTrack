@@ -17,6 +17,7 @@ export interface NotificationPreference {
   eveningRecapTime: string;
   streakReminder: boolean;
   missedTaskReminder: boolean;
+  oneSignalPlayerId?: string | null;
 }
 
 export interface InteractiveNotificationPayload {

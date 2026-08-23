@@ -1,8 +1,9 @@
 import { ChatMessage } from "./types";
 import { AICoachContext } from "@/lib/ai/types";
-import { getStoredTasks, getStoredCompletions } from "../tasks/actions";
+import { fetchTasks, fetchCompletions, getEffectiveUserId } from "../tasks/actions";
 import { calculateDashboardStats } from "../analytics/calculations";
 import { getAIProvider } from "@/lib/ai/provider";
+import { createClient } from "@/utils/supabase/client";
 
 const CHAT_STORAGE_PREFIX = "mytrack_chat_messages_";
 
@@ -21,9 +22,12 @@ export const DEFAULT_INITIAL_MESSAGES: ChatMessage[] = [
   },
 ];
 
-export function extractAICoachContext(userId?: string): AICoachContext {
-  const tasks = getStoredTasks(userId);
-  const completions = getStoredCompletions(userId);
+export async function extractAICoachContext(userId?: string): Promise<AICoachContext> {
+  const targetId = getEffectiveUserId(userId);
+  const [tasks, completions] = await Promise.all([
+    fetchTasks(targetId),
+    fetchCompletions(targetId),
+  ]);
   const stats = calculateDashboardStats(tasks, completions, "week");
 
   const taskCompletionCounts = tasks.map((t) => {
@@ -58,7 +62,37 @@ export function extractAICoachContext(userId?: string): AICoachContext {
   };
 }
 
-export function getStoredChatMessages(userId: string = "user-demo"): ChatMessage[] {
+export async function fetchDbChatMessages(userId?: string): Promise<ChatMessage[]> {
+  const targetId = getEffectiveUserId(userId);
+  const key = CHAT_STORAGE_PREFIX + targetId;
+
+  try {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("chat_messages")
+      .select("*, chat_conversations!inner(user_id)")
+      .eq("chat_conversations.user_id", targetId)
+      .order("created_at", { ascending: true });
+
+    if (!error && data && data.length > 0) {
+      const mapped: ChatMessage[] = data.map((m: any) => ({
+        id: m.id,
+        sender: m.sender,
+        content: m.content,
+        timestamp: m.created_at,
+        suggestedActions: m.context_snapshot?.suggestedActions,
+      }));
+      saveStoredChatMessages(mapped, targetId);
+      return mapped;
+    }
+  } catch (err) {
+    console.warn("Supabase fetchDbChatMessages fallback:", err);
+  }
+
+  return getStoredChatMessages(targetId);
+}
+
+export function getStoredChatMessages(userId: string = "00000000-0000-0000-0000-000000000001"): ChatMessage[] {
   if (typeof window === "undefined") return DEFAULT_INITIAL_MESSAGES;
   const key = CHAT_STORAGE_PREFIX + userId;
   const stored = localStorage.getItem(key);
@@ -73,14 +107,15 @@ export function getStoredChatMessages(userId: string = "user-demo"): ChatMessage
   }
 }
 
-export function saveStoredChatMessages(messages: ChatMessage[], userId: string = "user-demo"): void {
+export function saveStoredChatMessages(messages: ChatMessage[], userId: string = "00000000-0000-0000-0000-000000000001"): void {
   if (typeof window === "undefined") return;
   const key = CHAT_STORAGE_PREFIX + userId;
   localStorage.setItem(key, JSON.stringify(messages));
 }
 
 export async function processUserMessage(userText: string, userId?: string): Promise<ChatMessage> {
-  const context = extractAICoachContext(userId);
+  const targetId = getEffectiveUserId(userId);
+  const context = await extractAICoachContext(targetId);
   const provider = getAIProvider();
 
   const response = await provider.generateResponse({
@@ -95,6 +130,35 @@ export async function processUserMessage(userText: string, userId?: string): Pro
     timestamp: new Date().toISOString(),
     suggestedActions: response.suggestedActions,
   };
+
+  // Persist to Supabase if conversation exists
+  try {
+    const supabase = createClient();
+    const { data: conv } = await supabase
+      .from("chat_conversations")
+      .select("id")
+      .eq("user_id", targetId)
+      .limit(1)
+      .single();
+
+    if (conv?.id) {
+      await supabase.from("chat_messages").insert([
+        {
+          conversation_id: conv.id,
+          sender: "user",
+          content: userText,
+        },
+        {
+          conversation_id: conv.id,
+          sender: "assistant",
+          content: response.content,
+          context_snapshot: { suggestedActions: response.suggestedActions },
+        },
+      ]);
+    }
+  } catch (err) {
+    console.warn("Supabase chat message insert fallback:", err);
+  }
 
   return assistantMessage;
 }

@@ -4,10 +4,14 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { taskQueryKeys } from "./queries";
 import { Task, TaskCompletion, TaskFormValues, TaskWithCompletion } from "./types";
 import {
+  fetchTasks,
+  fetchCompletions,
+  createDbTask,
+  updateDbTaskActive,
+  upsertDbCompletion,
+  deleteDbTask,
   getStoredTasks,
-  saveStoredTasks,
   getStoredCompletions,
-  saveStoredCompletions,
 } from "./actions";
 import { isTaskScheduledForDate } from "@/lib/dates";
 import { mapTaskWithCompletion, sortTasksByPriority } from "./mappers";
@@ -16,16 +20,16 @@ import { parseISO } from "date-fns";
 
 export function useTasks(selectedDateStr: string) {
   const { user } = useAuth();
-  const userId = user?.id || "user-demo";
+  const userId = user?.id || "00000000-0000-0000-0000-000000000001";
 
   const { data: allTasks = [], isLoading: isLoadingTasks } = useQuery({
     queryKey: [...taskQueryKeys.all, userId],
-    queryFn: async () => getStoredTasks(userId),
+    queryFn: async () => fetchTasks(userId),
   });
 
   const { data: allCompletions = [], isLoading: isLoadingCompletions } = useQuery({
     queryKey: [...taskQueryKeys.completions(), userId],
-    queryFn: async () => getStoredCompletions(userId),
+    queryFn: async () => fetchCompletions(userId),
   });
 
   const selectedDate = parseISO(selectedDateStr);
@@ -53,13 +57,11 @@ export function useTasks(selectedDateStr: string) {
 export function useTaskMutations() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const userId = user?.id || "user-demo";
+  const userId = user?.id || "00000000-0000-0000-0000-000000000001";
 
   const createTask = useMutation({
     mutationFn: async (values: TaskFormValues & { userId?: string }) => {
-      const tasks = getStoredTasks(userId);
-      const newTask: Task = {
-        id: "task-" + Date.now(),
+      return createDbTask({
         userId: values.userId || userId,
         title: values.title,
         description: values.description || null,
@@ -73,13 +75,7 @@ export function useTaskMutations() {
         unit: values.unit || null,
         isActive: false,
         isArchived: false,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-
-      const updated = [newTask, ...tasks];
-      saveStoredTasks(updated, userId);
-      return newTask;
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: taskQueryKeys.all });
@@ -90,18 +86,8 @@ export function useTaskMutations() {
     mutationFn: async (taskId: string) => {
       const tasks = getStoredTasks(userId);
       const target = tasks.find((t) => t.id === taskId);
-      const isCurrentlyActive = target?.isActive;
-
-      // If making active, deactivate all others first
-      const updated = tasks.map((t) => {
-        if (t.id === taskId) {
-          return { ...t, isActive: !isCurrentlyActive, updatedAt: new Date().toISOString() };
-        }
-        return { ...t, isActive: false };
-      });
-
-      saveStoredTasks(updated, userId);
-      return updated;
+      const isCurrentlyActive = Boolean(target?.isActive);
+      await updateDbTaskActive(taskId, !isCurrentlyActive, userId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: taskQueryKeys.all });
@@ -121,40 +107,18 @@ export function useTaskMutations() {
       duration?: number | null;
     }) => {
       const completions = getStoredCompletions(userId);
-      const existingIndex = completions.findIndex(
-        (c) => c.taskId === taskId && c.date === date
-      );
+      const existing = completions.find((c) => c.taskId === taskId && c.date === date);
+      const newStatus = existing ? !existing.completed : true;
 
-      let updatedCompletions: TaskCompletion[];
-
-      if (existingIndex >= 0) {
-        const existing = completions[existingIndex];
-        const newStatus = !existing.completed;
-        updatedCompletions = [...completions];
-        updatedCompletions[existingIndex] = {
-          ...existing,
-          completed: newStatus,
-          value: value !== undefined ? value : existing.value,
-          duration: duration !== undefined ? duration : existing.duration,
-          updatedAt: new Date().toISOString(),
-        };
-      } else {
-        const newCompletion: TaskCompletion = {
-          id: "comp-" + Date.now(),
-          taskId,
-          userId,
-          date,
-          completed: true,
-          value: value || null,
-          duration: duration || null,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-        updatedCompletions = [newCompletion, ...completions];
-      }
-
-      saveStoredCompletions(updatedCompletions, userId);
-      return updatedCompletions;
+      await upsertDbCompletion({
+        taskId,
+        userId,
+        date,
+        completed: newStatus,
+        value: value !== undefined ? value : existing?.value || null,
+        duration: duration !== undefined ? duration : existing?.duration || null,
+        notes: null,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: taskQueryKeys.completions() });
@@ -171,35 +135,15 @@ export function useTaskMutations() {
       date: string;
       value: number;
     }) => {
-      const completions = getStoredCompletions(userId);
-      const existingIndex = completions.findIndex(
-        (c) => c.taskId === taskId && c.date === date
-      );
-
-      let updated: TaskCompletion[];
-      if (existingIndex >= 0) {
-        updated = [...completions];
-        updated[existingIndex] = {
-          ...updated[existingIndex],
-          value,
-          completed: true,
-          updatedAt: new Date().toISOString(),
-        };
-      } else {
-        const newComp: TaskCompletion = {
-          id: "comp-" + Date.now(),
-          taskId,
-          userId,
-          date,
-          completed: true,
-          value,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-        updated = [newComp, ...completions];
-      }
-      saveStoredCompletions(updated, userId);
-      return updated;
+      await upsertDbCompletion({
+        taskId,
+        userId,
+        date,
+        completed: true,
+        value,
+        duration: null,
+        notes: null,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: taskQueryKeys.completions() });
@@ -208,10 +152,7 @@ export function useTaskMutations() {
 
   const deleteTask = useMutation({
     mutationFn: async (taskId: string) => {
-      const tasks = getStoredTasks(userId);
-      const updated = tasks.filter((t) => t.id !== taskId);
-      saveStoredTasks(updated, userId);
-      return updated;
+      await deleteDbTask(taskId, userId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: taskQueryKeys.all });

@@ -2,30 +2,32 @@
 
 import React, { useState } from "react";
 import { Download, FileSpreadsheet, Check, Database } from "lucide-react";
-import { getStoredTasks, getStoredCompletions } from "@/features/tasks/actions";
+import { fetchTasks, fetchCompletions } from "@/features/tasks/actions";
 import { generateTasksCSV, generateCompletionsCSV, downloadCSV } from "@/lib/csv/exporter";
+import { useAuth } from "@/providers/AuthProvider";
 
 export const DataExportCard: React.FC = () => {
+  const { user } = useAuth();
   const [downloadedItem, setDownloadedItem] = useState<string | null>(null);
 
-  const handleExportTasks = () => {
-    const tasks = getStoredTasks();
+  const handleExportTasks = async () => {
+    const tasks = await fetchTasks(user?.id);
     const csv = generateTasksCSV(tasks);
     downloadCSV("mytrack-taches.csv", csv);
     flashDownloaded("tasks");
   };
 
-  const handleExportCompletions = () => {
-    const tasks = getStoredTasks();
-    const completions = getStoredCompletions();
+  const handleExportCompletions = async () => {
+    const tasks = await fetchTasks(user?.id);
+    const completions = await fetchCompletions(user?.id);
     const csv = generateCompletionsCSV(completions, tasks);
     downloadCSV("mytrack-accomplissements.csv", csv);
     flashDownloaded("completions");
   };
 
-  const handleExportAll = () => {
-    const tasks = getStoredTasks();
-    const completions = getStoredCompletions();
+  const handleExportAll = async () => {
+    const tasks = await fetchTasks(user?.id);
+    const completions = await fetchCompletions(user?.id);
     const tasksCsv = generateTasksCSV(tasks);
     const compCsv = generateCompletionsCSV(completions, tasks);
 
@@ -47,7 +49,7 @@ export const DataExportCard: React.FC = () => {
         </div>
         <div>
           <h4 className="text-sm font-bold text-white">Données & Export</h4>
-          <p className="text-xs text-[#8E929E]">Exporter tout l'historique au format standard CSV</p>
+          <p className="text-xs text-[#8E929E]">Exporter tout l'historique de la base au format standard CSV</p>
         </div>
       </div>
 

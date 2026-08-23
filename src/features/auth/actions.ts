@@ -4,9 +4,9 @@ import { createClient } from "@/utils/supabase/client";
 const SESSION_KEY = "mytrack_current_user_v1";
 
 export const DEMO_USER: UserSession = {
-  id: "user-demo",
+  id: "00000000-0000-0000-0000-000000000001",
   email: "demo@de.mo",
-  name: "Utilisateur Démo",
+  name: "Axel (Démo)",
   isDemo: true,
   createdAt: "2026-01-01T00:00:00.000Z",
 };

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { ChatMessage } from "./types";
 import {
+  fetchDbChatMessages,
   getStoredChatMessages,
   saveStoredChatMessages,
   processUserMessage,
@@ -12,13 +13,13 @@ import { useAuth } from "@/providers/AuthProvider";
 
 export function useChat() {
   const { user } = useAuth();
-  const userId = user?.id || "user-demo";
+  const userId = user?.id || "00000000-0000-0000-0000-000000000001";
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    setMessages(getStoredChatMessages(userId));
+    fetchDbChatMessages(userId).then(setMessages);
   }, [userId]);
 
   const sendMessage = async (text: string) => {
