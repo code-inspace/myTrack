@@ -9,6 +9,7 @@ export async function POST(req: NextRequest) {
       taskTitle,
       taskId,
       startTime,
+      scheduledIso,
       reminderOffsetMinutes = 10,
       reminderTimes = [],
       date,
@@ -62,25 +63,36 @@ export async function POST(req: NextRequest) {
     // Case A: Custom relative offset in minutes (e.g. test in 2 minutes)
     if (typeof targetInMinutes === "number") {
       const deliveryDate = new Date(Date.now() + targetInMinutes * 60 * 1000);
-      const title = `🔔 ${taskTitle}`;
-      const bodyText = customMessage || `Rappel programmé à ${deliveryDate.toLocaleTimeString("fr-FR")} 🎯`;
+      const title = `${taskTitle}`;
+      const bodyText =
+        customMessage ||
+        (targetInMinutes > 0
+          ? `Dans ${targetInMinutes} minute${targetInMinutes > 1 ? "s" : ""}`
+          : `C'est l'heure ! 🎯`);
       await processDelivery(deliveryDate, title, bodyText);
     }
     // Case B: Timed Task Reminder (e.g. 10 mins before start)
-    else if (startTime) {
-      const [hours, minutes] = startTime.split(":").map((v: string) => parseInt(v, 10) || 0);
-      const targetDate = new Date(`${scheduledDateStr}T${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:00`);
+    else if (scheduledIso || startTime) {
+      let targetDate: Date;
+      if (scheduledIso) {
+        targetDate = new Date(scheduledIso);
+      } else {
+        const [hours, minutes] = (startTime || "12:00").split(":").map((v: string) => parseInt(v, 10) || 0);
+        targetDate = new Date(`${scheduledDateStr}T${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:00`);
+      }
+
+      const offset = typeof reminderOffsetMinutes === "number" ? reminderOffsetMinutes : 10;
 
       // Subtract offset minutes
-      const reminderDate = new Date(targetDate.getTime() - (reminderOffsetMinutes || 10) * 60000);
+      const reminderDate = new Date(targetDate.getTime() - offset * 60000);
 
       // If scheduled time has already passed today, advance by 24h for recurring habits
       if (reminderDate.getTime() <= Date.now()) {
         reminderDate.setDate(reminderDate.getDate() + 1);
       }
 
-      const title = `Rappel • ${taskTitle}`;
-      const bodyText = `C'est l'heure de ton habitude prévue à ${startTime} 🎯`;
+      const title = `${taskTitle}`;
+      const bodyText = offset > 0 ? `Dans ${offset} minute${offset > 1 ? "s" : ""}` : `C'est l'heure ! 🎯`;
       await processDelivery(reminderDate, title, bodyText);
     }
     // Case C: All-Day Task Reminders (each specific time)
@@ -93,15 +105,15 @@ export async function POST(req: NextRequest) {
           reminderDate.setDate(reminderDate.getDate() + 1);
         }
 
-        const title = `Rappel • ${taskTitle}`;
-        const bodyText = `N'oublie pas ton objectif du jour : ${taskTitle} 💪`;
+        const title = `${taskTitle}`;
+        const bodyText = `Objectif du jour à ${rTime}`;
         await processDelivery(reminderDate, title, bodyText);
       }
     } else {
       // Case D: Immediate / direct push
       const now = new Date(Date.now() + 1000);
-      const title = `🔔 ${taskTitle}`;
-      const bodyText = customMessage || `Rappel MyTrack`;
+      const title = `${taskTitle}`;
+      const bodyText = customMessage || `C'est l'heure ! 🎯`;
       await processDelivery(now, title, bodyText);
     }
 

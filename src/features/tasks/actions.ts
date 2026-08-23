@@ -1,7 +1,7 @@
 import { Task, TaskCompletion, TaskFormValues } from "./types";
 import { getStoredUserSession, DEMO_USER } from "@/features/auth/actions";
 import { createClient } from "@/utils/supabase/client";
-import { getTodayDateString, convertLocalTimeToUtc, convertUtcTimeToLocal } from "@/lib/dates";
+import { getTodayDateString, convertLocalTimeToUtc, convertUtcTimeToLocal, createUtcIsoFromLocalDateTime } from "@/lib/dates";
 import { scheduleTaskPushNotification } from "@/lib/onesignal/client";
 
 const TASKS_STORAGE_PREFIX = "mytrack_tasks_";
@@ -203,10 +203,14 @@ export async function createDbTask(task: Omit<Task, "id" | "createdAt" | "update
       saveStoredTasks(updated, targetId);
 
       if (created.enableReminders) {
+        const scheduledIso = created.startTime
+          ? createUtcIsoFromLocalDateTime(created.startTime, taskDate)
+          : undefined;
         scheduleTaskPushNotification({
           userId: targetId,
           taskTitle: created.title,
           startTime: created.startTime,
+          scheduledIso,
           reminderOffsetMinutes: created.reminderOffsetMinutes ?? 10,
           reminderTimes: created.reminderTimes || ["11:00", "18:00"],
           date: taskDate,
@@ -252,10 +256,14 @@ export async function createDbTask(task: Omit<Task, "id" | "createdAt" | "update
   saveStoredTasks(updated, targetId);
 
   if (createdLocal.enableReminders) {
+    const scheduledIso = createdLocal.startTime
+      ? createUtcIsoFromLocalDateTime(createdLocal.startTime, taskDate)
+      : undefined;
     scheduleTaskPushNotification({
       userId: targetId,
       taskTitle: createdLocal.title,
       startTime: createdLocal.startTime,
+      scheduledIso,
       reminderOffsetMinutes: createdLocal.reminderOffsetMinutes ?? 10,
       reminderTimes: createdLocal.reminderTimes || ["11:00", "18:00"],
       date: taskDate,
@@ -323,14 +331,19 @@ export async function updateDbTask(
       saveStoredTasks(nextList, targetId);
 
       if (updated.enableReminders) {
+        const targetDate = updates.date || getTodayDateString();
+        const scheduledIso = updated.startTime
+          ? createUtcIsoFromLocalDateTime(updated.startTime, targetDate)
+          : undefined;
         scheduleTaskPushNotification({
           userId: targetId,
           taskId: updated.id,
           taskTitle: updated.title,
           startTime: updated.startTime,
+          scheduledIso,
           reminderOffsetMinutes: updated.reminderOffsetMinutes ?? 10,
           reminderTimes: updated.reminderTimes || ["11:00", "18:00"],
-          date: updates.date || getTodayDateString(),
+          date: targetDate,
           category: updated.category,
         }).catch((e) => console.warn("scheduleTaskPushNotification note:", e));
       }
@@ -381,14 +394,19 @@ export async function updateDbTask(
   saveStoredTasks(nextList, targetId);
 
   if (updatedTask.enableReminders) {
+    const targetDate = updates.date || getTodayDateString();
+    const scheduledIso = updatedTask.startTime
+      ? createUtcIsoFromLocalDateTime(updatedTask.startTime, targetDate)
+      : undefined;
     scheduleTaskPushNotification({
       userId: targetId,
       taskId: updatedTask.id,
       taskTitle: updatedTask.title,
       startTime: updatedTask.startTime,
+      scheduledIso,
       reminderOffsetMinutes: updatedTask.reminderOffsetMinutes ?? 10,
       reminderTimes: updatedTask.reminderTimes || ["11:00", "18:00"],
-      date: updates.date || getTodayDateString(),
+      date: targetDate,
       category: updatedTask.category,
     }).catch((e) => console.warn("scheduleTaskPushNotification note:", e));
   }

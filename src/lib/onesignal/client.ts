@@ -140,6 +140,7 @@ export async function scheduleTaskPushNotification(params: {
   taskId?: string;
   taskTitle: string;
   startTime?: string | null;
+  scheduledIso?: string;
   reminderOffsetMinutes?: number;
   reminderTimes?: string[];
   date?: string;
