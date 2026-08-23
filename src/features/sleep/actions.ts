@@ -1,7 +1,8 @@
 import { DailySleepLog } from "./types";
 import { getStoredUserSession, DEMO_USER } from "@/features/auth/actions";
-import { subtractMinutesFromTime } from "@/lib/dates";
+import { subtractMinutesFromTime, createUtcIsoFromLocalDateTime } from "@/lib/dates";
 import { scheduleTaskPushNotification } from "@/lib/onesignal/client";
+import { createDbReminder } from "@/features/notifications/reminderActions";
 import { createClient } from "@/utils/supabase/client";
 import { subDays, parseISO, format } from "date-fns";
 
@@ -271,9 +272,21 @@ export async function saveStoredSleepLog(
     console.warn("Supabase saveStoredSleepLog network fallback:", err);
   }
 
-  // 3. Schedule OneSignal bedtime push notifications if enabled
+  // 3. Schedule OneSignal bedtime push notifications & database reminder records if enabled
   if (updatedLog.enableBedtimeReminders && updatedLog.bedtimeReminders?.length > 0) {
     for (const rTime of updatedLog.bedtimeReminders) {
+      const scheduledIso = createUtcIsoFromLocalDateTime(rTime, updatedLog.date);
+
+      // Record in Supabase reminders table
+      createDbReminder({
+        userId: targetId,
+        title: "🌙 Préparation au Sommeil",
+        body: `C'est l'heure de te préparer pour ton coucher prévu à ${updatedLog.bedtime || "23:00"} !`,
+        scheduledAt: scheduledIso,
+        reminderType: "bedtime",
+      }).catch((e) => console.warn("Bedtime reminder DB record error:", e));
+
+      // Push via OneSignal
       scheduleTaskPushNotification({
         userId: targetId,
         taskTitle: `Préparation au Sommeil (Coucher à ${updatedLog.bedtime})`,

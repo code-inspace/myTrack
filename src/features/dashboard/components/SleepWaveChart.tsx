@@ -24,6 +24,7 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
     const points: Array<{
       dateStr: string;
       label: string;
+      hasData: boolean;
       hours: number;
       durationText: string;
       bedtime: string;
@@ -50,6 +51,7 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
         points.push({
           dateStr,
           label,
+          hasData: true,
           hours: nightData.duration.decHours,
           durationText: nightData.duration.text,
           bedtime: nightData.yesterdayBedtime,
@@ -59,22 +61,29 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
         points.push({
           dateStr,
           label,
-          hours: 8,
-          durationText: "8h 00m (Objectif)",
-          bedtime: "23:00",
-          wakeTime: "07:00",
+          hasData: false,
+          hours: 0,
+          durationText: "N/A (Non renseigné)",
+          bedtime: "-",
+          wakeTime: "-",
         });
       }
     }
 
-    const avgMinutes = validNights > 0 ? Math.round(totalMinutes / validNights) : 8 * 60;
-    const avgH = Math.floor(avgMinutes / 60);
-    const avgM = avgMinutes % 60;
+    const averageText =
+      validNights > 0
+        ? `${Math.floor(totalMinutes / validNights / 60)}h ${String(
+            Math.round((totalMinutes / validNights) % 60)
+          ).padStart(2, "0")}m`
+        : "N/A";
+
+    const averageHours = validNights > 0 ? Math.round((totalMinutes / validNights / 60) * 10) / 10 : 0;
 
     return {
       points,
-      averageText: `${avgH}h ${String(avgM).padStart(2, "0")}m`,
-      averageHours: Math.round((avgMinutes / 60) * 10) / 10,
+      validNights,
+      averageText,
+      averageHours,
     };
   }, [period, referenceDate]);
 
@@ -93,7 +102,8 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
               <span>Heures de sommeil par nuit</span>
             </h3>
             <p className="text-[11px] text-[#8E929E]">
-              Moyenne : <strong className="text-[#D4F63D]">{sleepData.averageText}</strong> / nuit
+              Moyenne : <strong className="text-[#D4F63D]">{sleepData.averageText}</strong>
+              {sleepData.validNights > 0 ? " / nuit" : ""}
             </p>
           </div>
         </div>
@@ -116,31 +126,41 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
           </div>
 
           {sleepData.points.map((pt, idx) => {
-            const heightPercent = Math.min(100, Math.max(12, (pt.hours / maxHours) * 100));
-            const isOptimal = pt.hours >= 7 && pt.hours <= 9;
-            const isShort = pt.hours < 6;
+            const heightPercent = pt.hasData
+              ? Math.min(100, Math.max(16, (pt.hours / maxHours) * 100))
+              : 8;
+            const isOptimal = pt.hasData && pt.hours >= 7 && pt.hours <= 9;
+            const isShort = pt.hasData && pt.hours < 6;
 
             return (
               <div key={idx} className="flex-1 flex flex-col items-center h-full justify-end group relative">
                 {/* Tooltip on hover/touch */}
                 <div className="absolute -top-8 bg-[#252830] text-white text-[10px] font-mono py-0.5 px-2 rounded-lg border border-[#343740] opacity-0 group-hover:opacity-100 group-hover:-top-9 transition-all pointer-events-none whitespace-nowrap shadow-xl z-30">
-                  {pt.durationText} ({pt.bedtime} → {pt.wakeTime})
+                  {pt.hasData
+                    ? `${pt.durationText} (${pt.bedtime} → ${pt.wakeTime})`
+                    : "N/A (Non renseigné)"}
                 </div>
 
                 {/* Animated Pillar Bar */}
                 <div
                   className={cn(
-                    "w-full rounded-t-xl transition-all duration-300 relative",
-                    isOptimal
-                      ? "bg-gradient-to-t from-[#818CF8]/40 to-[#818CF8] group-hover:to-[#D4F63D]"
-                      : isShort
-                      ? "bg-gradient-to-t from-orange-500/40 to-orange-400"
-                      : "bg-gradient-to-t from-[#6366F1]/30 to-[#818CF8]/80"
+                    "w-full rounded-t-xl transition-all duration-300 relative flex items-center justify-center",
+                    pt.hasData
+                      ? isOptimal
+                        ? "bg-gradient-to-t from-[#818CF8]/40 to-[#818CF8] group-hover:to-[#D4F63D]"
+                        : isShort
+                        ? "bg-gradient-to-t from-orange-500/40 to-orange-400"
+                        : "bg-gradient-to-t from-[#6366F1]/30 to-[#818CF8]/80"
+                      : "bg-[#252830]/50 border border-dashed border-[#343740]"
                   )}
                   style={{ height: `${heightPercent}%` }}
                 >
-                  <div className="absolute -top-4 inset-x-0 text-center text-[10px] font-mono font-bold text-white/80">
-                    {pt.hours}h
+                  <div className="absolute -top-4 inset-x-0 text-center text-[10px] font-mono font-bold">
+                    {pt.hasData ? (
+                      <span className="text-white/90">{pt.hours}h</span>
+                    ) : (
+                      <span className="text-[#6B7280] font-normal text-[9px]">N/A</span>
+                    )}
                   </div>
                 </div>
 
