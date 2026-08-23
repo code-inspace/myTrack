@@ -29,6 +29,72 @@ export function addHoursToTimeString(timeStr: string, hoursToAdd: number = 1): s
   return `${String(newH).padStart(2, "0")}:${String(newM).padStart(2, "0")}`;
 }
 
+/**
+ * Converts a local time string "HH:mm" from the device's current timezone into UTC "HH:mm".
+ */
+export function convertLocalTimeToUtc(localTimeStr: string, dateStr?: string): string {
+  if (!localTimeStr || !localTimeStr.includes(":")) return localTimeStr;
+  const [h, m] = localTimeStr.split(":").map(Number);
+  const now = new Date();
+  const year = dateStr ? parseInt(dateStr.split("-")[0], 10) : now.getFullYear();
+  const month = dateStr ? parseInt(dateStr.split("-")[1], 10) - 1 : now.getMonth();
+  const day = dateStr ? parseInt(dateStr.split("-")[2], 10) : now.getDate();
+
+  const d = new Date(year, month, day, h, m, 0);
+  const utcH = d.getUTCHours();
+  const utcM = d.getUTCMinutes();
+  return `${String(utcH).padStart(2, "0")}:${String(utcM).padStart(2, "0")}`;
+}
+
+/**
+ * Converts a stored UTC time string "HH:mm" (or ISO string) into the device's local timezone "HH:mm".
+ */
+export function convertUtcTimeToLocal(utcTimeStr: string, dateStr?: string): string {
+  if (!utcTimeStr) return utcTimeStr;
+  if (utcTimeStr.includes("T") || utcTimeStr.endsWith("Z")) {
+    return formatIsoToLocalTime(utcTimeStr);
+  }
+  if (!utcTimeStr.includes(":")) return utcTimeStr;
+
+  const [utcH, utcM] = utcTimeStr.split(":").map(Number);
+  const now = new Date();
+  const year = dateStr ? parseInt(dateStr.split("-")[0], 10) : now.getUTCFullYear();
+  const month = dateStr ? parseInt(dateStr.split("-")[1], 10) - 1 : now.getUTCMonth();
+  const day = dateStr ? parseInt(dateStr.split("-")[2], 10) : now.getUTCDate();
+
+  const d = new Date(Date.UTC(year, month, day, utcH, utcM, 0));
+  const localH = d.getHours();
+  const localM = d.getMinutes();
+  return `${String(localH).padStart(2, "0")}:${String(localM).padStart(2, "0")}`;
+}
+
+/**
+ * Parses an ISO string (UTC) and returns the formatted local "HH:mm" in the device's timezone.
+ */
+export function formatIsoToLocalTime(isoStr: string): string {
+  try {
+    const d = new Date(isoStr);
+    if (isNaN(d.getTime())) return isoStr;
+    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  } catch {
+    return isoStr;
+  }
+}
+
+/**
+ * Creates a standard ISO timestamp (UTC) from a local "HH:mm" and optional date.
+ */
+export function createUtcIsoFromLocalDateTime(timeStr: string, dateStr?: string): string {
+  const [h, m] = timeStr.split(":").map((v) => parseInt(v, 10) || 0);
+  const now = new Date();
+  const year = dateStr ? parseInt(dateStr.split("-")[0], 10) : now.getFullYear();
+  const month = dateStr ? parseInt(dateStr.split("-")[1], 10) - 1 : now.getMonth();
+  const day = dateStr ? parseInt(dateStr.split("-")[2], 10) : now.getDate();
+
+  const localDate = new Date(year, month, day, h, m, 0);
+  return localDate.toISOString();
+}
+
 const FRENCH_DAY_SHORT = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
 
 /**

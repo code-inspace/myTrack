@@ -1,7 +1,7 @@
 import { Task, TaskCompletion, TaskFormValues } from "./types";
 import { getStoredUserSession, DEMO_USER } from "@/features/auth/actions";
 import { createClient } from "@/utils/supabase/client";
-import { getTodayDateString } from "@/lib/dates";
+import { getTodayDateString, convertLocalTimeToUtc, convertUtcTimeToLocal } from "@/lib/dates";
 
 const TASKS_STORAGE_PREFIX = "mytrack_tasks_";
 const COMPLETIONS_STORAGE_PREFIX = "mytrack_completions_";
@@ -12,34 +12,48 @@ export function getEffectiveUserId(explicitUserId?: string): string {
   return session?.id || DEMO_USER.id;
 }
 
-// Convert Supabase snake_case task row to camelCase Task
+// Convert Supabase snake_case task row to camelCase Task with local timezone conversion
 function mapDbTaskToModel(row: any): Task {
-  const overrides = row.date_overrides || {};
+  const rawOverrides = row.date_overrides || {};
+  const dateOverrides: Record<string, any> = {};
+
+  for (const [k, v] of Object.entries(rawOverrides)) {
+    if (k.startsWith("_")) {
+      dateOverrides[k] = v;
+    } else if (v && typeof v === "object") {
+      dateOverrides[k] = {
+        ...(v as any),
+        startTime: (v as any).startTime ? convertUtcTimeToLocal((v as any).startTime, k) : null,
+        endTime: (v as any).endTime ? convertUtcTimeToLocal((v as any).endTime, k) : null,
+      };
+    }
+  }
+
   return {
     id: row.id,
     userId: row.user_id,
     title: row.title,
     description: row.description || null,
     category: row.category || "General",
-    startTime: row.start_time || null,
-    endTime: row.end_time || null,
+    startTime: row.start_time ? convertUtcTimeToLocal(row.start_time) : null,
+    endTime: row.end_time ? convertUtcTimeToLocal(row.end_time) : null,
     recurrence: row.recurrence,
     recurrenceConfig: row.recurrence_config || null,
-    dateOverrides: overrides,
+    dateOverrides,
     trackingType: row.tracking_type,
     targetValue: row.target_value !== null && row.target_value !== undefined ? parseFloat(row.target_value) : null,
     unit: row.unit || null,
     enableReminders:
       row.enable_reminders !== undefined && row.enable_reminders !== null
         ? Boolean(row.enable_reminders)
-        : overrides._enableReminders !== undefined
-        ? Boolean(overrides._enableReminders)
+        : rawOverrides._enableReminders !== undefined
+        ? Boolean(rawOverrides._enableReminders)
         : true,
     reminderOffsetMinutes:
       row.reminder_offset_minutes !== undefined && row.reminder_offset_minutes !== null
         ? row.reminder_offset_minutes
-        : (overrides._reminderOffsetMinutes ?? 10),
-    reminderTimes: row.reminder_times || overrides._reminderTimes || ["11:00", "18:00"],
+        : (rawOverrides._reminderOffsetMinutes ?? 10),
+    reminderTimes: row.reminder_times || rawOverrides._reminderTimes || ["11:00", "18:00"],
     isActive: Boolean(row.is_active),
     startedAt: row.started_at || null,
     isArchived: Boolean(row.is_archived),
@@ -48,7 +62,7 @@ function mapDbTaskToModel(row: any): Task {
   };
 }
 
-// Convert Supabase snake_case completion row to camelCase TaskCompletion
+// Convert Supabase snake_case completion row to camelCase TaskCompletion with local timezone conversion
 function mapDbCompletionToModel(row: any): TaskCompletion {
   return {
     id: row.id,
@@ -59,10 +73,10 @@ function mapDbCompletionToModel(row: any): TaskCompletion {
     value: row.value !== null && row.value !== undefined ? parseFloat(row.value) : null,
     duration: row.duration || null,
     notes: row.notes || null,
-    scheduledStartTime: row.scheduled_start_time || null,
-    scheduledEndTime: row.scheduled_end_time || null,
-    actualStartTime: row.actual_start_time || null,
-    actualEndTime: row.actual_end_time || null,
+    scheduledStartTime: row.scheduled_start_time ? convertUtcTimeToLocal(row.scheduled_start_time, row.date) : null,
+    scheduledEndTime: row.scheduled_end_time ? convertUtcTimeToLocal(row.scheduled_end_time, row.date) : null,
+    actualStartTime: row.actual_start_time ? convertUtcTimeToLocal(row.actual_start_time, row.date) : null,
+    actualEndTime: row.actual_end_time ? convertUtcTimeToLocal(row.actual_end_time, row.date) : null,
     createdAt: row.created_at || new Date().toISOString(),
     updatedAt: row.updated_at || new Date().toISOString(),
   };
@@ -142,13 +156,16 @@ export async function createDbTask(task: Omit<Task, "id" | "createdAt" | "update
     _reminderTimes: task.reminderTimes || ["11:00", "18:00"],
   };
 
+  const utcStartTime = task.startTime ? convertLocalTimeToUtc(task.startTime) : null;
+  const utcEndTime = task.endTime ? convertLocalTimeToUtc(task.endTime) : null;
+
   const insertPayload: any = {
     user_id: targetId,
     title: task.title,
     description: task.description || null,
     category: task.category || "General",
-    start_time: task.startTime || null,
-    end_time: task.endTime || null,
+    start_time: utcStartTime,
+    end_time: utcEndTime,
     recurrence: task.recurrence,
     recurrence_config: task.recurrenceConfig || null,
     date_overrides: taskOverrides,
@@ -244,8 +261,8 @@ export async function updateDbTask(
   if (updates.title !== undefined) dbUpdates.title = updates.title;
   if (updates.description !== undefined) dbUpdates.description = updates.description || null;
   if (updates.category !== undefined) dbUpdates.category = updates.category;
-  if (updates.startTime !== undefined) dbUpdates.start_time = updates.startTime || null;
-  if (updates.endTime !== undefined) dbUpdates.end_time = updates.endTime || null;
+  if (updates.startTime !== undefined) dbUpdates.start_time = updates.startTime ? convertLocalTimeToUtc(updates.startTime) : null;
+  if (updates.endTime !== undefined) dbUpdates.end_time = updates.endTime ? convertLocalTimeToUtc(updates.endTime) : null;
   if (updates.recurrence !== undefined) dbUpdates.recurrence = updates.recurrence;
   if (updates.recurrenceConfig !== undefined) dbUpdates.recurrence_config = updates.recurrenceConfig;
   if (updates.trackingType !== undefined) dbUpdates.tracking_type = updates.trackingType;
@@ -384,13 +401,16 @@ export async function updateDbTaskStartedAt(
     provisionalEndTime = `${String(endH).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
   }
 
+  const utcStartTime = convertLocalTimeToUtc(startedAtTime, todayStr);
+  const utcProvisionalEndTime = convertLocalTimeToUtc(provisionalEndTime, todayStr);
+
   const currentOverrides = target?.dateOverrides || {};
   const updatedOverrides = {
     ...currentOverrides,
     [todayStr]: {
       ...(currentOverrides[todayStr] || {}),
-      startTime: startedAtTime,
-      endTime: provisionalEndTime,
+      startTime: utcStartTime,
+      endTime: utcProvisionalEndTime,
     },
   };
 
@@ -401,8 +421,8 @@ export async function updateDbTaskStartedAt(
   };
 
   if (!isRecurring) {
-    dbUpdates.start_time = startedAtTime;
-    dbUpdates.end_time = provisionalEndTime;
+    dbUpdates.start_time = utcStartTime;
+    dbUpdates.end_time = utcProvisionalEndTime;
   }
 
   try {
@@ -419,8 +439,8 @@ export async function updateDbTaskStartedAt(
     await supabase
       .from("task_completions")
       .update({
-        actual_start_time: startedAtTime,
-        scheduled_start_time: startedAtTime,
+        actual_start_time: utcStartTime,
+        scheduled_start_time: utcStartTime,
         updated_at: nowIso,
       })
       .eq("task_id", taskId)
@@ -436,7 +456,14 @@ export async function updateDbTaskStartedAt(
         startedAt: newStartedAtIso,
         startTime: !isRecurring ? startedAtTime : t.startTime,
         endTime: !isRecurring ? provisionalEndTime : t.endTime,
-        dateOverrides: updatedOverrides,
+        dateOverrides: {
+          ...currentOverrides,
+          [todayStr]: {
+            ...(currentOverrides[todayStr] || {}),
+            startTime: startedAtTime,
+            endTime: provisionalEndTime,
+          },
+        },
         updatedAt: nowIso,
       };
     }
@@ -492,13 +519,15 @@ export async function updateTaskSchedule({
   const nowIso = new Date().toISOString();
 
   const isRecurring = target?.recurrence && target.recurrence !== "ONCE";
+  const utcStart = startTime ? convertLocalTimeToUtc(startTime, date) : null;
+  const utcEnd = endTime ? convertLocalTimeToUtc(endTime, date) : null;
 
   if (isRecurring && !applyToAll) {
     // Specific day override
     const currentOverrides = target?.dateOverrides || {};
     const updatedOverrides = {
       ...currentOverrides,
-      [date]: { startTime, endTime },
+      [date]: { startTime: utcStart, endTime: utcEnd },
     };
 
     try {
@@ -511,7 +540,16 @@ export async function updateTaskSchedule({
     }
 
     const updated = tasks.map((t) =>
-      t.id === taskId ? { ...t, dateOverrides: updatedOverrides, updatedAt: nowIso } : t
+      t.id === taskId
+        ? {
+            ...t,
+            dateOverrides: {
+              ...currentOverrides,
+              [date]: { startTime, endTime },
+            },
+            updatedAt: nowIso,
+          }
+        : t
     );
     saveStoredTasks(updated, targetId);
   } else {
@@ -519,7 +557,7 @@ export async function updateTaskSchedule({
     try {
       await supabase
         .from("tasks")
-        .update({ start_time: startTime, end_time: endTime, updated_at: nowIso })
+        .update({ start_time: utcStart, end_time: utcEnd, updated_at: nowIso })
         .eq("id", taskId);
     } catch (err) {
       console.warn("Supabase updateTaskSchedule global error:", err);
