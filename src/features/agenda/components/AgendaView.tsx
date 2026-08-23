@@ -6,6 +6,7 @@ import { AllDaySection } from "./AllDaySection";
 import { AgendaTimeline } from "./AgendaTimeline";
 import { TaskFormModal } from "@/features/tasks/components/TaskFormModal";
 import { QuantityLoggingModal } from "@/features/tasks/components/QuantityLoggingModal";
+import { VoiceFab } from "@/features/voice/components/VoiceFab";
 import { useTasks, useTaskMutations } from "@/features/tasks/hooks";
 import { TaskWithCompletion, TaskFormValues } from "@/features/tasks/types";
 import { getTodayDateString } from "@/lib/dates";
@@ -153,6 +154,9 @@ export const AgendaView: React.FC = () => {
           updateCompletionValue.mutate({ taskId, date: selectedDate, value });
         }}
       />
+
+      {/* Floating Microphone Voice Action Button */}
+      <VoiceFab selectedDate={selectedDate} />
     </div>
   );
 };

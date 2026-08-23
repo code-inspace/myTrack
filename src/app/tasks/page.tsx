@@ -7,6 +7,7 @@ import { TaskCard } from "@/features/tasks/components/TaskCard";
 import { TaskFormModal } from "@/features/tasks/components/TaskFormModal";
 import { QuantityLoggingModal } from "@/features/tasks/components/QuantityLoggingModal";
 import { InteractiveNotificationSheet } from "@/features/notifications/components/InteractiveNotificationSheet";
+import { VoiceFab } from "@/features/voice/components/VoiceFab";
 import { useTasks, useTaskMutations } from "@/features/tasks/hooks";
 import { TaskWithCompletion, TaskFormValues } from "@/features/tasks/types";
 import { getTodayDateString } from "@/lib/dates";
@@ -254,6 +255,9 @@ export default function TasksPage() {
         onClose={() => setIsTestNotificationOpen(false)}
         onRespond={handleInteractiveResponse}
       />
+
+      {/* Floating Microphone Voice Action Button */}
+      <VoiceFab selectedDate={selectedDate} />
     </div>
   );
 }
