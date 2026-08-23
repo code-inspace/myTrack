@@ -69,7 +69,7 @@ export default function ProfilePage() {
   const isDemoAccount = user?.isDemo || user?.email === "demo@de.mo";
 
   return (
-    <div className="flex-1 flex flex-col pb-12 space-y-4">
+    <div className="flex-1 flex flex-col overflow-y-auto pb-28 space-y-4 max-w-md mx-auto w-full px-4 pt-2">
       {/* Profile Header */}
       <header className="w-full text-center py-2">
         <h1 className="text-xl font-extrabold text-white tracking-tight">

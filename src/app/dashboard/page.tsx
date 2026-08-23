@@ -20,7 +20,7 @@ export default function DashboardPage() {
   const { allTasks, allCompletions } = useTasks(getTodayDateString());
 
   return (
-    <div className="flex-1 flex flex-col pb-24 space-y-4 max-w-md mx-auto w-full px-1">
+    <div className="flex-1 flex flex-col overflow-y-auto pb-28 space-y-4 max-w-md mx-auto w-full px-4 pt-2">
       {/* Dashboard Title Header */}
       <header className="w-full text-center py-2">
         <h1 className="text-xl font-extrabold text-white tracking-tight">

@@ -33,16 +33,19 @@ export const HistoryView: React.FC = () => {
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-[#0E0F12] pb-24 overflow-y-auto">
-      {/* 1. Cohesive Header with View Switcher */}
-      <TasksHeaderWithNav
-        title="Mon Historique"
-        selectedDate={selectedDate}
-        onSelectDate={setSelectedDate}
-      />
+    <div className="flex-1 flex flex-col h-screen max-h-screen bg-[#0E0F12] relative overflow-hidden">
+      {/* 1. Fixed Header Area */}
+      <div className="flex-shrink-0 z-30 shadow-md">
+        <TasksHeaderWithNav
+          title="Mon Historique"
+          selectedDate={selectedDate}
+          onSelectDate={setSelectedDate}
+        />
+      </div>
 
-      {/* 2. Daily Summary Stats Card */}
-      <div className="p-4 max-w-md mx-auto w-full">
+      {/* 2. Scrollable Body Content */}
+      <div className="flex-1 overflow-y-auto p-4 pb-28 max-w-md mx-auto w-full">
+        {/* Daily Summary Stats Card */}
         <div className="bg-[#16181D] border border-[#252830] rounded-2xl p-4 flex items-center justify-between shadow-sm">
           <div>
             <span className="text-xs font-semibold text-[#8E929E] uppercase tracking-wider">
@@ -63,7 +66,7 @@ export const HistoryView: React.FC = () => {
           </div>
         </div>
 
-        {/* 3. Task List for the selected day */}
+        {/* Task List for the selected day */}
         <div className="mt-4 space-y-3">
           {isLoading ? (
             <div className="space-y-3">

@@ -128,17 +128,19 @@ export default function TasksPage() {
   };
 
   return (
-    <div className="flex-1 flex flex-col pb-24 bg-[#0E0F12]">
-      {/* Static/Sticky Top Header with Date picker & Navigation */}
-      <TasksHeaderWithNav
-        title="Mes Habitudes"
-        selectedDate={selectedDate}
-        onSelectDate={setSelectedDate}
-        onOpenNotifications={handleOpenNotificationTest}
-      />
+    <div className="flex-1 flex flex-col h-screen max-h-screen bg-[#0E0F12] relative overflow-hidden">
+      {/* 1. Fixed Header Area: TasksHeaderWithNav */}
+      <div className="flex-shrink-0 z-30 shadow-md">
+        <TasksHeaderWithNav
+          title="Mes Habitudes"
+          selectedDate={selectedDate}
+          onSelectDate={setSelectedDate}
+          onOpenNotifications={handleOpenNotificationTest}
+        />
+      </div>
 
-      {/* Main Content Area */}
-      <div className="px-4 mt-3 space-y-3.5 max-w-md mx-auto w-full">
+      {/* 2. Scrollable Body Content */}
+      <div className="flex-1 overflow-y-auto px-4 pt-3 pb-28 space-y-3.5 max-w-md mx-auto w-full">
         <div className="flex items-center justify-between px-1">
           <h2 className="text-xl font-bold text-white tracking-tight">Aujourd'hui</h2>
           <button

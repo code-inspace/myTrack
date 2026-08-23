@@ -77,7 +77,7 @@ export default function RootLayout({
             <OneSignalProvider>
               <AuthGuard>
                 {/* Main App Container */}
-                <main className="w-full max-w-md min-h-screen flex flex-col px-4 safe-top safe-bottom-nav relative">
+                <main className="w-full max-w-md h-screen max-h-screen flex flex-col safe-top relative overflow-hidden">
                   {children}
                 </main>
 
