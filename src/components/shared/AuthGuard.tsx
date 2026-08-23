@@ -3,6 +3,7 @@
 import React, { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/providers/AuthProvider";
+import { Logo } from "@/components/shared/Logo";
 
 const PUBLIC_AUTH_PATHS = [
   "/auth/login",
@@ -42,11 +43,14 @@ export const AuthGuard: React.FC<{ children: React.ReactNode }> = ({ children })
   // Loading state
   if (isLoading && !isAuthPath) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center min-h-[60vh] space-y-3">
-        <div className="w-10 h-10 rounded-2xl bg-[#D4F63D] text-black font-extrabold text-lg flex items-center justify-center animate-bounce shadow-lg">
-          M
+      <div className="flex-1 flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+        <div className="animate-pulse">
+          <Logo size="lg" showText={false} />
         </div>
-        <p className="text-xs text-[#8E929E] font-medium">Chargement de ta session...</p>
+        <div className="text-center space-y-1">
+          <p className="text-sm font-bold text-white tracking-tight">My<span className="text-[#D4F63D]">Track</span></p>
+          <p className="text-xs text-[#8E929E] font-medium">Chargement de ta session...</p>
+        </div>
       </div>
     );
   }
