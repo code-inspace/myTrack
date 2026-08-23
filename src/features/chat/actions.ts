@@ -2,7 +2,7 @@ import { ChatMessage } from "./types";
 import { AICoachContext } from "@/lib/ai/types";
 import { fetchTasks, fetchCompletions, getEffectiveUserId } from "../tasks/actions";
 import { calculateDashboardStats } from "../analytics/calculations";
-import { getAIProvider } from "@/lib/ai/provider";
+import { HeuristicAIProvider } from "@/lib/ai/provider";
 import { createClient } from "@/utils/supabase/client";
 
 const CHAT_STORAGE_PREFIX = "mytrack_chat_messages_";
@@ -12,7 +12,7 @@ export const DEFAULT_INITIAL_MESSAGES: ChatMessage[] = [
     id: "msg-welcome",
     sender: "assistant",
     content:
-      "Salut ! Je suis ton **coach MyTrack**. J'analyse en continu tes habitudes, ton momentum et tes streaks pour t'aider à progresser chaque jour.\n\nPose-moi une question sur ta semaine ou choisis une suggestion ci-dessous !",
+      "Salut ! Je suis ton **coach MyTrack (Llama 3.3 70B)**. J'analyse en continu tes habitudes, ton momentum et tes streaks pour t'aider à progresser chaque jour.\n\nPose-moi une question sur ta semaine ou choisis une suggestion ci-dessous !",
     timestamp: new Date().toISOString(),
     suggestedActions: [
       "Comment s'est passée ma semaine ?",
@@ -116,19 +116,49 @@ export function saveStoredChatMessages(messages: ChatMessage[], userId: string =
 export async function processUserMessage(userText: string, userId?: string): Promise<ChatMessage> {
   const targetId = getEffectiveUserId(userId);
   const context = await extractAICoachContext(targetId);
-  const provider = getAIProvider();
 
-  const response = await provider.generateResponse({
-    messages: [{ role: "user", content: userText }],
-    context,
-  });
+  let responseContent = "";
+  let suggestedActions: string[] | undefined = undefined;
+
+  // 1. Try server-side LLM route (Groq Llama 3.3 / OpenAI / Gemini)
+  try {
+    const res = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        messages: [{ role: "user", content: userText }],
+        context,
+      }),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.content) {
+        responseContent = data.content;
+        suggestedActions = data.suggestedActions;
+      }
+    }
+  } catch (err) {
+    console.warn("Server /api/chat error, falling back to local heuristic provider:", err);
+  }
+
+  // 2. Client-side heuristic fallback if server LLM unavailable
+  if (!responseContent) {
+    const heuristic = new HeuristicAIProvider();
+    const heuristicRes = await heuristic.generateResponse({
+      messages: [{ role: "user", content: userText }],
+      context,
+    });
+    responseContent = heuristicRes.content;
+    suggestedActions = heuristicRes.suggestedActions;
+  }
 
   const assistantMessage: ChatMessage = {
     id: "msg-" + Date.now(),
     sender: "assistant",
-    content: response.content,
+    content: responseContent,
     timestamp: new Date().toISOString(),
-    suggestedActions: response.suggestedActions,
+    suggestedActions,
   };
 
   // Persist to Supabase if conversation exists
@@ -151,8 +181,8 @@ export async function processUserMessage(userText: string, userId?: string): Pro
         {
           conversation_id: conv.id,
           sender: "assistant",
-          content: response.content,
-          context_snapshot: { suggestedActions: response.suggestedActions },
+          content: responseContent,
+          context_snapshot: { suggestedActions },
         },
       ]);
     }

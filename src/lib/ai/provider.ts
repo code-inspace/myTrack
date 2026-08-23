@@ -103,26 +103,26 @@ export class HeuristicAIProvider implements AIProvider {
 
 /**
  * Universal AI Provider Factory
- * Supports: OpenAI, Groq (Fast & Free Llama 3), Google Gemini, Anthropic Claude, or Heuristic Engine
+ * Defaults to Groq (Llama-3.3-70b) when an API key is provided, or falls back to Heuristic Engine.
  */
 export function getAIProvider(): AIProvider {
-  const providerType = (process.env.AI_PROVIDER || "heuristic").toLowerCase();
-  const apiKey = process.env.AI_API_KEY;
+  const providerType = (process.env.AI_PROVIDER || (process.env.GROQ_API_KEY ? "groq" : "heuristic")).toLowerCase();
+  const apiKey = process.env.AI_API_KEY || process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY || process.env.GEMINI_API_KEY;
 
-  // 1. OpenAI (GPT-4o / GPT-4o-mini)
-  if (providerType === "openai" && apiKey) {
+  // 1. Groq (Llama-3.3-70b-versatile - High Speed & High Intelligence)
+  if ((providerType === "groq" || providerType === "llama") && apiKey) {
     return {
-      name: "OpenAI Coach",
+      name: "Groq Llama 3.3 70B Coach",
       generateResponse: async (request: AIRequest): Promise<AIResponse> => {
         try {
-          const response = await fetch("https://api.openai.com/v1/chat/completions", {
+          const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
               Authorization: `Bearer ${apiKey}`,
             },
             body: JSON.stringify({
-              model: process.env.AI_MODEL || "gpt-4o-mini",
+              model: process.env.AI_MODEL || "llama-3.3-70b-versatile",
               messages: [
                 { role: "system", content: `${SYSTEM_COACH_PROMPT}\n${formatAIContext(request.context)}` },
                 ...request.messages,
@@ -142,20 +142,20 @@ export function getAIProvider(): AIProvider {
     };
   }
 
-  // 2. Groq (Llama-3.3-70b - Ultra Fast)
-  if (providerType === "groq" && apiKey) {
+  // 2. OpenAI (GPT-4o / GPT-4o-mini)
+  if (providerType === "openai" && apiKey) {
     return {
-      name: "Groq Llama-3 Coach",
+      name: "OpenAI Coach",
       generateResponse: async (request: AIRequest): Promise<AIResponse> => {
         try {
-          const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          const response = await fetch("https://api.openai.com/v1/chat/completions", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
               Authorization: `Bearer ${apiKey}`,
             },
             body: JSON.stringify({
-              model: process.env.AI_MODEL || "llama-3.3-70b-versatile",
+              model: process.env.AI_MODEL || "gpt-4o-mini",
               messages: [
                 { role: "system", content: `${SYSTEM_COACH_PROMPT}\n${formatAIContext(request.context)}` },
                 ...request.messages,
