@@ -10,11 +10,8 @@ import { InteractiveNotificationSheet } from "@/features/notifications/component
 import { useTasks, useTaskMutations } from "@/features/tasks/hooks";
 import { TaskWithCompletion, TaskFormValues } from "@/features/tasks/types";
 import { getTodayDateString } from "@/lib/dates";
-import { Plus, CheckCircle2, Sparkles, Inbox, Clock } from "lucide-react";
-
+import { Plus, CheckCircle2, Inbox } from "lucide-react";
 import { sendNativeNotification } from "@/lib/notifications/service";
-
-import { NotificationPermissionButton } from "@/features/notifications/components/NotificationPermissionButton";
 
 export default function TasksPage() {
   const [selectedDate, setSelectedDate] = useState<string>(getTodayDateString());
@@ -26,11 +23,24 @@ export default function TasksPage() {
   const { tasks, activeTask, isLoading } = useTasks(selectedDate);
   const [editingTask, setEditingTask] = useState<TaskWithCompletion | null>(null);
 
+  // Drag and drop priority reordering state
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [customOrder, setCustomOrder] = useState<string[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("mytrack_custom_task_order");
+        return saved ? JSON.parse(saved) : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  });
+
   const {
     createTask,
     updateTask,
     toggleTaskActive,
-    updateSchedule,
     toggleCompletion,
     updateCompletionValue,
     deleteTask,
@@ -81,9 +91,45 @@ export default function TasksPage() {
     }
   };
 
+  // Reorder tasks according to custom drag-and-drop priority
+  const nonActiveTasks = tasks.filter((task) => !task.isActive);
+  const orderedTasks = [...nonActiveTasks].sort((a, b) => {
+    const aIndex = customOrder.indexOf(a.id);
+    const bIndex = customOrder.indexOf(b.id);
+    if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
+    if (aIndex !== -1) return -1;
+    if (bIndex !== -1) return 1;
+    return 0;
+  });
+
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDragOver = (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === targetIndex) return;
+
+    const newTasks = [...orderedTasks];
+    const [draggedItem] = newTasks.splice(draggedIndex, 1);
+    newTasks.splice(targetIndex, 0, draggedItem);
+
+    const newOrderIds = newTasks.map((t) => t.id);
+    setCustomOrder(newOrderIds);
+    setDraggedIndex(targetIndex);
+    try {
+      localStorage.setItem("mytrack_custom_task_order", JSON.stringify(newOrderIds));
+    } catch {}
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+  };
+
   return (
-    <div className="flex-1 flex flex-col pb-24">
-      {/* Unified Top Header & Switcher */}
+    <div className="flex-1 flex flex-col pb-24 bg-[#0E0F12]">
+      {/* Static/Sticky Top Header with Date picker & Navigation */}
       <TasksHeaderWithNav
         title="Mes Habitudes"
         selectedDate={selectedDate}
@@ -130,7 +176,7 @@ export default function TasksPage() {
           />
         )}
 
-        {/* Tasks List */}
+        {/* Tasks List with Drag & Drop Reordering by Priority */}
         <div className="space-y-2.5 pt-1">
           {isLoading ? (
             <div className="space-y-2.5">
@@ -138,7 +184,7 @@ export default function TasksPage() {
                 <div key={i} className="w-full h-18 rounded-2xl bg-[#1C1D22] animate-pulse" />
               ))}
             </div>
-          ) : tasks.length === 0 ? (
+          ) : orderedTasks.length === 0 ? (
             <div className="p-8 text-center bg-[#1C1D22] border border-[#282A30] rounded-3xl my-4">
               <Inbox className="w-10 h-10 text-[#6B7280] mx-auto mb-2" />
               <h4 className="text-base font-bold text-white">Aucune tâche programmée</h4>
@@ -153,22 +199,26 @@ export default function TasksPage() {
               </button>
             </div>
           ) : (
-            tasks
-              .filter((task) => !task.isActive)
-              .map((task) => (
-                <TaskCard
-                  key={task.id}
-                  task={task}
-                  onToggleActive={(id) => toggleTaskActive.mutate({ taskId: id, date: selectedDate })}
-                  onToggleComplete={(id) => toggleCompletion.mutate({ taskId: id, date: selectedDate })}
-                  onOpenLogModal={(t) => setSelectedLoggingTask(t)}
-                  onEditTask={(t) => {
-                    setEditingTask(t);
-                    setIsTaskModalOpen(true);
-                  }}
-                  onDeleteTask={(id) => deleteTask.mutate(id)}
-                />
-              ))
+            orderedTasks.map((task, idx) => (
+              <TaskCard
+                key={task.id}
+                task={task}
+                index={idx}
+                isDraggable={true}
+                isDragging={draggedIndex === idx}
+                onDragStart={handleDragStart}
+                onDragOver={handleDragOver}
+                onDragEnd={handleDragEnd}
+                onToggleActive={(id) => toggleTaskActive.mutate({ taskId: id, date: selectedDate })}
+                onToggleComplete={(id) => toggleCompletion.mutate({ taskId: id, date: selectedDate })}
+                onOpenLogModal={(t) => setSelectedLoggingTask(t)}
+                onEditTask={(t) => {
+                  setEditingTask(t);
+                  setIsTaskModalOpen(true);
+                }}
+                onDeleteTask={(id) => deleteTask.mutate(id)}
+              />
+            ))
           )}
         </div>
       </div>

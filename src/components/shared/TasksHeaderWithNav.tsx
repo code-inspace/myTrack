@@ -30,7 +30,7 @@ export const TasksHeaderWithNav: React.FC<TasksHeaderWithNavProps> = ({
   ];
 
   return (
-    <div className="w-full bg-[#111214] border-b border-[#23242A] select-none">
+    <div className="sticky top-0 z-40 w-full bg-[#111214] border-b border-[#23242A] select-none shadow-md">
       {/* 1. App Header with profile and notifications */}
       <AppHeader
         title={title}

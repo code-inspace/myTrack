@@ -2,12 +2,18 @@
 
 import React from "react";
 import { TaskWithCompletion } from "../types";
-import { Clock, Repeat, Play, Check, Plus, Trash2, Edit3 } from "lucide-react";
+import { Clock, Repeat, Play, Check, Plus, Trash2, Edit3, GripVertical } from "lucide-react";
 import { cn } from "@/lib/utils";
 import confetti from "canvas-confetti";
 
 interface TaskCardProps {
   task: TaskWithCompletion;
+  index?: number;
+  isDraggable?: boolean;
+  isDragging?: boolean;
+  onDragStart?: (e: React.DragEvent, index: number) => void;
+  onDragOver?: (e: React.DragEvent, index: number) => void;
+  onDragEnd?: (e: React.DragEvent) => void;
   onToggleActive: (taskId: string) => void;
   onToggleComplete: (taskId: string) => void;
   onOpenLogModal: (task: TaskWithCompletion) => void;
@@ -25,6 +31,12 @@ const RECURRENCE_LABEL_MAP: Record<string, string> = {
 
 export const TaskCard: React.FC<TaskCardProps> = ({
   task,
+  index = 0,
+  isDraggable = false,
+  isDragging = false,
+  onDragStart,
+  onDragOver,
+  onDragEnd,
   onToggleActive,
   onToggleComplete,
   onOpenLogModal,
@@ -61,16 +73,32 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 
   return (
     <div
+      draggable={isDraggable}
+      onDragStart={(e) => onDragStart && onDragStart(e, index)}
+      onDragOver={(e) => onDragOver && onDragOver(e, index)}
+      onDragEnd={(e) => onDragEnd && onDragEnd(e)}
       className={cn(
-        "relative w-full rounded-2xl p-4 transition-all duration-200 border space-y-3 shadow-sm",
-        isCompleted
+        "relative w-full rounded-2xl p-4 transition-all duration-200 border space-y-3 shadow-sm select-none",
+        isDragging
+          ? "opacity-40 border-[#D4F63D] scale-[0.98] ring-2 ring-[#D4F63D]/50 bg-[#22242B]"
+          : isCompleted
           ? "bg-[#141518]/90 border-[#23242A] opacity-75"
           : "bg-[#1C1D22] hover:bg-[#22242B] border-[#282A30] hover:border-[#383C48]"
       )}
     >
-      {/* Level 1: Full Title Header with Check Circle on Left and Actions on Right */}
+      {/* Level 1: Grip + Check Circle + Title Header + Actions on Right */}
       <div className="flex items-start justify-between gap-3">
-        <div className="flex items-start gap-3 flex-1 min-w-0">
+        <div className="flex items-start gap-2.5 flex-1 min-w-0">
+          {/* Reordering Drag Handle */}
+          {isDraggable && (
+            <div
+              className="p-1 -ml-1 text-[#6B7280] hover:text-[#D4F63D] cursor-grab active:cursor-grabbing flex-shrink-0 transition-colors mt-0.5"
+              title="Glisser pour réorganiser par priorité"
+            >
+              <GripVertical className="w-4 h-4" />
+            </div>
+          )}
+
           <button
             onClick={handleCircleClick}
             aria-label={isCompleted ? "Marquer comme non fait" : "Marquer comme fait"}
