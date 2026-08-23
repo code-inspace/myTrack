@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Task, TaskFormValues, TaskWithCompletion } from "../types";
 import { TASK_CATEGORIES, TRACKING_TYPE_OPTIONS, RECURRENCE_OPTIONS, DAYS_OF_WEEK } from "../options";
 import {
@@ -99,47 +99,55 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
     }));
   };
 
+  const prevIsOpenRef = useRef(false);
+  const prevTaskIdRef = useRef<string | null | undefined>(undefined);
+
   useEffect(() => {
-    if (initialTask) {
-      setTitle(initialTask.title || "");
-      setDescription(initialTask.description || "");
-      setCategory(initialTask.category || "General");
-      setTrackingType(initialTask.trackingType || "BOOLEAN");
-      setTargetValue(initialTask.targetValue || undefined);
-      setUnit(initialTask.unit || "");
-      const taskHasTime = Boolean(initialTask.startTime);
-      setHasScheduledTime(taskHasTime);
-      setStartTime(initialTask.startTime || "09:00");
-      setEndTime(
-        initialTask.endTime ||
-          (initialTask.startTime ? addHoursToTimeString(initialTask.startTime, 1) : "10:00")
-      );
-      setRecurrence(initialTask.recurrence || "ONCE");
-      setSelectedDays(initialTask.recurrenceConfig?.days || [1, 2, 3, 4, 5]);
-      setEnableReminders(initialTask.enableReminders !== undefined ? initialTask.enableReminders : true);
-      setReminderOffsetMinutes(initialTask.reminderOffsetMinutes ?? 10);
-      setReminderTimes(
-        initialTask.reminderTimes && initialTask.reminderTimes.length > 0
-          ? initialTask.reminderTimes
-          : ["11:00", "18:00"]
-      );
-    } else {
-      setTitle("");
-      setDescription("");
-      setCategory("General");
-      setTrackingType("BOOLEAN");
-      setTargetValue(undefined);
-      setUnit("");
-      setHasScheduledTime(false);
-      setStartTime("09:00");
-      setEndTime("10:00");
-      setRecurrence("ONCE");
-      setSelectedDays([1, 2, 3, 4, 5]);
-      setEnableReminders(true);
-      setReminderOffsetMinutes(10);
-      setReminderTimes(["11:00", "18:00"]);
+    // Only synchronize/reset form fields when modal opens or when editing a different task
+    if (isOpen && (!prevIsOpenRef.current || prevTaskIdRef.current !== initialTask?.id)) {
+      if (initialTask) {
+        setTitle(initialTask.title || "");
+        setDescription(initialTask.description || "");
+        setCategory(initialTask.category || "General");
+        setTrackingType(initialTask.trackingType || "BOOLEAN");
+        setTargetValue(initialTask.targetValue || undefined);
+        setUnit(initialTask.unit || "");
+        const taskHasTime = Boolean(initialTask.startTime);
+        setHasScheduledTime(taskHasTime);
+        setStartTime(initialTask.startTime || "09:00");
+        setEndTime(
+          initialTask.endTime ||
+            (initialTask.startTime ? addHoursToTimeString(initialTask.startTime, 1) : "10:00")
+        );
+        setRecurrence(initialTask.recurrence || "ONCE");
+        setSelectedDays(initialTask.recurrenceConfig?.days || [1, 2, 3, 4, 5]);
+        setEnableReminders(initialTask.enableReminders !== undefined ? initialTask.enableReminders : true);
+        setReminderOffsetMinutes(initialTask.reminderOffsetMinutes ?? 10);
+        setReminderTimes(
+          initialTask.reminderTimes && initialTask.reminderTimes.length > 0
+            ? initialTask.reminderTimes
+            : ["11:00", "18:00"]
+        );
+      } else {
+        setTitle("");
+        setDescription("");
+        setCategory("General");
+        setTrackingType("BOOLEAN");
+        setTargetValue(undefined);
+        setUnit("");
+        setHasScheduledTime(false);
+        setStartTime("09:00");
+        setEndTime("10:00");
+        setRecurrence("ONCE");
+        setSelectedDays([1, 2, 3, 4, 5]);
+        setEnableReminders(true);
+        setReminderOffsetMinutes(10);
+        setReminderTimes(["11:00", "18:00"]);
+      }
     }
-  }, [initialTask, isOpen]);
+    prevIsOpenRef.current = isOpen;
+    prevTaskIdRef.current = initialTask?.id;
+  }, [isOpen, initialTask]);
 
   if (!isOpen) return null;
 

@@ -134,52 +134,81 @@ export async function createDbTask(task: Omit<Task, "id" | "createdAt" | "update
     targetId = session?.user?.id || getEffectiveUserId();
   }
 
+  const taskOverrides = {
+    ...(task.dateOverrides || {}),
+    _enableReminders: task.enableReminders !== undefined ? task.enableReminders : true,
+    _reminderOffsetMinutes: task.reminderOffsetMinutes !== undefined ? task.reminderOffsetMinutes : 10,
+    _reminderTimes: task.reminderTimes || ["11:00", "18:00"],
+  };
+
+  const insertPayload: any = {
+    user_id: targetId,
+    title: task.title,
+    description: task.description || null,
+    category: task.category || "General",
+    start_time: task.startTime || null,
+    end_time: task.endTime || null,
+    recurrence: task.recurrence,
+    recurrence_config: task.recurrenceConfig || null,
+    date_overrides: taskOverrides,
+    tracking_type: task.trackingType,
+    target_value: task.targetValue !== undefined ? task.targetValue : null,
+    unit: task.unit || null,
+    is_active: false,
+    started_at: null,
+    is_archived: false,
+  };
+
   try {
     const { data, error } = await supabase
       .from("tasks")
-      .insert([
-        {
-          user_id: targetId,
-          title: task.title,
-          description: task.description || null,
-          category: task.category || "General",
-          start_time: task.startTime || null,
-          end_time: task.endTime || null,
-          recurrence: task.recurrence,
-          recurrence_config: task.recurrenceConfig || null,
-          date_overrides: task.dateOverrides || {},
-          tracking_type: task.trackingType,
-          target_value: task.targetValue !== undefined ? task.targetValue : null,
-          unit: task.unit || null,
-          enable_reminders: task.enableReminders !== undefined ? task.enableReminders : true,
-          reminder_offset_minutes: task.reminderOffsetMinutes !== undefined ? task.reminderOffsetMinutes : 10,
-          reminder_times: task.reminderTimes || ["11:00", "18:00"],
-          is_active: false,
-          started_at: null,
-          is_archived: false,
-        },
-      ])
+      .insert([insertPayload])
       .select()
       .single();
 
-    if (error) {
-      console.error("Supabase createDbTask error:", error);
-      throw new Error(error.message);
-    }
-
-    if (data) {
+    if (!error && data) {
       const created = mapDbTaskToModel(data);
       const current = getStoredTasks(targetId);
       const updated = [created, ...current.filter((t) => t.id !== created.id)];
       saveStoredTasks(updated, targetId);
       return created;
     }
+    if (error) {
+      console.warn("Supabase createDbTask fallback:", error);
+    }
   } catch (err) {
-    console.error("Supabase createDbTask failed:", err);
-    throw err;
+    console.warn("Supabase createDbTask error fallback:", err);
   }
 
-  throw new Error("Impossible d'enregistrer la tâche sur Supabase");
+  // Local fallback
+  const nowIso = new Date().toISOString();
+  const createdLocal: Task = {
+    id: "task-" + Date.now(),
+    userId: targetId,
+    title: task.title,
+    description: task.description || null,
+    category: task.category || "General",
+    startTime: task.startTime || null,
+    endTime: task.endTime || null,
+    recurrence: task.recurrence,
+    recurrenceConfig: task.recurrenceConfig || null,
+    dateOverrides: taskOverrides,
+    trackingType: task.trackingType,
+    targetValue: task.targetValue !== undefined ? task.targetValue : null,
+    unit: task.unit || null,
+    enableReminders: task.enableReminders !== undefined ? task.enableReminders : true,
+    reminderOffsetMinutes: task.reminderOffsetMinutes !== undefined ? task.reminderOffsetMinutes : 10,
+    reminderTimes: task.reminderTimes || ["11:00", "18:00"],
+    isActive: false,
+    startedAt: null,
+    isArchived: false,
+    createdAt: nowIso,
+    updatedAt: nowIso,
+  };
+  const current = getStoredTasks(targetId);
+  const updated = [createdLocal, ...current];
+  saveStoredTasks(updated, targetId);
+  return createdLocal;
 }
 
 export async function updateDbTask(
@@ -188,7 +217,7 @@ export async function updateDbTask(
   userId?: string
 ): Promise<Task> {
   const supabase = createClient();
-  let targetId = userId;
+  let targetId: string = userId || "";
   if (!targetId) {
     const { data: { session } } = await supabase.auth.getSession();
     targetId = session?.user?.id || getEffectiveUserId();
@@ -197,7 +226,6 @@ export async function updateDbTask(
   const tasks = getStoredTasks(targetId);
   const target = tasks.find((t) => t.id === taskId);
   const nowIso = new Date().toISOString();
-  const dbUpdates: any = { updated_at: nowIso };
 
   const currentOverrides = target?.dateOverrides || {};
   const newOverrides = {
@@ -207,7 +235,10 @@ export async function updateDbTask(
     ...(updates.reminderTimes !== undefined ? { _reminderTimes: updates.reminderTimes } : {}),
   };
 
-  dbUpdates.date_overrides = newOverrides;
+  const dbUpdates: any = {
+    updated_at: nowIso,
+    date_overrides: newOverrides,
+  };
 
   if (updates.title !== undefined) dbUpdates.title = updates.title;
   if (updates.description !== undefined) dbUpdates.description = updates.description || null;
@@ -219,9 +250,6 @@ export async function updateDbTask(
   if (updates.trackingType !== undefined) dbUpdates.tracking_type = updates.trackingType;
   if (updates.targetValue !== undefined) dbUpdates.target_value = updates.targetValue;
   if (updates.unit !== undefined) dbUpdates.unit = updates.unit || null;
-  if (updates.enableReminders !== undefined) dbUpdates.enable_reminders = updates.enableReminders;
-  if (updates.reminderOffsetMinutes !== undefined) dbUpdates.reminder_offset_minutes = updates.reminderOffsetMinutes;
-  if (updates.reminderTimes !== undefined) dbUpdates.reminder_times = updates.reminderTimes;
 
   try {
     const { data, error } = await supabase
@@ -242,15 +270,42 @@ export async function updateDbTask(
   }
 
   // Local fallback
-  if (!target) throw new Error("Task not found");
-
-  const updatedTask: Task = {
-    ...target,
-    ...updates,
-    dateOverrides: newOverrides,
+  const baseTask: Task = target || {
+    id: taskId,
+    userId: targetId,
+    title: "Habitude",
+    category: "General",
+    recurrence: "ONCE",
+    trackingType: "BOOLEAN",
+    isActive: false,
+    isArchived: false,
+    createdAt: nowIso,
     updatedAt: nowIso,
   };
-  const nextList = tasks.map((t) => (t.id === taskId ? updatedTask : t));
+
+  const updatedTask: Task = {
+    ...baseTask,
+    id: taskId,
+    userId: targetId,
+    title: updates.title !== undefined ? updates.title : baseTask.title,
+    description: updates.description !== undefined ? (updates.description || null) : baseTask.description,
+    category: updates.category !== undefined ? updates.category : baseTask.category,
+    startTime: updates.startTime !== undefined ? (updates.startTime || null) : baseTask.startTime,
+    endTime: updates.endTime !== undefined ? (updates.endTime || null) : baseTask.endTime,
+    recurrence: updates.recurrence !== undefined ? updates.recurrence : baseTask.recurrence,
+    recurrenceConfig: updates.recurrenceConfig !== undefined ? updates.recurrenceConfig : baseTask.recurrenceConfig,
+    trackingType: updates.trackingType !== undefined ? updates.trackingType : baseTask.trackingType,
+    targetValue: updates.targetValue !== undefined ? updates.targetValue : baseTask.targetValue,
+    unit: updates.unit !== undefined ? (updates.unit || null) : baseTask.unit,
+    dateOverrides: newOverrides,
+    enableReminders: updates.enableReminders !== undefined ? updates.enableReminders : baseTask.enableReminders ?? true,
+    reminderOffsetMinutes: updates.reminderOffsetMinutes !== undefined ? updates.reminderOffsetMinutes : baseTask.reminderOffsetMinutes ?? 10,
+    reminderTimes: updates.reminderTimes !== undefined ? updates.reminderTimes : baseTask.reminderTimes || ["11:00", "18:00"],
+    updatedAt: nowIso,
+  };
+  const nextList = target
+    ? tasks.map((t) => (t.id === taskId ? updatedTask : t))
+    : [updatedTask, ...tasks];
   saveStoredTasks(nextList, targetId);
   return updatedTask;
 }

@@ -134,11 +134,13 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-1 flex-shrink-0">
+        <div className="flex items-center gap-1 flex-shrink-0" onPointerDown={(e) => e.stopPropagation()}>
           {/* Bell notification toggle */}
           {onToggleReminder && (
             <button
               type="button"
+              onPointerDown={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
               onClick={(e) => {
                 e.stopPropagation();
                 onToggleReminder(task.id);
@@ -162,6 +164,8 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
           {onEditTask && (
             <button
               type="button"
+              onPointerDown={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
               onClick={(e) => {
                 e.stopPropagation();
                 onEditTask(task);
@@ -176,6 +180,8 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
           {/* Completion check */}
           <button
             type="button"
+            onPointerDown={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation();
               onToggleComplete(task.id);

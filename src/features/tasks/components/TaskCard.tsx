@@ -138,10 +138,12 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         </div>
 
         {/* Action icons: Bell Toggle, Edit & Delete */}
-        <div className="flex items-center gap-1 flex-shrink-0">
+        <div className="flex items-center gap-1 flex-shrink-0" onPointerDown={(e) => e.stopPropagation()}>
           {onToggleReminder && (
             <button
               type="button"
+              onPointerDown={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
               onClick={(e) => {
                 e.stopPropagation();
                 onToggleReminder(task.id);
@@ -168,7 +170,13 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 
           {onEditTask && (
             <button
-              onClick={() => onEditTask(task)}
+              type="button"
+              onPointerDown={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                onEditTask(task);
+              }}
               title="Modifier l'habitude"
               className="p-1.5 text-[#8E929E] hover:text-[#D4F63D] transition-colors rounded-lg hover:bg-[#282A30] cursor-pointer"
             >
@@ -177,7 +185,13 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           )}
 
           <button
-            onClick={() => onDeleteTask(task.id)}
+            type="button"
+            onPointerDown={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              onDeleteTask(task.id);
+            }}
             title="Supprimer la tâche"
             className="p-1.5 text-[#6B7280] hover:text-[#EF4444] transition-colors rounded-lg hover:bg-[#282A30] cursor-pointer"
           >

@@ -126,6 +126,8 @@ export const AllDaySection: React.FC<AllDaySectionProps> = ({
               >
                 <button
                   type="button"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
                   onClick={(e) => {
                     e.stopPropagation();
                     onToggleComplete(task.id);
@@ -144,6 +146,8 @@ export const AllDaySection: React.FC<AllDaySectionProps> = ({
                 {onToggleReminder && (
                   <button
                     type="button"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
                     onClick={(e) => {
                       e.stopPropagation();
                       onToggleReminder(task.id);
@@ -167,6 +171,8 @@ export const AllDaySection: React.FC<AllDaySectionProps> = ({
                 {onEditTask && (
                   <button
                     type="button"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
                     onClick={(e) => {
                       e.stopPropagation();
                       onEditTask(task);
