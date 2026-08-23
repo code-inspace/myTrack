@@ -6,7 +6,7 @@ import {
   getStoredSleepLog,
   saveStoredSleepLog,
   computeDefaultBedtimeReminders,
-  computeSleepDuration,
+  getNightSleepDuration,
 } from "../actions";
 import {
   Moon,
@@ -18,6 +18,7 @@ import {
   Check,
   Sparkles,
   Clock,
+  Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -44,22 +45,36 @@ export const SleepJournalView: React.FC<SleepJournalViewProps> = ({ selectedDate
     saveTimeoutRef.current = setTimeout(() => setIsSaved(false), 2500);
   };
 
-  const handleBedtimeChange = (newBedtime: string) => {
+  const handleBedtimeChange = (newBedtime: string, markValidated = true) => {
     const defaultReminders = computeDefaultBedtimeReminders(newBedtime);
     const updated: DailySleepLog = {
       ...log,
       bedtime: newBedtime,
+      bedtimeValidated: markValidated,
       bedtimeReminders: defaultReminders,
     };
     triggerSave(updated);
   };
 
-  const handleWakeTimeChange = (newWakeTime: string) => {
+  const handleWakeTimeChange = (newWakeTime: string, markValidated = true) => {
     const updated: DailySleepLog = {
       ...log,
       wakeTime: newWakeTime,
+      wakeTimeValidated: markValidated,
     };
     triggerSave(updated);
+  };
+
+  const handleSetBedtimeNow = () => {
+    const now = new Date();
+    const currentStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    handleBedtimeChange(currentStr, true);
+  };
+
+  const handleSetWakeTimeNow = () => {
+    const now = new Date();
+    const currentStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    handleWakeTimeChange(currentStr, true);
   };
 
   const handleToggleReminders = (enabled: boolean) => {
@@ -114,19 +129,8 @@ export const SleepJournalView: React.FC<SleepJournalViewProps> = ({ selectedDate
     }, 600);
   };
 
-  const handleSetBedtimeNow = () => {
-    const now = new Date();
-    const currentStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-    handleBedtimeChange(currentStr);
-  };
-
-  const handleSetWakeTimeNow = () => {
-    const now = new Date();
-    const currentStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-    handleWakeTimeChange(currentStr);
-  };
-
-  const sleepStats = computeSleepDuration(log.bedtime, log.wakeTime);
+  // Compute sleep duration between Eve (D-1) bedtime and Day (D) wakeTime
+  const nightSleep = getNightSleepDuration(selectedDate);
 
   // Check if bedtime is past midnight (00:00 - 06:59) -> represents +1 jour
   const bedtimeHour = parseInt((log.bedtime || "23:00").split(":")[0], 10) || 0;
@@ -167,7 +171,7 @@ export const SleepJournalView: React.FC<SleepJournalViewProps> = ({ selectedDate
                   </span>
                 )}
               </div>
-              <p className="text-[11px] text-[#8E929E]">Objectif pour s'endormir</p>
+              <p className="text-[11px] text-[#8E929E]">Objectif pour ce soir</p>
             </div>
           </div>
 
@@ -175,7 +179,7 @@ export const SleepJournalView: React.FC<SleepJournalViewProps> = ({ selectedDate
             <input
               type="time"
               value={log.bedtime || "23:00"}
-              onChange={(e) => handleBedtimeChange(e.target.value)}
+              onChange={(e) => handleBedtimeChange(e.target.value, true)}
               className="h-10 px-3 rounded-xl bg-[#252830] border border-[#343740] text-white font-mono font-bold text-sm focus:border-[#D4F63D] outline-none text-center cursor-pointer shadow-inner"
             />
           </div>
@@ -286,14 +290,14 @@ export const SleepJournalView: React.FC<SleepJournalViewProps> = ({ selectedDate
             </div>
             <div>
               <h3 className="text-sm font-bold text-white">Heure de réveil</h3>
-              <p className="text-[11px] text-[#8E929E]">Sortie du lit enregistrée</p>
+              <p className="text-[11px] text-[#8E929E]">Sortie du lit ce matin</p>
             </div>
           </div>
 
           <input
             type="time"
             value={log.wakeTime || "07:00"}
-            onChange={(e) => handleWakeTimeChange(e.target.value)}
+            onChange={(e) => handleWakeTimeChange(e.target.value, true)}
             className="h-10 px-3 rounded-xl bg-[#252830] border border-[#343740] text-white font-mono font-bold text-sm focus:border-[#D4F63D] outline-none text-center cursor-pointer shadow-inner"
           />
         </div>
@@ -308,17 +312,32 @@ export const SleepJournalView: React.FC<SleepJournalViewProps> = ({ selectedDate
           <span>Je me réveille maintenant</span>
         </button>
 
-        {/* Calculated Sleep Duration Badge */}
-        <div className="p-3.5 rounded-2xl bg-[#17181D] border border-[#2B2E38] flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-[#D4F63D]" />
-            <span className="text-xs font-semibold text-[#8E929E]">Durée de sommeil :</span>
-          </div>
+        {/* Conditional Sleep Duration Badge: Only shown if yesterday bedtime & today wakeTime are validated */}
+        {nightSleep ? (
+          <div className="p-3.5 rounded-2xl bg-[#17181D] border border-[#2B2E38] space-y-1 animate-in fade-in duration-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-[#D4F63D]" />
+                <span className="text-xs font-semibold text-[#8E929E]">Durée de sommeil :</span>
+              </div>
 
-          <span className="text-sm font-extrabold text-[#D4F63D] font-mono">
-            {sleepStats.text}
-          </span>
-        </div>
+              <span className="text-sm font-extrabold text-[#D4F63D] font-mono">
+                {nightSleep.duration.text}
+              </span>
+            </div>
+
+            <p className="text-[10px] text-[#6B7280]">
+              Coucher hier à <strong>{nightSleep.yesterdayBedtime}</strong> → Réveil ce matin à <strong>{nightSleep.todayWakeTime}</strong>
+            </p>
+          </div>
+        ) : (
+          <div className="p-3 rounded-2xl bg-[#17181D]/60 border border-[#2B2E38] flex items-center gap-2.5 text-xs text-[#8E929E]">
+            <Info className="w-4 h-4 text-[#818CF8] flex-shrink-0" />
+            <span className="text-[11px] leading-tight">
+              La durée de sommeil s'affichera dès que le coucher d'hier soir et le réveil de ce matin seront renseignés.
+            </span>
+          </div>
+        )}
       </div>
 
       {/* ========================================================================= */}

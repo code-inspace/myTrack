@@ -2,6 +2,7 @@ import { DailySleepLog } from "./types";
 import { getStoredUserSession, DEMO_USER } from "@/features/auth/actions";
 import { subtractMinutesFromTime } from "@/lib/dates";
 import { scheduleTaskPushNotification } from "@/lib/onesignal/client";
+import { subDays, parseISO, format } from "date-fns";
 
 const SLEEP_STORAGE_PREFIX = "mytrack_sleeplog_";
 
@@ -29,8 +30,11 @@ export function computeDefaultBedtimeReminders(bedtime: string): string[] {
 /**
  * Calculates sleep duration string between bedtime and wakeTime
  */
-export function computeSleepDuration(bedtime: string, wakeTime: string): { hours: number; minutes: number; text: string } {
-  if (!bedtime || !wakeTime) return { hours: 8, minutes: 0, text: "8h 00m" };
+export function computeSleepDuration(
+  bedtime?: string | null,
+  wakeTime?: string | null
+): { hours: number; minutes: number; text: string; decHours: number } | null {
+  if (!bedtime || !wakeTime) return null;
 
   const [bH, bM] = bedtime.split(":").map((v) => parseInt(v, 10) || 0);
   const [wH, wM] = wakeTime.split(":").map((v) => parseInt(v, 10) || 0);
@@ -46,10 +50,12 @@ export function computeSleepDuration(bedtime: string, wakeTime: string): { hours
   const diff = wakeMinutes - bedMinutes;
   const hours = Math.floor(diff / 60);
   const minutes = diff % 60;
+  const decHours = Math.round((hours + minutes / 60) * 10) / 10;
 
   return {
     hours,
     minutes,
+    decHours,
     text: `${hours}h ${String(minutes).padStart(2, "0")}m`,
   };
 }
@@ -63,6 +69,8 @@ export function getStoredSleepLog(date: string, userId?: string): DailySleepLog 
       date,
       bedtime: "23:00",
       wakeTime: "07:00",
+      bedtimeValidated: false,
+      wakeTimeValidated: false,
       bedtimeReminders: ["22:00", "22:30", "22:45"],
       enableBedtimeReminders: true,
       notes: "",
@@ -84,10 +92,56 @@ export function getStoredSleepLog(date: string, userId?: string): DailySleepLog 
     date,
     bedtime: defaultBedtime,
     wakeTime: "07:00",
+    bedtimeValidated: false,
+    wakeTimeValidated: false,
     bedtimeReminders: computeDefaultBedtimeReminders(defaultBedtime),
     enableBedtimeReminders: true,
     notes: "",
   };
+}
+
+/**
+ * Calculates sleep duration for a night leading into day D:
+ * Requires bedtime of eve (D-1) and wakeTime of morning (D) to be validated.
+ */
+export function getNightSleepDuration(
+  wakeDateStr: string,
+  userId?: string
+): {
+  duration: { hours: number; minutes: number; text: string; decHours: number };
+  yesterdayBedtime: string;
+  todayWakeTime: string;
+} | null {
+  try {
+    const d = parseISO(wakeDateStr);
+    const yesterdayStr = format(subDays(d, 1), "yyyy-MM-dd");
+
+    const yesterdayLog = getStoredSleepLog(yesterdayStr, userId);
+    const todayLog = getStoredSleepLog(wakeDateStr, userId);
+
+    const hasYesterdayBedtime = Boolean(
+      yesterdayLog.bedtime && (yesterdayLog.bedtimeValidated || yesterdayLog.updatedAt)
+    );
+    const hasTodayWakeTime = Boolean(
+      todayLog.wakeTime && (todayLog.wakeTimeValidated || todayLog.updatedAt)
+    );
+
+    if (!hasYesterdayBedtime || !hasTodayWakeTime) {
+      return null;
+    }
+
+    const duration = computeSleepDuration(yesterdayLog.bedtime, todayLog.wakeTime);
+    if (!duration) return null;
+
+    return {
+      duration,
+      yesterdayBedtime: yesterdayLog.bedtime || "23:00",
+      todayWakeTime: todayLog.wakeTime || "07:00",
+    };
+  } catch (err) {
+    console.warn("getNightSleepDuration error:", err);
+    return null;
+  }
 }
 
 export async function saveStoredSleepLog(

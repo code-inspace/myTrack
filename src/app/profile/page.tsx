@@ -78,27 +78,27 @@ export default function ProfilePage() {
       </header>
 
       {/* User Card */}
-      <div className="bg-[#1C1D22] border border-[#282A30] rounded-3xl p-5 shadow-sm space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3.5">
-            <div className="w-13 h-13 rounded-full bg-[#D4F63D] text-[#111214] flex items-center justify-center font-extrabold text-xl shadow-md">
-              {user?.name?.[0]?.toUpperCase() || "A"}
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-white leading-tight">
-                {user?.name || "Utilisateur MyTrack"}
-              </h2>
-              <p className="text-xs text-[#8E929E] font-mono mt-0.5">
-                {user?.email || "demo@de.mo"}
-              </p>
-            </div>
+      <div className="bg-[#1C1D22] border border-[#282A30] rounded-3xl p-5 shadow-sm space-y-3.5">
+        <div className="flex items-center gap-3.5">
+          <div className="w-13 h-13 rounded-full bg-[#D4F63D] text-[#111214] flex items-center justify-center font-extrabold text-xl shadow-md">
+            {user?.name?.[0]?.toUpperCase() || "A"}
           </div>
+          <div>
+            <h2 className="text-base font-bold text-white leading-tight">
+              {user?.name || "Utilisateur MyTrack"}
+            </h2>
+            <p className="text-xs text-[#8E929E] font-mono mt-0.5">
+              {user?.email || "demo@de.mo"}
+            </p>
+          </div>
+        </div>
 
+        <div className="pt-2 border-t border-[#282A30]">
           <button
             onClick={handleLogout}
-            className="px-3.5 py-2 rounded-xl bg-[#252830] hover:bg-[#343740] text-[#F87171] hover:text-red-300 font-bold text-xs transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
+            className="w-full py-2.5 px-4 rounded-xl bg-[#252830] hover:bg-[#343740] text-[#F87171] hover:text-red-300 font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm active:scale-[0.98]"
           >
-            <LogOut className="w-3.5 h-3.5" />
+            <LogOut className="w-4 h-4" />
             <span>Déconnexion</span>
           </button>
         </div>

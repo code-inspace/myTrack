@@ -4,7 +4,7 @@ import React, { useMemo } from "react";
 import { Moon, Sparkles, TrendingUp } from "lucide-react";
 import { format, subDays } from "date-fns";
 import { fr } from "date-fns/locale";
-import { getStoredSleepLog, computeSleepDuration } from "@/features/sleep/actions";
+import { getStoredSleepLog, computeSleepDuration, getNightSleepDuration } from "@/features/sleep/actions";
 import { Period } from "@/features/dashboard/types";
 import { cn } from "@/lib/utils";
 
@@ -36,9 +36,7 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
     for (let i = daysCount - 1; i >= 0; i--) {
       const d = subDays(referenceDate, i);
       const dateStr = format(d, "yyyy-MM-dd");
-      const sleepLog = getStoredSleepLog(dateStr);
-      const dur = computeSleepDuration(sleepLog.bedtime, sleepLog.wakeTime);
-      const decHours = Math.round((dur.hours + dur.minutes / 60) * 10) / 10;
+      const nightData = getNightSleepDuration(dateStr);
 
       const dayIndex = d.getDay();
       const label =
@@ -46,17 +44,27 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
           ? `${FRENCH_DAYS_SHORT[dayIndex]} ${format(d, "d")}`
           : format(d, "d MMM", { locale: fr });
 
-      totalMinutes += dur.hours * 60 + dur.minutes;
-      validNights++;
-
-      points.push({
-        dateStr,
-        label,
-        hours: decHours,
-        durationText: dur.text,
-        bedtime: sleepLog.bedtime,
-        wakeTime: sleepLog.wakeTime,
-      });
+      if (nightData) {
+        totalMinutes += nightData.duration.hours * 60 + nightData.duration.minutes;
+        validNights++;
+        points.push({
+          dateStr,
+          label,
+          hours: nightData.duration.decHours,
+          durationText: nightData.duration.text,
+          bedtime: nightData.yesterdayBedtime,
+          wakeTime: nightData.todayWakeTime,
+        });
+      } else {
+        points.push({
+          dateStr,
+          label,
+          hours: 8,
+          durationText: "8h 00m (Objectif)",
+          bedtime: "23:00",
+          wakeTime: "07:00",
+        });
+      }
     }
 
     const avgMinutes = validNights > 0 ? Math.round(totalMinutes / validNights) : 8 * 60;
