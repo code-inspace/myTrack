@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/providers/AuthProvider";
 import { LogIn, Sparkles, UserPlus, ShieldCheck, ArrowRight } from "lucide-react";
 import Link from "next/link";
+import { Logo } from "@/components/shared/Logo";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -40,15 +41,13 @@ export default function LoginPage() {
   return (
     <div className="flex-1 flex flex-col justify-center py-10 px-2 space-y-6">
       {/* App Branding */}
-      <div className="text-center space-y-2">
-        <div className="w-14 h-14 rounded-3xl bg-[#D4F63D] text-black font-extrabold text-2xl flex items-center justify-center mx-auto shadow-xl lime-glow-sm">
-          M
-        </div>
-        <h1 className="text-2xl font-black text-white tracking-tight">
-          Connexion MyTrack
+      <div className="text-center space-y-2 flex flex-col items-center">
+        <Logo size="xl" showText={false} />
+        <h1 className="text-2xl font-black text-white tracking-tight pt-1">
+          My<span className="text-[#D4F63D]">Track</span>
         </h1>
-        <p className="text-xs text-[#8E929E]">
-          Suivi de progression & Coaching IA
+        <p className="text-xs text-[#8E929E] max-w-xs mx-auto">
+          Le tracker d'habitudes & agenda personnalisé
         </p>
       </div>
 

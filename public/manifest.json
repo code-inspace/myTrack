@@ -1,13 +1,19 @@
 {
-  "name": "MyTrack — Habit & Momentum Tracker",
+  "name": "MyTrack — Le tracker d'habitudes & agenda personnalisé",
   "short_name": "MyTrack",
-  "description": "Track habits, tasks, momentum, and get AI coaching",
+  "description": "Le tracker d'habitudes et agenda intelligent pour structurer tes journées, booster ta discipline et suivre tes objectifs en temps réel.",
   "start_url": "/tasks",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#111214",
   "theme_color": "#111214",
   "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
     {
       "src": "/icons/icon-192.png",
       "sizes": "192x192",

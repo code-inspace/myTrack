@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/providers/AuthProvider";
 import { UserPlus, ArrowLeft, LogIn } from "lucide-react";
 import Link from "next/link";
+import { Logo } from "@/components/shared/Logo";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -37,15 +38,13 @@ export default function SignupPage() {
 
   return (
     <div className="flex-1 flex flex-col justify-center py-10 px-2 space-y-6">
-      <div className="text-center space-y-2">
-        <div className="w-14 h-14 rounded-3xl bg-[#D4F63D] text-black font-extrabold text-2xl flex items-center justify-center mx-auto shadow-xl lime-glow-sm">
-          M
-        </div>
-        <h1 className="text-2xl font-black text-white tracking-tight">
+      <div className="text-center space-y-2 flex flex-col items-center">
+        <Logo size="xl" showText={false} />
+        <h1 className="text-2xl font-black text-white tracking-tight pt-1">
           Nouveau Compte
         </h1>
-        <p className="text-xs text-[#8E929E]">
-          Démarre avec un compte 100% vierge et personnalise tes objectifs
+        <p className="text-xs text-[#8E929E] max-w-xs mx-auto">
+          Le tracker d'habitudes & agenda personnalisé
         </p>
       </div>
 

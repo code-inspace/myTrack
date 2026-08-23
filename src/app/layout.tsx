@@ -7,13 +7,46 @@ import { BottomNav } from "@/components/shared/BottomNav";
 import { AuthGuard } from "@/components/shared/AuthGuard";
 
 export const metadata: Metadata = {
-  title: "MyTrack — Elite Habit & Performance Tracking",
-  description: "Production-ready PWA for tracking habits, tasks, momentum, and AI coaching.",
+  metadataBase: new URL("https://mytrack-nine.vercel.app"),
+  title: "MyTrack — Le tracker d'habitudes & agenda personnalisé",
+  description:
+    "Le tracker d'habitudes et agenda intelligent pour structurer tes journées, booster ta discipline et suivre tes objectifs en temps réel.",
+  applicationName: "MyTrack",
+  authors: [{ name: "MyTrack" }],
+  generator: "Next.js",
+  keywords: [
+    "tracker d'habitudes",
+    "agenda personnalisé",
+    "gestion du temps",
+    "productivité",
+    "streak",
+    "coach IA",
+    "routine quotidienne",
+  ],
   manifest: "/manifest.json",
+  icons: {
+    icon: "/icon.svg",
+    apple: "/icons/icon-192.png",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
     title: "MyTrack",
+  },
+  openGraph: {
+    title: "MyTrack — Le tracker d'habitudes & agenda personnalisé",
+    description:
+      "Structure tes journées, booste ta discipline et suis tes séries quotidiennes avec un calendrier interactif et un coach IA.",
+    url: "https://mytrack-nine.vercel.app",
+    siteName: "MyTrack",
+    locale: "fr_FR",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "MyTrack — Le tracker d'habitudes & agenda personnalisé",
+    description:
+      "Le tracker d'habitudes et agenda intelligent pour structurer tes journées et atteindre tes objectifs.",
   },
 };
 
@@ -34,6 +67,7 @@ export default function RootLayout({
   return (
     <html lang="fr" className="dark">
       <head>
+        <link rel="icon" href="/icon.svg" type="image/svg+xml" />
         <link rel="apple-touch-icon" href="/icons/icon-192.png" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
       </head>
