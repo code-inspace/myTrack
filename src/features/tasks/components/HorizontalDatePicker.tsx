@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
-import { getWeekDaysForDate, getTodayDateString } from "@/lib/dates";
+import React, { useState, useEffect, useRef, useMemo } from "react";
+import { getTodayDateString } from "@/lib/dates";
 import { VerticalMonthCalendarModal } from "./VerticalMonthCalendarModal";
 import { cn } from "@/lib/utils";
-import { parseISO, format, addWeeks, subWeeks } from "date-fns";
+import { parseISO, format, addDays, subDays, eachDayOfInterval } from "date-fns";
 import { fr } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, ChevronDown, Calendar, RotateCcw } from "lucide-react";
 
@@ -18,22 +18,65 @@ export const HorizontalDatePicker: React.FC<HorizontalDatePickerProps> = ({
   onSelectDate,
 }) => {
   const [isMonthModalOpen, setIsMonthModalOpen] = useState(false);
-  const todayStr = getTodayDateString();
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const selectedButtonRef = useRef<HTMLButtonElement | null>(null);
+  const isFirstRender = useRef(true);
 
-  const currentDate = parseISO(selectedDate);
-  const weekDays = getWeekDaysForDate(currentDate);
+  const todayStr = getTodayDateString();
+  const currentDate = useMemo(() => {
+    try {
+      return parseISO(selectedDate);
+    } catch {
+      return new Date();
+    }
+  }, [selectedDate]);
 
   const monthLabel = format(currentDate, "MMMM yyyy", { locale: fr });
   const capitalizedMonthLabel = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
 
-  const handlePrevWeek = () => {
-    const prevWeekDate = subWeeks(currentDate, 1);
-    onSelectDate(format(prevWeekDate, "yyyy-MM-dd"));
+  // Generate 120 days rolling window centered around today (-60 days to +60 days)
+  const daysList = useMemo(() => {
+    const today = new Date();
+    const start = subDays(today, 60);
+    const end = addDays(today, 60);
+    const intervalDays = eachDayOfInterval({ start, end });
+
+    return intervalDays.map((d) => {
+      const dateStr = format(d, "yyyy-MM-dd");
+      const dayName = format(d, "EEE", { locale: fr }).toUpperCase().replace(".", "");
+      const dayNumber = format(d, "d");
+      const isToday = dateStr === todayStr;
+
+      return {
+        dateStr,
+        dayName,
+        dayNumber,
+        isToday,
+      };
+    });
+  }, [todayStr]);
+
+  // Smooth scroll selected day into center of horizontal strip
+  useEffect(() => {
+    if (selectedButtonRef.current) {
+      selectedButtonRef.current.scrollIntoView({
+        behavior: isFirstRender.current ? "auto" : "smooth",
+        inline: "center",
+        block: "nearest",
+      });
+      isFirstRender.current = false;
+    }
+  }, [selectedDate]);
+
+  // Chevrons navigate DAY by DAY (+1 day / -1 day)
+  const handlePrevDay = () => {
+    const prevDate = subDays(currentDate, 1);
+    onSelectDate(format(prevDate, "yyyy-MM-dd"));
   };
 
-  const handleNextWeek = () => {
-    const nextWeekDate = addWeeks(currentDate, 1);
-    onSelectDate(format(nextWeekDate, "yyyy-MM-dd"));
+  const handleNextDay = () => {
+    const nextDate = addDays(currentDate, 1);
+    onSelectDate(format(nextDate, "yyyy-MM-dd"));
   };
 
   const handleGoToday = () => {
@@ -41,8 +84,8 @@ export const HorizontalDatePicker: React.FC<HorizontalDatePickerProps> = ({
   };
 
   return (
-    <div className="w-full px-2 py-1 select-none space-y-1">
-      {/* Top Header: Month dropdown button + Prev/Next week navigation + Today button */}
+    <div className="w-full px-2 py-1 select-none space-y-1.5">
+      {/* Top Header: Month dropdown button + Prev/Next DAY navigation + Today button */}
       <div className="flex items-center justify-between px-1">
         {/* Clickable Month & Year with Chevron to toggle Vertical Month Calendar */}
         <button
@@ -56,7 +99,7 @@ export const HorizontalDatePicker: React.FC<HorizontalDatePickerProps> = ({
           <ChevronDown className="w-3.5 h-3.5 text-[#8E929E] group-hover:text-white transition-transform group-hover:translate-y-0.5" />
         </button>
 
-        {/* Right side: Today Button (if not on today) + Week Chevrons */}
+        {/* Right side: Today Button (if not on today) + Day Chevrons (-1j / +1j) */}
         <div className="flex items-center gap-1.5">
           {selectedDate !== todayStr && (
             <button
@@ -72,16 +115,16 @@ export const HorizontalDatePicker: React.FC<HorizontalDatePickerProps> = ({
           <div className="flex items-center p-0.5 bg-[#1A1C22] border border-[#2B2E38] rounded-xl">
             <button
               type="button"
-              onClick={handlePrevWeek}
-              title="Semaine précédente"
+              onClick={handlePrevDay}
+              title="Jour précédent (-1 jour)"
               className="p-1 text-[#8E929E] hover:text-white hover:bg-[#252830] rounded-lg transition-colors cursor-pointer"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
             <button
               type="button"
-              onClick={handleNextWeek}
-              title="Semaine suivante"
+              onClick={handleNextDay}
+              title="Jour suivant (+1 jour)"
               className="p-1 text-[#8E929E] hover:text-white hover:bg-[#252830] rounded-lg transition-colors cursor-pointer"
             >
               <ChevronRight className="w-4 h-4" />
@@ -90,21 +133,30 @@ export const HorizontalDatePicker: React.FC<HorizontalDatePickerProps> = ({
         </div>
       </div>
 
-      {/* 7-Day Horizontal Week Strip */}
-      <div className="w-full flex items-center justify-between gap-1 py-1">
-        {weekDays.map((day) => {
+      {/* Freely Scrollable Horizontal Days Strip */}
+      <div
+        ref={scrollContainerRef}
+        className="w-full flex items-center gap-1.5 py-1 overflow-x-auto scrollbar-none touch-pan-x overscroll-x-contain"
+        style={{
+          scrollbarWidth: "none",
+          msOverflowStyle: "none",
+          WebkitOverflowScrolling: "touch",
+        }}
+      >
+        {daysList.map((day) => {
           const isSelected = day.dateStr === selectedDate;
 
           return (
             <button
               key={day.dateStr}
+              ref={isSelected ? selectedButtonRef : null}
               type="button"
               onClick={() => onSelectDate(day.dateStr)}
               className={cn(
-                "flex-1 flex flex-col items-center justify-center py-2 px-1 rounded-2xl transition-all duration-200 cursor-pointer text-center",
+                "flex-shrink-0 min-w-[50px] w-[50px] flex flex-col items-center justify-center py-2 px-1 rounded-2xl transition-all duration-200 cursor-pointer text-center select-none",
                 isSelected
                   ? "bg-[#252830] ring-1 ring-[#3a3e4c] shadow-lg scale-[1.04]"
-                  : "hover:bg-[#1c1d22]/80 opacity-70 hover:opacity-100"
+                  : "hover:bg-[#1c1d22]/80 opacity-70 hover:opacity-100 bg-[#16171C]/50"
               )}
             >
               <span
