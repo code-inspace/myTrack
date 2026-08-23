@@ -1,8 +1,6 @@
 import { UserSession } from "./types";
 import { createClient } from "@/utils/supabase/client";
 
-const SESSION_KEY = "mytrack_current_user_v1";
-
 export const DEMO_USER: UserSession = {
   id: "00000000-0000-0000-0000-000000000001",
   email: "demo@de.mo",
@@ -11,26 +9,50 @@ export const DEMO_USER: UserSession = {
   createdAt: "2026-01-01T00:00:00.000Z",
 };
 
+export function mapSupabaseUserToSession(sbUser: any): UserSession {
+  const email = sbUser.email || "";
+  const isDemo = email.toLowerCase() === "demo@de.mo" || sbUser.id === DEMO_USER.id;
+
+  return {
+    id: sbUser.id,
+    email: email,
+    name: sbUser.user_metadata?.name || email.split("@")[0] || "Utilisateur",
+    avatarUrl: sbUser.user_metadata?.avatar_url || null,
+    isDemo,
+    createdAt: sbUser.created_at || new Date().toISOString(),
+  };
+}
+
+export async function getActiveSession(): Promise<UserSession | null> {
+  try {
+    const supabase = createClient();
+    const { data, error } = await supabase.auth.getSession();
+    if (!error && data?.session?.user) {
+      return mapSupabaseUserToSession(data.session.user);
+    }
+  } catch (err) {
+    console.warn("Supabase getSession error:", err);
+  }
+  return null;
+}
+
 export function getStoredUserSession(): UserSession {
   if (typeof window === "undefined") return DEMO_USER;
-  const stored = localStorage.getItem(SESSION_KEY);
-  if (!stored) {
-    localStorage.setItem(SESSION_KEY, JSON.stringify(DEMO_USER));
-    return DEMO_USER;
+  const stored = localStorage.getItem("mytrack_current_user_v1");
+  if (stored) {
+    try {
+      return JSON.parse(stored);
+    } catch {}
   }
-  try {
-    return JSON.parse(stored);
-  } catch {
-    return DEMO_USER;
-  }
+  return DEMO_USER;
 }
 
 export function setStoredUserSession(user: UserSession | null): void {
   if (typeof window === "undefined") return;
   if (!user) {
-    localStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem("mytrack_current_user_v1");
   } else {
-    localStorage.setItem(SESSION_KEY, JSON.stringify(user));
+    localStorage.setItem("mytrack_current_user_v1", JSON.stringify(user));
   }
 }
 
@@ -40,49 +62,36 @@ export async function loginWithCredentials(
 ): Promise<{ success: boolean; user?: UserSession; error?: string }> {
   const normalizedEmail = email.trim().toLowerCase();
 
-  // 1. Compte Démo : demo@de.mo / demo
-  if (normalizedEmail === "demo@de.mo") {
-    if (password !== "demo") {
-      return { success: false, error: "Mot de passe incorrect pour le compte démo (mot de passe: demo)" };
-    }
-    setStoredUserSession(DEMO_USER);
-    return { success: true, user: DEMO_USER };
-  }
-
-  // 2. Supabase Auth ou Compte Vierge Local
   try {
     const supabase = createClient();
     const { data, error } = await supabase.auth.signInWithPassword({
       email: normalizedEmail,
-      password,
+      password: password.trim(),
     });
 
-    if (!error && data?.user) {
-      const newUser: UserSession = {
-        id: data.user.id,
-        email: data.user.email || normalizedEmail,
-        name: data.user.user_metadata?.name || normalizedEmail.split("@")[0],
-        isDemo: false,
-        createdAt: data.user.created_at,
-      };
-      setStoredUserSession(newUser);
-      return { success: true, user: newUser };
+    if (error) {
+      // Message d'erreur convivial en français
+      if (error.message.includes("Invalid login credentials")) {
+        return {
+          success: false,
+          error: normalizedEmail === "demo@de.mo"
+            ? "Identifiants démo incorrects (mot de passe: demo)"
+            : "Email ou mot de passe incorrect.",
+        };
+      }
+      return { success: false, error: error.message };
     }
-  } catch {
-    // Si Supabase offline ou simulation
+
+    if (data?.user) {
+      const userSession = mapSupabaseUserToSession(data.user);
+      setStoredUserSession(userSession);
+      return { success: true, user: userSession };
+    }
+  } catch (err: any) {
+    return { success: false, error: err.message || "Erreur de connexion au serveur Supabase" };
   }
 
-  // Fallback direct compte vierge fonctionnel
-  const cleanUser: UserSession = {
-    id: "user-" + normalizedEmail.replace(/[^a-zA-Z0-9]/g, "_"),
-    email: normalizedEmail,
-    name: normalizedEmail.split("@")[0],
-    isDemo: false,
-    createdAt: new Date().toISOString(),
-  };
-
-  setStoredUserSession(cleanUser);
-  return { success: true, user: cleanUser };
+  return { success: false, error: "Impossible de créer la session" };
 }
 
 export async function signupWithCredentials(
@@ -92,51 +101,46 @@ export async function signupWithCredentials(
 ): Promise<{ success: boolean; user?: UserSession; error?: string }> {
   const normalizedEmail = email.trim().toLowerCase();
 
-  if (normalizedEmail === "demo@de.mo") {
-    return { success: false, error: "Le compte demo@de.mo existe déjà. Utilise l'écran de connexion." };
-  }
-
   try {
     const supabase = createClient();
     const { data, error } = await supabase.auth.signUp({
       email: normalizedEmail,
-      password,
+      password: password.trim(),
       options: {
-        data: { name: name || normalizedEmail.split("@")[0] },
+        data: {
+          name: name?.trim() || normalizedEmail.split("@")[0],
+        },
       },
     });
 
-    if (!error && data?.user) {
-      const newUser: UserSession = {
-        id: data.user.id,
-        email: data.user.email || normalizedEmail,
-        name: name || normalizedEmail.split("@")[0],
-        isDemo: false,
-        createdAt: data.user.created_at,
-      };
-      setStoredUserSession(newUser);
-      return { success: true, user: newUser };
+    if (error) {
+      if (error.message.includes("User already registered")) {
+        return { success: false, error: "Cette adresse email est déjà enregistrée. Connecte-toi." };
+      }
+      if (error.message.includes("Password should be")) {
+        return { success: false, error: "Le mot de passe doit comporter au moins 6 caractères." };
+      }
+      return { success: false, error: error.message };
     }
-  } catch {
-    // Fallback
+
+    if (data?.user) {
+      const userSession = mapSupabaseUserToSession(data.user);
+      setStoredUserSession(userSession);
+      return { success: true, user: userSession };
+    }
+  } catch (err: any) {
+    return { success: false, error: err.message || "Erreur d'inscription Supabase" };
   }
 
-  const cleanUser: UserSession = {
-    id: "user-" + normalizedEmail.replace(/[^a-zA-Z0-9]/g, "_"),
-    email: normalizedEmail,
-    name: name || normalizedEmail.split("@")[0],
-    isDemo: false,
-    createdAt: new Date().toISOString(),
-  };
-
-  setStoredUserSession(cleanUser);
-  return { success: true, user: cleanUser };
+  return { success: false, error: "Échec de l'inscription" };
 }
 
-export function logoutUser(): void {
+export async function logoutUser(): Promise<void> {
   setStoredUserSession(null);
   try {
     const supabase = createClient();
-    supabase.auth.signOut().catch(() => {});
-  } catch {}
+    await supabase.auth.signOut();
+  } catch (err) {
+    console.warn("Supabase signOut error:", err);
+  }
 }

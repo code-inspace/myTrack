@@ -3,13 +3,13 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { UserSession } from "@/features/auth/types";
 import {
-  getStoredUserSession,
-  setStoredUserSession,
+  mapSupabaseUserToSession,
   loginWithCredentials,
   signupWithCredentials,
   logoutUser,
   DEMO_USER,
 } from "@/features/auth/actions";
+import { createClient } from "@/utils/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 
 interface AuthContextType {
@@ -29,13 +29,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    const session = getStoredUserSession();
-    setUser(session);
-    setIsLoading(false);
-  }, []);
+    const supabase = createClient();
+
+    // 1. Check initial active Supabase Auth session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setUser(mapSupabaseUserToSession(session.user));
+      } else {
+        // Default to Demo user if no session is stored yet
+        setUser(DEMO_USER);
+      }
+      setIsLoading(false);
+    });
+
+    // 2. Real-time auth listener from Supabase
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        setUser(mapSupabaseUserToSession(session.user));
+      } else {
+        setUser(DEMO_USER);
+      }
+      queryClient.invalidateQueries();
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [queryClient]);
 
   const login = async (email: string, pass: string) => {
+    setIsLoading(true);
     const res = await loginWithCredentials(email, pass);
+    setIsLoading(false);
     if (res.success && res.user) {
       setUser(res.user);
       queryClient.invalidateQueries();
@@ -45,7 +72,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signup = async (email: string, pass: string, name?: string) => {
+    setIsLoading(true);
     const res = await signupWithCredentials(email, pass, name);
+    setIsLoading(false);
     if (res.success && res.user) {
       setUser(res.user);
       queryClient.invalidateQueries();
@@ -54,16 +83,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { success: false, error: res.error || "Erreur d'inscription" };
   };
 
-  const logout = () => {
-    logoutUser();
+  const logout = async () => {
+    await logoutUser();
     setUser(null);
     queryClient.invalidateQueries();
   };
 
-  const switchToDemo = () => {
-    setStoredUserSession(DEMO_USER);
-    setUser(DEMO_USER);
-    queryClient.invalidateQueries();
+  const switchToDemo = async () => {
+    await loginWithCredentials("demo@de.mo", "demo");
   };
 
   return (
