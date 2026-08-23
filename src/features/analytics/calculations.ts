@@ -109,7 +109,8 @@ export function calculateLast7DaysStatus(
   for (let i = 6; i >= 0; i--) {
     const dateObj = subDays(endDate, i);
     const dateStr = format(dateObj, "yyyy-MM-dd");
-    const dayName = format(dateObj, "EEE");
+    const FRENCH_DAY_SHORT = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
+    const dayName = FRENCH_DAY_SHORT[dateObj.getDay()];
 
     const scheduledTasks = tasks.filter((t) =>
       isTaskScheduledForDate(t.recurrence, t.recurrenceConfig, dateObj, t.createdAt)

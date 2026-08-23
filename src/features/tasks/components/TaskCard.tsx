@@ -2,7 +2,7 @@
 
 import React from "react";
 import { TaskWithCompletion } from "../types";
-import { Clock, Repeat, Play, Check, Plus, MoreVertical, Trash2 } from "lucide-react";
+import { Clock, Repeat, Play, Check, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import confetti from "canvas-confetti";
 
@@ -13,6 +13,14 @@ interface TaskCardProps {
   onOpenLogModal: (task: TaskWithCompletion) => void;
   onDeleteTask: (taskId: string) => void;
 }
+
+const RECURRENCE_LABEL_MAP: Record<string, string> = {
+  DAILY: "Quotidien",
+  WEEKDAYS: "Lun - Ven",
+  WEEKLY: "Hebdomadaire",
+  CUSTOM: "Personnalisé",
+  ONCE: "Une fois",
+};
 
 export const TaskCard: React.FC<TaskCardProps> = ({
   task,
@@ -30,7 +38,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   const handleCircleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!isCompleted) {
-      // Trigger subtle celebration burst
       confetti({
         particleCount: 25,
         spread: 50,
@@ -55,7 +62,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         <div className="flex items-center gap-3.5 flex-1 min-w-0">
           <button
             onClick={handleCircleClick}
-            aria-label={isCompleted ? "Mark incomplete" : "Mark complete"}
+            aria-label={isCompleted ? "Marquer comme non fait" : "Marquer comme fait"}
             className={cn(
               "w-6 h-6 rounded-full flex items-center justify-center transition-all cursor-pointer flex-shrink-0 border-2",
               isCompleted
@@ -90,7 +97,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 
               <div className="flex items-center gap-1">
                 <Repeat className="w-3 h-3 text-[#6B7280]" />
-                <span className="capitalize">{task.recurrence.toLowerCase()}</span>
+                <span>{RECURRENCE_LABEL_MAP[task.recurrence] || "Quotidien"}</span>
               </div>
             </div>
           </div>
@@ -120,14 +127,14 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               className="bg-[#282A30] hover:bg-white hover:text-black text-[#E5E7EB] active:scale-95 px-4 py-1.5 rounded-full font-semibold text-xs transition-all cursor-pointer flex items-center gap-1"
             >
               <Play className="w-3 h-3 fill-current" />
-              Start
+              Démarrer
             </button>
           )}
 
           {/* Delete action button on hover */}
           <button
             onClick={() => onDeleteTask(task.id)}
-            title="Delete task"
+            title="Supprimer la tâche"
             className="opacity-0 group-hover:opacity-100 p-1.5 text-[#6B7280] hover:text-[#F87171] transition-all rounded-lg hover:bg-[#282A30]"
           >
             <Trash2 className="w-3.5 h-3.5" />

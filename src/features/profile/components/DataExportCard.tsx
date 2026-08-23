@@ -11,7 +11,7 @@ export const DataExportCard: React.FC = () => {
   const handleExportTasks = () => {
     const tasks = getStoredTasks();
     const csv = generateTasksCSV(tasks);
-    downloadCSV("mytrack-tasks.csv", csv);
+    downloadCSV("mytrack-taches.csv", csv);
     flashDownloaded("tasks");
   };
 
@@ -19,7 +19,7 @@ export const DataExportCard: React.FC = () => {
     const tasks = getStoredTasks();
     const completions = getStoredCompletions();
     const csv = generateCompletionsCSV(completions, tasks);
-    downloadCSV("mytrack-completions.csv", csv);
+    downloadCSV("mytrack-accomplissements.csv", csv);
     flashDownloaded("completions");
   };
 
@@ -29,8 +29,8 @@ export const DataExportCard: React.FC = () => {
     const tasksCsv = generateTasksCSV(tasks);
     const compCsv = generateCompletionsCSV(completions, tasks);
 
-    const combinedCsv = `=== MYTRACK TASKS ===\r\n${tasksCsv}\r\n\r\n=== MYTRACK COMPLETIONS ===\r\n${compCsv}`;
-    downloadCSV("mytrack-all-data.csv", combinedCsv);
+    const combinedCsv = `=== MYTRACK TACHES ===\r\n${tasksCsv}\r\n\r\n=== MYTRACK ACCOMPLISSEMENTS ===\r\n${compCsv}`;
+    downloadCSV("mytrack-sauvegarde-totale.csv", combinedCsv);
     flashDownloaded("all");
   };
 
@@ -46,8 +46,8 @@ export const DataExportCard: React.FC = () => {
           <Database className="w-4 h-4" />
         </div>
         <div>
-          <h4 className="text-sm font-bold text-white">Data & Export</h4>
-          <p className="text-xs text-[#8E929E]">Export full history to standard CSV</p>
+          <h4 className="text-sm font-bold text-white">Données & Export</h4>
+          <p className="text-xs text-[#8E929E]">Exporter tout l'historique au format standard CSV</p>
         </div>
       </div>
 
@@ -57,8 +57,8 @@ export const DataExportCard: React.FC = () => {
           className="p-3 rounded-2xl bg-[#252830] hover:bg-[#343740] border border-[#343740] text-left transition-all active:scale-98 cursor-pointer flex items-center justify-between"
         >
           <div>
-            <div className="text-xs font-bold text-white">Tasks List</div>
-            <div className="text-[11px] text-[#8E929E]">tasks.csv</div>
+            <div className="text-xs font-bold text-white">Liste des tâches</div>
+            <div className="text-[11px] text-[#8E929E]">taches.csv</div>
           </div>
           {downloadedItem === "tasks" ? (
             <Check className="w-4 h-4 text-[#D4F63D]" />
@@ -72,8 +72,8 @@ export const DataExportCard: React.FC = () => {
           className="p-3 rounded-2xl bg-[#252830] hover:bg-[#343740] border border-[#343740] text-left transition-all active:scale-98 cursor-pointer flex items-center justify-between"
         >
           <div>
-            <div className="text-xs font-bold text-white">History & Logs</div>
-            <div className="text-[11px] text-[#8E929E]">completions.csv</div>
+            <div className="text-xs font-bold text-white">Historique & Logs</div>
+            <div className="text-[11px] text-[#8E929E]">accomplissements.csv</div>
           </div>
           {downloadedItem === "completions" ? (
             <Check className="w-4 h-4 text-[#D4F63D]" />
@@ -87,8 +87,8 @@ export const DataExportCard: React.FC = () => {
           className="p-3 rounded-2xl bg-[#252830] hover:bg-[#343740] border border-[#343740] text-left transition-all active:scale-98 cursor-pointer flex items-center justify-between"
         >
           <div>
-            <div className="text-xs font-bold text-white">Full Backup</div>
-            <div className="text-[11px] text-[#8E929E]">all-data.csv</div>
+            <div className="text-xs font-bold text-white">Export Complet</div>
+            <div className="text-[11px] text-[#8E929E]">sauvegarde.csv</div>
           </div>
           {downloadedItem === "all" ? (
             <Check className="w-4 h-4 text-[#D4F63D]" />

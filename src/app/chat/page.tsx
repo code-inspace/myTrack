@@ -24,7 +24,7 @@ export default function ChatPage() {
             <h1 className="text-sm font-bold text-white flex items-center gap-1.5">
               Coach IA MyTrack
               <span className="text-[10px] bg-[#D4F63D]/20 text-[#D4F63D] px-2 py-0.5 rounded-full font-bold">
-                Online
+                En ligne
               </span>
             </h1>
             <p className="text-[11px] text-[#8E929E]">

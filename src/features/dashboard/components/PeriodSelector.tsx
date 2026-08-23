@@ -14,9 +14,9 @@ export const PeriodSelector: React.FC<PeriodSelectorProps> = ({
   onChange,
 }) => {
   const options: { id: Period; label: string }[] = [
-    { id: "week", label: "This week" },
-    { id: "month", label: "This month" },
-    { id: "all", label: "All time" },
+    { id: "week", label: "Cette semaine" },
+    { id: "month", label: "Ce mois" },
+    { id: "all", label: "Tout le temps" },
   ];
 
   return (

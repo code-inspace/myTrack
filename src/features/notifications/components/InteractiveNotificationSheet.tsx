@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Bell, Check, X, Sparkles } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Bell, Check, X } from "lucide-react";
 import confetti from "canvas-confetti";
 
 interface InteractiveNotificationSheetProps {
@@ -20,8 +19,6 @@ export const InteractiveNotificationSheet: React.FC<InteractiveNotificationSheet
   onClose,
   onRespond,
 }) => {
-  const [selectedVal, setSelectedVal] = useState<number | null>(null);
-
   if (!isOpen) return null;
 
   const handleYes = () => {
@@ -59,7 +56,7 @@ export const InteractiveNotificationSheet: React.FC<InteractiveNotificationSheet
               <Bell className="w-3.5 h-3.5 fill-current" />
             </div>
             <span className="text-xs font-bold text-white tracking-wide uppercase">
-              MyTrack Reminder
+              Rappel MyTrack
             </span>
           </div>
 
@@ -74,21 +71,21 @@ export const InteractiveNotificationSheet: React.FC<InteractiveNotificationSheet
         {/* Question Content */}
         <div className="my-3.5">
           <p className="text-sm font-bold text-white leading-snug">
-            {question || `Have you completed your ${taskTitle}?`}
+            {question || `As-tu terminé ta session de ${taskTitle} ?`}
           </p>
           <p className="text-xs text-[#8E929E] mt-1">
-            Tap a quick action to log your progress directly
+            Touche une action pour enregistrer directement ta progression
           </p>
         </div>
 
-        {/* Interactive Action Buttons (YES / NO / Quantity) */}
+        {/* Interactive Action Buttons (OUI / NON / Quantité) */}
         <div className="grid grid-cols-2 gap-2 mt-4">
           <button
             onClick={handleYes}
             className="py-2.5 px-4 rounded-xl bg-[#D4F63D] hover:bg-[#c2e432] active:scale-95 text-black font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-md cursor-pointer transition-all"
           >
             <Check className="w-4 h-4 stroke-[3]" />
-            YES
+            OUI
           </button>
 
           <button
@@ -96,13 +93,13 @@ export const InteractiveNotificationSheet: React.FC<InteractiveNotificationSheet
             className="py-2.5 px-4 rounded-xl bg-[#252830] hover:bg-[#343740] active:scale-95 text-[#D1D5DB] font-semibold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all"
           >
             <X className="w-4 h-4" />
-            NO
+            NON
           </button>
         </div>
 
         {/* Quick quantitative chips */}
         <div className="flex items-center justify-between gap-1.5 mt-3 pt-3 border-t border-[#282A30]">
-          <span className="text-[11px] font-semibold text-[#8E929E]">Quick count:</span>
+          <span className="text-[11px] font-semibold text-[#8E929E]">Compte rapide :</span>
           <div className="flex gap-1.5">
             {[25, 50, 100].map((num) => (
               <button

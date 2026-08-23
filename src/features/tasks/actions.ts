@@ -4,13 +4,13 @@ import { getTodayDateString } from "@/lib/dates";
 const TASKS_STORAGE_KEY = "mytrack_tasks_v1";
 const COMPLETIONS_STORAGE_KEY = "mytrack_completions_v1";
 
-// Realistic initial seed data matching the UI screenshot exactly
+// Seed data initial réaliste en français
 export const INITIAL_SEED_TASKS: Task[] = [
   {
     id: "task-seed-1",
     userId: "user-demo",
-    title: "Morning workout",
-    description: "Daily stretch and bodyweight circuit",
+    title: "Entraînement matinal",
+    description: "Étirements et circuit au poids du corps",
     category: "Fitness",
     startTime: "05:30",
     endTime: "06:00",
@@ -18,7 +18,7 @@ export const INITIAL_SEED_TASKS: Task[] = [
     trackingType: "DURATION",
     targetValue: 30,
     unit: "min",
-    isActive: true, // Matching screenshot active task!
+    isActive: true, // Tâche active pour correspondre au design
     isArchived: false,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -26,8 +26,8 @@ export const INITIAL_SEED_TASKS: Task[] = [
   {
     id: "task-seed-2",
     userId: "user-demo",
-    title: "Push-ups",
-    description: "Daily chest and arms",
+    title: "Pompes",
+    description: "Séries quotidiennes pectoraux & bras",
     category: "Fitness",
     startTime: "05:30",
     endTime: "06:00",
@@ -43,7 +43,7 @@ export const INITIAL_SEED_TASKS: Task[] = [
   {
     id: "task-seed-3",
     userId: "user-demo",
-    title: "Read book",
+    title: "Lecture",
     description: "Atomic Habits & System design",
     category: "Learning",
     startTime: "05:30",
@@ -60,8 +60,8 @@ export const INITIAL_SEED_TASKS: Task[] = [
   {
     id: "task-seed-4",
     userId: "user-demo",
-    title: "Deep work session",
-    description: "Focused coding without distractions",
+    title: "Session Deep Work",
+    description: "Programmation ciblée sans distractions",
     category: "Productivity",
     startTime: "05:30",
     endTime: "06:00",
@@ -77,7 +77,6 @@ export const INITIAL_SEED_TASKS: Task[] = [
 ];
 
 export const INITIAL_SEED_COMPLETIONS: TaskCompletion[] = [
-  // Prior 4 days to give a real 4-day streak matching the screenshot!
   {
     id: "c-1",
     taskId: "task-seed-2",

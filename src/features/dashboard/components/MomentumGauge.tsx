@@ -28,7 +28,7 @@ export const MomentumGauge: React.FC<MomentumGaugeProps> = ({
           Momentum
         </h2>
         <div className="text-xs font-semibold text-[#D4F63D] mt-1 flex items-center gap-1">
-          <span>{delta >= 0 ? `+${delta}` : delta} from last week!</span>
+          <span>{delta >= 0 ? `+${delta}` : delta} vs semaine dernière !</span>
         </div>
       </div>
 

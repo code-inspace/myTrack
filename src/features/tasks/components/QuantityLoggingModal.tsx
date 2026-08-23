@@ -3,7 +3,6 @@
 import React, { useState } from "react";
 import { TaskWithCompletion } from "../types";
 import { X, Plus, Minus, Check } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 interface QuantityLoggingModalProps {
   task: TaskWithCompletion | null;
@@ -46,8 +45,8 @@ export const QuantityLoggingModal: React.FC<QuantityLoggingModalProps> = ({
           {task.title}
         </h3>
         <p className="text-xs text-[#8E929E] mb-6">
-          Record your progress for today
-          {task.targetValue ? ` (Target: ${task.targetValue} ${task.unit || ""})` : ""}
+          Enregistre ta progression d'aujourd'hui
+          {task.targetValue ? ` (Objectif : ${task.targetValue} ${task.unit || ""})` : ""}
         </p>
 
         {/* Big number counter */}
@@ -67,7 +66,7 @@ export const QuantityLoggingModal: React.FC<QuantityLoggingModalProps> = ({
               className="w-28 text-center text-4xl font-extrabold bg-transparent text-[#D4F63D] border-b border-[#343740] focus:border-[#D4F63D] focus:outline-none pb-1"
             />
             <span className="text-xs font-semibold text-[#8E929E] mt-1 uppercase tracking-wider">
-              {task.unit || "Units"}
+              {task.unit || "Unités"}
             </span>
           </div>
 
@@ -98,7 +97,7 @@ export const QuantityLoggingModal: React.FC<QuantityLoggingModalProps> = ({
           className="w-full py-3.5 rounded-2xl bg-[#D4F63D] hover:bg-[#c2e432] active:scale-[0.98] text-[#111214] font-bold text-sm flex items-center justify-center gap-2 shadow-lg transition-all"
         >
           <Check className="w-4 h-4 stroke-[3]" />
-          Save Progress
+          Valider la progression
         </button>
       </div>
     </div>

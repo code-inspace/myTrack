@@ -14,18 +14,17 @@ export const StreakGridCard: React.FC<StreakGridCardProps> = ({
   currentStreak = 4,
   days = [],
 }) => {
-  // If days empty, provide default representation
   const displayDays =
     days.length === 7
       ? days
       : [
-          { date: "1", dayName: "Thu", status: "completed" },
-          { date: "2", dayName: "Fri", status: "missed" },
-          { date: "3", dayName: "Sat", status: "missed" },
-          { date: "4", dayName: "Sun", status: "completed" },
-          { date: "5", dayName: "Mon", status: "completed" },
-          { date: "6", dayName: "Tue", status: "completed" },
-          { date: "7", dayName: "Wed", status: "completed" },
+          { date: "1", dayName: "Lun", status: "completed" },
+          { date: "2", dayName: "Mar", status: "completed" },
+          { date: "3", dayName: "Mer", status: "missed" },
+          { date: "4", dayName: "Jeu", status: "completed" },
+          { date: "5", dayName: "Ven", status: "completed" },
+          { date: "6", dayName: "Sam", status: "completed" },
+          { date: "7", dayName: "Dim", status: "completed" },
         ];
 
   return (
@@ -33,12 +32,12 @@ export const StreakGridCard: React.FC<StreakGridCardProps> = ({
       {/* Header: Title and Flame streak counter */}
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-base font-bold text-white tracking-tight">
-          Current streak
+          Série actuelle
         </h3>
 
         <div className="flex items-center gap-1.5 text-base font-bold text-[#F97316]">
           <Flame className="w-5 h-5 fill-[#F97316] text-[#F97316] animate-pulse" />
-          <span>{currentStreak} {currentStreak === 1 ? "day" : "days"}</span>
+          <span>{currentStreak} {currentStreak <= 1 ? "jour" : "jours"}</span>
         </div>
       </div>
 

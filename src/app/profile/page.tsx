@@ -60,7 +60,7 @@ export default function ProfilePage() {
       {/* Profile Header */}
       <header className="w-full text-center py-2">
         <h1 className="text-xl font-extrabold text-white tracking-tight">
-          Profile
+          Profil
         </h1>
       </header>
 
@@ -74,7 +74,7 @@ export default function ProfilePage() {
           <p className="text-xs text-[#8E929E]">axel@mytrack.app</p>
           <div className="inline-flex items-center gap-1 mt-1 text-[11px] font-semibold text-[#D4F63D] bg-[#D4F63D]/10 px-2 py-0.5 rounded-full">
             <ShieldCheck className="w-3 h-3" />
-            MyTrack Pro Active
+            MyTrack Pro Actif
           </div>
         </div>
       </div>
@@ -83,20 +83,20 @@ export default function ProfilePage() {
       <div className="grid grid-cols-3 gap-2.5">
         <div className="bg-[#1C1D22] border border-[#282A30] rounded-2xl p-3 text-center">
           <Flame className="w-5 h-5 text-[#F97316] mx-auto mb-1" />
-          <div className="text-lg font-extrabold text-white">{stats?.currentStreak ?? 4}d</div>
-          <div className="text-[10px] font-semibold text-[#8E929E]">Current Streak</div>
+          <div className="text-lg font-extrabold text-white">{stats?.currentStreak ?? 4}j</div>
+          <div className="text-[10px] font-semibold text-[#8E929E]">Série actuelle</div>
         </div>
 
         <div className="bg-[#1C1D22] border border-[#282A30] rounded-2xl p-3 text-center">
           <Trophy className="w-5 h-5 text-[#EAB308] mx-auto mb-1" />
-          <div className="text-lg font-extrabold text-white">{stats?.bestStreak ?? 7}d</div>
-          <div className="text-[10px] font-semibold text-[#8E929E]">Best Streak</div>
+          <div className="text-lg font-extrabold text-white">{stats?.bestStreak ?? 7}j</div>
+          <div className="text-[10px] font-semibold text-[#8E929E]">Meilleure série</div>
         </div>
 
         <div className="bg-[#1C1D22] border border-[#282A30] rounded-2xl p-3 text-center">
           <Award className="w-5 h-5 text-[#D4F63D] mx-auto mb-1" />
           <div className="text-lg font-extrabold text-white">{stats?.totalWins ?? 15}</div>
-          <div className="text-[10px] font-semibold text-[#8E929E]">Total Wins</div>
+          <div className="text-[10px] font-semibold text-[#8E929E]">Victoires</div>
         </div>
       </div>
 
@@ -120,7 +120,7 @@ export default function ProfilePage() {
           className="w-full py-3 rounded-2xl bg-[#252830] hover:bg-[#343740] text-[#F87171] font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
         >
           <RotateCcw className="w-4 h-4" />
-          Reset Demo Data to Defaults
+          Réinitialiser les données démo
         </button>
       </div>
 

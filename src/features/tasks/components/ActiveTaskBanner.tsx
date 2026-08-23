@@ -2,8 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { TaskWithCompletion } from "../types";
-import { Clock, Repeat, Square, Play, Sparkles } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Clock, Repeat, Square } from "lucide-react";
 
 interface ActiveTaskBannerProps {
   task: TaskWithCompletion;
@@ -12,10 +11,17 @@ interface ActiveTaskBannerProps {
   onOpenLogModal: (task: TaskWithCompletion) => void;
 }
 
+const RECURRENCE_LABEL_MAP: Record<string, string> = {
+  DAILY: "Quotidien",
+  WEEKDAYS: "Lun - Ven",
+  WEEKLY: "Hebdomadaire",
+  CUSTOM: "Personnalisé",
+  ONCE: "Une fois",
+};
+
 export const ActiveTaskBanner: React.FC<ActiveTaskBannerProps> = ({
   task,
   onStop,
-  onComplete,
   onOpenLogModal,
 }) => {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -63,7 +69,7 @@ export const ActiveTaskBanner: React.FC<ActiveTaskBannerProps> = ({
           className="bg-white text-[#111214] hover:bg-[#F3F4F6] active:scale-95 px-5 py-2 rounded-full font-bold text-sm shadow-md transition-all cursor-pointer flex items-center gap-1.5"
         >
           <Square className="w-3.5 h-3.5 fill-current" />
-          Stop
+          Arrêter
         </button>
       </div>
 
@@ -85,7 +91,7 @@ export const ActiveTaskBanner: React.FC<ActiveTaskBannerProps> = ({
             onClick={() => onOpenLogModal(task)}
             className="text-xs font-bold uppercase tracking-wider bg-black/10 hover:bg-black/15 active:scale-95 px-3 py-1.5 rounded-lg transition-all"
           >
-            + Log Progress
+            + Enregistrer
           </button>
         </div>
       )}
@@ -105,7 +111,7 @@ export const ActiveTaskBanner: React.FC<ActiveTaskBannerProps> = ({
 
           <div className="flex items-center gap-1.5">
             <Repeat className="w-3.5 h-3.5" />
-            <span className="capitalize">{task.recurrence.toLowerCase()}</span>
+            <span>{RECURRENCE_LABEL_MAP[task.recurrence] || "Quotidien"}</span>
           </div>
         </div>
 

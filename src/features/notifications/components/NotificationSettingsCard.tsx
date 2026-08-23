@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { NotificationPreference, CustomReminder } from "../types";
-import { Bell, Clock, Sparkles, Plus, Trash2 } from "lucide-react";
+import { Bell, Clock, Plus, Trash2 } from "lucide-react";
 import { requestNotificationPermission } from "@/lib/onesignal/client";
 
 interface NotificationSettingsCardProps {
@@ -44,8 +44,8 @@ export const NotificationSettingsCard: React.FC<NotificationSettingsCardProps> =
               <Bell className="w-4 h-4" />
             </div>
             <div>
-              <h4 className="text-sm font-bold text-white">Push Notifications</h4>
-              <p className="text-xs text-[#8E929E]">Enable device & browser notifications</p>
+              <h4 className="text-sm font-bold text-white">Notifications Push</h4>
+              <p className="text-xs text-[#8E929E]">Activer sur l'appareil et le navigateur</p>
             </div>
           </div>
 
@@ -65,7 +65,7 @@ export const NotificationSettingsCard: React.FC<NotificationSettingsCardProps> =
 
         <div className="pt-3 border-t border-[#282A30] space-y-3">
           <div className="flex items-center justify-between text-xs">
-            <span className="text-[#D1D5DB]">Morning Reminder (08:00)</span>
+            <span className="text-[#D1D5DB]">Rappel matinal (08:00)</span>
             <button
               onClick={() => handleToggle("morningReminder")}
               className={`w-9 h-5 rounded-full transition-colors relative cursor-pointer ${
@@ -81,7 +81,7 @@ export const NotificationSettingsCard: React.FC<NotificationSettingsCardProps> =
           </div>
 
           <div className="flex items-center justify-between text-xs">
-            <span className="text-[#D1D5DB]">Evening Recap (21:00)</span>
+            <span className="text-[#D1D5DB]">Bilan du soir (21:00)</span>
             <button
               onClick={() => handleToggle("eveningRecap")}
               className={`w-9 h-5 rounded-full transition-colors relative cursor-pointer ${
@@ -97,7 +97,7 @@ export const NotificationSettingsCard: React.FC<NotificationSettingsCardProps> =
           </div>
 
           <div className="flex items-center justify-between text-xs">
-            <span className="text-[#D1D5DB]">Streak Protector Alerts</span>
+            <span className="text-[#D1D5DB]">Alerte protection de streak</span>
             <button
               onClick={() => handleToggle("streakReminder")}
               className={`w-9 h-5 rounded-full transition-colors relative cursor-pointer ${
@@ -118,8 +118,8 @@ export const NotificationSettingsCard: React.FC<NotificationSettingsCardProps> =
       <div className="bg-[#1C1D22] border border-[#282A30] rounded-3xl p-5 shadow-sm">
         <div className="flex items-center justify-between mb-3">
           <div>
-            <h4 className="text-sm font-bold text-white">Interactive Reminders</h4>
-            <p className="text-xs text-[#8E929E]">Actionable prompts with direct YES/NO logging</p>
+            <h4 className="text-sm font-bold text-white">Rappels interactifs</h4>
+            <p className="text-xs text-[#8E929E]">Questions actionnables avec validation OUI/NON directe</p>
           </div>
 
           <button
@@ -142,7 +142,7 @@ export const NotificationSettingsCard: React.FC<NotificationSettingsCardProps> =
                   <Clock className="w-3 h-3" />
                   <span>{rem.time}</span>
                   <span>•</span>
-                  <span>{rem.taskTitle || "Habit"}</span>
+                  <span>{rem.taskTitle || "Habitude"}</span>
                 </div>
               </div>
 
@@ -151,7 +151,7 @@ export const NotificationSettingsCard: React.FC<NotificationSettingsCardProps> =
                   onClick={() => onTestNotification(rem)}
                   className="px-2.5 py-1 rounded-lg bg-[#D4F63D]/15 hover:bg-[#D4F63D]/25 text-[#D4F63D] font-bold text-[11px] cursor-pointer"
                 >
-                  Test
+                  Tester
                 </button>
                 <button
                   onClick={() => onDeleteReminder(rem.id)}

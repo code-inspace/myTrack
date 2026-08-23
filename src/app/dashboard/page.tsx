@@ -37,18 +37,18 @@ export default function DashboardPage() {
         <WaveChart data={stats?.momentumHistory || []} />
       </div>
 
-      {/* Two Metric Cards Side-by-Side: Avg Daily Completion (40%) & Total wins (15 of 20) */}
+      {/* Two Metric Cards Side-by-Side: Complétion moyenne (40%) & Victoires totales (15 sur 20) */}
       <div className="flex gap-3 w-full">
         <CircularMetricCard
-          title="Avg Daily Completion"
+          title="Complétion moyenne"
           valueText={`${stats?.completionRate ?? 40}%`}
           percentage={stats?.completionRate ?? 40}
         />
 
         <CircularMetricCard
-          title="Total wins"
+          title="Victoires totales"
           valueText={`${stats?.totalWins ?? 15}`}
-          subText={`of ${stats?.totalTargetWins ?? 20}`}
+          subText={`sur ${stats?.totalTargetWins ?? 20}`}
           percentage={
             stats && stats.totalTargetWins > 0
               ? Math.round((stats.totalWins / stats.totalTargetWins) * 100)

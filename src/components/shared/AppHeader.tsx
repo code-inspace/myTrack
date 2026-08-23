@@ -12,7 +12,7 @@ interface AppHeaderProps {
 }
 
 export const AppHeader: React.FC<AppHeaderProps> = ({
-  title = "My Tasks",
+  title = "Mes Tâches",
   subtitle,
   onOpenNotifications,
 }) => {

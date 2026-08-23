@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { TaskFormValues } from "../types";
 import { TASK_CATEGORIES, TRACKING_TYPE_OPTIONS, RECURRENCE_OPTIONS, DAYS_OF_WEEK } from "../options";
-import { X, Plus, Sparkles, Clock, Target, Calendar } from "lucide-react";
+import { X, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface TaskFormModalProps {
@@ -69,8 +69,8 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-[#282A30]">
           <div>
-            <h2 className="text-xl font-bold text-white">Create New Task</h2>
-            <p className="text-xs text-[#8E929E] mt-0.5">Define your daily habit or goal</p>
+            <h2 className="text-xl font-bold text-white">Créer une nouvelle tâche</h2>
+            <p className="text-xs text-[#8E929E] mt-0.5">Définis ton habitude ou ton objectif</p>
           </div>
           <button
             onClick={onClose}
@@ -84,12 +84,12 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
           {/* Task Name */}
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-[#8E929E] mb-2">
-              Task Name *
+              Nom de la tâche *
             </label>
             <input
               type="text"
               required
-              placeholder="e.g. Push-ups, Read 20 pages, Deep work..."
+              placeholder="ex: Pompes, Lire 20 pages, Deep work..."
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               className="w-full px-4 py-3 rounded-2xl bg-[#252830] border border-[#343740] focus:border-[#D4F63D] focus:ring-1 focus:ring-[#D4F63D] text-white text-sm outline-none transition-all placeholder-[#6B7280]"
@@ -99,7 +99,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
           {/* Category Picker */}
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-[#8E929E] mb-2">
-              Category
+              Catégorie
             </label>
             <div className="grid grid-cols-3 gap-2">
               {TASK_CATEGORIES.map((cat) => (
@@ -123,7 +123,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
           {/* Tracking Type */}
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-[#8E929E] mb-2">
-              Tracking Type
+              Type de suivi
             </label>
             <div className="grid grid-cols-2 gap-2">
               {TRACKING_TYPE_OPTIONS.map((t) => (
@@ -155,11 +155,11 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
             <div className="grid grid-cols-2 gap-3 p-4 rounded-2xl bg-[#252830]/80 border border-[#343740]">
               <div>
                 <label className="block text-xs font-semibold text-[#8E929E] mb-1.5">
-                  Target Value
+                  Objectif
                 </label>
                 <input
                   type="number"
-                  placeholder="e.g. 50"
+                  placeholder="ex: 50"
                   value={targetValue || ""}
                   onChange={(e) => setTargetValue(parseFloat(e.target.value) || undefined)}
                   className="w-full px-3 py-2.5 rounded-xl bg-[#1C1D22] border border-[#343740] text-white text-sm focus:border-[#D4F63D] outline-none"
@@ -168,11 +168,11 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
 
               <div>
                 <label className="block text-xs font-semibold text-[#8E929E] mb-1.5">
-                  Unit
+                  Unité
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. reps, min, pages"
+                  placeholder="ex: reps, min, pages"
                   value={unit}
                   onChange={(e) => setUnit(e.target.value)}
                   className="w-full px-3 py-2.5 rounded-xl bg-[#1C1D22] border border-[#343740] text-white text-sm focus:border-[#D4F63D] outline-none"
@@ -184,7 +184,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
           {/* Recurrence */}
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-[#8E929E] mb-2">
-              Recurrence
+              Récurrence
             </label>
             <div className="flex flex-wrap gap-2">
               {RECURRENCE_OPTIONS.map((rec) => (
@@ -233,7 +233,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-[#8E929E] mb-1.5">
-                Start Time
+                Heure de début
               </label>
               <input
                 type="time"
@@ -244,7 +244,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
             </div>
             <div>
               <label className="block text-xs font-semibold text-[#8E929E] mb-1.5">
-                End Time
+                Heure de fin
               </label>
               <input
                 type="time"
@@ -261,7 +261,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
             className="w-full py-4 rounded-2xl bg-[#D4F63D] hover:bg-[#c2e432] active:scale-[0.98] text-[#111214] font-bold text-base shadow-xl transition-all flex items-center justify-center gap-2 cursor-pointer mt-6"
           >
             <Plus className="w-5 h-5 stroke-[3]" />
-            Create Task
+            Créer la tâche
           </button>
         </form>
       </div>

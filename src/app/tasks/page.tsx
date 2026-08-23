@@ -64,7 +64,7 @@ export default function TasksPage() {
     <div className="flex-1 flex flex-col pb-8">
       {/* Top App Header */}
       <AppHeader
-        title="My Tasks"
+        title="Mes Tâches"
         onOpenNotifications={() => setIsTestNotificationOpen(true)}
       />
 
@@ -80,13 +80,13 @@ export default function TasksPage() {
       {/* Today Section */}
       <div className="mt-2 space-y-3.5">
         <div className="flex items-center justify-between px-1">
-          <h2 className="text-xl font-bold text-white tracking-tight">Today</h2>
+          <h2 className="text-xl font-bold text-white tracking-tight">Aujourd'hui</h2>
           <button
             onClick={() => setIsTaskModalOpen(true)}
             className="flex items-center gap-1 text-xs font-bold text-[#D4F63D] hover:underline cursor-pointer bg-[#1C1D22] px-3 py-1.5 rounded-full border border-[#282A30]"
           >
             <Plus className="w-3.5 h-3.5" />
-            New Task
+            Nouvelle tâche
           </button>
         </div>
 
@@ -98,7 +98,7 @@ export default function TasksPage() {
             </div>
             <input
               type="text"
-              placeholder="Task name"
+              placeholder="Nom de la tâche"
               value={quickTitle}
               onChange={(e) => setQuickTitle(e.target.value)}
               className="w-full pl-11 pr-4 py-3 rounded-2xl bg-[#1C1D22] border border-[#282A30] text-sm text-white focus:border-[#D4F63D] outline-none placeholder-[#6B7280] shadow-sm transition-all"
@@ -127,15 +127,15 @@ export default function TasksPage() {
           ) : tasks.length === 0 ? (
             <div className="p-8 text-center bg-[#1C1D22] border border-[#282A30] rounded-3xl my-4">
               <Inbox className="w-10 h-10 text-[#6B7280] mx-auto mb-2" />
-              <h4 className="text-base font-bold text-white">No tasks scheduled</h4>
+              <h4 className="text-base font-bold text-white">Aucune tâche programmée</h4>
               <p className="text-xs text-[#8E929E] mt-1 mb-4">
-                You have no active habits for this date.
+                Tu n'as aucune habitude active pour cette date.
               </p>
               <button
                 onClick={() => setIsTaskModalOpen(true)}
                 className="px-4 py-2 rounded-full bg-[#D4F63D] text-black font-bold text-xs"
               >
-                Create your first task
+                Créer ta première tâche
               </button>
             </div>
           ) : (
@@ -176,8 +176,8 @@ export default function TasksPage() {
       {/* Actionable Notification Simulation Sheet */}
       <InteractiveNotificationSheet
         isOpen={isTestNotificationOpen}
-        question="Have you done your push-ups today?"
-        taskTitle="Push-ups"
+        question="As-tu fait tes pompes aujourd'hui ?"
+        taskTitle="Pompes"
         onClose={() => setIsTestNotificationOpen(false)}
         onRespond={handleInteractiveResponse}
       />

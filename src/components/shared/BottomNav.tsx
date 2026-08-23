@@ -10,10 +10,10 @@ export const BottomNav: React.FC = () => {
   const pathname = usePathname();
 
   const navItems = [
-    { href: "/tasks", label: "Tasks", icon: ListTodo },
+    { href: "/tasks", label: "Tâches", icon: ListTodo },
     { href: "/dashboard", label: "Dashboard", icon: TrendingUp },
     { href: "/chat", label: "Coach IA", icon: MessageSquare },
-    { href: "/profile", label: "Profile", icon: User },
+    { href: "/profile", label: "Profil", icon: User },
   ];
 
   return (
