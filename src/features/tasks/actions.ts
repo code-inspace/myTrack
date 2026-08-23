@@ -156,8 +156,11 @@ export async function createDbTask(task: Omit<Task, "id" | "createdAt" | "update
     _reminderTimes: task.reminderTimes || ["11:00", "18:00"],
   };
 
-  const utcStartTime = task.startTime ? convertLocalTimeToUtc(task.startTime) : null;
-  const utcEndTime = task.endTime ? convertLocalTimeToUtc(task.endTime) : null;
+  const taskDate = (task as any).date || getTodayDateString();
+  const createdIso = taskDate ? `${taskDate}T12:00:00.000Z` : new Date().toISOString();
+
+  const utcStartTime = task.startTime ? convertLocalTimeToUtc(task.startTime, taskDate) : null;
+  const utcEndTime = task.endTime ? convertLocalTimeToUtc(task.endTime, taskDate) : null;
 
   const insertPayload: any = {
     user_id: targetId,
@@ -175,6 +178,7 @@ export async function createDbTask(task: Omit<Task, "id" | "createdAt" | "update
     is_active: false,
     started_at: null,
     is_archived: false,
+    created_at: createdIso,
   };
 
   try {
@@ -199,7 +203,6 @@ export async function createDbTask(task: Omit<Task, "id" | "createdAt" | "update
   }
 
   // Local fallback
-  const nowIso = new Date().toISOString();
   const createdLocal: Task = {
     id: "task-" + Date.now(),
     userId: targetId,
@@ -220,8 +223,8 @@ export async function createDbTask(task: Omit<Task, "id" | "createdAt" | "update
     isActive: false,
     startedAt: null,
     isArchived: false,
-    createdAt: nowIso,
-    updatedAt: nowIso,
+    createdAt: createdIso,
+    updatedAt: new Date().toISOString(),
   };
   const current = getStoredTasks(targetId);
   const updated = [createdLocal, ...current];
@@ -261,13 +264,16 @@ export async function updateDbTask(
   if (updates.title !== undefined) dbUpdates.title = updates.title;
   if (updates.description !== undefined) dbUpdates.description = updates.description || null;
   if (updates.category !== undefined) dbUpdates.category = updates.category;
-  if (updates.startTime !== undefined) dbUpdates.start_time = updates.startTime ? convertLocalTimeToUtc(updates.startTime) : null;
-  if (updates.endTime !== undefined) dbUpdates.end_time = updates.endTime ? convertLocalTimeToUtc(updates.endTime) : null;
+  if (updates.startTime !== undefined) dbUpdates.start_time = updates.startTime ? convertLocalTimeToUtc(updates.startTime, updates.date) : null;
+  if (updates.endTime !== undefined) dbUpdates.end_time = updates.endTime ? convertLocalTimeToUtc(updates.endTime, updates.date) : null;
   if (updates.recurrence !== undefined) dbUpdates.recurrence = updates.recurrence;
   if (updates.recurrenceConfig !== undefined) dbUpdates.recurrence_config = updates.recurrenceConfig;
   if (updates.trackingType !== undefined) dbUpdates.tracking_type = updates.trackingType;
   if (updates.targetValue !== undefined) dbUpdates.target_value = updates.targetValue;
   if (updates.unit !== undefined) dbUpdates.unit = updates.unit || null;
+  if (updates.date !== undefined && (updates.recurrence === "ONCE" || target?.recurrence === "ONCE")) {
+    dbUpdates.created_at = `${updates.date}T12:00:00.000Z`;
+  }
 
   try {
     const { data, error } = await supabase

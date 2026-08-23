@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Task, TaskFormValues, TaskWithCompletion } from "../types";
 import { TASK_CATEGORIES, TRACKING_TYPE_OPTIONS, RECURRENCE_OPTIONS, DAYS_OF_WEEK } from "../options";
+import { getTodayDateString } from "@/lib/dates";
 import {
   X,
   Plus,
@@ -76,7 +77,9 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("10:00");
   const [recurrence, setRecurrence] = useState<"ONCE" | "DAILY" | "WEEKDAYS" | "WEEKLY" | "CUSTOM">("ONCE");
-  const [selectedDays, setSelectedDays] = useState<number[]>([1, 2, 3, 4, 5]);
+  const [selectedDays, setSelectedDays] = useState<number[]>([1, 2, 3, 4, 5]);  const [targetDate, setTargetDate] = useState<string>(() => {
+    return (initialTask as any)?.date || (initialTask?.createdAt ? initialTask.createdAt.split("T")[0] : getTodayDateString());
+  });
 
   // Notifications & Reminders State
   const [enableReminders, setEnableReminders] = useState<boolean>(true);
@@ -119,6 +122,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
           initialTask.endTime ||
             (initialTask.startTime ? addHoursToTimeString(initialTask.startTime, 1) : "10:00")
         );
+        setTargetDate((initialTask as any)?.date || (initialTask?.createdAt ? initialTask.createdAt.split("T")[0] : getTodayDateString()));
         setRecurrence(initialTask.recurrence || "ONCE");
         setSelectedDays(initialTask.recurrenceConfig?.days || [1, 2, 3, 4, 5]);
         setEnableReminders(initialTask.enableReminders !== undefined ? initialTask.enableReminders : true);
@@ -138,6 +142,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
         setHasScheduledTime(false);
         setStartTime("09:00");
         setEndTime("10:00");
+        setTargetDate(getTodayDateString());
         setRecurrence("ONCE");
         setSelectedDays([1, 2, 3, 4, 5]);
         setEnableReminders(true);
@@ -188,6 +193,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
         unit: trackingType !== "BOOLEAN" ? (unit || "reps") : undefined,
         startTime: hasScheduledTime && startTime ? startTime : undefined,
         endTime: hasScheduledTime && endTime ? endTime : undefined,
+        date: targetDate,
         recurrence,
         recurrenceConfig: recurrence === "CUSTOM" ? { days: selectedDays } : undefined,
         enableReminders,
@@ -270,6 +276,24 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-xl bg-[#252830]/60 border border-[#343740] focus:border-[#D4F63D] text-xs text-white outline-none transition-all placeholder-[#6B7280]"
+            />
+          </div>
+
+          {/* Date Picker Field */}
+          <div className="p-3 rounded-2xl bg-[#22242B] border border-[#2F323E] flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <CalendarDays className="w-4 h-4 text-[#D4F63D]" />
+              <div>
+                <div className="text-xs font-bold text-white">Date de la tâche</div>
+                <div className="text-[10px] text-[#8E929E]">Jour d'exécution ou départ</div>
+              </div>
+            </div>
+
+            <input
+              type="date"
+              value={targetDate}
+              onChange={(e) => setTargetDate(e.target.value)}
+              className="h-9 px-3 rounded-xl bg-[#252830] border border-[#343740] text-white text-xs font-mono font-bold focus:border-[#D4F63D] outline-none text-center cursor-pointer"
             />
           </div>
 

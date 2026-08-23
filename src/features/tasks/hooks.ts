@@ -53,16 +53,18 @@ export function useTasks(selectedDateStr: string) {
     };
   }, [userId, queryClient]);
 
-  const { data: allTasks = [], isLoading: isLoadingTasks } = useQuery({
+  const { data: allTasks = getStoredTasks(userId) } = useQuery({
     queryKey: ["tasks", userId],
     queryFn: async () => fetchTasks(userId),
-    staleTime: 1000 * 5,
+    initialData: () => getStoredTasks(userId),
+    staleTime: 1000 * 30,
   });
 
-  const { data: allCompletions = [], isLoading: isLoadingCompletions } = useQuery({
+  const { data: allCompletions = getStoredCompletions(userId) } = useQuery({
     queryKey: ["completions", userId],
     queryFn: async () => fetchCompletions(userId),
-    staleTime: 1000 * 5,
+    initialData: () => getStoredCompletions(userId),
+    staleTime: 1000 * 30,
   });
 
   const selectedDate = parseISO(selectedDateStr);
@@ -83,7 +85,7 @@ export function useTasks(selectedDateStr: string) {
     allTasks,
     allCompletions,
     activeTask,
-    isLoading: isLoadingTasks || isLoadingCompletions,
+    isLoading: false,
   };
 }
 

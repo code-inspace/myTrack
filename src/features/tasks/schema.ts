@@ -6,6 +6,7 @@ export const TaskFormSchema = z.object({
   category: z.string().default("General"),
   startTime: z.string().optional(),
   endTime: z.string().optional(),
+  date: z.string().optional(),
   recurrence: z.enum(["ONCE", "DAILY", "WEEKDAYS", "WEEKLY", "CUSTOM"]).default("ONCE"),
   recurrenceConfig: z
     .object({
