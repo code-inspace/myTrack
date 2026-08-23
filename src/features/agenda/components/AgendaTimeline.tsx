@@ -42,6 +42,13 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const [dragHoverMinute, setDragHoverMinute] = useState<number | null>(null);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [resizingState, setResizingState] = useState<{
+    taskId: string;
+    startMins: number;
+    currentHeight: number;
+  } | null>(null);
+
   const [currentTimeMinutes, setCurrentTimeMinutes] = useState(() => {
     const now = new Date();
     return now.getHours() * 60 + now.getMinutes();
@@ -112,9 +119,49 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
     );
   };
 
+  // Interactive Duration Resize Pointer Handler (5-min precision)
+  const handleStartResize = (e: React.PointerEvent, task: TaskWithCompletion) => {
+    e.preventDefault();
+    const startMins = parseTimeToMinutes(task.effectiveStartTime || task.startTime || "09:00");
+    const endMins = parseTimeToMinutes(task.effectiveEndTime || task.endTime || "10:00");
+    const initialHeight = Math.max(15, endMins - startMins);
+
+    const startY = e.clientY;
+    setResizingState({ taskId: task.id, startMins, currentHeight: initialHeight });
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      const deltaY = moveEvent.clientY - startY;
+      const rawHeight = initialHeight + deltaY;
+      const snappedDuration = Math.max(10, Math.round(rawHeight / 5) * 5);
+      setResizingState({ taskId: task.id, startMins, currentHeight: snappedDuration });
+    };
+
+    const handlePointerUp = (upEvent: PointerEvent) => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+
+      const deltaY = upEvent.clientY - startY;
+      const rawHeight = initialHeight + deltaY;
+      const finalDuration = Math.max(10, Math.round(rawHeight / 5) * 5);
+      const finalEndMins = startMins + finalDuration;
+
+      onMoveTaskToTime(
+        task.id,
+        formatMinutesToTime(startMins),
+        formatMinutesToTime(finalEndMins)
+      );
+
+      setResizingState(null);
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+  };
+
   return (
     <div
       ref={scrollContainerRef}
+      onClick={() => setSelectedTaskId(null)}
       className="flex-1 overflow-y-auto relative bg-[#0E0F12] select-none scroll-smooth pb-28"
     >
       {/* 24-Hour Grid Container */}
@@ -165,7 +212,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
             </div>
           )}
 
-          {/* Current Live Time Red Line (matching iOS Calendar) */}
+          {/* Current Live Time Red Line */}
           {isToday && (
             <div
               style={{ top: `${currentTimeMinutes}px` }}
@@ -176,7 +223,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
             </div>
           )}
 
-          {/* Timed Task Blocks placed absolutely */}
+          {/* Timed Task Blocks */}
           {tasks.map((task) => {
             const startTimeStr = task.effectiveStartTime || task.startTime;
             if (!startTimeStr) return null;
@@ -187,17 +234,26 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
               ? parseTimeToMinutes(endTimeStr)
               : startMins + 60;
 
-            const durationMins = Math.max(25, endMins - startMins);
+            const defaultDuration = Math.max(15, endMins - startMins);
+            const isCurrentlyResizing = resizingState?.taskId === task.id;
+            const activeHeight = isCurrentlyResizing
+              ? resizingState.currentHeight
+              : defaultDuration;
 
             return (
               <AgendaTaskBlock
                 key={task.id}
                 task={task}
                 topOffsetPx={startMins}
-                heightPx={durationMins}
+                heightPx={activeHeight}
+                isSelected={selectedTaskId === task.id || isCurrentlyResizing}
                 onToggleComplete={onToggleComplete}
                 onDragStart={onDragStartTask}
-                onClick={() => onSelectTask?.(task)}
+                onClick={() => {
+                  setSelectedTaskId(task.id);
+                  onSelectTask?.(task);
+                }}
+                onStartResize={handleStartResize}
               />
             );
           })}

@@ -155,7 +155,35 @@ export function useTaskMutations() {
         userId,
       });
     },
-    onSuccess: () => {
+    onMutate: async ({ taskId, date, startTime, endTime, applyToAll }) => {
+      await queryClient.cancelQueries({ queryKey: ["tasks", userId] });
+      const prevTasks = queryClient.getQueryData<Task[]>(["tasks", userId]);
+
+      queryClient.setQueryData<Task[]>(["tasks", userId], (old = []) =>
+        old.map((t) => {
+          if (t.id !== taskId) return t;
+          const isRecurring = t.recurrence && t.recurrence !== "ONCE";
+          if (isRecurring && !applyToAll) {
+            return {
+              ...t,
+              dateOverrides: {
+                ...(t.dateOverrides || {}),
+                [date]: { startTime, endTime },
+              },
+            };
+          }
+          return { ...t, startTime, endTime };
+        })
+      );
+
+      return { prevTasks };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.prevTasks) {
+        queryClient.setQueryData(["tasks", userId], context.prevTasks);
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
     },
   });

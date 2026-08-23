@@ -1,17 +1,19 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { TaskWithCompletion } from "@/features/tasks/types";
-import { CheckCircle2, Circle, Clock, Repeat } from "lucide-react";
+import { CheckCircle2, Circle, Repeat, GripHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface AgendaTaskBlockProps {
   task: TaskWithCompletion;
   topOffsetPx: number;
   heightPx: number;
+  isSelected?: boolean;
   onToggleComplete: (taskId: string) => void;
   onDragStart: (e: React.DragEvent, task: TaskWithCompletion) => void;
   onClick?: () => void;
+  onStartResize?: (e: React.PointerEvent, task: TaskWithCompletion) => void;
 }
 
 const CATEGORY_STYLES: Record<string, { bg: string; border: string; bar: string; text: string }> = {
@@ -57,9 +59,11 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
   task,
   topOffsetPx,
   heightPx,
+  isSelected = false,
   onToggleComplete,
   onDragStart,
   onClick,
+  onStartResize,
 }) => {
   const style = CATEGORY_STYLES[task.category] || CATEGORY_STYLES.General;
   const isRecurring = task.recurrence && task.recurrence !== "ONCE";
@@ -73,12 +77,15 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
       onClick={onClick}
       style={{
         top: `${topOffsetPx}px`,
-        height: `${Math.max(38, heightPx)}px`,
+        height: `${Math.max(30, heightPx)}px`,
       }}
       className={cn(
-        "absolute left-2 right-2 rounded-xl border p-2 flex flex-col justify-between shadow-md transition-all select-none cursor-grab active:cursor-grabbing hover:ring-1 hover:ring-white/20 z-10",
+        "absolute left-2 right-2 rounded-xl border p-2 flex flex-col justify-between shadow-md transition-all select-none cursor-grab active:cursor-grabbing z-10 group",
         style.bg,
         style.border,
+        isSelected
+          ? "ring-2 ring-[#D4F63D] shadow-2xl z-30 scale-[1.008] border-transparent"
+          : "hover:ring-1 hover:ring-white/20",
         task.isCompletedToday ? "opacity-60 bg-[#15161A] border-[#2A2D35]" : ""
       )}
     >
@@ -103,7 +110,7 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
           </div>
 
           <div className="flex items-center gap-2 mt-0.5 text-[10px] text-[#94A3B8] font-medium">
-            <span>
+            <span className="font-mono">
               {startTime}
               {endTime ? ` - ${endTime}` : ""}
             </span>
@@ -130,6 +137,20 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
           )}
         </button>
       </div>
+
+      {/* Interactive Bottom Resize Handle (Enabled on click / selection) */}
+      {isSelected && (
+        <div
+          onPointerDown={(e) => {
+            e.stopPropagation();
+            onStartResize?.(e, task);
+          }}
+          className="absolute bottom-0 inset-x-0 h-4 flex items-center justify-center cursor-ns-resize z-40 bg-gradient-to-t from-black/40 to-transparent rounded-b-xl hover:bg-[#D4F63D]/20 transition-colors"
+          title="Glisser pour modifier la durée"
+        >
+          <div className="w-8 h-1 bg-[#D4F63D] rounded-full shadow-md" />
+        </div>
+      )}
     </div>
   );
 };
