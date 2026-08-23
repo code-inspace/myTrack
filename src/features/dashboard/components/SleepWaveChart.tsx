@@ -1,10 +1,15 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { Moon, Sparkles, TrendingUp } from "lucide-react";
 import { format, subDays } from "date-fns";
 import { fr } from "date-fns/locale";
-import { getStoredSleepLog, computeSleepDuration, getNightSleepDuration } from "@/features/sleep/actions";
+import {
+  getStoredSleepLog,
+  computeSleepDuration,
+  getNightSleepDuration,
+  fetchSleepHistory,
+} from "@/features/sleep/actions";
 import { Period } from "@/features/dashboard/types";
 import { cn } from "@/lib/utils";
 
@@ -18,6 +23,17 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
   referenceDate,
 }) => {
   const FRENCH_DAYS_SHORT = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
+  const [syncVersion, setSyncVersion] = useState(0);
+
+  // Sync historical sleep logs from Supabase database
+  useEffect(() => {
+    const daysCount = period === "week" ? 7 : period === "month" ? 14 : 30;
+    fetchSleepHistory(daysCount + 5).then((logs) => {
+      if (logs && logs.length > 0) {
+        setSyncVersion((v) => v + 1);
+      }
+    });
+  }, [period, referenceDate]);
 
   const sleepData = useMemo(() => {
     const daysCount = period === "week" ? 7 : period === "month" ? 14 : 30;
@@ -85,7 +101,7 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
       averageText,
       averageHours,
     };
-  }, [period, referenceDate]);
+  }, [period, referenceDate, syncVersion]);
 
   const maxHours = 12; // Chart scale up to 12h
 
