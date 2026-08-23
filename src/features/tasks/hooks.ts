@@ -7,6 +7,7 @@ import {
   fetchTasks,
   fetchCompletions,
   createDbTask,
+  updateDbTask,
   updateDbTaskActive,
   updateTaskSchedule,
   upsertDbCompletion,
@@ -303,6 +304,25 @@ export function useTaskMutations() {
     },
   });
 
+  const updateTask = useMutation({
+    mutationFn: async ({
+      taskId,
+      values,
+    }: {
+      taskId: string;
+      values: Partial<TaskFormValues>;
+    }) => {
+      return updateDbTask(taskId, values, userId);
+    },
+    onSuccess: (updatedTask) => {
+      queryClient.setQueryData<Task[]>(["tasks", userId], (old = []) =>
+        old.map((t) => (t.id === updatedTask.id ? updatedTask : t))
+      );
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["completions"] });
+    },
+  });
+
   const deleteTask = useMutation({
     mutationFn: async (taskId: string) => {
       await deleteDbTask(taskId, userId);
@@ -317,6 +337,7 @@ export function useTaskMutations() {
 
   return {
     createTask,
+    updateTask,
     toggleTaskActive,
     updateSchedule,
     toggleCompletion,

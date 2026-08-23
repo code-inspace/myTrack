@@ -24,9 +24,13 @@ export default function TasksPage() {
   const [isTestNotificationOpen, setIsTestNotificationOpen] = useState(false);
 
   const { tasks, activeTask, isLoading } = useTasks(selectedDate);
+  const [editingTask, setEditingTask] = useState<TaskWithCompletion | null>(null);
+
   const {
     createTask,
+    updateTask,
     toggleTaskActive,
+    updateSchedule,
     toggleCompletion,
     updateCompletionValue,
     deleteTask,
@@ -57,8 +61,13 @@ export default function TasksPage() {
     setQuickTitle("");
   };
 
-  const handleCreateTask = (values: TaskFormValues) => {
-    createTask.mutate(values);
+  const handleCreateOrUpdateTask = (values: TaskFormValues, taskId?: string) => {
+    if (taskId) {
+      updateTask.mutate({ taskId, values });
+    } else {
+      createTask.mutate(values);
+    }
+    setEditingTask(null);
   };
 
   const handleInteractiveResponse = (action: "YES" | "NO" | "QUANTITY", value?: number) => {
@@ -153,6 +162,10 @@ export default function TasksPage() {
                   onToggleActive={(id) => toggleTaskActive.mutate(id)}
                   onToggleComplete={(id) => toggleCompletion.mutate({ taskId: id, date: selectedDate })}
                   onOpenLogModal={(t) => setSelectedLoggingTask(t)}
+                  onEditTask={(t) => {
+                    setEditingTask(t);
+                    setIsTaskModalOpen(true);
+                  }}
                   onDeleteTask={(id) => deleteTask.mutate(id)}
                 />
               ))
@@ -160,11 +173,15 @@ export default function TasksPage() {
         </div>
       </div>
 
-      {/* Task Creation Modal */}
+      {/* Task Creation & Edition Modal */}
       <TaskFormModal
         isOpen={isTaskModalOpen}
-        onClose={() => setIsTaskModalOpen(false)}
-        onSubmit={handleCreateTask}
+        initialTask={editingTask}
+        onClose={() => {
+          setIsTaskModalOpen(false);
+          setEditingTask(null);
+        }}
+        onSubmit={handleCreateOrUpdateTask}
       />
 
       {/* Quantity / Duration logging modal */}

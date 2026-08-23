@@ -16,11 +16,13 @@ export const AgendaView: React.FC = () => {
   const todayStr = getTodayDateString();
   const [selectedDate, setSelectedDate] = useState<string>(todayStr);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<TaskWithCompletion | null>(null);
   const [selectedLoggingTask, setSelectedLoggingTask] = useState<TaskWithCompletion | null>(null);
 
   const { tasks, allTasks, isLoading } = useTasks(selectedDate);
   const {
     createTask,
+    updateTask,
     updateSchedule,
     toggleCompletion,
     updateCompletionValue,
@@ -65,8 +67,13 @@ export const AgendaView: React.FC = () => {
     });
   };
 
-  const handleCreateTask = (values: TaskFormValues) => {
-    createTask.mutate(values);
+  const handleCreateOrUpdateTask = (values: TaskFormValues, taskId?: string) => {
+    if (taskId) {
+      updateTask.mutate({ taskId, values });
+    } else {
+      createTask.mutate(values);
+    }
+    setEditingTask(null);
   };
 
   return (
@@ -86,9 +93,8 @@ export const AgendaView: React.FC = () => {
           onDropToAllDay={handleDropToAllDay}
           onDragStartTask={handleDragStartTask}
           onSelectTask={(task) => {
-            if (task.trackingType === "NUMBER" || task.trackingType === "QUANTITY" || task.trackingType === "DURATION") {
-              setSelectedLoggingTask(task);
-            }
+            setEditingTask(task);
+            setIsTaskModalOpen(true);
           }}
         />
       </div>
@@ -102,9 +108,8 @@ export const AgendaView: React.FC = () => {
           onMoveTaskToTime={handleMoveTaskToTime}
           onDragStartTask={handleDragStartTask}
           onSelectTask={(task) => {
-            if (task.trackingType === "NUMBER" || task.trackingType === "QUANTITY" || task.trackingType === "DURATION") {
-              setSelectedLoggingTask(task);
-            }
+            setEditingTask(task);
+            setIsTaskModalOpen(true);
           }}
         />
       </div>
@@ -128,11 +133,15 @@ export const AgendaView: React.FC = () => {
         </div>
       </div>
 
-      {/* Task Creation Modal */}
+      {/* Task Creation & Edition Modal */}
       <TaskFormModal
         isOpen={isTaskModalOpen}
-        onClose={() => setIsTaskModalOpen(false)}
-        onSubmit={handleCreateTask}
+        initialTask={editingTask}
+        onClose={() => {
+          setIsTaskModalOpen(false);
+          setEditingTask(null);
+        }}
+        onSubmit={handleCreateOrUpdateTask}
       />
 
       {/* Quantity / Duration Modal */}

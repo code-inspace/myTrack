@@ -1,4 +1,4 @@
-import { Task, TaskCompletion } from "./types";
+import { Task, TaskCompletion, TaskFormValues } from "./types";
 import { getStoredUserSession, DEMO_USER } from "@/features/auth/actions";
 import { createClient } from "@/utils/supabase/client";
 
@@ -165,6 +165,66 @@ export async function createDbTask(task: Omit<Task, "id" | "createdAt" | "update
   }
 
   throw new Error("Impossible d'enregistrer la tâche sur Supabase");
+}
+
+export async function updateDbTask(
+  taskId: string,
+  updates: Partial<TaskFormValues>,
+  userId?: string
+): Promise<Task> {
+  const supabase = createClient();
+  let targetId = userId;
+  if (!targetId) {
+    const { data: { session } } = await supabase.auth.getSession();
+    targetId = session?.user?.id || getEffectiveUserId();
+  }
+
+  const nowIso = new Date().toISOString();
+  const dbUpdates: any = { updated_at: nowIso };
+
+  if (updates.title !== undefined) dbUpdates.title = updates.title;
+  if (updates.description !== undefined) dbUpdates.description = updates.description || null;
+  if (updates.category !== undefined) dbUpdates.category = updates.category;
+  if (updates.startTime !== undefined) dbUpdates.start_time = updates.startTime || null;
+  if (updates.endTime !== undefined) dbUpdates.end_time = updates.endTime || null;
+  if (updates.recurrence !== undefined) dbUpdates.recurrence = updates.recurrence;
+  if (updates.recurrenceConfig !== undefined) dbUpdates.recurrence_config = updates.recurrenceConfig;
+  if (updates.trackingType !== undefined) dbUpdates.tracking_type = updates.trackingType;
+  if (updates.targetValue !== undefined) dbUpdates.target_value = updates.targetValue;
+  if (updates.unit !== undefined) dbUpdates.unit = updates.unit || null;
+
+  try {
+    const { data, error } = await supabase
+      .from("tasks")
+      .update(dbUpdates)
+      .eq("id", taskId)
+      .select()
+      .single();
+
+    if (!error && data) {
+      const updated = mapDbTaskToModel(data);
+      const current = getStoredTasks(targetId);
+      const nextList = current.map((t) => (t.id === taskId ? updated : t));
+      saveStoredTasks(nextList, targetId);
+      return updated;
+    }
+  } catch (err) {
+    console.warn("Supabase updateDbTask error:", err);
+  }
+
+  // Local fallback
+  const tasks = getStoredTasks(targetId);
+  const target = tasks.find((t) => t.id === taskId);
+  if (!target) throw new Error("Task not found");
+
+  const updatedTask: Task = {
+    ...target,
+    ...updates,
+    updatedAt: nowIso,
+  };
+  const nextList = tasks.map((t) => (t.id === taskId ? updatedTask : t));
+  saveStoredTasks(nextList, targetId);
+  return updatedTask;
 }
 
 export async function updateDbTaskActive(taskId: string, isActive: boolean, userId?: string): Promise<void> {

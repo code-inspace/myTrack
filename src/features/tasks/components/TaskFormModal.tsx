@@ -1,22 +1,26 @@
 "use client";
 
-import React, { useState } from "react";
-import { TaskFormValues } from "../types";
+import React, { useState, useEffect } from "react";
+import { Task, TaskFormValues, TaskWithCompletion } from "../types";
 import { TASK_CATEGORIES, TRACKING_TYPE_OPTIONS, RECURRENCE_OPTIONS, DAYS_OF_WEEK } from "../options";
-import { X, Plus } from "lucide-react";
+import { X, Plus, Check, Edit3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface TaskFormModalProps {
   isOpen: boolean;
+  initialTask?: Task | TaskWithCompletion | null;
   onClose: () => void;
-  onSubmit: (values: TaskFormValues) => void;
+  onSubmit: (values: TaskFormValues, taskId?: string) => void;
 }
 
 export const TaskFormModal: React.FC<TaskFormModalProps> = ({
   isOpen,
+  initialTask,
   onClose,
   onSubmit,
 }) => {
+  const isEditing = Boolean(initialTask);
+
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("Fitness");
@@ -27,7 +31,32 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
   const [endTime, setEndTime] = useState("08:00");
   const [recurrence, setRecurrence] = useState<"ONCE" | "DAILY" | "WEEKDAYS" | "WEEKLY" | "CUSTOM">("DAILY");
   const [selectedDays, setSelectedDays] = useState<number[]>([1, 2, 3, 4, 5]);
-  const [reminderTime, setReminderTime] = useState("18:00");
+
+  useEffect(() => {
+    if (initialTask) {
+      setTitle(initialTask.title || "");
+      setDescription(initialTask.description || "");
+      setCategory(initialTask.category || "Fitness");
+      setTrackingType(initialTask.trackingType || "BOOLEAN");
+      setTargetValue(initialTask.targetValue || undefined);
+      setUnit(initialTask.unit || "");
+      setStartTime(initialTask.startTime || "07:00");
+      setEndTime(initialTask.endTime || "08:00");
+      setRecurrence(initialTask.recurrence || "DAILY");
+      setSelectedDays(initialTask.recurrenceConfig?.days || [1, 2, 3, 4, 5]);
+    } else {
+      setTitle("");
+      setDescription("");
+      setCategory("Fitness");
+      setTrackingType("BOOLEAN");
+      setTargetValue(undefined);
+      setUnit("");
+      setStartTime("07:00");
+      setEndTime("08:00");
+      setRecurrence("DAILY");
+      setSelectedDays([1, 2, 3, 4, 5]);
+    }
+  }, [initialTask, isOpen]);
 
   if (!isOpen) return null;
 
@@ -35,23 +64,22 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
     e.preventDefault();
     if (!title.trim()) return;
 
-    onSubmit({
-      title: title.trim(),
-      description: description.trim() || undefined,
-      category,
-      trackingType,
-      targetValue: trackingType !== "BOOLEAN" ? targetValue : undefined,
-      unit: trackingType !== "BOOLEAN" ? (unit || "reps") : undefined,
-      startTime: startTime || undefined,
-      endTime: endTime || undefined,
-      recurrence,
-      recurrenceConfig: recurrence === "CUSTOM" ? { days: selectedDays } : undefined,
-      reminderTime: reminderTime || undefined,
-    });
+    onSubmit(
+      {
+        title: title.trim(),
+        description: description.trim() || undefined,
+        category,
+        trackingType,
+        targetValue: trackingType !== "BOOLEAN" ? targetValue : undefined,
+        unit: trackingType !== "BOOLEAN" ? (unit || "reps") : undefined,
+        startTime: startTime || undefined,
+        endTime: endTime || undefined,
+        recurrence,
+        recurrenceConfig: recurrence === "CUSTOM" ? { days: selectedDays } : undefined,
+      },
+      initialTask?.id
+    );
 
-    // Reset and close
-    setTitle("");
-    setDescription("");
     onClose();
   };
 
@@ -69,12 +97,28 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-[#282A30]">
           <div>
-            <h2 className="text-xl font-bold text-white">Créer une nouvelle tâche</h2>
-            <p className="text-xs text-[#8E929E] mt-0.5">Définis ton habitude ou ton objectif</p>
+            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+              {isEditing ? (
+                <>
+                  <Edit3 className="w-5 h-5 text-[#D4F63D]" />
+                  <span>Modifier l'habitude</span>
+                </>
+              ) : (
+                <>
+                  <Plus className="w-5 h-5 text-[#D4F63D]" />
+                  <span>Créer une nouvelle tâche</span>
+                </>
+              )}
+            </h2>
+            <p className="text-xs text-[#8E929E] mt-0.5">
+              {isEditing
+                ? "Modifie les paramètres et enregistre dans Supabase"
+                : "Définis ton habitude ou ton objectif"}
+            </p>
           </div>
           <button
             onClick={onClose}
-            className="text-[#8E929E] hover:text-white p-2 rounded-full bg-[#252830] transition-colors"
+            className="text-[#8E929E] hover:text-white p-2 rounded-full bg-[#252830] transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -108,7 +152,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                   key={cat.id}
                   onClick={() => setCategory(cat.id)}
                   className={cn(
-                    "px-3 py-2 rounded-xl text-xs font-semibold border transition-all text-center truncate",
+                    "px-3 py-2 rounded-xl text-xs font-semibold border transition-all text-center truncate cursor-pointer",
                     category === cat.id
                       ? "bg-[#D4F63D]/15 border-[#D4F63D] text-[#D4F63D]"
                       : "bg-[#252830] border-[#343740] text-[#9CA3AF] hover:border-[#4B5563]"
@@ -137,7 +181,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                     if (t.id === "DURATION" && !targetValue) setTargetValue(30);
                   }}
                   className={cn(
-                    "p-3 rounded-2xl border text-left transition-all",
+                    "p-3 rounded-2xl border text-left transition-all cursor-pointer",
                     trackingType === t.id
                       ? "bg-[#D4F63D]/10 border-[#D4F63D] text-white ring-1 ring-[#D4F63D]"
                       : "bg-[#252830] border-[#343740] text-[#9CA3AF] hover:border-[#4B5563]"
@@ -193,7 +237,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                   key={rec.id}
                   onClick={() => setRecurrence(rec.id as any)}
                   className={cn(
-                    "px-3.5 py-1.5 rounded-xl text-xs font-semibold border transition-all",
+                    "px-3.5 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer",
                     recurrence === rec.id
                       ? "bg-[#D4F63D] text-black border-[#D4F63D] font-bold"
                       : "bg-[#252830] border-[#343740] text-[#D1D5DB] hover:border-[#4B5563]"
@@ -215,7 +259,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                       key={d.dayIndex}
                       onClick={() => toggleDay(d.dayIndex)}
                       className={cn(
-                        "w-9 h-9 rounded-full text-xs font-bold transition-all",
+                        "w-9 h-9 rounded-full text-xs font-bold transition-all cursor-pointer",
                         isSelected
                           ? "bg-[#D4F63D] text-black ring-2 ring-[#D4F63D]/40"
                           : "bg-[#252830] text-[#8E929E] hover:text-white"
@@ -260,8 +304,17 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
             type="submit"
             className="w-full py-4 rounded-2xl bg-[#D4F63D] hover:bg-[#c2e432] active:scale-[0.98] text-[#111214] font-bold text-base shadow-xl transition-all flex items-center justify-center gap-2 cursor-pointer mt-6"
           >
-            <Plus className="w-5 h-5 stroke-[3]" />
-            Créer la tâche
+            {isEditing ? (
+              <>
+                <Check className="w-5 h-5 stroke-[3]" />
+                Enregistrer les modifications
+              </>
+            ) : (
+              <>
+                <Plus className="w-5 h-5 stroke-[3]" />
+                Créer la tâche
+              </>
+            )}
           </button>
         </form>
       </div>

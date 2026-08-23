@@ -3,15 +3,19 @@
 import React, { useState } from "react";
 import { TasksHeaderWithNav } from "@/components/shared/TasksHeaderWithNav";
 import { HistoryTaskCard } from "./HistoryTaskCard";
+import { TaskFormModal } from "@/features/tasks/components/TaskFormModal";
 import { useTasks, useTaskMutations } from "@/features/tasks/hooks";
+import { TaskWithCompletion, TaskFormValues } from "@/features/tasks/types";
 import { getTodayDateString } from "@/lib/dates";
 import { TrendingUp, Inbox } from "lucide-react";
 
 export const HistoryView: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<string>(getTodayDateString());
+  const [editingTask, setEditingTask] = useState<TaskWithCompletion | null>(null);
 
   const { tasks, isLoading } = useTasks(selectedDate);
   const {
+    updateTask,
     toggleCompletion,
     startTaskExecution,
     finishTaskExecution,
@@ -20,6 +24,13 @@ export const HistoryView: React.FC = () => {
   const totalTasks = tasks.length;
   const completedTasks = tasks.filter((t) => t.isCompletedToday).length;
   const completionPercentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+  const handleUpdateTask = (values: TaskFormValues, taskId?: string) => {
+    if (taskId) {
+      updateTask.mutate({ taskId, values });
+    }
+    setEditingTask(null);
+  };
 
   return (
     <div className="flex-1 flex flex-col h-full bg-[#0E0F12] pb-24 overflow-y-auto">
@@ -77,11 +88,20 @@ export const HistoryView: React.FC = () => {
                 onStartTask={(taskId) => startTaskExecution.mutate({ taskId, date: selectedDate })}
                 onFinishTask={(taskId) => finishTaskExecution.mutate({ taskId, date: selectedDate })}
                 onToggleComplete={(taskId) => toggleCompletion.mutate({ taskId, date: selectedDate })}
+                onEditTask={(t) => setEditingTask(t)}
               />
             ))
           )}
         </div>
       </div>
+
+      {/* Task Edit Modal */}
+      <TaskFormModal
+        isOpen={Boolean(editingTask)}
+        initialTask={editingTask}
+        onClose={() => setEditingTask(null)}
+        onSubmit={handleUpdateTask}
+      />
     </div>
   );
 };

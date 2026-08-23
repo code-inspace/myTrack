@@ -2,7 +2,7 @@
 
 import React from "react";
 import { TaskWithCompletion } from "../types";
-import { Clock, Repeat, Play, Check, Plus, Trash2 } from "lucide-react";
+import { Clock, Repeat, Play, Check, Plus, Trash2, Edit3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import confetti from "canvas-confetti";
 
@@ -11,6 +11,7 @@ interface TaskCardProps {
   onToggleActive: (taskId: string) => void;
   onToggleComplete: (taskId: string) => void;
   onOpenLogModal: (task: TaskWithCompletion) => void;
+  onEditTask?: (task: TaskWithCompletion) => void;
   onDeleteTask: (taskId: string) => void;
 }
 
@@ -27,6 +28,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   onToggleActive,
   onToggleComplete,
   onOpenLogModal,
+  onEditTask,
   onDeleteTask,
 }) => {
   const isCompleted = task.isCompletedToday;
@@ -59,7 +61,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           : "bg-[#1C1D22] hover:bg-[#22242B] border-[#282A30] hover:border-[#383C48]"
       )}
     >
-      {/* Level 1: Full Title Header with Check Circle on Left and Delete on Right */}
+      {/* Level 1: Full Title Header with Check Circle on Left and Actions on Right */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3 flex-1 min-w-0">
           <button
@@ -75,10 +77,14 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             {isCompleted && <Check className="w-3.5 h-3.5 stroke-[3.5]" />}
           </button>
 
-          <div className="flex-1 min-w-0">
+          <div
+            className="flex-1 min-w-0 cursor-pointer"
+            onClick={() => onEditTask && onEditTask(task)}
+            title="Cliquer pour éditer cette habitude"
+          >
             <h4
               className={cn(
-                "text-base font-bold transition-colors leading-tight text-white break-words",
+                "text-base font-bold transition-colors leading-tight text-white break-words hover:text-[#D4F63D]",
                 isCompleted ? "text-[#8E929E] line-through" : "text-[#F3F4F6]"
               )}
             >
@@ -93,14 +99,26 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           </div>
         </div>
 
-        {/* Delete action button */}
-        <button
-          onClick={() => onDeleteTask(task.id)}
-          title="Supprimer la tâche"
-          className="p-1 text-[#6B7280] hover:text-[#EF4444] transition-colors rounded-lg hover:bg-[#282A30] cursor-pointer flex-shrink-0"
-        >
-          <Trash2 className="w-4 h-4" />
-        </button>
+        {/* Action icons: Edit & Delete */}
+        <div className="flex items-center gap-1 flex-shrink-0">
+          {onEditTask && (
+            <button
+              onClick={() => onEditTask(task)}
+              title="Modifier l'habitude"
+              className="p-1 text-[#8E929E] hover:text-[#D4F63D] transition-colors rounded-lg hover:bg-[#282A30] cursor-pointer"
+            >
+              <Edit3 className="w-3.5 h-3.5" />
+            </button>
+          )}
+
+          <button
+            onClick={() => onDeleteTask(task.id)}
+            title="Supprimer la tâche"
+            className="p-1 text-[#6B7280] hover:text-[#EF4444] transition-colors rounded-lg hover:bg-[#282A30] cursor-pointer"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
 
       {/* Level 2: Metadata Badges (Hours, Recurrence, Category) & Action Controls */}

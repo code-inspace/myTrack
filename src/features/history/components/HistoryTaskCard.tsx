@@ -11,6 +11,7 @@ interface HistoryTaskCardProps {
   onStartTask: (taskId: string) => void;
   onFinishTask: (taskId: string) => void;
   onToggleComplete: (taskId: string) => void;
+  onEditTask?: (task: TaskWithCompletion) => void;
 }
 
 export const HistoryTaskCard: React.FC<HistoryTaskCardProps> = ({
@@ -19,6 +20,7 @@ export const HistoryTaskCard: React.FC<HistoryTaskCardProps> = ({
   onStartTask,
   onFinishTask,
   onToggleComplete,
+  onEditTask,
 }) => {
   const completion = task.completion;
   const isCompleted = Boolean(completion?.completed || task.isCompletedToday);
@@ -43,7 +45,11 @@ export const HistoryTaskCard: React.FC<HistoryTaskCardProps> = ({
     >
       {/* Top row: Title and Status check */}
       <div className="flex items-start justify-between gap-3">
-        <div className="flex-1">
+        <div
+          className="flex-1 cursor-pointer"
+          onClick={() => onEditTask && onEditTask(task)}
+          title="Cliquer pour éditer cette tâche"
+        >
           <div className="flex items-center gap-2">
             <span className="text-xs px-2 py-0.5 rounded-md bg-[#252830] text-[#A0A4B0] font-semibold">
               {task.category || "Général"}
@@ -59,7 +65,7 @@ export const HistoryTaskCard: React.FC<HistoryTaskCardProps> = ({
 
           <h3
             className={cn(
-              "text-base font-bold mt-1 text-white leading-snug",
+              "text-base font-bold mt-1 text-white leading-snug hover:text-[#D4F63D] transition-colors",
               isCompleted ? "line-through text-[#8E929E]" : ""
             )}
           >
@@ -67,17 +73,31 @@ export const HistoryTaskCard: React.FC<HistoryTaskCardProps> = ({
           </h3>
         </div>
 
-        <button
-          type="button"
-          onClick={() => onToggleComplete(task.id)}
-          className="p-1 text-[#D4F63D] hover:scale-110 transition-transform cursor-pointer"
-        >
-          {isCompleted ? (
-            <CheckCircle2 className="w-5 h-5 fill-[#D4F63D]/20 text-[#D4F63D]" />
-          ) : (
-            <Circle className="w-5 h-5 text-[#8E929E]" />
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          {onEditTask && (
+            <button
+              type="button"
+              onClick={() => onEditTask(task)}
+              title="Modifier la tâche"
+              className="p-1 text-[#8E929E] hover:text-[#D4F63D] transition-colors rounded-lg hover:bg-[#252830] cursor-pointer"
+            >
+              <Clock className="w-4 h-4 hidden" />
+              <span className="text-xs font-semibold text-[#8E929E] hover:text-[#D4F63D]">Éditer</span>
+            </button>
           )}
-        </button>
+
+          <button
+            type="button"
+            onClick={() => onToggleComplete(task.id)}
+            className="p-1 text-[#D4F63D] hover:scale-110 transition-transform cursor-pointer"
+          >
+            {isCompleted ? (
+              <CheckCircle2 className="w-5 h-5 fill-[#D4F63D]/20 text-[#D4F63D]" />
+            ) : (
+              <Circle className="w-5 h-5 text-[#8E929E]" />
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Comparison Grid: Temps Prévu vs Temps Réel */}
