@@ -234,20 +234,35 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
 
             const startMins = parseTimeToMinutes(startTimeStr);
             const endTimeStr = task.effectiveEndTime !== undefined ? task.effectiveEndTime : task.endTime;
-            const endMins = endTimeStr
+            const isRunningNow = isToday && Boolean(task.isActive);
+
+            // If task is running now, dynamically stretch to current red bar (currentTimeMinutes)
+            const endMins = isRunningNow
+              ? Math.max(startMins + 10, currentTimeMinutes)
+              : endTimeStr
               ? parseTimeToMinutes(endTimeStr)
               : startMins + 60;
 
-            const defaultDuration = Math.max(15, endMins - startMins);
+            const defaultDuration = Math.max(
+              20,
+              isRunningNow ? currentTimeMinutes - startMins : endMins - startMins
+            );
             const isCurrentlyResizing = resizingState?.taskId === task.id;
             const activeHeight = isCurrentlyResizing
               ? resizingState.currentHeight
-              : defaultDuration;
+              : Math.max(24, defaultDuration);
+
+            const displayTask: TaskWithCompletion = isRunningNow
+              ? {
+                  ...task,
+                  effectiveEndTime: formatMinutesToTime(currentTimeMinutes),
+                }
+              : task;
 
             return (
               <AgendaTaskBlock
                 key={task.id}
-                task={task}
+                task={displayTask}
                 topOffsetPx={startMins}
                 heightPx={activeHeight}
                 isSelected={selectedTaskId === task.id || isCurrentlyResizing}

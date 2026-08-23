@@ -98,6 +98,9 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
         isSelected
           ? "ring-2 ring-[#D4F63D] shadow-2xl z-30 scale-[1.008] border-transparent"
           : "hover:ring-1 hover:ring-white/20",
+        task.isActive
+          ? "ring-1 ring-[#D4F63D] shadow-[0_0_15px_rgba(212,246,61,0.25)] border-[#D4F63D]/60 z-20"
+          : "",
         task.isCompletedToday ? "opacity-60 bg-[#15161A] border-[#2A2D35]" : ""
       )}
     >
@@ -108,6 +111,9 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
       <div className="pl-2.5 flex items-start justify-between gap-1 overflow-hidden">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
+            {task.isActive && (
+              <div className="w-2 h-2 rounded-full bg-[#D4F63D] animate-pulse flex-shrink-0" />
+            )}
             <h4
               className={cn(
                 "text-xs font-bold truncate text-white leading-tight",
@@ -124,7 +130,13 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
           <div className="flex items-center gap-2 mt-0.5 text-[10px] text-[#94A3B8] font-medium">
             <span className="font-mono">
               {startTime}
-              {endTime ? ` - ${endTime}` : ""}
+              {task.isActive ? (
+                <strong className="text-[#D4F63D] font-bold"> - En cours ({endTime || "maintenant"})</strong>
+              ) : endTime ? (
+                ` - ${endTime}`
+              ) : (
+                ""
+              )}
             </span>
             {task.category && (
               <span className={cn("px-1.5 py-0.2 rounded font-semibold", style.text)}>
