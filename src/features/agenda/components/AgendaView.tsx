@@ -18,7 +18,7 @@ export const AgendaView: React.FC = () => {
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [selectedLoggingTask, setSelectedLoggingTask] = useState<TaskWithCompletion | null>(null);
 
-  const { tasks, isLoading } = useTasks(selectedDate);
+  const { tasks, allTasks, isLoading } = useTasks(selectedDate);
   const {
     createTask,
     updateSchedule,
@@ -36,7 +36,7 @@ export const AgendaView: React.FC = () => {
   };
 
   const handleMoveTaskToTime = (taskId: string, startTime: string, endTime: string) => {
-    const task = tasks.find((t) => t.id === taskId);
+    const task = allTasks.find((t) => t.id === taskId) || tasks.find((t) => t.id === taskId);
     const isRecurring = task?.recurrence && task.recurrence !== "ONCE";
 
     updateSchedule.mutate({
@@ -49,7 +49,7 @@ export const AgendaView: React.FC = () => {
   };
 
   const handleDropToAllDay = (taskId: string) => {
-    const task = tasks.find((t) => t.id === taskId);
+    const task = allTasks.find((t) => t.id === taskId) || tasks.find((t) => t.id === taskId);
     const isRecurring = task?.recurrence && task.recurrence !== "ONCE";
 
     updateSchedule.mutate({

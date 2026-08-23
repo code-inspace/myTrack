@@ -31,19 +31,40 @@ export const AllDaySection: React.FC<AllDaySectionProps> = ({
 }) => {
   const [isOver, setIsOver] = useState(false);
 
-  const handleDragOver = (e: React.DragEvent) => {
+  const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     setIsOver(true);
   };
 
-  const handleDragLeave = () => {
-    setIsOver(false);
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = "move";
+    if (!isOver) setIsOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Only set isOver false if leaving the container itself
+    const currentTarget = e.currentTarget as HTMLElement;
+    const relatedTarget = e.relatedTarget as HTMLElement;
+    if (!currentTarget.contains(relatedTarget)) {
+      setIsOver(false);
+    }
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     setIsOver(false);
-    const taskId = e.dataTransfer.getData("text/plain") || e.dataTransfer.getData("taskId");
+
+    let taskId = e.dataTransfer.getData("taskId");
+    if (!taskId) {
+      taskId = e.dataTransfer.getData("text/plain");
+    }
+
     if (taskId) {
       onDropToAllDay(taskId);
     }
@@ -51,12 +72,15 @@ export const AllDaySection: React.FC<AllDaySectionProps> = ({
 
   return (
     <div
+      onDragEnter={handleDragEnter}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       className={cn(
-        "flex border-b border-[#23242A] min-h-[58px] transition-colors duration-200",
-        isOver ? "bg-[#D4F63D]/10 ring-2 ring-[#D4F63D] ring-inset" : "bg-[#141518]"
+        "flex border-b border-[#23242A] min-h-[58px] transition-all duration-200 select-none relative z-20",
+        isOver
+          ? "bg-[#D4F63D]/20 ring-2 ring-[#D4F63D] ring-inset shadow-[0_0_20px_rgba(212,246,61,0.2)]"
+          : "bg-[#141518]"
       )}
     >
       {/* Left label column (matching screenshot "Jour entier") */}
@@ -67,11 +91,12 @@ export const AllDaySection: React.FC<AllDaySectionProps> = ({
       </div>
 
       {/* Right container: horizontal flex wrap badge cards */}
-      <div className="flex-1 p-2 flex flex-wrap items-center gap-1.5 overflow-x-auto">
+      <div className="flex-1 p-2 flex flex-wrap items-center gap-2 overflow-x-auto">
         {tasks.length === 0 ? (
-          <span className="text-xs text-[#6B7280] italic px-2 py-1">
-            Glisse une tâche ici pour la journée entière
-          </span>
+          <div className="text-xs text-[#8E929E] italic px-2 py-1 flex items-center gap-1.5 pointer-events-none">
+            <Sparkles className="w-3.5 h-3.5 text-[#D4F63D]" />
+            <span>Glisse une tâche ici pour la journée entière</span>
+          </div>
         ) : (
           tasks.map((task) => {
             const style = CATEGORY_COLORS[task.category] || CATEGORY_COLORS.General;
@@ -80,15 +105,20 @@ export const AllDaySection: React.FC<AllDaySectionProps> = ({
               <div
                 key={task.id}
                 draggable
-                onDragStart={(e) => onDragStartTask(e, task)}
+                onDragStart={(e) => {
+                  e.dataTransfer.setData("text/plain", task.id);
+                  e.dataTransfer.setData("taskId", task.id);
+                  onDragStartTask(e, task);
+                }}
                 onClick={() => onSelectTask?.(task)}
                 className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold shadow-sm transition-all duration-200 cursor-grab active:cursor-grabbing",
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold shadow-sm transition-all duration-200 cursor-grab active:cursor-grabbing hover:scale-[1.03] hover:ring-1 hover:ring-white/30",
                   style.bg,
                   style.text,
                   style.border,
-                  task.isCompletedToday ? "opacity-60 line-through" : "hover:scale-[1.02]"
+                  task.isCompletedToday ? "opacity-60 line-through" : ""
                 )}
+                title="Glisse vers la timeline pour définir une heure"
               >
                 <button
                   type="button"

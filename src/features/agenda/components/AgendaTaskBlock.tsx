@@ -73,7 +73,11 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
   return (
     <div
       draggable
-      onDragStart={(e) => onDragStart(e, task)}
+      onDragStart={(e) => {
+        e.dataTransfer.setData("text/plain", task.id);
+        e.dataTransfer.setData("taskId", task.id);
+        onDragStart(e, task);
+      }}
       onClick={onClick}
       style={{
         top: `${topOffsetPx}px`,
