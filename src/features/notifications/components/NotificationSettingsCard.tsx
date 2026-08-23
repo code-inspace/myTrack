@@ -50,8 +50,31 @@ export const NotificationSettingsCard: React.FC<NotificationSettingsCardProps> =
         </div>
 
         {/* Universal Cross-Device Activation & Test Button */}
-        <div className="pt-1">
+        <div className="pt-1 space-y-2">
           <NotificationPermissionButton />
+
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                await fetch("/api/notifications/schedule", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    taskTitle: "Test Rappel Automatique",
+                    category: "General",
+                  }),
+                });
+                alert("Rappel OneSignal programmé avec succès !");
+              } catch (e: any) {
+                alert("Erreur: " + e.message);
+              }
+            }}
+            className="w-full py-2.5 px-3 rounded-xl bg-[#252830] hover:bg-[#2e323d] border border-[#343740] text-xs font-semibold text-[#D4F63D] flex items-center justify-center gap-2 cursor-pointer transition-all"
+          >
+            <Send className="w-3.5 h-3.5" />
+            <span>Tester la notification push OneSignal</span>
+          </button>
         </div>
 
         <div className="pt-3 border-t border-[#282A30] space-y-3">

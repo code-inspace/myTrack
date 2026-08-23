@@ -2,6 +2,7 @@ import { Task, TaskCompletion, TaskFormValues } from "./types";
 import { getStoredUserSession, DEMO_USER } from "@/features/auth/actions";
 import { createClient } from "@/utils/supabase/client";
 import { getTodayDateString, convertLocalTimeToUtc, convertUtcTimeToLocal } from "@/lib/dates";
+import { scheduleTaskPushNotification } from "@/lib/onesignal/client";
 
 const TASKS_STORAGE_PREFIX = "mytrack_tasks_";
 const COMPLETIONS_STORAGE_PREFIX = "mytrack_completions_";
@@ -193,6 +194,19 @@ export async function createDbTask(task: Omit<Task, "id" | "createdAt" | "update
       const current = getStoredTasks(targetId);
       const updated = [created, ...current.filter((t) => t.id !== created.id)];
       saveStoredTasks(updated, targetId);
+
+      if (created.enableReminders) {
+        scheduleTaskPushNotification({
+          userId: targetId,
+          taskTitle: created.title,
+          startTime: created.startTime,
+          reminderOffsetMinutes: created.reminderOffsetMinutes ?? 10,
+          reminderTimes: created.reminderTimes || ["11:00", "18:00"],
+          date: taskDate,
+          category: created.category,
+        }).catch((e) => console.warn("scheduleTaskPushNotification note:", e));
+      }
+
       return created;
     }
     if (error) {
@@ -229,6 +243,19 @@ export async function createDbTask(task: Omit<Task, "id" | "createdAt" | "update
   const current = getStoredTasks(targetId);
   const updated = [createdLocal, ...current];
   saveStoredTasks(updated, targetId);
+
+  if (createdLocal.enableReminders) {
+    scheduleTaskPushNotification({
+      userId: targetId,
+      taskTitle: createdLocal.title,
+      startTime: createdLocal.startTime,
+      reminderOffsetMinutes: createdLocal.reminderOffsetMinutes ?? 10,
+      reminderTimes: createdLocal.reminderTimes || ["11:00", "18:00"],
+      date: taskDate,
+      category: createdLocal.category,
+    }).catch((e) => console.warn("scheduleTaskPushNotification note:", e));
+  }
+
   return createdLocal;
 }
 

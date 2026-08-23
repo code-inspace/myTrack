@@ -50,11 +50,35 @@ export async function getOneSignalUserId(): Promise<string | null | undefined> {
   }
 }
 
-export async function setOneSignalUserTag(key: string, value: string): Promise<void> {
-  if (typeof window === "undefined" || !isInitialized) return;
+export async function loginOneSignalUser(userId: string): Promise<void> {
+  if (typeof window === "undefined" || !userId || userId === "00000000-0000-0000-0000-000000000001") return;
   try {
-    OneSignal.User.addTag(key, value);
+    if (!isInitialized) {
+      await initOneSignal();
+    }
+    await OneSignal.login(userId);
+    console.log("OneSignal user logged in with external_id:", userId);
   } catch (err) {
-    console.warn("OneSignal tag error:", err);
+    console.warn("OneSignal login error:", err);
+  }
+}
+
+export async function scheduleTaskPushNotification(params: {
+  userId?: string;
+  taskTitle: string;
+  startTime?: string | null;
+  reminderOffsetMinutes?: number;
+  reminderTimes?: string[];
+  date?: string;
+  category?: string;
+}): Promise<void> {
+  try {
+    await fetch("/api/notifications/schedule", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(params),
+    });
+  } catch (err) {
+    console.warn("scheduleTaskPushNotification error:", err);
   }
 }

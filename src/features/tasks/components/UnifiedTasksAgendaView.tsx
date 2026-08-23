@@ -60,10 +60,11 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
     deleteTask,
   } = useTaskMutations();
 
-  // Active tasks for Habits view
-  const activeTasksMapped = tasks.filter((t) => t.isActive);
+  // Filter only recurring habits for the Habits view (recurrence !== "ONCE")
+  const isRecurringHabit = (t: TaskWithCompletion) => Boolean(t.recurrence && t.recurrence !== "ONCE");
+  const activeTasksMapped = tasks.filter((t) => t.isActive && isRecurringHabit(t));
 
-  // Separate all-day tasks vs timed tasks for Agenda view
+  // Separate all-day tasks vs timed tasks for Agenda view (shows all tasks scheduled for the date)
   const isTaskAllDay = (t: TaskWithCompletion) => {
     const time = t.effectiveStartTime !== undefined ? t.effectiveStartTime : t.startTime;
     return !time;
@@ -79,7 +80,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
       title: quickTitle.trim(),
       category: "General",
       trackingType: "BOOLEAN",
-      recurrence: "ONCE",
+      recurrence: "DAILY",
       date: selectedDate,
     });
     setQuickTitle("");
@@ -106,8 +107,8 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
     }
   };
 
-  // Reorder tasks according to custom drag-and-drop priority
-  const nonActiveTasks = tasks.filter((task) => !task.isActive);
+  // Reorder habits according to custom drag-and-drop priority
+  const nonActiveTasks = tasks.filter((task) => !task.isActive && isRecurringHabit(task));
   const orderedTasks = [...nonActiveTasks].sort((a, b) => {
     const aIndex = customOrder.indexOf(a.id);
     const bIndex = customOrder.indexOf(b.id);
@@ -264,9 +265,9 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
             {orderedTasks.length === 0 ? (
               <div className="p-8 text-center bg-[#1C1D22] border border-[#282A30] rounded-3xl my-4">
                 <Inbox className="w-10 h-10 text-[#6B7280] mx-auto mb-2" />
-                <h4 className="text-base font-bold text-white">Aucune tâche programmée</h4>
+                <h4 className="text-base font-bold text-white">Aucune habitude programmée</h4>
                 <p className="text-xs text-[#8E929E] mt-1 mb-4">
-                  Tu n'as aucune habitude active pour cette date.
+                  Tu n'as aucune habitude récurrente active pour cette date.
                 </p>
                 <button
                   type="button"
@@ -276,7 +277,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
                   }}
                   className="px-4 py-2 rounded-full bg-[#D4F63D] text-black font-bold text-xs cursor-pointer"
                 >
-                  Créer une tâche
+                  Créer une habitude
                 </button>
               </div>
             ) : (
