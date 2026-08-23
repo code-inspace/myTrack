@@ -3,6 +3,7 @@ import "./globals.css";
 import QueryProvider from "@/providers/QueryProvider";
 import OneSignalProvider from "@/providers/OneSignalProvider";
 import { BottomNav } from "@/components/shared/BottomNav";
+import { DynamicIsland } from "@/components/shared/DynamicIsland";
 
 export const metadata: Metadata = {
   title: "MyTrack — Elite Habit & Performance Tracking",
@@ -38,6 +39,9 @@ export default function RootLayout({
       <body className="bg-[#111214] text-[#F3F4F6] min-h-screen antialiased flex flex-col items-center">
         <QueryProvider>
           <OneSignalProvider>
+            {/* Dynamic Island Floating Notification Pill */}
+            <DynamicIsland />
+
             {/* Main App Container */}
             <main className="w-full max-w-md min-h-screen flex flex-col px-4 safe-top safe-bottom-nav relative">
               {children}
