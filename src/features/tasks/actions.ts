@@ -1,6 +1,7 @@
 import { Task, TaskCompletion, TaskFormValues } from "./types";
 import { getStoredUserSession, DEMO_USER } from "@/features/auth/actions";
 import { createClient } from "@/utils/supabase/client";
+import { getTodayDateString } from "@/lib/dates";
 
 const TASKS_STORAGE_PREFIX = "mytrack_tasks_";
 const COMPLETIONS_STORAGE_PREFIX = "mytrack_completions_";
@@ -357,6 +358,74 @@ export async function updateDbTaskActive(taskId: string, isActive: boolean, user
     return isActive ? { ...t, isActive: false, startedAt: null } : t;
   });
   saveStoredTasks(updated, targetId);
+}
+
+export async function updateDbTaskStartedAt(
+  taskId: string,
+  startedAtTime: string,
+  userId?: string
+): Promise<{ startedAt: string }> {
+  const supabase = createClient();
+  let targetId = userId;
+  if (!targetId) {
+    const { data: { session } } = await supabase.auth.getSession();
+    targetId = session?.user?.id || getEffectiveUserId();
+  }
+
+  const now = new Date();
+  const [hours, minutes] = startedAtTime.split(":").map((v) => parseInt(v, 10) || 0);
+  const newStartDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, 0);
+  const newStartedAtIso = newStartDate.toISOString();
+  const nowIso = now.toISOString();
+
+  try {
+    await supabase
+      .from("tasks")
+      .update({ started_at: newStartedAtIso, updated_at: nowIso })
+      .eq("id", taskId);
+  } catch (err) {
+    console.warn("Supabase updateDbTaskStartedAt error:", err);
+  }
+
+  // Update completions actualStartTime as well
+  const todayStr = getTodayDateString();
+  try {
+    await supabase
+      .from("task_completions")
+      .update({ actual_start_time: startedAtTime, updated_at: nowIso })
+      .eq("task_id", taskId)
+      .eq("date", todayStr);
+  } catch (err) {
+    console.warn("Supabase updateDbTaskStartedAt completion error:", err);
+  }
+
+  const tasks = getStoredTasks(targetId);
+  const updated = tasks.map((t) => {
+    if (t.id === taskId) {
+      return {
+        ...t,
+        startedAt: newStartedAtIso,
+        updatedAt: nowIso,
+      };
+    }
+    return t;
+  });
+  saveStoredTasks(updated, targetId);
+
+  // Update localStorage completions too
+  const completions = getStoredCompletions(targetId);
+  const compIdx = completions.findIndex((c) => c.taskId === taskId && c.date === todayStr);
+  if (compIdx >= 0) {
+    const nextCompletions = [...completions];
+    nextCompletions[compIdx] = {
+      ...nextCompletions[compIdx],
+      actualStartTime: startedAtTime,
+      updatedAt: nowIso,
+    };
+    saveStoredCompletions(nextCompletions, targetId);
+  }
+
+  return { startedAt: newStartedAtIso };
 }
 
 /**

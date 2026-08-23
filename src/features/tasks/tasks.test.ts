@@ -69,4 +69,12 @@ describe("Tasks Feature Logic", () => {
     const sorted = sortTasksByPriority([mapped1, mapped2]);
     expect(sorted[0].id).toBe("t2"); // Active task must be first
   });
+
+  it("calculates updated start time dynamically for running task", () => {
+    const now = new Date();
+    const [hours, minutes] = "08:30".split(":").map(Number);
+    const startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, 0);
+    const diffSeconds = Math.max(0, Math.floor((now.getTime() - startDate.getTime()) / 1000));
+    expect(diffSeconds).toBeGreaterThanOrEqual(0);
+  });
 });

@@ -44,6 +44,7 @@ export default function TasksPage() {
     toggleTaskActive,
     toggleCompletion,
     updateCompletionValue,
+    updateTaskStartedAt,
     deleteTask,
   } = useTaskMutations();
 
@@ -176,6 +177,9 @@ export default function TasksPage() {
             onStop={(taskId) => toggleTaskActive.mutate({ taskId, date: selectedDate })}
             onComplete={(taskId) => toggleCompletion.mutate({ taskId, date: selectedDate })}
             onOpenLogModal={(t) => setSelectedLoggingTask(t)}
+            onUpdateStartTime={(taskId, newTime) =>
+              updateTaskStartedAt.mutate({ taskId, startedAtTime: newTime })
+            }
           />
         )}
 

@@ -2,13 +2,14 @@
 
 import React, { useState, useEffect } from "react";
 import { TaskWithCompletion } from "../types";
-import { Clock, Repeat, Square } from "lucide-react";
+import { Clock, Repeat, Square, Edit3, Check } from "lucide-react";
 
 interface ActiveTaskBannerProps {
   task: TaskWithCompletion;
   onStop: (taskId: string) => void;
   onComplete: (taskId: string) => void;
   onOpenLogModal: (task: TaskWithCompletion) => void;
+  onUpdateStartTime?: (taskId: string, newTime: string) => void;
 }
 
 const RECURRENCE_LABEL_MAP: Record<string, string> = {
@@ -23,32 +24,55 @@ export const ActiveTaskBanner: React.FC<ActiveTaskBannerProps> = ({
   task,
   onStop,
   onOpenLogModal,
+  onUpdateStartTime,
 }) => {
-  const calculateElapsed = () => {
-    if (task.startedAt) {
-      const startTime = new Date(task.startedAt).getTime();
+  const calculateElapsed = (startedAtIso?: string | null) => {
+    if (startedAtIso) {
+      const startTime = new Date(startedAtIso).getTime();
       const now = Date.now();
       return Math.max(0, Math.floor((now - startTime) / 1000));
     }
     return 0;
   };
 
-  const [elapsedSeconds, setElapsedSeconds] = useState(calculateElapsed);
+  const [elapsedSeconds, setElapsedSeconds] = useState(() => calculateElapsed(task.startedAt));
+  const [isEditingStartTime, setIsEditingStartTime] = useState(false);
+
+  const getInitialTimeStr = () => {
+    if (task.startedAt) {
+      const d = new Date(task.startedAt);
+      return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    }
+    return task.startTime || "09:00";
+  };
+
+  const [inputStartTime, setInputStartTime] = useState(getInitialTimeStr);
 
   useEffect(() => {
-    // Recalculate on task changes
-    setElapsedSeconds(calculateElapsed());
+    setElapsedSeconds(calculateElapsed(task.startedAt));
+    setInputStartTime(getInitialTimeStr());
 
     const timer = setInterval(() => {
-      setElapsedSeconds(calculateElapsed());
+      setElapsedSeconds(calculateElapsed(task.startedAt));
     }, 1000);
 
     return () => clearInterval(timer);
   }, [task.startedAt, task.id]);
 
+  const handleSaveStartTime = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!inputStartTime || !inputStartTime.includes(":")) return;
+    onUpdateStartTime?.(task.id, inputStartTime);
+    setIsEditingStartTime(false);
+  };
+
   const formatTimer = (totalSec: number) => {
-    const mins = Math.floor(totalSec / 60);
+    const hours = Math.floor(totalSec / 3600);
+    const mins = Math.floor((totalSec % 3600) / 60);
     const secs = totalSec % 60;
+    if (hours > 0) {
+      return `${hours.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+    }
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
@@ -109,26 +133,48 @@ export const ActiveTaskBanner: React.FC<ActiveTaskBannerProps> = ({
         </div>
       )}
 
-      {/* Bottom row: Time and recurrence */}
-      <div className="mt-3 flex items-center justify-between text-xs font-medium text-[#111214]/80">
-        <div className="flex items-center gap-4">
-          {(task.startTime || task.endTime) && (
-            <div className="flex items-center gap-1.5">
+      {/* Bottom row: Time, editable start time and recurrence */}
+      <div className="mt-3.5 pt-3 border-t border-black/10 flex items-center justify-between text-xs font-medium text-[#111214]">
+        <div className="flex items-center gap-3">
+          {/* Editable Start Time */}
+          {isEditingStartTime ? (
+            <form onSubmit={handleSaveStartTime} className="flex items-center gap-1.5 bg-black/15 p-1 rounded-xl">
+              <input
+                type="time"
+                value={inputStartTime}
+                onChange={(e) => setInputStartTime(e.target.value)}
+                autoFocus
+                className="h-7 px-2 rounded-lg bg-black text-[#D4F63D] text-xs font-mono font-bold outline-none text-center box-border"
+              />
+              <button
+                type="submit"
+                className="p-1 rounded-lg bg-black text-[#D4F63D] hover:scale-105 transition-transform cursor-pointer"
+                title="Valider l'heure de début"
+              >
+                <Check className="w-3.5 h-3.5 stroke-[3]" />
+              </button>
+            </form>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setIsEditingStartTime(true)}
+              className="flex items-center gap-1.5 bg-black/10 hover:bg-black/15 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+              title="Cliquer pour modifier l'heure de démarrage"
+            >
               <Clock className="w-3.5 h-3.5" />
-              <span>
-                {task.startTime || "05:30"}
-                {task.endTime ? ` - ${task.endTime}` : ""}
-              </span>
-            </div>
+              <span>Début : <strong>{inputStartTime}</strong></span>
+              <Edit3 className="w-3 h-3 opacity-60 ml-0.5" />
+            </button>
           )}
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1 opacity-80">
             <Repeat className="w-3.5 h-3.5" />
             <span>{RECURRENCE_LABEL_MAP[task.recurrence] || "Quotidien"}</span>
           </div>
         </div>
 
-        <div className="font-mono font-semibold bg-black/10 px-2.5 py-0.5 rounded-md text-[11px]">
+        {/* Counter automatically recalculates on start time change */}
+        <div className="font-mono font-bold bg-black text-[#D4F63D] px-3 py-1 rounded-xl text-xs shadow-sm">
           ⏱ {formatTimer(elapsedSeconds)}
         </div>
       </div>
