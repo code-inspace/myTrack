@@ -114,7 +114,23 @@ export const SleepJournalView: React.FC<SleepJournalViewProps> = ({ selectedDate
     }, 600);
   };
 
+  const handleSetBedtimeNow = () => {
+    const now = new Date();
+    const currentStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    handleBedtimeChange(currentStr);
+  };
+
+  const handleSetWakeTimeNow = () => {
+    const now = new Date();
+    const currentStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    handleWakeTimeChange(currentStr);
+  };
+
   const sleepStats = computeSleepDuration(log.bedtime, log.wakeTime);
+
+  // Check if bedtime is past midnight (00:00 - 06:59) -> represents +1 jour
+  const bedtimeHour = parseInt((log.bedtime || "23:00").split(":")[0], 10) || 0;
+  const isPastMidnightBedtime = bedtimeHour >= 0 && bedtimeHour < 12;
 
   return (
     <div className="flex-1 overflow-y-auto px-4 pt-3 pb-28 space-y-4 max-w-md mx-auto w-full">
@@ -134,7 +150,7 @@ export const SleepJournalView: React.FC<SleepJournalViewProps> = ({ selectedDate
       </div>
 
       {/* ========================================================================= */}
-      {/* 1. ENART HEURE DE COUCHER & RAPPELS (3 RAPPELS PAR DÉFAUT)                */}
+      {/* 1. ENCART HEURE DE COUCHER & RAPPELS (3 RAPPELS PAR DÉFAUT)                */}
       {/* ========================================================================= */}
       <div className="bg-[#1C1D22] border border-[#282A30] rounded-3xl p-5 shadow-lg space-y-4">
         <div className="flex items-center justify-between">
@@ -143,18 +159,37 @@ export const SleepJournalView: React.FC<SleepJournalViewProps> = ({ selectedDate
               <Moon className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-white">Heure de coucher</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-white">Heure de coucher</h3>
+                {isPastMidnightBedtime && (
+                  <span className="px-2 py-0.5 rounded-md bg-[#818CF8]/20 border border-[#818CF8]/40 text-[#818CF8] font-bold text-[10px]">
+                    +1 jour
+                  </span>
+                )}
+              </div>
               <p className="text-[11px] text-[#8E929E]">Objectif pour s'endormir</p>
             </div>
           </div>
 
-          <input
-            type="time"
-            value={log.bedtime || "23:00"}
-            onChange={(e) => handleBedtimeChange(e.target.value)}
-            className="h-10 px-3 rounded-xl bg-[#252830] border border-[#343740] text-white font-mono font-bold text-sm focus:border-[#D4F63D] outline-none text-center cursor-pointer shadow-inner"
-          />
+          <div className="flex items-center gap-2">
+            <input
+              type="time"
+              value={log.bedtime || "23:00"}
+              onChange={(e) => handleBedtimeChange(e.target.value)}
+              className="h-10 px-3 rounded-xl bg-[#252830] border border-[#343740] text-white font-mono font-bold text-sm focus:border-[#D4F63D] outline-none text-center cursor-pointer shadow-inner"
+            />
+          </div>
         </div>
+
+        {/* Quick action: Je me couche maintenant */}
+        <button
+          type="button"
+          onClick={handleSetBedtimeNow}
+          className="w-full py-2.5 px-3 rounded-2xl bg-[#252830] hover:bg-[#2F333E] border border-[#343740] text-[#D4F63D] font-bold text-xs flex items-center justify-center gap-2 transition-all active:scale-[0.98] cursor-pointer"
+        >
+          <Moon className="w-4 h-4" />
+          <span>Je me couche maintenant</span>
+        </button>
 
         {/* Rappels de coucher configurables */}
         <div className="pt-3 border-t border-[#282A30] space-y-3">
@@ -262,6 +297,16 @@ export const SleepJournalView: React.FC<SleepJournalViewProps> = ({ selectedDate
             className="h-10 px-3 rounded-xl bg-[#252830] border border-[#343740] text-white font-mono font-bold text-sm focus:border-[#D4F63D] outline-none text-center cursor-pointer shadow-inner"
           />
         </div>
+
+        {/* Quick action: Je me réveille maintenant */}
+        <button
+          type="button"
+          onClick={handleSetWakeTimeNow}
+          className="w-full py-2.5 px-3 rounded-2xl bg-[#252830] hover:bg-[#2F333E] border border-[#343740] text-[#FBBF24] font-bold text-xs flex items-center justify-center gap-2 transition-all active:scale-[0.98] cursor-pointer"
+        >
+          <Sun className="w-4 h-4" />
+          <span>Je me réveille maintenant</span>
+        </button>
 
         {/* Calculated Sleep Duration Badge */}
         <div className="p-3.5 rounded-2xl bg-[#17181D] border border-[#2B2E38] flex items-center justify-between">

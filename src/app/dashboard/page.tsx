@@ -7,6 +7,7 @@ import { WaveChart } from "@/features/dashboard/components/WaveChart";
 import { CircularMetricCard } from "@/features/dashboard/components/CircularProgressCard";
 import { StreakGridCard } from "@/features/dashboard/components/StreakGridCard";
 import { MonthlyHabitCalendar } from "@/features/dashboard/components/MonthlyHabitCalendar";
+import { SleepWaveChart } from "@/features/dashboard/components/SleepWaveChart";
 import { useDashboardStats } from "@/features/dashboard/hooks";
 import { useTasks } from "@/features/tasks/hooks";
 import { Period } from "@/features/dashboard/types";
@@ -66,6 +67,9 @@ export default function DashboardPage() {
           }
         />
       </div>
+
+      {/* Nightly Sleep Tracking Wave Chart */}
+      <SleepWaveChart period={period} referenceDate={referenceDate} />
 
       {/* View per selected period */}
       {period === "month" ? (

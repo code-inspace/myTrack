@@ -80,8 +80,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
       onDragStart={(e) => onDragStart && onDragStart(e, index)}
       onDragOver={(e) => onDragOver && onDragOver(e, index)}
       onDragEnd={(e) => onDragEnd && onDragEnd(e)}
+      style={{ touchAction: "pan-y" }}
       className={cn(
-        "relative w-full rounded-2xl p-4 transition-all duration-200 border space-y-3 shadow-sm select-none",
+        "relative w-full rounded-2xl p-4 transition-all duration-200 border space-y-3 shadow-sm select-none touch-pan-y",
         isDragging
           ? "opacity-40 border-[#D4F63D] scale-[0.98] ring-2 ring-[#D4F63D]/50 bg-[#22242B]"
           : isCompleted

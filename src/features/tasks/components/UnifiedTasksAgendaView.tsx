@@ -234,7 +234,10 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
         <SleepJournalView selectedDate={selectedDate} />
       ) : activeTab === "habits" ? (
         /* HABIT LIST TAB */
-        <div className="flex-1 overflow-y-auto px-4 pt-3 pb-28 space-y-3.5 max-w-md mx-auto w-full">
+        <div
+          className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-4 pt-3 pb-36 space-y-3.5 max-w-md mx-auto w-full touch-pan-y"
+          style={{ WebkitOverflowScrolling: "touch" }}
+        >
           <div className="flex items-center justify-between px-1">
             <h2 className="text-xl font-bold text-white tracking-tight">Aujourd'hui</h2>
           </div>
