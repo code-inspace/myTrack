@@ -23,13 +23,15 @@ export function useTasks(selectedDateStr: string) {
   const userId = user?.id || "00000000-0000-0000-0000-000000000001";
 
   const { data: allTasks = [], isLoading: isLoadingTasks } = useQuery({
-    queryKey: [...taskQueryKeys.all, userId],
+    queryKey: ["tasks", userId],
     queryFn: async () => fetchTasks(userId),
+    staleTime: 1000 * 10,
   });
 
   const { data: allCompletions = [], isLoading: isLoadingCompletions } = useQuery({
-    queryKey: [...taskQueryKeys.completions(), userId],
+    queryKey: ["completions", userId],
     queryFn: async () => fetchCompletions(userId),
+    staleTime: 1000 * 10,
   });
 
   const selectedDate = parseISO(selectedDateStr);
@@ -61,24 +63,30 @@ export function useTaskMutations() {
 
   const createTask = useMutation({
     mutationFn: async (values: TaskFormValues & { userId?: string }) => {
+      const targetUserId = values.userId || userId;
       return createDbTask({
-        userId: values.userId || userId,
+        userId: targetUserId,
         title: values.title,
         description: values.description || null,
         category: values.category || "General",
         startTime: values.startTime || null,
         endTime: values.endTime || null,
-        recurrence: values.recurrence,
+        recurrence: values.recurrence || "DAILY",
         recurrenceConfig: values.recurrenceConfig || null,
-        trackingType: values.trackingType,
+        trackingType: values.trackingType || "BOOLEAN",
         targetValue: values.targetValue || null,
         unit: values.unit || null,
         isActive: false,
         isArchived: false,
       });
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: taskQueryKeys.all });
+    onSuccess: (newTask) => {
+      queryClient.setQueryData<Task[]>(["tasks", userId], (old = []) => [
+        newTask,
+        ...old.filter((t) => t.id !== newTask.id),
+      ]);
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["completions"] });
     },
   });
 
@@ -90,7 +98,7 @@ export function useTaskMutations() {
       await updateDbTaskActive(taskId, !isCurrentlyActive, userId);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: taskQueryKeys.all });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
     },
   });
 
@@ -121,7 +129,7 @@ export function useTaskMutations() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: taskQueryKeys.completions() });
+      queryClient.invalidateQueries({ queryKey: ["completions"] });
     },
   });
 
@@ -146,7 +154,7 @@ export function useTaskMutations() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: taskQueryKeys.completions() });
+      queryClient.invalidateQueries({ queryKey: ["completions"] });
     },
   });
 
@@ -154,8 +162,11 @@ export function useTaskMutations() {
     mutationFn: async (taskId: string) => {
       await deleteDbTask(taskId, userId);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: taskQueryKeys.all });
+    onSuccess: (_, deletedId) => {
+      queryClient.setQueryData<Task[]>(["tasks", userId], (old = []) =>
+        old.filter((t) => t.id !== deletedId)
+      );
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
     },
   });
 
