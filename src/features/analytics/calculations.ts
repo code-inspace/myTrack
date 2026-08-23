@@ -295,31 +295,102 @@ export function calculateDashboardStats(
   const rawMomentum = Math.round(completionRate * 0.6 + streakBonus + Math.min(10, totalCompletedInPeriod * 1.5));
   const momentum = Math.max(0, Math.min(100, rawMomentum || (completionRate > 0 ? completionRate : 50)));
 
-  // Real Daily Completion Rate Curve (7 points for week view)
+  // Period-aware Curve Points Generation (Semaine | Mois | Tout le temps)
   const momentumHistory: MomentumPoint[] = [];
-  for (let i = 6; i >= 0; i--) {
-    const dayDate = subDays(referenceDate, i);
-    const dayDateStr = format(dayDate, "yyyy-MM-dd");
-    const dayCompleted = completions.filter((c) => c.date === dayDateStr && c.completed).length;
-    const dayScheduled = tasks.filter((t) =>
-      isTaskScheduledForDate(t.recurrence, t.recurrenceConfig, dayDate, t.createdAt)
-    ).length;
 
-    const dayName = FRENCH_DAYS[dayDate.getDay()];
-    const dayScore =
-      dayScheduled > 0
-        ? Math.round((dayCompleted / dayScheduled) * 100)
-        : dayCompleted > 0
-        ? 100
-        : 0;
+  if (period === "week") {
+    // 7 days of the reference week (Monday to Sunday)
+    const weekStart = subDays(referenceDate, 6);
+    for (let i = 0; i < 7; i++) {
+      const dayDate = subDays(referenceDate, 6 - i);
+      const dayDateStr = format(dayDate, "yyyy-MM-dd");
+      const dayCompleted = completions.filter((c) => c.date === dayDateStr && c.completed).length;
+      const dayScheduled = tasks.filter((t) =>
+        isTaskScheduledForDate(t.recurrence, t.recurrenceConfig, dayDate, t.createdAt)
+      ).length;
 
-    momentumHistory.push({
-      date: dayDateStr,
-      label: `${dayName} ${format(dayDate, "d")}`,
-      score: dayScore,
-      completedCount: dayCompleted,
-      totalScheduled: dayScheduled,
-    });
+      const dayName = FRENCH_DAYS[dayDate.getDay()];
+      const dayScore =
+        dayScheduled > 0
+          ? Math.round((dayCompleted / dayScheduled) * 100)
+          : dayCompleted > 0
+          ? 100
+          : 0;
+
+      momentumHistory.push({
+        date: dayDateStr,
+        label: `${dayName} ${format(dayDate, "d")}`,
+        score: dayScore,
+        completedCount: dayCompleted,
+        totalScheduled: dayScheduled,
+      });
+    }
+  } else if (period === "month") {
+    // 4 to 5 weekly segments of the month (e.g. Sem 1, Sem 2, Sem 3, Sem 4, Sem 5)
+    for (let w = 4; w >= 0; w--) {
+      let weekCompleted = 0;
+      let weekScheduled = 0;
+      const weekEndDate = subDays(referenceDate, w * 6);
+      const weekStartDate = subDays(weekEndDate, 5);
+
+      for (let d = 0; d < 6; d++) {
+        const currDate = subDays(weekEndDate, d);
+        const currDateStr = format(currDate, "yyyy-MM-dd");
+        weekCompleted += completions.filter((c) => c.date === currDateStr && c.completed).length;
+        weekScheduled += tasks.filter((t) =>
+          isTaskScheduledForDate(t.recurrence, t.recurrenceConfig, currDate, t.createdAt)
+        ).length;
+      }
+
+      const weekScore =
+        weekScheduled > 0
+          ? Math.round((weekCompleted / weekScheduled) * 100)
+          : weekCompleted > 0
+          ? 100
+          : 0;
+
+      momentumHistory.push({
+        date: format(weekEndDate, "yyyy-MM-dd"),
+        label: `Sem ${5 - w}`,
+        score: weekScore,
+        completedCount: weekCompleted,
+        totalScheduled: weekScheduled,
+      });
+    }
+  } else {
+    // All-time: 6 monthly aggregate progression points
+    for (let m = 5; m >= 0; m--) {
+      let monthCompleted = 0;
+      let monthScheduled = 0;
+      const monthRef = subDays(referenceDate, m * 30);
+
+      for (let d = 0; d < 30; d++) {
+        const currDate = subDays(monthRef, d);
+        const currDateStr = format(currDate, "yyyy-MM-dd");
+        monthCompleted += completions.filter((c) => c.date === currDateStr && c.completed).length;
+        monthScheduled += tasks.filter((t) =>
+          isTaskScheduledForDate(t.recurrence, t.recurrenceConfig, currDate, t.createdAt)
+        ).length;
+      }
+
+      const monthScore =
+        monthScheduled > 0
+          ? Math.round((monthCompleted / monthScheduled) * 100)
+          : monthCompleted > 0
+          ? 100
+          : 0;
+
+      const FRENCH_MONTHS_SHORT = ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Août", "Sep", "Oct", "Nov", "Déc"];
+      const monthLabel = FRENCH_MONTHS_SHORT[monthRef.getMonth()];
+
+      momentumHistory.push({
+        date: format(monthRef, "yyyy-MM-dd"),
+        label: monthLabel,
+        score: monthScore,
+        completedCount: monthCompleted,
+        totalScheduled: monthScheduled,
+      });
+    }
   }
 
   const totalWins = totalCompletedInPeriod;
