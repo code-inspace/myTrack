@@ -3,6 +3,7 @@ import "./globals.css";
 import QueryProvider from "@/providers/QueryProvider";
 import { AuthProvider } from "@/providers/AuthProvider";
 import OneSignalProvider from "@/providers/OneSignalProvider";
+import NotificationWatcherProvider from "@/providers/NotificationWatcherProvider";
 import { BottomNav } from "@/components/shared/BottomNav";
 import { AuthGuard } from "@/components/shared/AuthGuard";
 
@@ -76,15 +77,17 @@ export default function RootLayout({
         <QueryProvider>
           <AuthProvider>
             <OneSignalProvider>
-              <AuthGuard>
-                {/* Main App Container */}
-                <main className="w-full max-w-md h-screen max-h-screen flex flex-col safe-top relative overflow-hidden">
-                  {children}
-                </main>
+              <NotificationWatcherProvider>
+                <AuthGuard>
+                  {/* Main App Container */}
+                  <main className="w-full max-w-md h-screen max-h-screen flex flex-col safe-top relative overflow-hidden">
+                    {children}
+                  </main>
 
-                {/* Fixed Thumb-friendly Navigation */}
-                <BottomNav />
-              </AuthGuard>
+                  {/* Fixed Thumb-friendly Navigation */}
+                  <BottomNav />
+                </AuthGuard>
+              </NotificationWatcherProvider>
             </OneSignalProvider>
           </AuthProvider>
         </QueryProvider>
