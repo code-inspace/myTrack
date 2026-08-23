@@ -2,8 +2,9 @@
 
 import React, { useState } from "react";
 import { NotificationPreference, CustomReminder } from "../types";
-import { Bell, Clock, Plus, Trash2 } from "lucide-react";
+import { Bell, Clock, Plus, Trash2, Send, CheckCircle } from "lucide-react";
 import { requestNotificationPermission } from "@/lib/onesignal/client";
+import { sendNativeNotification } from "@/lib/notifications/service";
 
 interface NotificationSettingsCardProps {
   preferences: NotificationPreference;
@@ -23,15 +24,27 @@ export const NotificationSettingsCard: React.FC<NotificationSettingsCardProps> =
   onTestNotification,
 }) => {
   const [prefs, setPrefs] = useState(preferences);
+  const [testSent, setTestSent] = useState(false);
 
-  const handleToggle = (key: keyof NotificationPreference) => {
+  const handleToggle = async (key: keyof NotificationPreference) => {
     const updated = { ...prefs, [key]: !prefs[key] };
     setPrefs(updated);
     onUpdatePreferences(updated);
 
     if (key === "pushEnabled" && updated.pushEnabled) {
-      requestNotificationPermission();
+      await requestNotificationPermission();
     }
+  };
+
+  const handleSendTestPush = async () => {
+    setTestSent(true);
+    await requestNotificationPermission();
+    await sendNativeNotification({
+      title: "MyTrack • Rappel d'habitude",
+      body: "As-tu réalisé ta séance de musculation aujourd'hui ? 💪",
+      tag: "test-push",
+    });
+    setTimeout(() => setTestSent(false), 3000);
   };
 
   return (
@@ -60,6 +73,26 @@ export const NotificationSettingsCard: React.FC<NotificationSettingsCardProps> =
                 prefs.pushEnabled ? "translate-x-6" : "translate-x-0.5"
               }`}
             />
+          </button>
+        </div>
+
+        {/* Test Push Button */}
+        <div className="pt-2">
+          <button
+            onClick={handleSendTestPush}
+            className="w-full py-2.5 px-3 rounded-xl bg-[#252830] hover:bg-[#323642] text-[#D4F63D] font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer border border-[#343740]"
+          >
+            {testSent ? (
+              <>
+                <CheckCircle className="w-4 h-4 text-[#22C55E]" />
+                <span className="text-[#22C55E]">Notification envoyée à votre appareil !</span>
+              </>
+            ) : (
+              <>
+                <Send className="w-3.5 h-3.5" />
+                <span>Envoyer une notification push de test</span>
+              </>
+            )}
           </button>
         </div>
 
@@ -148,14 +181,20 @@ export const NotificationSettingsCard: React.FC<NotificationSettingsCardProps> =
 
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => onTestNotification(rem)}
+                  onClick={async () => {
+                    await sendNativeNotification({
+                      title: "MyTrack • " + (rem.taskTitle || "Rappel"),
+                      body: rem.question,
+                    });
+                    onTestNotification(rem);
+                  }}
                   className="px-2.5 py-1 rounded-lg bg-[#D4F63D]/15 hover:bg-[#D4F63D]/25 text-[#D4F63D] font-bold text-[11px] cursor-pointer"
                 >
                   Tester
                 </button>
                 <button
                   onClick={() => onDeleteReminder(rem.id)}
-                  className="p-1 text-[#6B7280] hover:text-[#F87171] transition-colors"
+                  className="p-1 text-[#6B7280] hover:text-[#F87171] transition-colors cursor-pointer"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>

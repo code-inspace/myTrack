@@ -12,6 +12,8 @@ import { TaskWithCompletion, TaskFormValues } from "@/features/tasks/types";
 import { getTodayDateString } from "@/lib/dates";
 import { Plus, CheckCircle2, Sparkles, Inbox } from "lucide-react";
 
+import { sendNativeNotification } from "@/lib/notifications/service";
+
 export default function TasksPage() {
   const [selectedDate, setSelectedDate] = useState<string>(getTodayDateString());
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
@@ -30,6 +32,15 @@ export default function TasksPage() {
 
   // Active task object mapped
   const activeTaskMapped = tasks.find((t) => t.id === activeTask?.id);
+
+  const handleOpenNotificationTest = async () => {
+    setIsTestNotificationOpen(true);
+    await sendNativeNotification({
+      title: "MyTrack • Rappel interactif",
+      body: "As-tu réalisé tes objectifs aujourd'hui ? 🎯",
+      tag: "mytrack-header-test",
+    });
+  };
 
   const handleQuickAdd = (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,7 +77,7 @@ export default function TasksPage() {
         title="Mes Habitudes"
         selectedDate={selectedDate}
         onSelectDate={setSelectedDate}
-        onOpenNotifications={() => setIsTestNotificationOpen(true)}
+        onOpenNotifications={handleOpenNotificationTest}
       />
 
       {/* Main Content Area */}
