@@ -25,7 +25,7 @@ function parseTimeToMinutes(timeStr?: string | null): number {
 }
 
 function formatMinutesToTime(totalMins: number): string {
-  const normalized = Math.max(0, Math.min(23 * 60 + 59, totalMins));
+  const normalized = Math.max(0, Math.min(23 * 60 + 55, totalMins));
   const h = Math.floor(normalized / 60);
   const m = normalized % 60;
   return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
@@ -40,7 +40,8 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
   onSelectTask,
 }) => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const [dragOverHour, setDragOverHour] = useState<number | null>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
+  const [dragHoverMinute, setDragHoverMinute] = useState<number | null>(null);
   const [currentTimeMinutes, setCurrentTimeMinutes] = useState(() => {
     const now = new Date();
     return now.getHours() * 60 + now.getMinutes();
@@ -65,14 +66,31 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
     return () => clearInterval(timer);
   }, []);
 
-  const handleDragOverHour = (e: React.DragEvent, hour: number) => {
-    e.preventDefault();
-    setDragOverHour(hour);
+  // Calculate 5-minute snapped minute from drag position
+  const getSnappedMinuteFromEvent = (e: React.DragEvent) => {
+    if (!gridRef.current) return 0;
+    const rect = gridRef.current.getBoundingClientRect();
+    const offsetY = e.clientY - rect.top;
+    const totalMinutes = offsetY; // 1px = 1 min
+    const snapped = Math.round(totalMinutes / 5) * 5;
+    return Math.max(0, Math.min(23 * 60 + 55, snapped));
   };
 
-  const handleDropOnHour = (e: React.DragEvent, hour: number) => {
+  const handleGridDragOver = (e: React.DragEvent) => {
     e.preventDefault();
-    setDragOverHour(null);
+    const snappedMins = getSnappedMinuteFromEvent(e);
+    setDragHoverMinute(snappedMins);
+  };
+
+  const handleGridDragLeave = () => {
+    setDragHoverMinute(null);
+  };
+
+  const handleGridDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const snappedStartMins = getSnappedMinuteFromEvent(e);
+    setDragHoverMinute(null);
+
     const taskId = e.dataTransfer.getData("text/plain") || e.dataTransfer.getData("taskId");
     if (!taskId) return;
 
@@ -82,28 +100,27 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
     if (task?.startTime && task?.endTime) {
       const s = parseTimeToMinutes(task.effectiveStartTime || task.startTime);
       const end = parseTimeToMinutes(task.effectiveEndTime || task.endTime);
-      durationMins = Math.max(30, end - s);
+      durationMins = Math.max(15, end - s);
     }
 
-    const newStartMins = hour * 60;
-    const newEndMins = newStartMins + durationMins;
+    const snappedEndMins = snappedStartMins + durationMins;
 
     onMoveTaskToTime(
       taskId,
-      formatMinutesToTime(newStartMins),
-      formatMinutesToTime(newEndMins)
+      formatMinutesToTime(snappedStartMins),
+      formatMinutesToTime(snappedEndMins)
     );
   };
 
   return (
     <div
       ref={scrollContainerRef}
-      className="flex-1 overflow-y-auto relative bg-[#0E0F12] select-none scroll-smooth pb-24"
+      className="flex-1 overflow-y-auto relative bg-[#0E0F12] select-none scroll-smooth pb-28"
     >
       {/* 24-Hour Grid Container */}
       <div className="relative min-h-[1440px] flex">
-        {/* Left Hours Column (00:00 -> 23:00 matching screenshot) */}
-        <div className="w-16 flex-shrink-0 border-r border-[#202228] bg-[#111214]/50 z-20">
+        {/* Left Hours Column (00:00 -> 23:00) */}
+        <div className="w-16 flex-shrink-0 border-r border-[#202228] bg-[#111214]/60 z-20 sticky left-0">
           {HOURS.map((hour) => (
             <div
               key={hour}
@@ -115,29 +132,38 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
           ))}
         </div>
 
-        {/* Right Timeline Grid Column */}
-        <div className="flex-1 relative">
-          {/* Background Hour Lines & Drop Targets */}
-          {HOURS.map((hour) => {
-            const isHovered = dragOverHour === hour;
+        {/* Right Timeline Grid Column (Drop Target with 5-min granularity) */}
+        <div
+          ref={gridRef}
+          onDragOver={handleGridDragOver}
+          onDragLeave={handleGridDragLeave}
+          onDrop={handleGridDrop}
+          className="flex-1 relative"
+        >
+          {/* Background Hour Lines */}
+          {HOURS.map((hour) => (
+            <div
+              key={hour}
+              style={{ height: `${HOUR_ROW_HEIGHT}px` }}
+              className="border-b border-[#1A1C22] relative"
+            >
+              {/* Half-hour subtle dashed line */}
+              <div className="absolute inset-x-0 top-1/2 border-b border-[#16181E]/60 border-dashed" />
+            </div>
+          ))}
 
-            return (
-              <div
-                key={hour}
-                onDragOver={(e) => handleDragOverHour(e, hour)}
-                onDragLeave={() => setDragOverHour(null)}
-                onDrop={(e) => handleDropOnHour(e, hour)}
-                style={{ height: `${HOUR_ROW_HEIGHT}px` }}
-                className={cn(
-                  "border-b border-[#1A1C22] relative transition-colors duration-150",
-                  isHovered ? "bg-[#D4F63D]/10 ring-1 ring-[#D4F63D] ring-inset" : "hover:bg-[#15171C]/40"
-                )}
-              >
-                {/* Half-hour subtle dashed line */}
-                <div className="absolute inset-x-0 top-1/2 border-b border-[#16181E]/60 border-dashed" />
+          {/* 5-Min Drag Hover Indicator with Live Snapped Time Tooltip */}
+          {dragHoverMinute !== null && (
+            <div
+              style={{ top: `${dragHoverMinute}px` }}
+              className="absolute inset-x-0 z-40 pointer-events-none flex items-center"
+            >
+              <div className="bg-[#D4F63D] text-black font-mono font-extrabold text-[10px] py-0.5 px-2 rounded-full shadow-lg ml-1">
+                ⏱ {formatMinutesToTime(dragHoverMinute)} (5 min)
               </div>
-            );
-          })}
+              <div className="flex-1 border-b-2 border-dashed border-[#D4F63D]" />
+            </div>
+          )}
 
           {/* Current Live Time Red Line (matching iOS Calendar) */}
           {isToday && (
@@ -153,15 +179,15 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
           {/* Timed Task Blocks placed absolutely */}
           {tasks.map((task) => {
             const startTimeStr = task.effectiveStartTime || task.startTime;
-            if (!startTimeStr) return null; // All day tasks are rendered in AllDaySection
+            if (!startTimeStr) return null;
 
             const startMins = parseTimeToMinutes(startTimeStr);
             const endTimeStr = task.effectiveEndTime || task.endTime;
             const endMins = endTimeStr
               ? parseTimeToMinutes(endTimeStr)
-              : startMins + 60; // Default 1h duration
+              : startMins + 60;
 
-            const durationMins = Math.max(30, endMins - startMins);
+            const durationMins = Math.max(25, endMins - startMins);
 
             return (
               <AgendaTaskBlock
