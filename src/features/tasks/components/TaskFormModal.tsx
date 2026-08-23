@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Task, TaskFormValues, TaskWithCompletion } from "../types";
 import { TASK_CATEGORIES, TRACKING_TYPE_OPTIONS, RECURRENCE_OPTIONS, DAYS_OF_WEEK } from "../options";
-import { X, Plus, Check, Edit3, Clock } from "lucide-react";
+import { X, Plus, Check, Edit3, Clock, CalendarDays, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface TaskFormModalProps {
@@ -38,8 +38,9 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
   const [trackingType, setTrackingType] = useState<"BOOLEAN" | "NUMBER" | "DURATION" | "QUANTITY">("BOOLEAN");
   const [targetValue, setTargetValue] = useState<number | undefined>(undefined);
   const [unit, setUnit] = useState<string>("");
-  const [startTime, setStartTime] = useState("07:00");
-  const [endTime, setEndTime] = useState("08:00");
+  const [hasScheduledTime, setHasScheduledTime] = useState<boolean>(false);
+  const [startTime, setStartTime] = useState("09:00");
+  const [endTime, setEndTime] = useState("10:00");
   const [recurrence, setRecurrence] = useState<"ONCE" | "DAILY" | "WEEKDAYS" | "WEEKLY" | "CUSTOM">("DAILY");
   const [selectedDays, setSelectedDays] = useState<number[]>([1, 2, 3, 4, 5]);
 
@@ -51,8 +52,13 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
       setTrackingType(initialTask.trackingType || "BOOLEAN");
       setTargetValue(initialTask.targetValue || undefined);
       setUnit(initialTask.unit || "");
-      setStartTime(initialTask.startTime || "07:00");
-      setEndTime(initialTask.endTime || addHoursToTimeString(initialTask.startTime || "07:00", 1));
+      const taskHasTime = Boolean(initialTask.startTime);
+      setHasScheduledTime(taskHasTime);
+      setStartTime(initialTask.startTime || "09:00");
+      setEndTime(
+        initialTask.endTime ||
+          (initialTask.startTime ? addHoursToTimeString(initialTask.startTime, 1) : "10:00")
+      );
       setRecurrence(initialTask.recurrence || "DAILY");
       setSelectedDays(initialTask.recurrenceConfig?.days || [1, 2, 3, 4, 5]);
     } else {
@@ -62,8 +68,9 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
       setTrackingType("BOOLEAN");
       setTargetValue(undefined);
       setUnit("");
-      setStartTime("07:00");
-      setEndTime("08:00");
+      setHasScheduledTime(false);
+      setStartTime("09:00");
+      setEndTime("10:00");
       setRecurrence("DAILY");
       setSelectedDays([1, 2, 3, 4, 5]);
     }
@@ -91,8 +98,8 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
         trackingType,
         targetValue: trackingType !== "BOOLEAN" ? targetValue : undefined,
         unit: trackingType !== "BOOLEAN" ? (unit || "reps") : undefined,
-        startTime: startTime || undefined,
-        endTime: endTime || undefined,
+        startTime: hasScheduledTime && startTime ? startTime : undefined,
+        endTime: hasScheduledTime && endTime ? endTime : undefined,
         recurrence,
         recurrenceConfig: recurrence === "CUSTOM" ? { days: selectedDays } : undefined,
       },
@@ -292,37 +299,78 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
             )}
           </div>
 
-          {/* Time Window with clean separate styled inputs */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-[#8E929E] flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-[#D4F63D]" />
-                <span>Heure de début</span>
-              </label>
-              <div className="relative">
-                <input
-                  type="time"
-                  value={startTime}
-                  onChange={(e) => handleStartTimeChange(e.target.value)}
-                  className="w-full px-3.5 py-3 rounded-2xl bg-[#252830] border border-[#343740] text-white font-semibold text-sm focus:border-[#D4F63D] focus:ring-1 focus:ring-[#D4F63D] outline-none transition-all"
-                />
-              </div>
+          {/* Time Scheduling Mode: [Jour entier (par défaut)] vs [Heure précise] */}
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-[#8E929E] mb-2">
+              Programmation horaire
+            </label>
+
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              <button
+                type="button"
+                onClick={() => setHasScheduledTime(false)}
+                className={cn(
+                  "p-3 rounded-2xl border text-left transition-all cursor-pointer flex items-center gap-2.5",
+                  !hasScheduledTime
+                    ? "bg-[#D4F63D]/10 border-[#D4F63D] text-white ring-1 ring-[#D4F63D]"
+                    : "bg-[#252830] border-[#343740] text-[#9CA3AF] hover:border-[#4B5563]"
+                )}
+              >
+                <CalendarDays className="w-4 h-4 text-[#D4F63D] flex-shrink-0" />
+                <div>
+                  <div className="text-xs font-bold text-white">Jour entier</div>
+                  <div className="text-[10px] text-[#8E929E]">Sans heure fixe</div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setHasScheduledTime(true)}
+                className={cn(
+                  "p-3 rounded-2xl border text-left transition-all cursor-pointer flex items-center gap-2.5",
+                  hasScheduledTime
+                    ? "bg-[#D4F63D]/10 border-[#D4F63D] text-white ring-1 ring-[#D4F63D]"
+                    : "bg-[#252830] border-[#343740] text-[#9CA3AF] hover:border-[#4B5563]"
+                )}
+              >
+                <Clock className="w-4 h-4 text-[#D4F63D] flex-shrink-0" />
+                <div>
+                  <div className="text-xs font-bold text-white">Heure précise</div>
+                  <div className="text-[10px] text-[#8E929E]">Plage horaire</div>
+                </div>
+              </button>
             </div>
 
-            <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-[#8E929E] flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-[#8E929E]" />
-                <span>Heure de fin</span>
-              </label>
-              <div className="relative">
-                <input
-                  type="time"
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                  className="w-full px-3.5 py-3 rounded-2xl bg-[#252830] border border-[#343740] text-white font-semibold text-sm focus:border-[#D4F63D] focus:ring-1 focus:ring-[#D4F63D] outline-none transition-all"
-                />
+            {/* Time Window with clean separate styled inputs */}
+            {hasScheduledTime && (
+              <div className="grid grid-cols-2 gap-4 p-3.5 rounded-2xl bg-[#252830]/80 border border-[#343740] animate-in fade-in duration-150">
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-semibold text-[#8E929E] flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-[#D4F63D]" />
+                    <span>Heure de début</span>
+                  </label>
+                  <input
+                    type="time"
+                    value={startTime}
+                    onChange={(e) => handleStartTimeChange(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#1C1D22] border border-[#343740] text-white font-semibold text-sm focus:border-[#D4F63D] focus:ring-1 focus:ring-[#D4F63D] outline-none transition-all"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-semibold text-[#8E929E] flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-[#8E929E]" />
+                    <span>Heure de fin</span>
+                  </label>
+                  <input
+                    type="time"
+                    value={endTime}
+                    onChange={(e) => setEndTime(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#1C1D22] border border-[#343740] text-white font-semibold text-sm focus:border-[#D4F63D] focus:ring-1 focus:ring-[#D4F63D] outline-none transition-all"
+                  />
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Submit */}
