@@ -2,13 +2,14 @@
 
 import React, { useState } from "react";
 import { TaskWithCompletion } from "@/features/tasks/types";
-import { CheckCircle2, Circle, Clock, Sparkles, Bell, BellOff } from "lucide-react";
+import { CheckCircle2, Circle, Sparkles, Bell, BellOff, Edit3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface AllDaySectionProps {
   tasks: TaskWithCompletion[];
   onToggleComplete: (taskId: string) => void;
   onToggleReminder?: (taskId: string) => void;
+  onEditTask?: (task: TaskWithCompletion) => void;
   onDropToAllDay: (taskId: string) => void;
   onDragStartTask: (e: React.DragEvent, task: TaskWithCompletion) => void;
   onSelectTask?: (task: TaskWithCompletion) => void;
@@ -27,6 +28,7 @@ export const AllDaySection: React.FC<AllDaySectionProps> = ({
   tasks,
   onToggleComplete,
   onToggleReminder,
+  onEditTask,
   onDropToAllDay,
   onDragStartTask,
   onSelectTask,
@@ -158,6 +160,21 @@ export const AllDaySection: React.FC<AllDaySectionProps> = ({
                     ) : (
                       <BellOff className="w-3 h-3 opacity-50 hover:opacity-100" />
                     )}
+                  </button>
+                )}
+
+                {/* Explicit Edit Button */}
+                {onEditTask && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEditTask(task);
+                    }}
+                    title="Modifier la tâche"
+                    className="hover:scale-115 transition-transform cursor-pointer ml-0.5 p-0.5 text-current opacity-70 hover:opacity-100"
+                  >
+                    <Edit3 className="w-3 h-3" />
                   </button>
                 )}
               </div>

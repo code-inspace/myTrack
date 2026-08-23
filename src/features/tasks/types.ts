@@ -22,7 +22,7 @@ export interface Task {
   endTime?: string | null;   // "08:00"
   recurrence: RecurrenceType;
   recurrenceConfig?: RecurrenceConfig | null;
-  dateOverrides?: Record<string, TaskDateOverride> | null;
+  dateOverrides?: Record<string, any> | null;
   trackingType: TrackingType;
   targetValue?: number | null;
   unit?: string | null;

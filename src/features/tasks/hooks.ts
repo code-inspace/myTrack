@@ -365,6 +365,31 @@ export function useTaskMutations() {
     }) => {
       return updateDbTask(taskId, values, userId);
     },
+    onMutate: async ({ taskId, values }) => {
+      await queryClient.cancelQueries({ queryKey: ["tasks", userId] });
+      const prevTasks = queryClient.getQueryData<Task[]>(["tasks", userId]);
+
+      queryClient.setQueryData<Task[]>(["tasks", userId], (old = []) =>
+        old.map((t) => {
+          if (t.id !== taskId) return t;
+          return {
+            ...t,
+            ...values,
+            dateOverrides: {
+              ...(t.dateOverrides || {}),
+              ...(values.enableReminders !== undefined ? { _enableReminders: values.enableReminders } : {}),
+            },
+          };
+        })
+      );
+
+      return { prevTasks };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.prevTasks) {
+        queryClient.setQueryData(["tasks", userId], context.prevTasks);
+      }
+    },
     onSuccess: (updatedTask) => {
       queryClient.setQueryData<Task[]>(["tasks", userId], (old = []) =>
         old.map((t) => (t.id === updatedTask.id ? updatedTask : t))

@@ -13,6 +13,7 @@ export function getEffectiveUserId(explicitUserId?: string): string {
 
 // Convert Supabase snake_case task row to camelCase Task
 function mapDbTaskToModel(row: any): Task {
+  const overrides = row.date_overrides || {};
   return {
     id: row.id,
     userId: row.user_id,
@@ -23,12 +24,21 @@ function mapDbTaskToModel(row: any): Task {
     endTime: row.end_time || null,
     recurrence: row.recurrence,
     recurrenceConfig: row.recurrence_config || null,
-    dateOverrides: row.date_overrides || {},
+    dateOverrides: overrides,
     trackingType: row.tracking_type,
     targetValue: row.target_value !== null && row.target_value !== undefined ? parseFloat(row.target_value) : null,
-    enableReminders: row.enable_reminders !== undefined ? Boolean(row.enable_reminders) : true,
-    reminderOffsetMinutes: row.reminder_offset_minutes !== undefined ? row.reminder_offset_minutes : 10,
-    reminderTimes: row.reminder_times || ["11:00", "18:00"],
+    unit: row.unit || null,
+    enableReminders:
+      row.enable_reminders !== undefined && row.enable_reminders !== null
+        ? Boolean(row.enable_reminders)
+        : overrides._enableReminders !== undefined
+        ? Boolean(overrides._enableReminders)
+        : true,
+    reminderOffsetMinutes:
+      row.reminder_offset_minutes !== undefined && row.reminder_offset_minutes !== null
+        ? row.reminder_offset_minutes
+        : (overrides._reminderOffsetMinutes ?? 10),
+    reminderTimes: row.reminder_times || overrides._reminderTimes || ["11:00", "18:00"],
     isActive: Boolean(row.is_active),
     startedAt: row.started_at || null,
     isArchived: Boolean(row.is_archived),
@@ -184,8 +194,20 @@ export async function updateDbTask(
     targetId = session?.user?.id || getEffectiveUserId();
   }
 
+  const tasks = getStoredTasks(targetId);
+  const target = tasks.find((t) => t.id === taskId);
   const nowIso = new Date().toISOString();
   const dbUpdates: any = { updated_at: nowIso };
+
+  const currentOverrides = target?.dateOverrides || {};
+  const newOverrides = {
+    ...currentOverrides,
+    ...(updates.enableReminders !== undefined ? { _enableReminders: updates.enableReminders } : {}),
+    ...(updates.reminderOffsetMinutes !== undefined ? { _reminderOffsetMinutes: updates.reminderOffsetMinutes } : {}),
+    ...(updates.reminderTimes !== undefined ? { _reminderTimes: updates.reminderTimes } : {}),
+  };
+
+  dbUpdates.date_overrides = newOverrides;
 
   if (updates.title !== undefined) dbUpdates.title = updates.title;
   if (updates.description !== undefined) dbUpdates.description = updates.description || null;
@@ -211,8 +233,7 @@ export async function updateDbTask(
 
     if (!error && data) {
       const updated = mapDbTaskToModel(data);
-      const current = getStoredTasks(targetId);
-      const nextList = current.map((t) => (t.id === taskId ? updated : t));
+      const nextList = tasks.map((t) => (t.id === taskId ? updated : t));
       saveStoredTasks(nextList, targetId);
       return updated;
     }
@@ -221,13 +242,12 @@ export async function updateDbTask(
   }
 
   // Local fallback
-  const tasks = getStoredTasks(targetId);
-  const target = tasks.find((t) => t.id === taskId);
   if (!target) throw new Error("Task not found");
 
   const updatedTask: Task = {
     ...target,
     ...updates,
+    dateOverrides: newOverrides,
     updatedAt: nowIso,
   };
   const nextList = tasks.map((t) => (t.id === taskId ? updatedTask : t));

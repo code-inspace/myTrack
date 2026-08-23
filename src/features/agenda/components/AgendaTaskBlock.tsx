@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { TaskWithCompletion } from "@/features/tasks/types";
-import { CheckCircle2, Circle, Repeat, GripHorizontal, Bell, BellOff } from "lucide-react";
+import { CheckCircle2, Circle, Repeat, GripHorizontal, Bell, BellOff, Edit3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface AgendaTaskBlockProps {
@@ -12,6 +12,7 @@ interface AgendaTaskBlockProps {
   isSelected?: boolean;
   onToggleComplete: (taskId: string) => void;
   onToggleReminder?: (taskId: string) => void;
+  onEditTask?: (task: TaskWithCompletion) => void;
   onDragStart: (e: React.DragEvent, task: TaskWithCompletion) => void;
   onClick?: () => void;
   onStartResize?: (e: React.PointerEvent, task: TaskWithCompletion) => void;
@@ -63,6 +64,7 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
   isSelected = false,
   onToggleComplete,
   onToggleReminder,
+  onEditTask,
   onDragStart,
   onClick,
   onStartResize,
@@ -81,10 +83,13 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
         e.dataTransfer.setData("taskId", task.id);
         onDragStart(e, task);
       }}
-      onClick={onClick}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick?.();
+      }}
       style={{
         top: `${topOffsetPx}px`,
-        height: `${Math.max(30, heightPx)}px`,
+        height: `${Math.max(32, heightPx)}px`,
       }}
       className={cn(
         "absolute left-2 right-2 rounded-xl border p-2 flex flex-col justify-between shadow-md transition-all select-none cursor-grab active:cursor-grabbing z-10 group",
@@ -153,6 +158,21 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
             </button>
           )}
 
+          {/* Explicit Edit Button */}
+          {onEditTask && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEditTask(task);
+              }}
+              title="Modifier l'événement"
+              className="p-1 text-[#8E929E] hover:text-[#D4F63D] hover:scale-110 transition-all rounded-lg cursor-pointer"
+            >
+              <Edit3 className="w-3.5 h-3.5" />
+            </button>
+          )}
+
           {/* Completion check */}
           <button
             type="button"
@@ -171,19 +191,22 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
         </div>
       </div>
 
-      {/* Interactive Bottom Resize Handle (Enabled on click / selection) */}
-      {isSelected && (
-        <div
-          onPointerDown={(e) => {
-            e.stopPropagation();
-            onStartResize?.(e, task);
-          }}
-          className="absolute bottom-0 inset-x-0 h-4 flex items-center justify-center cursor-ns-resize z-40 bg-gradient-to-t from-black/40 to-transparent rounded-b-xl hover:bg-[#D4F63D]/20 transition-colors"
-          title="Glisser pour modifier la durée"
-        >
-          <div className="w-8 h-1 bg-[#D4F63D] rounded-full shadow-md" />
-        </div>
-      )}
+      {/* Interactive Bottom Resize Handle for stretching / compressing duration */}
+      <div
+        onPointerDown={(e) => {
+          e.stopPropagation();
+          onStartResize?.(e, task);
+        }}
+        className={cn(
+          "absolute bottom-0 inset-x-0 h-4 flex items-center justify-center cursor-ns-resize z-40 bg-gradient-to-t from-black/50 to-transparent rounded-b-xl transition-all",
+          isSelected
+            ? "opacity-100 bg-[#D4F63D]/20"
+            : "opacity-0 group-hover:opacity-100 hover:bg-[#D4F63D]/20"
+        )}
+        title="Glisser vers le bas/haut pour étendre ou compresser la durée"
+      >
+        <div className="w-10 h-1 bg-[#D4F63D] rounded-full shadow-lg" />
+      </div>
     </div>
   );
 };

@@ -96,12 +96,12 @@ export const AgendaView: React.FC = () => {
             const newEnable = target ? !(target.enableReminders !== false) : true;
             updateTask.mutate({ taskId, values: { enableReminders: newEnable } });
           }}
-          onDropToAllDay={handleDropToAllDay}
-          onDragStartTask={handleDragStartTask}
-          onSelectTask={(task) => {
+          onEditTask={(task) => {
             setEditingTask(task);
             setIsTaskModalOpen(true);
           }}
+          onDropToAllDay={handleDropToAllDay}
+          onDragStartTask={handleDragStartTask}
         />
       </div>
 
@@ -116,12 +116,12 @@ export const AgendaView: React.FC = () => {
             const newEnable = target ? !(target.enableReminders !== false) : true;
             updateTask.mutate({ taskId, values: { enableReminders: newEnable } });
           }}
-          onMoveTaskToTime={handleMoveTaskToTime}
-          onDragStartTask={handleDragStartTask}
-          onSelectTask={(task) => {
+          onEditTask={(task) => {
             setEditingTask(task);
             setIsTaskModalOpen(true);
           }}
+          onMoveTaskToTime={handleMoveTaskToTime}
+          onDragStartTask={handleDragStartTask}
         />
       </div>
 

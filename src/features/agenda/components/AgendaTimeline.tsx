@@ -11,6 +11,7 @@ interface AgendaTimelineProps {
   tasks: TaskWithCompletion[];
   onToggleComplete: (taskId: string) => void;
   onToggleReminder?: (taskId: string) => void;
+  onEditTask?: (task: TaskWithCompletion) => void;
   onMoveTaskToTime: (taskId: string, startTime: string, endTime: string) => void;
   onDragStartTask: (e: React.DragEvent, task: TaskWithCompletion) => void;
   onSelectTask?: (task: TaskWithCompletion) => void;
@@ -37,6 +38,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
   tasks,
   onToggleComplete,
   onToggleReminder,
+  onEditTask,
   onMoveTaskToTime,
   onDragStartTask,
   onSelectTask,
@@ -251,6 +253,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
                 isSelected={selectedTaskId === task.id || isCurrentlyResizing}
                 onToggleComplete={onToggleComplete}
                 onToggleReminder={onToggleReminder}
+                onEditTask={onEditTask}
                 onDragStart={onDragStartTask}
                 onClick={() => {
                   setSelectedTaskId(task.id);
