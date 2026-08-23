@@ -193,6 +193,8 @@ model SleepLog {
   bedtimeReminders       String[]  @default([])
   enableBedtimeReminders Boolean   @default(true)
   notes                  String?
+  gratitude              String?
+  manifestation          String?
   createdAt              DateTime  @default(now())
   updatedAt              DateTime  @updatedAt
 

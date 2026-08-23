@@ -72,7 +72,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     onToggleComplete(task.id);
   };
 
-  const hasTime = Boolean(task.startTime || task.endTime);
+  const displayStart = task.effectiveStartTime !== undefined ? task.effectiveStartTime : task.startTime;
+  const displayEnd = task.effectiveEndTime !== undefined ? task.effectiveEndTime : task.endTime;
+  const hasTime = Boolean(displayStart || displayEnd);
 
   return (
     <div
@@ -209,8 +211,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             <span className="inline-flex items-center gap-1 bg-[#141518] px-2.5 py-1 rounded-lg border border-[#252830] font-semibold text-white text-[11px] whitespace-nowrap">
               <Clock className="w-3 h-3 text-[#D4F63D]" />
               <span>
-                {task.startTime}
-                {task.endTime ? ` - ${task.endTime}` : ""}
+                {displayStart}
+                {displayEnd ? ` - ${displayEnd}` : ""}
               </span>
             </span>
           ) : (

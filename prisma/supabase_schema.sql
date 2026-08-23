@@ -141,6 +141,8 @@ CREATE TABLE IF NOT EXISTS public.sleep_logs (
     bedtime_reminders TEXT[] DEFAULT '{}' NOT NULL,
     enable_bedtime_reminders BOOLEAN DEFAULT true NOT NULL,
     notes TEXT,
+    gratitude TEXT,
+    manifestation TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     CONSTRAINT unique_user_sleep_date UNIQUE(user_id, date)

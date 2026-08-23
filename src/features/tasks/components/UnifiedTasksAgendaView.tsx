@@ -11,6 +11,7 @@ import { VoiceFab } from "@/features/voice/components/VoiceFab";
 import { AllDaySection } from "@/features/agenda/components/AllDaySection";
 import { AgendaTimeline } from "@/features/agenda/components/AgendaTimeline";
 import { SleepJournalView } from "@/features/sleep/components/SleepJournalView";
+import { DailyBilanView } from "@/features/sleep/components/DailyBilanView";
 import { useTasks, useTaskMutations } from "@/features/tasks/hooks";
 import { TaskWithCompletion, TaskFormValues } from "@/features/tasks/types";
 import { getTodayDateString } from "@/lib/dates";
@@ -18,7 +19,7 @@ import { CheckCircle2, Inbox, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface UnifiedTasksAgendaViewProps {
-  initialTab?: "habits" | "agenda" | "sleep";
+  initialTab?: "habits" | "agenda" | "sleep" | "bilan";
 }
 
 export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
@@ -26,7 +27,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
 }) => {
   const todayStr = getTodayDateString();
   const [selectedDate, setSelectedDate] = useState<string>(todayStr);
-  const [activeTab, setActiveTab] = useState<"habits" | "agenda" | "sleep">(initialTab);
+  const [activeTab, setActiveTab] = useState<"habits" | "agenda" | "sleep" | "bilan">(initialTab);
 
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskWithCompletion | null>(null);
@@ -175,13 +176,19 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
     });
   };
 
-  const handleTabChange = (tab: "habits" | "agenda" | "sleep") => {
+  const handleTabChange = (tab: "habits" | "agenda" | "sleep" | "bilan") => {
     setActiveTab(tab);
     if (typeof window !== "undefined") {
       window.history.replaceState(
         null,
         "",
-        tab === "agenda" ? "/agenda" : tab === "sleep" ? "/sleep" : "/tasks"
+        tab === "agenda"
+          ? "/agenda"
+          : tab === "sleep"
+          ? "/sleep"
+          : tab === "bilan"
+          ? "/bilan"
+          : "/tasks"
       );
     }
   };
@@ -196,7 +203,9 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
               ? "Mes Habitudes"
               : activeTab === "agenda"
               ? "Mon Agenda"
-              : "Sommeil & Bilan"
+              : activeTab === "sleep"
+              ? "Sommeil"
+              : "Journal & Bilan"
           }
           selectedDate={selectedDate}
           onSelectDate={setSelectedDate}
@@ -229,8 +238,11 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
       </div>
 
       {/* 2. Seamless View Body */}
-      {activeTab === "sleep" ? (
-        /* SOMMEIL & BILAN TAB */
+      {activeTab === "bilan" ? (
+        /* BILAN & GRATITUDE & MANIFESTATION TAB */
+        <DailyBilanView selectedDate={selectedDate} />
+      ) : activeTab === "sleep" ? (
+        /* SOMMEIL TAB */
         <SleepJournalView selectedDate={selectedDate} />
       ) : activeTab === "habits" ? (
         /* HABIT LIST TAB */

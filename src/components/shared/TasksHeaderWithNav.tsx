@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AppHeader } from "@/components/shared/AppHeader";
 import { HorizontalDatePicker } from "@/features/tasks/components/HorizontalDatePicker";
-import { ListTodo, Calendar, Moon } from "lucide-react";
+import { ListTodo, Calendar, Moon, BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface TasksHeaderWithNavProps {
@@ -14,8 +14,8 @@ interface TasksHeaderWithNavProps {
   onSelectDate: (date: string) => void;
   onOpenNotifications?: () => void;
   onNewTask?: () => void;
-  activeTab?: "habits" | "agenda" | "sleep";
-  onChangeTab?: (tab: "habits" | "agenda" | "sleep") => void;
+  activeTab?: "habits" | "agenda" | "sleep" | "bilan";
+  onChangeTab?: (tab: "habits" | "agenda" | "sleep" | "bilan") => void;
 }
 
 export const TasksHeaderWithNav: React.FC<TasksHeaderWithNavProps> = ({
@@ -29,13 +29,22 @@ export const TasksHeaderWithNav: React.FC<TasksHeaderWithNavProps> = ({
 }) => {
   const pathname = usePathname();
 
-  const views: Array<{ id: "habits" | "agenda" | "sleep"; href: string; label: string; icon: any; activePaths: string[] }> = [
+  const views: Array<{ id: "habits" | "agenda" | "sleep" | "bilan"; href: string; label: string; icon: any; activePaths: string[] }> = [
     { id: "habits", href: "/tasks", label: "Habitudes", icon: ListTodo, activePaths: ["/tasks", "/"] },
     { id: "agenda", href: "/agenda", label: "Agenda", icon: Calendar, activePaths: ["/agenda"] },
     { id: "sleep", href: "/sleep", label: "Sommeil", icon: Moon, activePaths: ["/sleep"] },
+    { id: "bilan", href: "/bilan", label: "Bilan", icon: BookOpen, activePaths: ["/bilan"] },
   ];
 
-  const currentTab = activeTab || (pathname.includes("/agenda") ? "agenda" : pathname.includes("/sleep") ? "sleep" : "habits");
+  const currentTab =
+    activeTab ||
+    (pathname.includes("/agenda")
+      ? "agenda"
+      : pathname.includes("/sleep")
+      ? "sleep"
+      : pathname.includes("/bilan")
+      ? "bilan"
+      : "habits");
 
   return (
     <div className="sticky top-0 z-40 w-full bg-[#111214] border-b border-[#23242A] select-none shadow-md">
@@ -52,9 +61,9 @@ export const TasksHeaderWithNav: React.FC<TasksHeaderWithNavProps> = ({
         onSelectDate={onSelectDate}
       />
 
-      {/* 3. Cohesive Segmented View Switcher (Habitudes / Agenda / Sommeil) */}
+      {/* 3. Cohesive Segmented View Switcher (Habitudes / Agenda / Sommeil / Bilan) */}
       <div className="px-3 pb-3 pt-0.5">
-        <div className="grid grid-cols-3 gap-1 p-1 bg-[#1A1C22] rounded-2xl border border-[#2B2E38] shadow-inner max-w-sm mx-auto">
+        <div className="grid grid-cols-4 gap-1 p-1 bg-[#1A1C22] rounded-2xl border border-[#2B2E38] shadow-inner max-w-md mx-auto">
           {views.map((v) => {
             const Icon = v.icon;
             const isActive = currentTab === v.id;

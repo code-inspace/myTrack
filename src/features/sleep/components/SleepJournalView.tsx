@@ -335,38 +335,27 @@ export const SleepJournalView: React.FC<SleepJournalViewProps> = ({ selectedDate
       </div>
 
       {/* ========================================================================= */}
-      {/* 3. ENCART COMMENTAIRE DE LA JOURNÉE (JOURNAL & BILAN)                     */}
+      {/* 3. ACCÈS RAPIDE AU BILAN DU JOUR                                          */}
       {/* ========================================================================= */}
       <div className="bg-[#1C1D22] border border-[#282A30] rounded-3xl p-5 shadow-lg space-y-3">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-[#252830] border border-[#343740] flex items-center justify-center text-[#60A5FA] shadow-sm">
-            <BookOpen className="w-5 h-5" />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-[#8B5CF6]/15 border border-[#8B5CF6]/30 flex items-center justify-center text-[#A78BFA] shadow-sm">
+              <BookOpen className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-white">Journal & Bilan du jour</h3>
+              <p className="text-[11px] text-[#8E929E]">Gratitude, manifestations et bilan</p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-sm font-bold text-white">Commentaire de la journée</h3>
-            <p className="text-[11px] text-[#8E929E]">Notes, ressenti, apprentissages et victoires</p>
-          </div>
-        </div>
 
-        <div className="relative">
-          <textarea
-            rows={4}
-            value={log.notes || ""}
-            onChange={(e) => handleNotesChange(e.target.value)}
-            placeholder="Comment s'est passée ta journée ? Qu'as-tu accompli, comment te sens-tu ?"
-            className="w-full p-4 rounded-2xl bg-[#252830] border border-[#343740] text-sm text-white focus:border-[#D4F63D] focus:ring-1 focus:ring-[#D4F63D] outline-none placeholder-[#6B7280] resize-none transition-all"
-          />
-        </div>
-
-        <div className="flex justify-end">
-          <button
-            type="button"
-            onClick={() => triggerSave(log)}
-            className="px-4 py-2 rounded-xl bg-[#D4F63D] hover:bg-[#c2e432] text-black font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-md transition-all active:scale-95"
+          <a
+            href="/bilan"
+            className="px-4 py-2 rounded-xl bg-[#252830] hover:bg-[#343740] text-[#D4F63D] border border-[#343740] font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
           >
-            <Check className="w-3.5 h-3.5 stroke-[3]" />
-            <span>Enregistrer le bilan</span>
-          </button>
+            <span>Ouvrir</span>
+            <span>→</span>
+          </a>
         </div>
       </div>
     </div>

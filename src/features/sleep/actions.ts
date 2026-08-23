@@ -104,6 +104,8 @@ function mapDbSleepLogToModel(row: any): DailySleepLog {
     bedtimeReminders: localReminders,
     enableBedtimeReminders: row.enable_bedtime_reminders !== false,
     notes: row.notes || "",
+    gratitude: row.gratitude || "",
+    manifestation: row.manifestation || "",
     updatedAt: row.updated_at || new Date().toISOString(),
   };
 }
@@ -159,6 +161,8 @@ export function getStoredSleepLog(date: string, userId?: string): DailySleepLog 
       bedtimeReminders: ["22:00", "22:30", "22:45"],
       enableBedtimeReminders: true,
       notes: "",
+      gratitude: "",
+      manifestation: "",
     };
   }
 
@@ -169,6 +173,8 @@ export function getStoredSleepLog(date: string, userId?: string): DailySleepLog 
       return {
         ...parsed,
         bedtimeOffsets: parsed.bedtimeOffsets || DEFAULT_BEDTIME_OFFSETS,
+        gratitude: parsed.gratitude || "",
+        manifestation: parsed.manifestation || "",
       };
     }
   } catch (err) {
@@ -187,6 +193,8 @@ export function getStoredSleepLog(date: string, userId?: string): DailySleepLog 
     bedtimeReminders: computeDefaultBedtimeReminders(defaultBedtime),
     enableBedtimeReminders: true,
     notes: "",
+    gratitude: "",
+    manifestation: "",
   };
 }
 
@@ -287,6 +295,8 @@ export async function saveStoredSleepLog(
           bedtime_reminders: utcReminders,
           enable_bedtime_reminders: updatedLog.enableBedtimeReminders !== false,
           notes: updatedLog.notes || null,
+          gratitude: updatedLog.gratitude || null,
+          manifestation: updatedLog.manifestation || null,
           updated_at: nowIso,
         },
       ],

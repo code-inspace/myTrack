@@ -8,5 +8,7 @@ export interface DailySleepLog {
   bedtimeReminders: string[]; // e.g. ["22:00", "22:30", "22:45"]
   enableBedtimeReminders: boolean;
   notes?: string; // Daily reflection / comment
+  gratitude?: string; // Gratitude journaling
+  manifestation?: string; // Manifestation & intentions
   updatedAt?: string;
 }
