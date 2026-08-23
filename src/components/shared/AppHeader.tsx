@@ -17,7 +17,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   onOpenNotifications,
 }) => {
   const { data: stats } = useDashboardStats();
-  const streak = stats?.currentStreak ?? 4;
+  const streak = stats?.currentStreak ?? 0;
 
   return (
     <header className="w-full flex items-center justify-between py-3 px-1">

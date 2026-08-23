@@ -397,6 +397,8 @@ export function calculateDashboardStats(
   const totalTargetWins = Math.max(totalWins, totalScheduledInPeriod);
   const averageDailyCompletion = Math.round(completionRate);
   const tasksMissed = Math.max(0, totalScheduledInPeriod - totalCompletedInPeriod);
+  const globalStreak = calculateCurrentStreak(completions, referenceDate);
+  const bestGlobalStreak = calculateBestStreak(completions);
 
   return {
     momentum,
@@ -405,8 +407,8 @@ export function calculateDashboardStats(
     completionRate,
     totalWins,
     totalTargetWins,
-    currentStreak: Math.round(avgHabitStreak),
-    bestStreak: Math.max(...habitStreaks.map((h) => h.bestStreak), 1),
+    currentStreak: globalStreak,
+    bestStreak: Math.max(bestGlobalStreak, globalStreak),
     last7DaysStatus,
     habitStreaks,
     tasksCompleted: totalCompletedInPeriod,
