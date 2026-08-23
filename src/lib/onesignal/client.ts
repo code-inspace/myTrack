@@ -148,6 +148,7 @@ export async function scheduleTaskPushNotification(params: {
   type?: string;
   targetInMinutes?: number;
   customMessage?: string;
+  replaceExisting?: boolean;
 }): Promise<any> {
   try {
     const res = await fetch("/api/notifications/schedule", {

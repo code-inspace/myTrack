@@ -341,6 +341,7 @@ export async function updateDbTask(
           taskTitle: updated.title,
           startTime: updated.startTime,
           scheduledIso,
+          replaceExisting: true,
           reminderOffsetMinutes: updated.reminderOffsetMinutes ?? 10,
           reminderTimes: updated.reminderTimes || ["11:00", "18:00"],
           date: targetDate,

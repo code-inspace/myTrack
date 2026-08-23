@@ -369,6 +369,7 @@ export async function saveStoredSleepLog(
         reminderOffsetMinutes: 0,
         date: updatedLog.date,
         category: "Sleep",
+        replaceExisting: true,
       }).catch((err) => console.warn("Bedtime reminder schedule error:", err));
     }
   }

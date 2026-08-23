@@ -1,5 +1,48 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendOneSignalPushNotification } from "@/lib/onesignal/server";
+import { createClient } from "@/utils/supabase/client";
+
+// Cancel any existing scheduled notifications for a given task
+async function cancelExistingNotifications(taskId: string) {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("task_notifications")
+    .select("onesignal_id")
+    .eq("task_id", taskId);
+  if (error) {
+    console.warn("Failed to fetch existing notifications for cancellation", error);
+    return;
+  }
+  if (data && data.length) {
+    for (const row of data) {
+      try {
+        await fetch(`https://onesignal.com/api/v1/notifications/${row.onesignal_id}`, {
+          method: "DELETE",
+          headers: { Authorization: `Basic ${process.env.ONESIGNAL_REST_API_KEY}` },
+        });
+      } catch (e) {
+        console.warn("Error cancelling OneSignal notification", e);
+      }
+    }
+    await supabase.from("task_notifications").delete().eq("task_id", taskId);
+  }
+}
+
+// Store a newly scheduled notification for later cancellation
+async function storeScheduledNotification(taskId: string, userId: string | undefined, onesignalId: string, scheduleDate: string) {
+  const supabase = createClient();
+  try {
+    await supabase.from("task_notifications").insert({
+      task_id: taskId,
+      user_id: userId,
+      onesignal_id: onesignalId,
+      scheduled_at: scheduleDate,
+    });
+  } catch (e) {
+    console.warn("Failed to store scheduled notification", e);
+  }
+}
+
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,8 +60,13 @@ export async function POST(req: NextRequest) {
       type = "task_reminder",
       customMessage,
       targetInMinutes,
+      replaceExisting,
     } = body;
 
+    // If replaceExisting flag is set, cancel any existing notifications for this task before scheduling new ones
+    if (replaceExisting && taskId) {
+      await cancelExistingNotifications(taskId);
+    }
     if (!taskTitle) {
       return NextResponse.json({ error: "taskTitle is required" }, { status: 400 });
     }
