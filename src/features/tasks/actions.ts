@@ -671,10 +671,18 @@ export async function upsertDbCompletion(
           value: completion.value,
           duration: completion.duration,
           notes: completion.notes,
-          scheduled_start_time: completion.scheduledStartTime || null,
-          scheduled_end_time: completion.scheduledEndTime || null,
-          actual_start_time: completion.actualStartTime || null,
-          actual_end_time: completion.actualEndTime || null,
+          scheduled_start_time: completion.scheduledStartTime
+            ? convertLocalTimeToUtc(completion.scheduledStartTime, completion.date)
+            : null,
+          scheduled_end_time: completion.scheduledEndTime
+            ? convertLocalTimeToUtc(completion.scheduledEndTime, completion.date)
+            : null,
+          actual_start_time: completion.actualStartTime
+            ? convertLocalTimeToUtc(completion.actualStartTime, completion.date)
+            : null,
+          actual_end_time: completion.actualEndTime
+            ? convertLocalTimeToUtc(completion.actualEndTime, completion.date)
+            : null,
         },
       ],
       { onConflict: "task_id,date" }
