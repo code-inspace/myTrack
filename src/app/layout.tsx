@@ -84,6 +84,7 @@ export default function RootLayout({
         <link rel="apple-touch-icon" sizes="512x512" href="/icons/icon-512.png" />
         <link rel="apple-touch-icon-precomposed" href="/apple-touch-icon-precomposed.png" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
+        <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
       </head>
       <body className="bg-[#111214] text-[#F3F4F6] min-h-screen antialiased flex flex-col items-center">
         <QueryProvider>
