@@ -27,6 +27,7 @@ function mapDbTaskToModel(row: any): Task {
     targetValue: row.target_value !== null && row.target_value !== undefined ? parseFloat(row.target_value) : null,
     unit: row.unit || null,
     isActive: Boolean(row.is_active),
+    startedAt: row.started_at || null,
     isArchived: Boolean(row.is_archived),
     createdAt: row.created_at || new Date().toISOString(),
     updatedAt: row.updated_at || new Date().toISOString(),
@@ -123,6 +124,7 @@ export async function createDbTask(task: Omit<Task, "id" | "createdAt" | "update
           target_value: task.targetValue !== undefined ? task.targetValue : null,
           unit: task.unit || null,
           is_active: false,
+          started_at: null,
           is_archived: false,
         },
       ])
@@ -157,11 +159,28 @@ export async function updateDbTaskActive(taskId: string, isActive: boolean, user
     targetId = session?.user?.id || getEffectiveUserId();
   }
 
+  const nowIso = new Date().toISOString();
+
   try {
     if (isActive) {
-      await supabase.from("tasks").update({ is_active: false }).eq("user_id", targetId);
+      // Deactivate all other tasks for this user
+      await supabase
+        .from("tasks")
+        .update({ is_active: false, started_at: null, updated_at: nowIso })
+        .eq("user_id", targetId);
+
+      // Activate target task with started_at = now
+      await supabase
+        .from("tasks")
+        .update({ is_active: true, started_at: nowIso, updated_at: nowIso })
+        .eq("id", taskId);
+    } else {
+      // Stop target task
+      await supabase
+        .from("tasks")
+        .update({ is_active: false, started_at: null, updated_at: nowIso })
+        .eq("id", taskId);
     }
-    await supabase.from("tasks").update({ is_active: isActive }).eq("id", taskId);
   } catch (err) {
     console.warn("Supabase updateDbTaskActive error:", err);
   }
@@ -169,9 +188,14 @@ export async function updateDbTaskActive(taskId: string, isActive: boolean, user
   const tasks = getStoredTasks(targetId);
   const updated = tasks.map((t) => {
     if (t.id === taskId) {
-      return { ...t, isActive, updatedAt: new Date().toISOString() };
+      return {
+        ...t,
+        isActive,
+        startedAt: isActive ? nowIso : null,
+        updatedAt: nowIso,
+      };
     }
-    return isActive ? { ...t, isActive: false } : t;
+    return isActive ? { ...t, isActive: false, startedAt: null } : t;
   });
   saveStoredTasks(updated, targetId);
 }

@@ -24,14 +24,27 @@ export const ActiveTaskBanner: React.FC<ActiveTaskBannerProps> = ({
   onStop,
   onOpenLogModal,
 }) => {
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const calculateElapsed = () => {
+    if (task.startedAt) {
+      const startTime = new Date(task.startedAt).getTime();
+      const now = Date.now();
+      return Math.max(0, Math.floor((now - startTime) / 1000));
+    }
+    return 0;
+  };
+
+  const [elapsedSeconds, setElapsedSeconds] = useState(calculateElapsed);
 
   useEffect(() => {
+    // Recalculate on task changes
+    setElapsedSeconds(calculateElapsed());
+
     const timer = setInterval(() => {
-      setElapsedSeconds((prev) => prev + 1);
+      setElapsedSeconds(calculateElapsed());
     }, 1000);
+
     return () => clearInterval(timer);
-  }, []);
+  }, [task.startedAt, task.id]);
 
   const formatTimer = (totalSec: number) => {
     const mins = Math.floor(totalSec / 60);

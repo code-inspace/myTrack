@@ -20,6 +20,7 @@ export interface Task {
   targetValue?: number | null;
   unit?: string | null;
   isActive: boolean;
+  startedAt?: string | null;
   isArchived: boolean;
   createdAt: string;
   updatedAt: string;

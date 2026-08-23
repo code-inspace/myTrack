@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { taskQueryKeys } from "./queries";
 import { Task, TaskCompletion, TaskFormValues, TaskWithCompletion } from "./types";
@@ -16,22 +17,50 @@ import {
 import { isTaskScheduledForDate } from "@/lib/dates";
 import { mapTaskWithCompletion, sortTasksByPriority } from "./mappers";
 import { useAuth } from "@/providers/AuthProvider";
+import { createClient } from "@/utils/supabase/client";
 import { parseISO } from "date-fns";
 
 export function useTasks(selectedDateStr: string) {
+  const queryClient = useQueryClient();
   const { user } = useAuth();
   const userId = user?.id || "00000000-0000-0000-0000-000000000001";
+
+  // 1. Supabase Realtime Listener across devices
+  useEffect(() => {
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`realtime-tasks-${userId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "tasks", filter: `user_id=eq.${userId}` },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["tasks"] });
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "task_completions", filter: `user_id=eq.${userId}` },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["completions"] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userId, queryClient]);
 
   const { data: allTasks = [], isLoading: isLoadingTasks } = useQuery({
     queryKey: ["tasks", userId],
     queryFn: async () => fetchTasks(userId),
-    staleTime: 1000 * 10,
+    staleTime: 1000 * 5,
   });
 
   const { data: allCompletions = [], isLoading: isLoadingCompletions } = useQuery({
     queryKey: ["completions", userId],
     queryFn: async () => fetchCompletions(userId),
-    staleTime: 1000 * 10,
+    staleTime: 1000 * 5,
   });
 
   const selectedDate = parseISO(selectedDateStr);
