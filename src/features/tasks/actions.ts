@@ -1,5 +1,4 @@
-import { Task, TaskCompletion, TaskFormValues, LogCompletionValues } from "./types";
-import { getTodayDateString } from "@/lib/dates";
+import { Task, TaskCompletion } from "./types";
 import { getStoredUserSession, DEMO_USER } from "@/features/auth/actions";
 import { createClient } from "@/utils/supabase/client";
 
@@ -25,7 +24,7 @@ function mapDbTaskToModel(row: any): Task {
     recurrence: row.recurrence,
     recurrenceConfig: row.recurrence_config || null,
     trackingType: row.tracking_type,
-    targetValue: row.target_value ? parseFloat(row.target_value) : null,
+    targetValue: row.target_value !== null && row.target_value !== undefined ? parseFloat(row.target_value) : null,
     unit: row.unit || null,
     isActive: Boolean(row.is_active),
     isArchived: Boolean(row.is_archived),
@@ -51,11 +50,17 @@ function mapDbCompletionToModel(row: any): TaskCompletion {
 }
 
 export async function fetchTasks(userId?: string): Promise<Task[]> {
-  const targetId = getEffectiveUserId(userId);
+  const supabase = createClient();
+  let targetId = userId;
+
+  if (!targetId) {
+    const { data: { session } } = await supabase.auth.getSession();
+    targetId = session?.user?.id || getEffectiveUserId();
+  }
+
   const key = TASKS_STORAGE_PREFIX + targetId;
 
   try {
-    const supabase = createClient();
     const { data, error } = await supabase
       .from("tasks")
       .select("*")
@@ -70,7 +75,7 @@ export async function fetchTasks(userId?: string): Promise<Task[]> {
       return mapped;
     }
   } catch (err) {
-    console.warn("Supabase fetchTasks fallback to local storage:", err);
+    console.warn("Supabase fetchTasks error:", err);
   }
 
   return getStoredTasks(targetId);
@@ -93,25 +98,30 @@ export function getStoredTasks(userId?: string): Task[] {
 }
 
 export async function createDbTask(task: Omit<Task, "id" | "createdAt" | "updatedAt">): Promise<Task> {
-  const targetId = task.userId || getEffectiveUserId();
+  const supabase = createClient();
+  let targetId = task.userId;
+
+  if (!targetId) {
+    const { data: { session } } = await supabase.auth.getSession();
+    targetId = session?.user?.id || getEffectiveUserId();
+  }
 
   try {
-    const supabase = createClient();
     const { data, error } = await supabase
       .from("tasks")
       .insert([
         {
           user_id: targetId,
           title: task.title,
-          description: task.description,
-          category: task.category,
-          start_time: task.startTime,
-          end_time: task.endTime,
+          description: task.description || null,
+          category: task.category || "General",
+          start_time: task.startTime || null,
+          end_time: task.endTime || null,
           recurrence: task.recurrence,
-          recurrence_config: task.recurrenceConfig,
+          recurrence_config: task.recurrenceConfig || null,
           tracking_type: task.trackingType,
-          target_value: task.targetValue,
-          unit: task.unit,
+          target_value: task.targetValue !== undefined ? task.targetValue : null,
+          unit: task.unit || null,
           is_active: false,
           is_archived: false,
         },
@@ -119,7 +129,12 @@ export async function createDbTask(task: Omit<Task, "id" | "createdAt" | "update
       .select()
       .single();
 
-    if (!error && data) {
+    if (error) {
+      console.error("Supabase createDbTask error:", error);
+      throw new Error(error.message);
+    }
+
+    if (data) {
       const created = mapDbTaskToModel(data);
       const current = getStoredTasks(targetId);
       const updated = [created, ...current.filter((t) => t.id !== created.id)];
@@ -127,37 +142,28 @@ export async function createDbTask(task: Omit<Task, "id" | "createdAt" | "update
       return created;
     }
   } catch (err) {
-    console.warn("Supabase createDbTask fallback:", err);
+    console.error("Supabase createDbTask failed:", err);
+    throw err;
   }
 
-  // Local fallback
-  const localTask: Task = {
-    ...task,
-    id: "task-" + Date.now(),
-    userId: targetId,
-    isActive: false,
-    isArchived: false,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
-  const current = getStoredTasks(targetId);
-  const updated = [localTask, ...current];
-  saveStoredTasks(updated, targetId);
-  return localTask;
+  throw new Error("Impossible d'enregistrer la tâche sur Supabase");
 }
 
 export async function updateDbTaskActive(taskId: string, isActive: boolean, userId?: string): Promise<void> {
-  const targetId = getEffectiveUserId(userId);
+  const supabase = createClient();
+  let targetId = userId;
+  if (!targetId) {
+    const { data: { session } } = await supabase.auth.getSession();
+    targetId = session?.user?.id || getEffectiveUserId();
+  }
 
   try {
-    const supabase = createClient();
-    // Deactivate others
     if (isActive) {
       await supabase.from("tasks").update({ is_active: false }).eq("user_id", targetId);
     }
     await supabase.from("tasks").update({ is_active: isActive }).eq("id", taskId);
   } catch (err) {
-    console.warn("Supabase updateDbTaskActive fallback:", err);
+    console.warn("Supabase updateDbTaskActive error:", err);
   }
 
   const tasks = getStoredTasks(targetId);
@@ -171,13 +177,17 @@ export async function updateDbTaskActive(taskId: string, isActive: boolean, user
 }
 
 export async function deleteDbTask(taskId: string, userId?: string): Promise<void> {
-  const targetId = getEffectiveUserId(userId);
+  const supabase = createClient();
+  let targetId = userId;
+  if (!targetId) {
+    const { data: { session } } = await supabase.auth.getSession();
+    targetId = session?.user?.id || getEffectiveUserId();
+  }
 
   try {
-    const supabase = createClient();
     await supabase.from("tasks").delete().eq("id", taskId);
   } catch (err) {
-    console.warn("Supabase deleteDbTask fallback:", err);
+    console.warn("Supabase deleteDbTask error:", err);
   }
 
   const tasks = getStoredTasks(targetId);
@@ -193,11 +203,16 @@ export function saveStoredTasks(tasks: Task[], userId?: string): void {
 }
 
 export async function fetchCompletions(userId?: string): Promise<TaskCompletion[]> {
-  const targetId = getEffectiveUserId(userId);
+  const supabase = createClient();
+  let targetId = userId;
+  if (!targetId) {
+    const { data: { session } } = await supabase.auth.getSession();
+    targetId = session?.user?.id || getEffectiveUserId();
+  }
+
   const key = COMPLETIONS_STORAGE_PREFIX + targetId;
 
   try {
-    const supabase = createClient();
     const { data, error } = await supabase
       .from("task_completions")
       .select("*")
@@ -211,7 +226,7 @@ export async function fetchCompletions(userId?: string): Promise<TaskCompletion[
       return mapped;
     }
   } catch (err) {
-    console.warn("Supabase fetchCompletions fallback:", err);
+    console.warn("Supabase fetchCompletions error:", err);
   }
 
   return getStoredCompletions(targetId);
@@ -234,10 +249,14 @@ export function getStoredCompletions(userId?: string): TaskCompletion[] {
 export async function upsertDbCompletion(
   completion: Omit<TaskCompletion, "id" | "createdAt" | "updatedAt"> & { id?: string }
 ): Promise<void> {
-  const targetId = completion.userId || getEffectiveUserId();
+  const supabase = createClient();
+  let targetId = completion.userId;
+  if (!targetId) {
+    const { data: { session } } = await supabase.auth.getSession();
+    targetId = session?.user?.id || getEffectiveUserId();
+  }
 
   try {
-    const supabase = createClient();
     await supabase.from("task_completions").upsert(
       [
         {
@@ -253,7 +272,7 @@ export async function upsertDbCompletion(
       { onConflict: "task_id,date" }
     );
   } catch (err) {
-    console.warn("Supabase upsertDbCompletion fallback:", err);
+    console.warn("Supabase upsertDbCompletion error:", err);
   }
 
   const completions = getStoredCompletions(targetId);
