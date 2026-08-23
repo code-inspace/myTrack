@@ -40,6 +40,7 @@ model User {
   notificationPreferences NotificationPreference?
   notificationSchedules   NotificationSchedule[]
   reminders               Reminder[]
+  sleepLogs               SleepLog[]
   conversations           ChatConversation[]
 
   @@map("users")
@@ -178,4 +179,26 @@ model Reminder {
   @@index([userId, status])
   @@index([scheduledAt])
   @@map("reminders")
+}
+
+model SleepLog {
+  id                     String    @id @default(uuid())
+  userId                 String
+  date                   String    // "YYYY-MM-DD"
+  bedtime                String?   // "23:00"
+  wakeTime               String?   // "07:00"
+  bedtimeValidated       Boolean   @default(false)
+  wakeTimeValidated      Boolean   @default(false)
+  bedtimeOffsets         Int[]     @default([60, 30, 15])
+  bedtimeReminders       String[]  @default([])
+  enableBedtimeReminders Boolean   @default(true)
+  notes                  String?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  user                   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@index([userId, date])
+  @@map("sleep_logs")
 }

@@ -2,6 +2,7 @@ import { DailySleepLog } from "./types";
 import { getStoredUserSession, DEMO_USER } from "@/features/auth/actions";
 import { subtractMinutesFromTime } from "@/lib/dates";
 import { scheduleTaskPushNotification } from "@/lib/onesignal/client";
+import { createClient } from "@/utils/supabase/client";
 import { subDays, parseISO, format } from "date-fns";
 
 const SLEEP_STORAGE_PREFIX = "mytrack_sleeplog_";
@@ -25,7 +26,10 @@ export const DEFAULT_BEDTIME_OFFSETS = [60, 30, 15];
 /**
  * Calculates bedtime reminder times from an array of minute offsets
  */
-export function computeBedtimeRemindersFromOffsets(bedtime: string, offsets: number[] = DEFAULT_BEDTIME_OFFSETS): string[] {
+export function computeBedtimeRemindersFromOffsets(
+  bedtime: string,
+  offsets: number[] = DEFAULT_BEDTIME_OFFSETS
+): string[] {
   if (!bedtime) return ["22:00", "22:30", "22:45"];
   const sorted = [...offsets].sort((a, b) => b - a);
   return sorted.map((offset) =>
@@ -74,6 +78,53 @@ export function computeSleepDuration(
     decHours,
     text: `${hours}h ${String(minutes).padStart(2, "0")}m`,
   };
+}
+
+function mapDbSleepLogToModel(row: any): DailySleepLog {
+  const defaultBedtime = row.bedtime || "23:00";
+  const offsets = row.bedtime_offsets || DEFAULT_BEDTIME_OFFSETS;
+  return {
+    date: row.date,
+    bedtime: defaultBedtime,
+    wakeTime: row.wake_time || "07:00",
+    bedtimeValidated: Boolean(row.bedtime_validated),
+    wakeTimeValidated: Boolean(row.wake_time_validated),
+    bedtimeOffsets: offsets,
+    bedtimeReminders: row.bedtime_reminders || computeBedtimeRemindersFromOffsets(defaultBedtime, offsets),
+    enableBedtimeReminders: row.enable_bedtime_reminders !== false,
+    notes: row.notes || "",
+    updatedAt: row.updated_at || new Date().toISOString(),
+  };
+}
+
+/**
+ * Fetches sleep log from Supabase database with local storage synchronization
+ */
+export async function fetchDbSleepLog(date: string, userId?: string): Promise<DailySleepLog> {
+  const targetId = getEffectiveUserId(userId);
+  const key = `${SLEEP_STORAGE_PREFIX}${targetId}_${date}`;
+
+  try {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("sleep_logs")
+      .select("*")
+      .eq("user_id", targetId)
+      .eq("date", date)
+      .maybeSingle();
+
+    if (!error && data) {
+      const mapped = mapDbSleepLogToModel(data);
+      if (typeof window !== "undefined") {
+        localStorage.setItem(key, JSON.stringify(mapped));
+      }
+      return mapped;
+    }
+  } catch (err) {
+    console.warn("Supabase fetchDbSleepLog error:", err);
+  }
+
+  return getStoredSleepLog(date, targetId);
 }
 
 export function getStoredSleepLog(date: string, userId?: string): DailySleepLog {
@@ -166,6 +217,9 @@ export function getNightSleepDuration(
   }
 }
 
+/**
+ * Saves sleep log to Supabase PostgreSQL database and updates localStorage
+ */
 export async function saveStoredSleepLog(
   log: DailySleepLog,
   userId?: string
@@ -179,15 +233,45 @@ export async function saveStoredSleepLog(
     updatedAt: nowIso,
   };
 
+  // 1. Instant local persistence
   if (typeof window !== "undefined") {
     try {
       localStorage.setItem(key, JSON.stringify(updatedLog));
     } catch (err) {
-      console.warn("saveStoredSleepLog storage error:", err);
+      console.warn("saveStoredSleepLog local storage error:", err);
     }
   }
 
-  // Schedule OneSignal bedtime push notifications if enabled
+  // 2. Database persistence in Supabase
+  try {
+    const supabase = createClient();
+    const { error } = await supabase.from("sleep_logs").upsert(
+      [
+        {
+          user_id: targetId,
+          date: updatedLog.date,
+          bedtime: updatedLog.bedtime || "23:00",
+          wake_time: updatedLog.wakeTime || "07:00",
+          bedtime_validated: Boolean(updatedLog.bedtimeValidated),
+          wake_time_validated: Boolean(updatedLog.wakeTimeValidated),
+          bedtime_offsets: updatedLog.bedtimeOffsets || DEFAULT_BEDTIME_OFFSETS,
+          bedtime_reminders: updatedLog.bedtimeReminders || [],
+          enable_bedtime_reminders: updatedLog.enableBedtimeReminders !== false,
+          notes: updatedLog.notes || null,
+          updated_at: nowIso,
+        },
+      ],
+      { onConflict: "user_id,date" }
+    );
+
+    if (error) {
+      console.warn("Supabase saveStoredSleepLog error:", error);
+    }
+  } catch (err) {
+    console.warn("Supabase saveStoredSleepLog network fallback:", err);
+  }
+
+  // 3. Schedule OneSignal bedtime push notifications if enabled
   if (updatedLog.enableBedtimeReminders && updatedLog.bedtimeReminders?.length > 0) {
     for (const rTime of updatedLog.bedtimeReminders) {
       scheduleTaskPushNotification({
@@ -202,4 +286,30 @@ export async function saveStoredSleepLog(
   }
 
   return updatedLog;
+}
+
+/**
+ * Fetches multi-day sleep history from Supabase
+ */
+export async function fetchSleepHistory(
+  days: number = 30,
+  userId?: string
+): Promise<DailySleepLog[]> {
+  const targetId = getEffectiveUserId(userId);
+  try {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("sleep_logs")
+      .select("*")
+      .eq("user_id", targetId)
+      .order("date", { ascending: false })
+      .limit(days);
+
+    if (!error && data) {
+      return data.map(mapDbSleepLogToModel);
+    }
+  } catch (err) {
+    console.warn("Supabase fetchSleepHistory error:", err);
+  }
+  return [];
 }

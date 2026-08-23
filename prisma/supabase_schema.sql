@@ -128,6 +128,24 @@ CREATE TABLE IF NOT EXISTS public.reminders (
     updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
+-- 9. Sleep Logs Table (Daily bedtime, wake time, offsets and reflections)
+CREATE TABLE IF NOT EXISTS public.sleep_logs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    date TEXT NOT NULL, -- Format YYYY-MM-DD
+    bedtime TEXT DEFAULT '23:00',
+    wake_time TEXT DEFAULT '07:00',
+    bedtime_validated BOOLEAN DEFAULT false NOT NULL,
+    wake_time_validated BOOLEAN DEFAULT false NOT NULL,
+    bedtime_offsets INTEGER[] DEFAULT '{60,30,15}' NOT NULL,
+    bedtime_reminders TEXT[] DEFAULT '{}' NOT NULL,
+    enable_bedtime_reminders BOOLEAN DEFAULT true NOT NULL,
+    notes TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    CONSTRAINT unique_user_sleep_date UNIQUE(user_id, date)
+);
+
 -- Enable RLS on all tables
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tasks ENABLE ROW LEVEL SECURITY;
@@ -135,6 +153,7 @@ ALTER TABLE public.task_completions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notification_preferences ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notification_schedules ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.reminders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.sleep_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.chat_conversations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.chat_messages ENABLE ROW LEVEL SECURITY;
 
@@ -166,6 +185,11 @@ CREATE POLICY "Users can manage their own notification schedules"
 -- Reminders policies
 CREATE POLICY "Users can manage their own reminders"
     ON public.reminders FOR ALL
+    USING (auth.uid() = user_id);
+
+-- Sleep logs policies
+CREATE POLICY "Users can manage their own sleep logs"
+    ON public.sleep_logs FOR ALL
     USING (auth.uid() = user_id);
 
 -- Chat conversations policies

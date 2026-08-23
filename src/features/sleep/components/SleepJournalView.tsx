@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { DailySleepLog } from "../types";
 import {
   getStoredSleepLog,
+  fetchDbSleepLog,
   saveStoredSleepLog,
   computeDefaultBedtimeReminders,
   computeBedtimeRemindersFromOffsets,
@@ -32,10 +33,18 @@ export const SleepJournalView: React.FC<SleepJournalViewProps> = ({ selectedDate
   const [isSaved, setIsSaved] = useState(false);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Synchronize state when selected date changes
+  // Synchronize state from Supabase / localStorage when selected date changes
   useEffect(() => {
+    // 1. Instant local render
     setLog(getStoredSleepLog(selectedDate));
     setIsSaved(false);
+
+    // 2. Fetch fresh database record from Supabase
+    fetchDbSleepLog(selectedDate).then((remoteLog) => {
+      if (remoteLog) {
+        setLog(remoteLog);
+      }
+    });
   }, [selectedDate]);
 
   const triggerSave = (updated: DailySleepLog) => {
