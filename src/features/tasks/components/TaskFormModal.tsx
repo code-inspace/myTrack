@@ -41,7 +41,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
   const [hasScheduledTime, setHasScheduledTime] = useState<boolean>(false);
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("10:00");
-  const [recurrence, setRecurrence] = useState<"ONCE" | "DAILY" | "WEEKDAYS" | "WEEKLY" | "CUSTOM">("DAILY");
+  const [recurrence, setRecurrence] = useState<"ONCE" | "DAILY" | "WEEKDAYS" | "WEEKLY" | "CUSTOM">("ONCE");
   const [selectedDays, setSelectedDays] = useState<number[]>([1, 2, 3, 4, 5]);
 
   useEffect(() => {
@@ -59,7 +59,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
         initialTask.endTime ||
           (initialTask.startTime ? addHoursToTimeString(initialTask.startTime, 1) : "10:00")
       );
-      setRecurrence(initialTask.recurrence || "DAILY");
+      setRecurrence(initialTask.recurrence || "ONCE");
       setSelectedDays(initialTask.recurrenceConfig?.days || [1, 2, 3, 4, 5]);
     } else {
       setTitle("");
@@ -71,7 +71,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
       setHasScheduledTime(false);
       setStartTime("09:00");
       setEndTime("10:00");
-      setRecurrence("DAILY");
+      setRecurrence("ONCE");
       setSelectedDays([1, 2, 3, 4, 5]);
     }
   }, [initialTask, isOpen]);

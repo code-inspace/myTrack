@@ -56,7 +56,7 @@ export default function TasksPage() {
       title: quickTitle.trim(),
       category: "General",
       trackingType: "BOOLEAN",
-      recurrence: "DAILY",
+      recurrence: "ONCE",
     });
     setQuickTitle("");
   };
@@ -131,7 +131,7 @@ export default function TasksPage() {
         )}
 
         {/* Tasks List */}
-        <div className="space-y-4 pt-1">
+        <div className="space-y-2.5 pt-1">
           {isLoading ? (
             <div className="space-y-2.5">
               {[1, 2, 3].map((i) => (
@@ -153,65 +153,22 @@ export default function TasksPage() {
               </button>
             </div>
           ) : (
-            <>
-              {/* 1. All-Day Tasks Section */}
-              {tasks.filter((t) => !t.isActive && !(t.effectiveStartTime || t.startTime)).length > 0 && (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-1.5 px-1 text-xs font-bold text-[#8E929E] uppercase tracking-wider">
-                    <span className="w-2 h-2 rounded-full bg-[#D4F63D]" />
-                    <span>Jour entier ({tasks.filter((t) => !t.isActive && !(t.effectiveStartTime || t.startTime)).length})</span>
-                  </div>
-
-                  <div className="space-y-2.5">
-                    {tasks
-                      .filter((task) => !task.isActive && !(task.effectiveStartTime || task.startTime))
-                      .map((task) => (
-                        <TaskCard
-                          key={task.id}
-                          task={task}
-                          onToggleActive={(id) => toggleTaskActive.mutate({ taskId: id, date: selectedDate })}
-                          onToggleComplete={(id) => toggleCompletion.mutate({ taskId: id, date: selectedDate })}
-                          onOpenLogModal={(t) => setSelectedLoggingTask(t)}
-                          onEditTask={(t) => {
-                            setEditingTask(t);
-                            setIsTaskModalOpen(true);
-                          }}
-                          onDeleteTask={(id) => deleteTask.mutate(id)}
-                        />
-                      ))}
-                  </div>
-                </div>
-              )}
-
-              {/* 2. Timed Scheduled Tasks Section */}
-              {tasks.filter((t) => !t.isActive && Boolean(t.effectiveStartTime || t.startTime)).length > 0 && (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-1.5 px-1 text-xs font-bold text-[#8E929E] uppercase tracking-wider">
-                    <Clock className="w-3.5 h-3.5 text-[#60A5FA]" />
-                    <span>Programmées ({tasks.filter((t) => !t.isActive && Boolean(t.effectiveStartTime || t.startTime)).length})</span>
-                  </div>
-
-                  <div className="space-y-2.5">
-                    {tasks
-                      .filter((task) => !task.isActive && Boolean(task.effectiveStartTime || task.startTime))
-                      .map((task) => (
-                        <TaskCard
-                          key={task.id}
-                          task={task}
-                          onToggleActive={(id) => toggleTaskActive.mutate({ taskId: id, date: selectedDate })}
-                          onToggleComplete={(id) => toggleCompletion.mutate({ taskId: id, date: selectedDate })}
-                          onOpenLogModal={(t) => setSelectedLoggingTask(t)}
-                          onEditTask={(t) => {
-                            setEditingTask(t);
-                            setIsTaskModalOpen(true);
-                          }}
-                          onDeleteTask={(id) => deleteTask.mutate(id)}
-                        />
-                      ))}
-                  </div>
-                </div>
-              )}
-            </>
+            tasks
+              .filter((task) => !task.isActive)
+              .map((task) => (
+                <TaskCard
+                  key={task.id}
+                  task={task}
+                  onToggleActive={(id) => toggleTaskActive.mutate({ taskId: id, date: selectedDate })}
+                  onToggleComplete={(id) => toggleCompletion.mutate({ taskId: id, date: selectedDate })}
+                  onOpenLogModal={(t) => setSelectedLoggingTask(t)}
+                  onEditTask={(t) => {
+                    setEditingTask(t);
+                    setIsTaskModalOpen(true);
+                  }}
+                  onDeleteTask={(id) => deleteTask.mutate(id)}
+                />
+              ))
           )}
         </div>
       </div>
