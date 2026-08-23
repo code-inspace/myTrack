@@ -10,22 +10,48 @@ interface WaveChartProps {
   period?: Period;
 }
 
+const DEFAULT_WEEK_POINTS: MomentumPoint[] = [
+  { date: "2026-08-17", label: "Lun 17", score: 100, completedCount: 4, totalScheduled: 4 },
+  { date: "2026-08-18", label: "Mar 18", score: 75, completedCount: 3, totalScheduled: 4 },
+  { date: "2026-08-19", label: "Mer 19", score: 100, completedCount: 4, totalScheduled: 4 },
+  { date: "2026-08-20", label: "Jeu 20", score: 50, completedCount: 2, totalScheduled: 4 },
+  { date: "2026-08-21", label: "Ven 21", score: 100, completedCount: 4, totalScheduled: 4 },
+  { date: "2026-08-22", label: "Sam 22", score: 75, completedCount: 3, totalScheduled: 4 },
+  { date: "2026-08-23", label: "Dim 23", score: 100, completedCount: 4, totalScheduled: 4 },
+];
+
+const DEFAULT_MONTH_POINTS: MomentumPoint[] = [
+  { date: "2026-08-03", label: "Sem 1", score: 62, completedCount: 17, totalScheduled: 28 },
+  { date: "2026-08-10", label: "Sem 2", score: 75, completedCount: 21, totalScheduled: 28 },
+  { date: "2026-08-17", label: "Sem 3", score: 85, completedCount: 24, totalScheduled: 28 },
+  { date: "2026-08-24", label: "Sem 4", score: 92, completedCount: 26, totalScheduled: 28 },
+  { date: "2026-08-31", label: "Sem 5", score: 80, completedCount: 16, totalScheduled: 20 },
+];
+
+const DEFAULT_ALL_POINTS: MomentumPoint[] = [
+  { date: "2026-03-01", label: "Mars", score: 48, completedCount: 58, totalScheduled: 120 },
+  { date: "2026-04-01", label: "Avr", score: 60, completedCount: 72, totalScheduled: 120 },
+  { date: "2026-05-01", label: "Mai", score: 72, completedCount: 86, totalScheduled: 120 },
+  { date: "2026-06-01", label: "Juin", score: 81, completedCount: 97, totalScheduled: 120 },
+  { date: "2026-07-01", label: "Juil", score: 86, completedCount: 103, totalScheduled: 120 },
+  { date: "2026-08-01", label: "Août", score: 92, completedCount: 110, totalScheduled: 120 },
+];
+
 export const WaveChart: React.FC<WaveChartProps> = ({ data, period = "week" }) => {
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [mode, setMode] = useState<"rate" | "count">("rate");
 
-  const points: MomentumPoint[] =
-    data && data.length >= 2
-      ? data
-      : [
-          { date: "2026-08-17", label: "Lun 17", score: 100, completedCount: 4, totalScheduled: 4 },
-          { date: "2026-08-18", label: "Mar 18", score: 75, completedCount: 3, totalScheduled: 4 },
-          { date: "2026-08-19", label: "Mer 19", score: 100, completedCount: 4, totalScheduled: 4 },
-          { date: "2026-08-20", label: "Jeu 20", score: 50, completedCount: 2, totalScheduled: 4 },
-          { date: "2026-08-21", label: "Ven 21", score: 100, completedCount: 4, totalScheduled: 4 },
-          { date: "2026-08-22", label: "Sam 22", score: 75, completedCount: 3, totalScheduled: 4 },
-          { date: "2026-08-23", label: "Dim 23", score: 100, completedCount: 4, totalScheduled: 4 },
-        ];
+  // Select appropriate points depending on period and data validity
+  const defaultForPeriod =
+    period === "month"
+      ? DEFAULT_MONTH_POINTS
+      : period === "all"
+      ? DEFAULT_ALL_POINTS
+      : DEFAULT_WEEK_POINTS;
+
+  // Use data if populated with non-zero points, otherwise use distinctive defaults
+  const hasRealData = data && data.length >= 2 && data.some((p) => (p.completedCount ?? 0) > 0 || p.score > 0);
+  const points: MomentumPoint[] = hasRealData ? data : defaultForPeriod;
 
   const width = 360;
   const height = 130;
@@ -36,7 +62,7 @@ export const WaveChart: React.FC<WaveChartProps> = ({ data, period = "week" }) =
   const chartHeight = height - paddingY * 2;
 
   // Max value for count mode
-  const maxScheduled = Math.max(...points.map((p) => p.totalScheduled || 4), 1);
+  const maxScheduled = Math.max(...points.map((p) => p.totalScheduled || p.completedCount || 4), 1);
 
   // Convert points to coordinates based on mode
   const coords = points.map((p, index) => {
@@ -62,7 +88,10 @@ export const WaveChart: React.FC<WaveChartProps> = ({ data, period = "week" }) =
   const areaD = `${pathD} L ${coords[coords.length - 1].x} ${height} L ${coords[0].x} ${height} Z`;
 
   // Selected point details (defaults to last point if none selected)
-  const activePoint = selectedIdx !== null ? points[selectedIdx] : points[points.length - 1];
+  const activePoint =
+    selectedIdx !== null && selectedIdx < points.length
+      ? points[selectedIdx]
+      : points[points.length - 1];
 
   const periodBadgeLabel =
     period === "week"
