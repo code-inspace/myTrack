@@ -323,13 +323,7 @@ export async function updateDbTaskActive(taskId: string, isActive: boolean, user
 
   try {
     if (isActive) {
-      // Deactivate all other tasks for this user
-      await supabase
-        .from("tasks")
-        .update({ is_active: false, started_at: null, updated_at: nowIso })
-        .eq("user_id", targetId);
-
-      // Activate target task with started_at = now
+      // Activate target task with started_at = now (without deactivating other parallel tasks)
       await supabase
         .from("tasks")
         .update({ is_active: true, started_at: nowIso, updated_at: nowIso })
@@ -355,7 +349,7 @@ export async function updateDbTaskActive(taskId: string, isActive: boolean, user
         updatedAt: nowIso,
       };
     }
-    return isActive ? { ...t, isActive: false, startedAt: null } : t;
+    return t;
   });
   saveStoredTasks(updated, targetId);
 }

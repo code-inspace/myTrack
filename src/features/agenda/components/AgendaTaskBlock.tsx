@@ -9,6 +9,8 @@ interface AgendaTaskBlockProps {
   task: TaskWithCompletion;
   topOffsetPx: number;
   heightPx: number;
+  leftPercent?: number;
+  widthPercent?: number;
   isSelected?: boolean;
   onToggleComplete: (taskId: string) => void;
   onToggleReminder?: (taskId: string) => void;
@@ -61,6 +63,8 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
   task,
   topOffsetPx,
   heightPx,
+  leftPercent = 0,
+  widthPercent = 100,
   isSelected = false,
   onToggleComplete,
   onToggleReminder,
@@ -90,9 +94,11 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
       style={{
         top: `${topOffsetPx}px`,
         height: `${Math.max(32, heightPx)}px`,
+        left: `calc(${leftPercent}% + 4px)`,
+        width: `calc(${widthPercent}% - 8px)`,
       }}
       className={cn(
-        "absolute left-2 right-2 rounded-xl border p-2 flex flex-col justify-between shadow-md transition-all select-none cursor-grab active:cursor-grabbing z-10 group",
+        "absolute rounded-xl border p-2 flex flex-col justify-between shadow-md transition-all select-none cursor-grab active:cursor-grabbing z-10 group overflow-hidden",
         style.bg,
         style.border,
         isSelected

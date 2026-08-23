@@ -48,8 +48,8 @@ export default function TasksPage() {
     deleteTask,
   } = useTaskMutations();
 
-  // Active task object mapped
-  const activeTaskMapped = tasks.find((t) => t.id === activeTask?.id);
+  // Active task objects mapped (supports multiple parallel active tasks)
+  const activeTasksMapped = tasks.filter((t) => t.isActive);
 
   const handleOpenNotificationTest = async () => {
     setIsTestNotificationOpen(true);
@@ -170,17 +170,22 @@ export default function TasksPage() {
           </div>
         </form>
 
-        {/* Active Task Banner */}
-        {activeTaskMapped && (
-          <ActiveTaskBanner
-            task={activeTaskMapped}
-            onStop={(taskId) => toggleTaskActive.mutate({ taskId, date: selectedDate })}
-            onComplete={(taskId) => toggleCompletion.mutate({ taskId, date: selectedDate })}
-            onOpenLogModal={(t) => setSelectedLoggingTask(t)}
-            onUpdateStartTime={(taskId, newTime) =>
-              updateTaskStartedAt.mutate({ taskId, startedAtTime: newTime })
-            }
-          />
+        {/* Active Running Task Banners (Supports Multiple Parallel Active Tasks) */}
+        {activeTasksMapped.length > 0 && (
+          <div className="space-y-3">
+            {activeTasksMapped.map((activeItem) => (
+              <ActiveTaskBanner
+                key={activeItem.id}
+                task={activeItem}
+                onStop={(taskId) => toggleTaskActive.mutate({ taskId, date: selectedDate })}
+                onComplete={(taskId) => toggleCompletion.mutate({ taskId, date: selectedDate })}
+                onOpenLogModal={(t) => setSelectedLoggingTask(t)}
+                onUpdateStartTime={(taskId, newTime) =>
+                  updateTaskStartedAt.mutate({ taskId, startedAtTime: newTime })
+                }
+              />
+            ))}
+          </div>
         )}
 
         {/* Tasks List with Drag & Drop Reordering by Priority */}

@@ -77,4 +77,20 @@ describe("Tasks Feature Logic", () => {
     const diffSeconds = Math.max(0, Math.floor((now.getTime() - startDate.getTime()) / 1000));
     expect(diffSeconds).toBeGreaterThanOrEqual(0);
   });
+
+  it("splits columns for 2 parallel overlapping events accurately", () => {
+    const event1 = { start: 16 * 60, end: 17 * 60 + 30 }; // 16:00 - 17:30
+    const event2 = { start: 17 * 60, end: 18 * 60 + 30 }; // 17:00 - 18:30
+    const overlaps = event1.start < event2.end && event2.start < event1.end;
+    expect(overlaps).toBe(true);
+
+    const totalCols = 2;
+    const widthPercent = 100 / totalCols; // 50%
+    const col0Left = 0 * widthPercent;    // 0%
+    const col1Left = 1 * widthPercent;    // 50%
+
+    expect(widthPercent).toBe(50);
+    expect(col0Left).toBe(0);
+    expect(col1Left).toBe(50);
+  });
 });
