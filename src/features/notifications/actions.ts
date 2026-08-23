@@ -1,6 +1,6 @@
 import { CustomReminder, NotificationPreference, InteractiveNotificationPayload } from "./types";
 import { getStoredTasks, getStoredCompletions, saveStoredCompletions, getEffectiveUserId } from "../tasks/actions";
-import { getTodayDateString } from "@/lib/dates";
+import { getTodayDateString, convertLocalTimeToUtc, convertUtcTimeToLocal } from "@/lib/dates";
 import { createClient } from "@/utils/supabase/client";
 
 const REMINDERS_KEY = "mytrack_custom_reminders_v1";
@@ -41,7 +41,7 @@ export async function fetchReminders(userId?: string): Promise<CustomReminder[]>
         taskId: r.task_id,
         taskTitle: r.tasks?.title || "Habitude",
         question: r.question,
-        time: r.time,
+        time: convertUtcTimeToLocal(r.time),
         days: r.days,
         enabled: r.enabled,
       }));
@@ -69,6 +69,7 @@ import { scheduleTaskPushNotification } from "@/lib/onesignal/client";
 
 export async function saveDbReminder(reminder: Omit<CustomReminder, "id"> & { id?: string }): Promise<void> {
   const targetId = reminder.userId || getEffectiveUserId();
+  const utcTime = reminder.time ? convertLocalTimeToUtc(reminder.time) : reminder.time;
 
   try {
     const supabase = createClient();
@@ -77,7 +78,7 @@ export async function saveDbReminder(reminder: Omit<CustomReminder, "id"> & { id
         user_id: targetId,
         task_id: reminder.taskId || null,
         question: reminder.question,
-        time: reminder.time,
+        time: utcTime,
         days: reminder.days,
         enabled: reminder.enabled,
       },
@@ -94,7 +95,7 @@ export async function saveDbReminder(reminder: Omit<CustomReminder, "id"> & { id
   };
   saveStoredReminders([...current, newRecord]);
 
-  // Schedule OneSignal push for this custom reminder
+  // Schedule OneSignal push for this custom reminder (uses local time for client scheduler)
   if (newRecord.enabled && newRecord.time) {
     scheduleTaskPushNotification({
       userId: targetId,
@@ -138,9 +139,9 @@ export async function fetchPreferences(userId?: string): Promise<NotificationPre
       const mapped: NotificationPreference = {
         pushEnabled: data.push_enabled ?? true,
         morningReminder: data.morning_reminder ?? true,
-        morningReminderTime: data.morning_reminder_time || "08:00",
+        morningReminderTime: data.morning_reminder_time ? convertUtcTimeToLocal(data.morning_reminder_time) : "08:00",
         eveningRecap: data.evening_recap ?? true,
-        eveningRecapTime: data.evening_recap_time || "21:00",
+        eveningRecapTime: data.evening_recap_time ? convertUtcTimeToLocal(data.evening_recap_time) : "21:00",
         streakReminder: data.streak_reminder ?? true,
         missedTaskReminder: data.missed_task_reminder ?? true,
         oneSignalPlayerId: data.onesignal_player_id,
@@ -148,8 +149,8 @@ export async function fetchPreferences(userId?: string): Promise<NotificationPre
         previousPreferencesBackup: stored.previousPreferencesBackup || null,
         currentActionCheckinEnabled: data.current_action_checkin_enabled !== undefined ? data.current_action_checkin_enabled : stored.currentActionCheckinEnabled ?? false,
         currentActionIntervalMinutes: data.current_action_interval_minutes || stored.currentActionIntervalMinutes || 30,
-        currentActionStartTime: data.current_action_start_time || stored.currentActionStartTime || "09:00",
-        currentActionEndTime: data.current_action_end_time || stored.currentActionEndTime || "22:00",
+        currentActionStartTime: data.current_action_start_time ? convertUtcTimeToLocal(data.current_action_start_time) : "09:00",
+        currentActionEndTime: data.current_action_end_time ? convertUtcTimeToLocal(data.current_action_end_time) : "22:00",
         currentActionDays: data.current_action_days || stored.currentActionDays || [1, 2, 3, 4, 5],
       };
       saveStoredPreferences(mapped);
@@ -174,6 +175,11 @@ export function getStoredPreferences(): NotificationPreference {
 
 export async function updateDbPreferences(prefs: NotificationPreference, userId?: string): Promise<void> {
   const targetId = getEffectiveUserId(userId);
+  const utcMorningTime = prefs.morningReminderTime ? convertLocalTimeToUtc(prefs.morningReminderTime) : "08:00";
+  const utcEveningTime = prefs.eveningRecapTime ? convertLocalTimeToUtc(prefs.eveningRecapTime) : "21:00";
+  const utcActionStartTime = prefs.currentActionStartTime ? convertLocalTimeToUtc(prefs.currentActionStartTime) : "09:00";
+  const utcActionEndTime = prefs.currentActionEndTime ? convertLocalTimeToUtc(prefs.currentActionEndTime) : "22:00";
+
   try {
     const supabase = createClient();
     await supabase.from("notification_preferences").upsert(
@@ -182,12 +188,17 @@ export async function updateDbPreferences(prefs: NotificationPreference, userId?
           user_id: targetId,
           push_enabled: prefs.pushEnabled,
           morning_reminder: prefs.morningReminder,
-          morning_reminder_time: prefs.morningReminderTime,
+          morning_reminder_time: utcMorningTime,
           evening_recap: prefs.eveningRecap,
-          evening_recap_time: prefs.eveningRecapTime,
+          evening_recap_time: utcEveningTime,
           streak_reminder: prefs.streakReminder,
           missed_task_reminder: prefs.missedTaskReminder,
           onesignal_player_id: prefs.oneSignalPlayerId,
+          current_action_checkin_enabled: prefs.currentActionCheckinEnabled,
+          current_action_interval_minutes: prefs.currentActionIntervalMinutes,
+          current_action_start_time: utcActionStartTime,
+          current_action_end_time: utcActionEndTime,
+          current_action_days: prefs.currentActionDays,
         },
       ],
       { onConflict: "user_id" }
