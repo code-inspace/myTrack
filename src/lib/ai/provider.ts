@@ -65,27 +65,6 @@ export class HeuristicAIProvider implements AIProvider {
       }
     }
 
-    // 3. Struggling / Improvement query
-    if (
-      lastUserMessage.includes("struggl") ||
-      lastUserMessage.includes("improv") ||
-      lastUserMessage.includes("amelior") ||
-      lastUserMessage.includes("difficul")
-    ) {
-      const strugglingList = context.strugglingHabits.length > 0 ? context.strugglingHabits.join(", ") : "aucune en particulier";
-      if (isFrench) {
-        return {
-          content: `D'après tes données de tracking :\n\n- **Habitude(s) à consolider** : **${strugglingList}**\n- **Habitude(s) les plus solides** : **${context.topHabits.join(", ") || "Tes sessions quotidiennes"}**\n\n🎯 **Recommandation** : Ne cherche pas à ajouter de nouvelles habitudes cette semaine. Concentre 100% de ton énergie sur la régularité de ton streak de ${context.currentStreak} jours.`,
-          suggestedActions: ["Programme de demain", "Comment s'est passée ma semaine ?"],
-        };
-      } else {
-        return {
-          content: `Based on your recent tracking data:\n\n- **Habits needing focus**: **${context.strugglingHabits.join(", ") || "None — solid across the board!"}**\n- **Most consistent habits**: **${context.topHabits.join(", ") || "Daily routine"}**\n\n🎯 **Recommendation**: Keep your daily targets stable rather than scaling them up immediately. Protect your **${context.currentStreak}-day streak**.`,
-          suggestedActions: ["Analyze my week", "What should I focus on tomorrow?"],
-        };
-      }
-    }
-
     // Default response
     if (isFrench) {
       return {
@@ -103,18 +82,19 @@ export class HeuristicAIProvider implements AIProvider {
 
 /**
  * Universal AI Provider Factory
- * Defaults to Groq (Llama-3.3-70b) when an API key is provided, or falls back to Heuristic Engine.
+ * Supports Groq LLMs (openai/gpt-oss-120b, openai/gpt-oss-20b, qwen/qwen3.6-27b), OpenAI, Gemini, or Heuristic Engine.
  */
 export function getAIProvider(): AIProvider {
   const providerType = (process.env.AI_PROVIDER || (process.env.GROQ_API_KEY ? "groq" : "heuristic")).toLowerCase();
   const apiKey = process.env.AI_API_KEY || process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY || process.env.GEMINI_API_KEY;
 
-  // 1. Groq (Llama-3.3-70b-versatile - High Speed & High Intelligence)
+  // 1. Groq (High-Speed LLMs on Groq LPUs)
   if ((providerType === "groq" || providerType === "llama") && apiKey) {
     return {
-      name: "Groq Llama 3.3 70B Coach",
+      name: "Groq AI Coach",
       generateResponse: async (request: AIRequest): Promise<AIResponse> => {
         try {
+          const model = process.env.AI_MODEL || "openai/gpt-oss-120b";
           const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
             method: "POST",
             headers: {
@@ -122,7 +102,7 @@ export function getAIProvider(): AIProvider {
               Authorization: `Bearer ${apiKey}`,
             },
             body: JSON.stringify({
-              model: process.env.AI_MODEL || "llama-3.3-70b-versatile",
+              model,
               messages: [
                 { role: "system", content: `${SYSTEM_COACH_PROMPT}\n${formatAIContext(request.context)}` },
                 ...request.messages,
@@ -131,13 +111,20 @@ export function getAIProvider(): AIProvider {
             }),
           });
           const data = await response.json();
-          return {
-            content: data.choices?.[0]?.message?.content || "Désolé, aucune réponse générée.",
-            suggestedActions: ["Comment s'est passée ma semaine ?", "Analyser mon momentum", "Quelles habitudes améliorer ?"],
-          };
-        } catch {
-          return new HeuristicAIProvider().generateResponse(request);
+          const content = data.choices?.[0]?.message?.content;
+          if (content) {
+            return {
+              content,
+              suggestedActions: ["Comment s'est passée ma semaine ?", "Analyser mon momentum", "Quelles habitudes améliorer ?"],
+            };
+          }
+          console.error("Groq API error response:", data);
+        } catch (err) {
+          console.error("Groq API fetch failed:", err);
         }
+
+        // Fallback to Heuristic engine if Groq fails
+        return new HeuristicAIProvider().generateResponse(request);
       },
     };
   }
@@ -166,33 +153,6 @@ export function getAIProvider(): AIProvider {
           const data = await response.json();
           return {
             content: data.choices?.[0]?.message?.content || "Désolé, aucune réponse générée.",
-            suggestedActions: ["Comment s'est passée ma semaine ?", "Analyser mon momentum", "Quelles habitudes améliorer ?"],
-          };
-        } catch {
-          return new HeuristicAIProvider().generateResponse(request);
-        }
-      },
-    };
-  }
-
-  // 3. Google Gemini
-  if (providerType === "gemini" && apiKey) {
-    return {
-      name: "Gemini Coach",
-      generateResponse: async (request: AIRequest): Promise<AIResponse> => {
-        try {
-          const model = process.env.AI_MODEL || "gemini-1.5-flash";
-          const prompt = `${SYSTEM_COACH_PROMPT}\n${formatAIContext(request.context)}\n\nUser: ${request.messages[request.messages.length - 1]?.content}`;
-          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: prompt }] }],
-            }),
-          });
-          const data = await response.json();
-          return {
-            content: data.candidates?.[0]?.content?.parts?.[0]?.text || "Désolé, aucune réponse générée.",
             suggestedActions: ["Comment s'est passée ma semaine ?", "Analyser mon momentum", "Quelles habitudes améliorer ?"],
           };
         } catch {
