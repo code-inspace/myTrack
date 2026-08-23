@@ -29,6 +29,19 @@ export function addHoursToTimeString(timeStr: string, hoursToAdd: number = 1): s
   return `${String(newH).padStart(2, "0")}:${String(newM).padStart(2, "0")}`;
 }
 
+export function subtractMinutesFromTime(timeStr: string, minutesToSubtract: number = 0): string {
+  if (!timeStr || !timeStr.includes(":")) return "22:00";
+  const [hStr, mStr] = timeStr.split(":");
+  const h = parseInt(hStr, 10) || 0;
+  const m = parseInt(mStr, 10) || 0;
+  let totalMinutes = h * 60 + m - minutesToSubtract;
+  while (totalMinutes < 0) totalMinutes += 24 * 60;
+  totalMinutes = totalMinutes % (24 * 60);
+  const newH = Math.floor(totalMinutes / 60);
+  const newM = totalMinutes % 60;
+  return `${String(newH).padStart(2, "0")}:${String(newM).padStart(2, "0")}`;
+}
+
 /**
  * Converts a local time string "HH:mm" from the device's current timezone into UTC "HH:mm".
  */

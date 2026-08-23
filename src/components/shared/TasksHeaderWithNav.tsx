@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AppHeader } from "@/components/shared/AppHeader";
 import { HorizontalDatePicker } from "@/features/tasks/components/HorizontalDatePicker";
-import { ListTodo, Calendar, History } from "lucide-react";
+import { ListTodo, Calendar, Moon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface TasksHeaderWithNavProps {
@@ -14,8 +14,8 @@ interface TasksHeaderWithNavProps {
   onSelectDate: (date: string) => void;
   onOpenNotifications?: () => void;
   onNewTask?: () => void;
-  activeTab?: "habits" | "agenda";
-  onChangeTab?: (tab: "habits" | "agenda") => void;
+  activeTab?: "habits" | "agenda" | "sleep";
+  onChangeTab?: (tab: "habits" | "agenda" | "sleep") => void;
 }
 
 export const TasksHeaderWithNav: React.FC<TasksHeaderWithNavProps> = ({
@@ -29,12 +29,13 @@ export const TasksHeaderWithNav: React.FC<TasksHeaderWithNavProps> = ({
 }) => {
   const pathname = usePathname();
 
-  const views: Array<{ id: "habits" | "agenda"; href: string; label: string; icon: any; activePaths: string[] }> = [
+  const views: Array<{ id: "habits" | "agenda" | "sleep"; href: string; label: string; icon: any; activePaths: string[] }> = [
     { id: "habits", href: "/tasks", label: "Habitudes", icon: ListTodo, activePaths: ["/tasks", "/"] },
     { id: "agenda", href: "/agenda", label: "Agenda", icon: Calendar, activePaths: ["/agenda"] },
+    { id: "sleep", href: "/sleep", label: "Sommeil", icon: Moon, activePaths: ["/sleep"] },
   ];
 
-  const currentTab = activeTab || (pathname.includes("/agenda") ? "agenda" : "habits");
+  const currentTab = activeTab || (pathname.includes("/agenda") ? "agenda" : pathname.includes("/sleep") ? "sleep" : "habits");
 
   return (
     <div className="sticky top-0 z-40 w-full bg-[#111214] border-b border-[#23242A] select-none shadow-md">
@@ -51,9 +52,9 @@ export const TasksHeaderWithNav: React.FC<TasksHeaderWithNavProps> = ({
         onSelectDate={onSelectDate}
       />
 
-      {/* 3. Cohesive Segmented View Switcher (Habitudes / Agenda) */}
+      {/* 3. Cohesive Segmented View Switcher (Habitudes / Agenda / Sommeil) */}
       <div className="px-3 pb-3 pt-0.5">
-        <div className="grid grid-cols-2 gap-1 p-1 bg-[#1A1C22] rounded-2xl border border-[#2B2E38] shadow-inner max-w-xs mx-auto">
+        <div className="grid grid-cols-3 gap-1 p-1 bg-[#1A1C22] rounded-2xl border border-[#2B2E38] shadow-inner max-w-sm mx-auto">
           {views.map((v) => {
             const Icon = v.icon;
             const isActive = currentTab === v.id;

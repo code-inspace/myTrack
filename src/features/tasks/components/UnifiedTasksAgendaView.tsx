@@ -10,6 +10,7 @@ import { InteractiveNotificationSheet } from "@/features/notifications/component
 import { VoiceFab } from "@/features/voice/components/VoiceFab";
 import { AllDaySection } from "@/features/agenda/components/AllDaySection";
 import { AgendaTimeline } from "@/features/agenda/components/AgendaTimeline";
+import { SleepJournalView } from "@/features/sleep/components/SleepJournalView";
 import { useTasks, useTaskMutations } from "@/features/tasks/hooks";
 import { TaskWithCompletion, TaskFormValues } from "@/features/tasks/types";
 import { getTodayDateString } from "@/lib/dates";
@@ -17,7 +18,7 @@ import { CheckCircle2, Inbox, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface UnifiedTasksAgendaViewProps {
-  initialTab?: "habits" | "agenda";
+  initialTab?: "habits" | "agenda" | "sleep";
 }
 
 export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
@@ -25,7 +26,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
 }) => {
   const todayStr = getTodayDateString();
   const [selectedDate, setSelectedDate] = useState<string>(todayStr);
-  const [activeTab, setActiveTab] = useState<"habits" | "agenda">(initialTab);
+  const [activeTab, setActiveTab] = useState<"habits" | "agenda" | "sleep">(initialTab);
 
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskWithCompletion | null>(null);
@@ -175,10 +176,14 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
     });
   };
 
-  const handleTabChange = (tab: "habits" | "agenda") => {
+  const handleTabChange = (tab: "habits" | "agenda" | "sleep") => {
     setActiveTab(tab);
     if (typeof window !== "undefined") {
-      window.history.replaceState(null, "", tab === "agenda" ? "/agenda" : "/tasks");
+      window.history.replaceState(
+        null,
+        "",
+        tab === "agenda" ? "/agenda" : tab === "sleep" ? "/sleep" : "/tasks"
+      );
     }
   };
 
@@ -187,7 +192,13 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
       {/* 1. Permanent Fixed Header Area: zero reload / zero unmount */}
       <div className="flex-shrink-0 z-30 shadow-md">
         <TasksHeaderWithNav
-          title={activeTab === "habits" ? "Mes Habitudes" : "Mon Agenda"}
+          title={
+            activeTab === "habits"
+              ? "Mes Habitudes"
+              : activeTab === "agenda"
+              ? "Mon Agenda"
+              : "Sommeil & Bilan"
+          }
           selectedDate={selectedDate}
           onSelectDate={setSelectedDate}
           onNewTask={() => {
@@ -219,7 +230,10 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
       </div>
 
       {/* 2. Seamless View Body */}
-      {activeTab === "habits" ? (
+      {activeTab === "sleep" ? (
+        /* SOMMEIL & BILAN TAB */
+        <SleepJournalView selectedDate={selectedDate} />
+      ) : activeTab === "habits" ? (
         /* HABIT LIST TAB */
         <div className="flex-1 overflow-y-auto px-4 pt-3 pb-28 space-y-3.5 max-w-md mx-auto w-full">
           <div className="flex items-center justify-between px-1">

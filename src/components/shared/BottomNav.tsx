@@ -26,7 +26,7 @@ export const BottomNav: React.FC = () => {
       <div className="max-w-md mx-auto flex items-center justify-around">
         {navItems.map((item) => {
           const Icon = item.icon;
-          const isTasksTab = item.href === "/tasks" && (pathname === "/tasks" || pathname === "/" || pathname === "/agenda" || pathname === "/history");
+          const isTasksTab = item.href === "/tasks" && (pathname === "/tasks" || pathname === "/" || pathname === "/agenda" || pathname === "/sleep" || pathname === "/history");
           const isActive = isTasksTab || (item.href !== "/tasks" && pathname === item.href);
 
           return (
