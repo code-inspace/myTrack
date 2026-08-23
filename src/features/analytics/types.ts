@@ -13,7 +13,9 @@ export interface DayStatus {
 export interface MomentumPoint {
   date: string;
   label: string;
-  score: number;
+  score: number; // Daily completion percentage 0-100%
+  completedCount: number;
+  totalScheduled: number;
 }
 
 export interface HabitRollingDay {

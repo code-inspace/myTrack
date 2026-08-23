@@ -295,7 +295,7 @@ export function calculateDashboardStats(
   const rawMomentum = Math.round(completionRate * 0.6 + streakBonus + Math.min(10, totalCompletedInPeriod * 1.5));
   const momentum = Math.max(0, Math.min(100, rawMomentum || (completionRate > 0 ? completionRate : 50)));
 
-  // Momentum history curve generation (7 points)
+  // Real Daily Completion Rate Curve (7 points for week view)
   const momentumHistory: MomentumPoint[] = [];
   for (let i = 6; i >= 0; i--) {
     const dayDate = subDays(referenceDate, i);
@@ -305,13 +305,20 @@ export function calculateDashboardStats(
       isTaskScheduledForDate(t.recurrence, t.recurrenceConfig, dayDate, t.createdAt)
     ).length;
 
-    const dayRate = dayScheduled > 0 ? (dayCompleted / dayScheduled) * 100 : dayCompleted > 0 ? 80 : 30;
-    const dayScore = Math.min(100, Math.max(20, Math.round(dayRate * 0.7 + (6 - i) * 3 + dayCompleted * 8)));
+    const dayName = FRENCH_DAYS[dayDate.getDay()];
+    const dayScore =
+      dayScheduled > 0
+        ? Math.round((dayCompleted / dayScheduled) * 100)
+        : dayCompleted > 0
+        ? 100
+        : 0;
 
     momentumHistory.push({
       date: dayDateStr,
-      label: format(dayDate, "d"),
+      label: `${dayName} ${format(dayDate, "d")}`,
       score: dayScore,
+      completedCount: dayCompleted,
+      totalScheduled: dayScheduled,
     });
   }
 
