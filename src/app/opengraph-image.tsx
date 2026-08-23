@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 export const runtime = "edge";
-export const alt = "MyTrack — Le tracker d'habitudes & agenda personnalisé";
+export const alt = "MyTrack — Mon suivi d'action & tracker d'habitudes personnalisé";
 export const size = {
   width: 1200,
   height: 630,
@@ -95,7 +95,7 @@ export default async function Image() {
         >
           <div
             style={{
-              fontSize: "58px",
+              fontSize: "56px",
               fontWeight: "900",
               color: "#FFFFFF",
               lineHeight: 1.15,
@@ -105,7 +105,7 @@ export default async function Image() {
               justifyContent: "center",
             }}
           >
-            Le tracker d'habitudes & agenda personnalisé
+            Mon suivi d'action & tracker d'habitudes personnalisé
           </div>
 
           <div

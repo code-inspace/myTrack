@@ -8,13 +8,14 @@ import { AuthGuard } from "@/components/shared/AuthGuard";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://mytrack-nine.vercel.app"),
-  title: "MyTrack — Le tracker d'habitudes & agenda personnalisé",
+  title: "MyTrack — Mon suivi d'action & tracker d'habitudes personnalisé",
   description:
-    "Le tracker d'habitudes et agenda intelligent pour structurer tes journées, booster ta discipline et suivre tes objectifs en temps réel.",
+    "Mon suivi d'action et tracker d'habitudes personnalisé avec agenda intelligent pour structurer mes journées et atteindre mes objectifs au quotidien.",
   applicationName: "MyTrack",
   authors: [{ name: "MyTrack" }],
   generator: "Next.js",
   keywords: [
+    "suivi d'action",
     "tracker d'habitudes",
     "agenda personnalisé",
     "gestion du temps",
@@ -34,9 +35,9 @@ export const metadata: Metadata = {
     title: "MyTrack",
   },
   openGraph: {
-    title: "MyTrack — Le tracker d'habitudes & agenda personnalisé",
+    title: "MyTrack — Mon suivi d'action & tracker d'habitudes personnalisé",
     description:
-      "Structure tes journées, booste ta discipline et suis tes séries quotidiennes avec un calendrier interactif et un coach IA.",
+      "Mon suivi d'action et tracker d'habitudes personnalisé pour structurer mes journées, booster ma discipline et suivre ma progression en temps réel.",
     url: "https://mytrack-nine.vercel.app",
     siteName: "MyTrack",
     locale: "fr_FR",
@@ -44,9 +45,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "MyTrack — Le tracker d'habitudes & agenda personnalisé",
+    title: "MyTrack — Mon suivi d'action & tracker d'habitudes personnalisé",
     description:
-      "Le tracker d'habitudes et agenda intelligent pour structurer tes journées et atteindre tes objectifs.",
+      "Mon suivi d'action et tracker d'habitudes personnalisé avec agenda intelligent pour structurer mes journées et atteindre mes objectifs.",
   },
 };
 

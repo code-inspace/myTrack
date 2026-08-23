@@ -47,7 +47,7 @@ export default function LoginPage() {
           My<span className="text-[#D4F63D]">Track</span>
         </h1>
         <p className="text-xs text-[#8E929E] max-w-xs mx-auto">
-          Le tracker d'habitudes & agenda personnalisé
+          Mon suivi d'action & tracker d'habitudes personnalisé
         </p>
       </div>
 

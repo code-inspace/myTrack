@@ -44,7 +44,7 @@ export default function SignupPage() {
           Nouveau Compte
         </h1>
         <p className="text-xs text-[#8E929E] max-w-xs mx-auto">
-          Le tracker d'habitudes & agenda personnalisé
+          Mon suivi d'action & tracker d'habitudes personnalisé
         </p>
       </div>
 

@@ -1,7 +1,7 @@
 {
-  "name": "MyTrack — Le tracker d'habitudes & agenda personnalisé",
+  "name": "MyTrack — Mon suivi d'action & tracker d'habitudes personnalisé",
   "short_name": "MyTrack",
-  "description": "Le tracker d'habitudes et agenda intelligent pour structurer tes journées, booster ta discipline et suivre tes objectifs en temps réel.",
+  "description": "Mon suivi d'action et tracker d'habitudes personnalisé avec agenda intelligent pour structurer mes journées et atteindre mes objectifs.",
   "start_url": "/tasks",
   "display": "standalone",
   "orientation": "portrait",
