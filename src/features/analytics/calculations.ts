@@ -1,5 +1,5 @@
 import { parseISO, subDays, format } from "date-fns";
-import { DashboardStats, DayStatus, MomentumPoint, Period } from "./types";
+import { DashboardStats, DayStatus, HabitStreakStat, HabitRollingDay, MomentumPoint, Period } from "./types";
 import { isTaskScheduledForDate } from "@/lib/dates";
 
 export interface TaskRecord {
@@ -23,6 +23,8 @@ export interface CompletionRecord {
   duration?: number | null;
 }
 
+const FRENCH_DAYS = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
+
 /**
  * Calculates current consecutive streak up to referenceDate
  */
@@ -32,7 +34,6 @@ export function calculateCurrentStreak(
 ): number {
   if (!completions || completions.length === 0) return 0;
 
-  // Group completions by date (only counting completed=true)
   const completedDates = new Set<string>();
   for (const c of completions) {
     if (c.completed) {
@@ -44,8 +45,6 @@ export function calculateCurrentStreak(
   let checkDate = referenceDate;
   const todayStr = format(referenceDate, "yyyy-MM-dd");
 
-  // If today has completions, count today and go backwards.
-  // If today doesn't have completions yet, check yesterday to not break ongoing streak.
   if (!completedDates.has(todayStr)) {
     checkDate = subDays(referenceDate, 1);
   }
@@ -97,7 +96,107 @@ export function calculateBestStreak(completions: CompletionRecord[]): number {
 }
 
 /**
- * Calculates day status for the last 7 days window
+ * Calculates current consecutive streak for a specific habit / task
+ */
+export function calculateHabitStreak(
+  taskId: string,
+  completions: CompletionRecord[],
+  referenceDate: Date = new Date()
+): number {
+  if (!completions || completions.length === 0) return 0;
+
+  const taskCompletedDates = new Set<string>();
+  for (const c of completions) {
+    if (c.taskId === taskId && c.completed) {
+      taskCompletedDates.add(c.date);
+    }
+  }
+
+  let streak = 0;
+  let checkDate = referenceDate;
+  const todayStr = format(referenceDate, "yyyy-MM-dd");
+
+  if (!taskCompletedDates.has(todayStr)) {
+    checkDate = subDays(referenceDate, 1);
+  }
+
+  while (true) {
+    const dateStr = format(checkDate, "yyyy-MM-dd");
+    if (taskCompletedDates.has(dateStr)) {
+      streak += 1;
+      checkDate = subDays(checkDate, 1);
+    } else {
+      break;
+    }
+  }
+
+  return streak;
+}
+
+/**
+ * Calculates habit streak statistics and rolling 7 days status per task
+ */
+export function calculateHabitStreakStats(
+  tasks: TaskRecord[],
+  completions: CompletionRecord[],
+  referenceDate: Date = new Date()
+): HabitStreakStat[] {
+  return tasks.map((task) => {
+    const currentStreak = calculateHabitStreak(task.id, completions, referenceDate);
+
+    // Calculate rolling 7 days (from 6 days ago to today)
+    const rolling7Days: HabitRollingDay[] = [];
+    let scheduledCount = 0;
+    let completedCount = 0;
+
+    for (let i = 6; i >= 0; i--) {
+      const d = subDays(referenceDate, i);
+      const dateStr = format(d, "yyyy-MM-dd");
+      const dayName = FRENCH_DAYS[d.getDay()];
+
+      const isScheduled = isTaskScheduledForDate(
+        task.recurrence,
+        task.recurrenceConfig,
+        d,
+        task.createdAt
+      );
+
+      const isCompleted = completions.some(
+        (c) => c.taskId === task.id && c.date === dateStr && c.completed
+      );
+
+      if (isScheduled) scheduledCount++;
+      if (isCompleted) completedCount++;
+
+      rolling7Days.push({
+        date: dateStr,
+        dayName,
+        isScheduled,
+        isCompleted,
+      });
+    }
+
+    const completionRate7Days =
+      scheduledCount > 0
+        ? Math.round((completedCount / scheduledCount) * 100)
+        : completedCount > 0
+        ? 100
+        : 0;
+
+    return {
+      taskId: task.id,
+      taskTitle: task.title,
+      category: task.category || "General",
+      currentStreak,
+      bestStreak: Math.max(currentStreak, 1),
+      rolling7Days,
+      completionRate7Days,
+    };
+  });
+}
+
+/**
+ * Calculates day status and daily % for the last 7 days window
  */
 export function calculateLast7DaysStatus(
   tasks: TaskRecord[],
@@ -109,8 +208,7 @@ export function calculateLast7DaysStatus(
   for (let i = 6; i >= 0; i--) {
     const dateObj = subDays(endDate, i);
     const dateStr = format(dateObj, "yyyy-MM-dd");
-    const FRENCH_DAY_SHORT = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
-    const dayName = FRENCH_DAY_SHORT[dateObj.getDay()];
+    const dayName = FRENCH_DAYS[dateObj.getDay()];
 
     const scheduledTasks = tasks.filter((t) =>
       isTaskScheduledForDate(t.recurrence, t.recurrenceConfig, dateObj, t.createdAt)
@@ -119,6 +217,13 @@ export function calculateLast7DaysStatus(
     const dayCompletions = completions.filter((c) => c.date === dateStr && c.completed);
     const completedCount = dayCompletions.length;
     const totalScheduled = scheduledTasks.length;
+
+    const completionPercentage =
+      totalScheduled > 0
+        ? Math.round((completedCount / totalScheduled) * 100)
+        : completedCount > 0
+        ? 100
+        : 0;
 
     let status: "completed" | "missed" | "empty" = "empty";
     if (totalScheduled > 0) {
@@ -132,6 +237,7 @@ export function calculateLast7DaysStatus(
       dayName,
       completedCount,
       totalScheduled,
+      completionPercentage,
       isAllCompleted: totalScheduled > 0 ? completedCount >= totalScheduled : completedCount > 0,
       status,
     });
@@ -149,11 +255,10 @@ export function calculateDashboardStats(
   period: Period = "week",
   referenceDate: Date = new Date()
 ): DashboardStats {
-  const currentStreak = calculateCurrentStreak(completions, referenceDate);
-  const bestStreak = Math.max(currentStreak, calculateBestStreak(completions));
+  const habitStreaks = calculateHabitStreakStats(tasks, completions, referenceDate);
   const last7DaysStatus = calculateLast7DaysStatus(tasks, completions, referenceDate);
 
-  // Period days
+  // Period calculation
   const daysInPeriod = period === "week" ? 7 : period === "month" ? 30 : 60;
   let totalScheduledInPeriod = 0;
   let totalCompletedInPeriod = 0;
@@ -179,15 +284,18 @@ export function calculateDashboardStats(
       ? 100
       : 0;
 
-  // Momentum scoring algorithm:
-  // Base score from completion rate (0-60)
-  // Streak multiplier bonus (up to 30)
-  // Total wins density (up to 10)
-  const streakBonus = Math.min(30, currentStreak * 6);
-  const rawMomentum = Math.round(completionRate * 0.6 + streakBonus + Math.min(10, totalCompletedInPeriod * 1.5));
-  const momentum = Math.max(0, Math.min(100, rawMomentum || 45)); // Default fallback pleasant score for visual delight
+  // Average habit streak across active habits
+  const avgHabitStreak =
+    habitStreaks.length > 0
+      ? habitStreaks.reduce((acc, h) => acc + h.currentStreak, 0) / habitStreaks.length
+      : 0;
 
-  // Momentum history curve generation for the wave chart (7 points)
+  // Adapted Momentum score based on habit completion consistency
+  const streakBonus = Math.min(30, Math.round(avgHabitStreak * 8));
+  const rawMomentum = Math.round(completionRate * 0.6 + streakBonus + Math.min(10, totalCompletedInPeriod * 1.5));
+  const momentum = Math.max(0, Math.min(100, rawMomentum || (completionRate > 0 ? completionRate : 50)));
+
+  // Momentum history curve generation (7 points)
   const momentumHistory: MomentumPoint[] = [];
   for (let i = 6; i >= 0; i--) {
     const dayDate = subDays(referenceDate, i);
@@ -198,18 +306,17 @@ export function calculateDashboardStats(
     ).length;
 
     const dayRate = dayScheduled > 0 ? (dayCompleted / dayScheduled) * 100 : dayCompleted > 0 ? 80 : 30;
-    // Smoothed wave score
     const dayScore = Math.min(100, Math.max(20, Math.round(dayRate * 0.7 + (6 - i) * 3 + dayCompleted * 8)));
 
     momentumHistory.push({
       date: dayDateStr,
-      label: format(dayDate, "d"), // Day number e.g. "5", "6", "7", "8", "9", "10", "11"
+      label: format(dayDate, "d"),
       score: dayScore,
     });
   }
 
-  const totalWins = totalCompletedInPeriod || 15;
-  const totalTargetWins = Math.max(totalWins, totalScheduledInPeriod || 20);
+  const totalWins = totalCompletedInPeriod;
+  const totalTargetWins = Math.max(totalWins, totalScheduledInPeriod);
   const averageDailyCompletion = Math.round(completionRate);
   const tasksMissed = Math.max(0, totalScheduledInPeriod - totalCompletedInPeriod);
 
@@ -220,9 +327,10 @@ export function calculateDashboardStats(
     completionRate,
     totalWins,
     totalTargetWins,
-    currentStreak,
-    bestStreak,
+    currentStreak: Math.round(avgHabitStreak),
+    bestStreak: Math.max(...habitStreaks.map((h) => h.bestStreak), 1),
     last7DaysStatus,
+    habitStreaks,
     tasksCompleted: totalCompletedInPeriod,
     tasksMissed,
     averageDailyCompletion,

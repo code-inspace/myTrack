@@ -57,10 +57,10 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* Current Streak with 7 Day Checkmark Row */}
+      {/* Per-Habit Streaks with Rolling 7-Day Visual Matrix */}
       <StreakGridCard
-        currentStreak={stats?.currentStreak ?? 4}
-        days={stats?.last7DaysStatus || []}
+        habitStreaks={stats?.habitStreaks || []}
+        dailyStatus={stats?.last7DaysStatus || []}
       />
     </div>
   );

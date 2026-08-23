@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   calculateCurrentStreak,
   calculateBestStreak,
+  calculateHabitStreakStats,
   calculateDashboardStats,
   TaskRecord,
   CompletionRecord,
@@ -38,6 +39,25 @@ describe("Analytics Calculations", () => {
     expect(bestStreak).toBe(5);
   });
 
+  it("calculates per-habit streak and 7-day rolling status", () => {
+    const referenceDate = parseISO("2026-08-23");
+    const tasks: TaskRecord[] = [
+      { id: "t1", title: "Sport", category: "Fitness", recurrence: "DAILY", trackingType: "BOOLEAN" },
+      { id: "t2", title: "Méditation", category: "Santé", recurrence: "DAILY", trackingType: "BOOLEAN" },
+    ];
+    const completions: CompletionRecord[] = [
+      { id: "1", taskId: "t1", date: "2026-08-23", completed: true },
+      { id: "2", taskId: "t1", date: "2026-08-22", completed: true },
+      { id: "3", taskId: "t2", date: "2026-08-23", completed: true },
+    ];
+
+    const habitStats = calculateHabitStreakStats(tasks, completions, referenceDate);
+    expect(habitStats.length).toBe(2);
+    expect(habitStats[0].currentStreak).toBe(2);
+    expect(habitStats[0].rolling7Days.length).toBe(7);
+    expect(habitStats[1].currentStreak).toBe(1);
+  });
+
   it("generates 7-point momentum history and dashboard stats", () => {
     const referenceDate = parseISO("2026-08-23");
     const tasks: TaskRecord[] = [
@@ -58,6 +78,7 @@ describe("Analytics Calculations", () => {
     const stats = calculateDashboardStats(tasks, completions, "week", referenceDate);
     expect(stats.momentumHistory.length).toBe(7);
     expect(stats.last7DaysStatus.length).toBe(7);
-    expect(stats.currentStreak).toBe(2);
+    expect(stats.habitStreaks.length).toBe(1);
+    expect(stats.habitStreaks[0].currentStreak).toBe(2);
   });
 });
