@@ -137,7 +137,7 @@ export default function TasksPage() {
           title="Mes Habitudes"
           selectedDate={selectedDate}
           onSelectDate={setSelectedDate}
-          onOpenNotifications={handleOpenNotificationTest}
+          onNewTask={() => setIsTaskModalOpen(true)}
         />
       </div>
 
@@ -145,13 +145,6 @@ export default function TasksPage() {
       <div className="flex-1 overflow-y-auto px-4 pt-3 pb-28 space-y-3.5 max-w-md mx-auto w-full">
         <div className="flex items-center justify-between px-1">
           <h2 className="text-xl font-bold text-white tracking-tight">Aujourd'hui</h2>
-          <button
-            onClick={() => setIsTaskModalOpen(true)}
-            className="flex items-center gap-1 text-xs font-bold text-[#D4F63D] hover:underline cursor-pointer bg-[#1C1D22] px-3 py-1.5 rounded-full border border-[#282A30]"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            Nouvelle tâche
-          </button>
         </div>
 
         {/* Quick Task Input Bar */}

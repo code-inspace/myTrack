@@ -1,19 +1,21 @@
 "use client";
 
 import React from "react";
-import { Flame, Bell } from "lucide-react";
+import { Flame, Bell, Plus } from "lucide-react";
 import { useDashboardStats } from "@/features/dashboard/hooks";
 
 interface AppHeaderProps {
   title?: string;
   subtitle?: string;
   onOpenNotifications?: () => void;
+  onNewTask?: () => void;
 }
 
 export const AppHeader: React.FC<AppHeaderProps> = ({
   title = "Mes Tâches",
   subtitle,
   onOpenNotifications,
+  onNewTask,
 }) => {
   const { data: stats } = useDashboardStats();
   const streak = stats?.currentStreak ?? 0;
@@ -38,15 +40,26 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         )}
       </div>
 
-      {/* Right: Quick Notification / Alert Action */}
-      <button
-        onClick={onOpenNotifications}
-        aria-label="Notifications"
-        className="w-9 h-9 rounded-full bg-[#1C1D22] hover:bg-[#252830] border border-[#282A30] flex items-center justify-center text-[#8E929E] hover:text-white transition-all cursor-pointer shadow-sm relative"
-      >
-        <Bell className="w-4 h-4" />
-        <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[#D4F63D]" />
-      </button>
+      {/* Right: New Task Action Button (or Notification) */}
+      {onNewTask ? (
+        <button
+          onClick={onNewTask}
+          aria-label="Nouvelle tâche"
+          title="Ajouter une nouvelle tâche"
+          className="w-9 h-9 rounded-full bg-[#D4F63D] hover:bg-[#c2e42f] flex items-center justify-center text-black font-bold transition-all cursor-pointer shadow-md shadow-[#D4F63D]/20 hover:scale-105 active:scale-95"
+        >
+          <Plus className="w-5 h-5 stroke-[2.8]" />
+        </button>
+      ) : (
+        <button
+          onClick={onOpenNotifications}
+          aria-label="Notifications"
+          className="w-9 h-9 rounded-full bg-[#1C1D22] hover:bg-[#252830] border border-[#282A30] flex items-center justify-center text-[#8E929E] hover:text-white transition-all cursor-pointer shadow-sm relative"
+        >
+          <Bell className="w-4 h-4" />
+          <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[#D4F63D]" />
+        </button>
+      )}
     </header>
   );
 };
