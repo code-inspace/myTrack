@@ -18,6 +18,17 @@ export function formatDisplayDate(dateStr: string): string {
   }
 }
 
+export function addHoursToTimeString(timeStr: string, hoursToAdd: number = 1): string {
+  if (!timeStr || !timeStr.includes(":")) return "08:00";
+  const [hStr, mStr] = timeStr.split(":");
+  const h = parseInt(hStr, 10) || 0;
+  const m = parseInt(mStr, 10) || 0;
+  const totalMinutes = (h * 60 + m + hoursToAdd * 60) % (24 * 60);
+  const newH = Math.floor(totalMinutes / 60);
+  const newM = totalMinutes % 60;
+  return `${String(newH).padStart(2, "0")}:${String(newM).padStart(2, "0")}`;
+}
+
 const FRENCH_DAY_SHORT = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
 
 /**

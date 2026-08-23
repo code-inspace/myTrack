@@ -124,7 +124,7 @@ export default function TasksPage() {
         {activeTaskMapped && (
           <ActiveTaskBanner
             task={activeTaskMapped}
-            onStop={(taskId) => toggleTaskActive.mutate(taskId)}
+            onStop={(taskId) => toggleTaskActive.mutate({ taskId, date: selectedDate })}
             onComplete={(taskId) => toggleCompletion.mutate({ taskId, date: selectedDate })}
             onOpenLogModal={(t) => setSelectedLoggingTask(t)}
           />
@@ -169,7 +169,7 @@ export default function TasksPage() {
                         <TaskCard
                           key={task.id}
                           task={task}
-                          onToggleActive={(id) => toggleTaskActive.mutate(id)}
+                          onToggleActive={(id) => toggleTaskActive.mutate({ taskId: id, date: selectedDate })}
                           onToggleComplete={(id) => toggleCompletion.mutate({ taskId: id, date: selectedDate })}
                           onOpenLogModal={(t) => setSelectedLoggingTask(t)}
                           onEditTask={(t) => {
@@ -198,7 +198,7 @@ export default function TasksPage() {
                         <TaskCard
                           key={task.id}
                           task={task}
-                          onToggleActive={(id) => toggleTaskActive.mutate(id)}
+                          onToggleActive={(id) => toggleTaskActive.mutate({ taskId: id, date: selectedDate })}
                           onToggleComplete={(id) => toggleCompletion.mutate({ taskId: id, date: selectedDate })}
                           onOpenLogModal={(t) => setSelectedLoggingTask(t)}
                           onEditTask={(t) => {

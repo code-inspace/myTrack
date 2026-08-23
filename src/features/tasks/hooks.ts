@@ -15,7 +15,7 @@ import {
   getStoredTasks,
   getStoredCompletions,
 } from "./actions";
-import { isTaskScheduledForDate } from "@/lib/dates";
+import { isTaskScheduledForDate, addHoursToTimeString, getTodayDateString } from "@/lib/dates";
 import { mapTaskWithCompletion, sortTasksByPriority } from "./mappers";
 import { useAuth } from "@/providers/AuthProvider";
 import { createClient } from "@/utils/supabase/client";
@@ -121,18 +121,6 @@ export function useTaskMutations() {
     },
   });
 
-  const toggleTaskActive = useMutation({
-    mutationFn: async (taskId: string) => {
-      const tasks = getStoredTasks(userId);
-      const target = tasks.find((t) => t.id === taskId);
-      const isCurrentlyActive = Boolean(target?.isActive);
-      await updateDbTaskActive(taskId, !isCurrentlyActive, userId);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["tasks"] });
-    },
-  });
-
   const updateSchedule = useMutation({
     mutationFn: async ({
       taskId,
@@ -230,24 +218,37 @@ export function useTaskMutations() {
 
   const startTaskExecution = useMutation({
     mutationFn: async ({ taskId, date }: { taskId: string; date: string }) => {
-      const completions = getStoredCompletions(userId);
-      const existing = completions.find((c) => c.taskId === taskId && c.date === date);
+      const nowTime = format(new Date(), "HH:mm");
       const tasks = getStoredTasks(userId);
       const targetTask = tasks.find((t) => t.id === taskId);
-      const nowTime = format(new Date(), "HH:mm");
+      const isRecurring = targetTask?.recurrence && targetTask.recurrence !== "ONCE";
 
+      // 1. Position task on the Agenda starting at now
+      const provisionalEndTime = targetTask?.endTime || addHoursToTimeString(nowTime, 1);
+      await updateTaskSchedule({
+        taskId,
+        date,
+        startTime: nowTime,
+        endTime: provisionalEndTime,
+        applyToAll: !isRecurring,
+        userId,
+      });
+
+      // 2. Set actual_start_time = now in completions
+      const completions = getStoredCompletions(userId);
+      const existing = completions.find((c) => c.taskId === taskId && c.date === date);
       await upsertDbCompletion({
         taskId,
         userId,
         date,
         completed: existing?.completed || false,
-        scheduledStartTime: targetTask?.startTime || null,
-        scheduledEndTime: targetTask?.endTime || null,
+        scheduledStartTime: nowTime,
+        scheduledEndTime: provisionalEndTime,
         actualStartTime: nowTime,
         actualEndTime: existing?.actualEndTime || null,
       });
 
-      // Also set task active
+      // 3. Mark task active
       await updateDbTaskActive(taskId, true, userId);
     },
     onSuccess: () => {
@@ -258,20 +259,70 @@ export function useTaskMutations() {
 
   const finishTaskExecution = useMutation({
     mutationFn: async ({ taskId, date }: { taskId: string; date: string }) => {
+      const nowTime = format(new Date(), "HH:mm");
+      const tasks = getStoredTasks(userId);
+      const targetTask = tasks.find((t) => t.id === taskId);
+      const isRecurring = targetTask?.recurrence && targetTask.recurrence !== "ONCE";
+
       const completions = getStoredCompletions(userId);
       const existing = completions.find((c) => c.taskId === taskId && c.date === date);
-      const nowTime = format(new Date(), "HH:mm");
+      const actualStart = existing?.actualStartTime || targetTask?.startTime || nowTime;
 
+      // 1. Calculate duration in minutes if possible
+      let duration: number | null = null;
+      if (actualStart && actualStart.includes(":")) {
+        const [sh, sm] = actualStart.split(":").map(Number);
+        const [eh, em] = nowTime.split(":").map(Number);
+        const diff = (eh * 60 + em) - (sh * 60 + sm);
+        duration = diff > 0 ? diff : 1;
+      }
+
+      // 2. Set task endTime to now on the Agenda
+      await updateTaskSchedule({
+        taskId,
+        date,
+        startTime: actualStart,
+        endTime: nowTime,
+        applyToAll: !isRecurring,
+        userId,
+      });
+
+      // 3. Mark completed: true and actualEndTime: now in task_completions
       await upsertDbCompletion({
         taskId,
         userId,
         date,
         completed: true,
+        duration: duration || existing?.duration || null,
+        actualStartTime: actualStart,
         actualEndTime: nowTime,
+        scheduledStartTime: actualStart,
+        scheduledEndTime: nowTime,
       });
 
-      // Deactivate timer
+      // 4. Deactivate task
       await updateDbTaskActive(taskId, false, userId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["completions"] });
+    },
+  });
+
+  const toggleTaskActive = useMutation({
+    mutationFn: async (args: string | { taskId: string; date?: string }) => {
+      const taskId = typeof args === "string" ? args : args.taskId;
+      const date = typeof args === "string" ? getTodayDateString() : (args.date || getTodayDateString());
+
+      const tasks = getStoredTasks(userId);
+      const target = tasks.find((t) => t.id === taskId);
+      const isCurrentlyActive = Boolean(target?.isActive);
+
+      if (!isCurrentlyActive) {
+        await startTaskExecution.mutateAsync({ taskId, date });
+      } else {
+        await finishTaskExecution.mutateAsync({ taskId, date });
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
