@@ -102,11 +102,17 @@ function mapDbSleepLogToModel(row: any): DailySleepLog {
  * Fetches sleep log from Supabase database with local storage synchronization
  */
 export async function fetchDbSleepLog(date: string, userId?: string): Promise<DailySleepLog> {
-  const targetId = getEffectiveUserId(userId);
+  const supabase = createClient();
+  let targetId = userId;
+
+  if (!targetId) {
+    const { data: { session } } = await supabase.auth.getSession();
+    targetId = session?.user?.id || getEffectiveUserId();
+  }
+
   const key = `${SLEEP_STORAGE_PREFIX}${targetId}_${date}`;
 
   try {
-    const supabase = createClient();
     const { data, error } = await supabase
       .from("sleep_logs")
       .select("*")
@@ -225,7 +231,14 @@ export async function saveStoredSleepLog(
   log: DailySleepLog,
   userId?: string
 ): Promise<DailySleepLog> {
-  const targetId = getEffectiveUserId(userId);
+  const supabase = createClient();
+  let targetId = userId;
+
+  if (!targetId) {
+    const { data: { session } } = await supabase.auth.getSession();
+    targetId = session?.user?.id || getEffectiveUserId();
+  }
+
   const key = `${SLEEP_STORAGE_PREFIX}${targetId}_${log.date}`;
   const nowIso = new Date().toISOString();
 
@@ -245,7 +258,6 @@ export async function saveStoredSleepLog(
 
   // 2. Database persistence in Supabase
   try {
-    const supabase = createClient();
     const { error } = await supabase.from("sleep_logs").upsert(
       [
         {
@@ -279,7 +291,7 @@ export async function saveStoredSleepLog(
 
       // Record in Supabase reminders table
       createDbReminder({
-        userId: targetId,
+        userId: targetId || getEffectiveUserId(userId),
         title: "🌙 Préparation au Sommeil",
         body: `C'est l'heure de te préparer pour ton coucher prévu à ${updatedLog.bedtime || "23:00"} !`,
         scheduledAt: scheduledIso,
@@ -308,9 +320,15 @@ export async function fetchSleepHistory(
   days: number = 30,
   userId?: string
 ): Promise<DailySleepLog[]> {
-  const targetId = getEffectiveUserId(userId);
+  const supabase = createClient();
+  let targetId = userId;
+
+  if (!targetId) {
+    const { data: { session } } = await supabase.auth.getSession();
+    targetId = session?.user?.id || getEffectiveUserId();
+  }
+
   try {
-    const supabase = createClient();
     const { data, error } = await supabase
       .from("sleep_logs")
       .select("*")
