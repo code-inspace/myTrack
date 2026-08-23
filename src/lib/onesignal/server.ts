@@ -23,8 +23,7 @@ export async function sendOneSignalPushNotification(
     process.env.ONESIGNAL_API_KEY;
 
   const appId =
-    process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID ||
-    "945a1ce4-1662-414e-9e72-9d014e9c3f5f";
+    process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID;
 
   if (!apiKey) {
     console.warn(
@@ -100,8 +99,7 @@ export async function cancelOneSignalNotification(
     process.env.ONESIGNAL_API_KEY;
 
   const appId =
-    process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID ||
-    "945a1ce4-1662-414e-9e72-9d014e9c3f5f";
+    process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID;
 
   if (!apiKey || !notificationId) return { success: false };
 
