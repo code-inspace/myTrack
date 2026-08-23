@@ -53,15 +53,14 @@ export const Logo: React.FC<LogoProps> = ({
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
         >
-          {/* Stylized geometric M & T track glyph in dark #111214 */}
+          {/* Bold geometric habit checkmark in dark #111214 */}
           <path
-            d="M4 17L8.5 7.5L12 14L15.5 7.5L20 17"
+            d="M4.5 12.5L9.5 17.5L19.5 6.5"
             stroke="#111214"
-            strokeWidth="3.2"
+            strokeWidth="3.6"
             strokeLinecap="round"
             strokeLinejoin="round"
           />
-          <circle cx="12" cy="6" r="2" fill="#111214" />
         </svg>
       </div>
 
