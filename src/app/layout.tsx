@@ -4,7 +4,6 @@ import QueryProvider from "@/providers/QueryProvider";
 import { AuthProvider } from "@/providers/AuthProvider";
 import OneSignalProvider from "@/providers/OneSignalProvider";
 import { BottomNav } from "@/components/shared/BottomNav";
-import { DynamicIsland } from "@/components/shared/DynamicIsland";
 
 export const metadata: Metadata = {
   title: "MyTrack — Elite Habit & Performance Tracking",
@@ -41,9 +40,6 @@ export default function RootLayout({
         <QueryProvider>
           <AuthProvider>
             <OneSignalProvider>
-              {/* Dynamic Island Floating Notification Pill */}
-              <DynamicIsland />
-
               {/* Main App Container */}
               <main className="w-full max-w-md min-h-screen flex flex-col px-4 safe-top safe-bottom-nav relative">
                 {children}
