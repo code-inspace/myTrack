@@ -15,8 +15,18 @@ export async function initOneSignal(): Promise<void> {
     await OneSignal.init({
       appId,
       allowLocalhostAsSecureOrigin: true,
+      serviceWorkerPath: "OneSignalSDKWorker.js",
+      serviceWorkerParam: { scope: "/" },
     });
     isInitialized = true;
+
+    if ("Notification" in window && Notification.permission === "granted") {
+      try {
+        await OneSignal.User.PushSubscription.optIn();
+      } catch (optErr) {
+        console.warn("OneSignal optIn note:", optErr);
+      }
+    }
     console.log("OneSignal Web SDK initialized successfully with App ID:", appId);
   } catch (err) {
     console.warn("OneSignal initialization note:", err);
