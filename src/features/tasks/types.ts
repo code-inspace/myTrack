@@ -28,6 +28,9 @@ export interface Task {
   unit?: string | null;
   isActive: boolean;
   startedAt?: string | null;
+  enableReminders?: boolean;
+  reminderOffsetMinutes?: number | null;
+  reminderTimes?: string[] | null;
   isArchived: boolean;
   createdAt: string;
   updatedAt: string;

@@ -26,7 +26,9 @@ function mapDbTaskToModel(row: any): Task {
     dateOverrides: row.date_overrides || {},
     trackingType: row.tracking_type,
     targetValue: row.target_value !== null && row.target_value !== undefined ? parseFloat(row.target_value) : null,
-    unit: row.unit || null,
+    enableReminders: row.enable_reminders !== undefined ? Boolean(row.enable_reminders) : true,
+    reminderOffsetMinutes: row.reminder_offset_minutes !== undefined ? row.reminder_offset_minutes : 10,
+    reminderTimes: row.reminder_times || ["11:00", "18:00"],
     isActive: Boolean(row.is_active),
     startedAt: row.started_at || null,
     isArchived: Boolean(row.is_archived),
@@ -139,6 +141,9 @@ export async function createDbTask(task: Omit<Task, "id" | "createdAt" | "update
           tracking_type: task.trackingType,
           target_value: task.targetValue !== undefined ? task.targetValue : null,
           unit: task.unit || null,
+          enable_reminders: task.enableReminders !== undefined ? task.enableReminders : true,
+          reminder_offset_minutes: task.reminderOffsetMinutes !== undefined ? task.reminderOffsetMinutes : 10,
+          reminder_times: task.reminderTimes || ["11:00", "18:00"],
           is_active: false,
           started_at: null,
           is_archived: false,
@@ -192,6 +197,9 @@ export async function updateDbTask(
   if (updates.trackingType !== undefined) dbUpdates.tracking_type = updates.trackingType;
   if (updates.targetValue !== undefined) dbUpdates.target_value = updates.targetValue;
   if (updates.unit !== undefined) dbUpdates.unit = updates.unit || null;
+  if (updates.enableReminders !== undefined) dbUpdates.enable_reminders = updates.enableReminders;
+  if (updates.reminderOffsetMinutes !== undefined) dbUpdates.reminder_offset_minutes = updates.reminderOffsetMinutes;
+  if (updates.reminderTimes !== undefined) dbUpdates.reminder_times = updates.reminderTimes;
 
   try {
     const { data, error } = await supabase
