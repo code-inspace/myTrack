@@ -112,9 +112,21 @@ CREATE TABLE IF NOT EXISTS public.chat_messages (
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
--- ==========================================================
--- ROW LEVEL SECURITY (RLS) POLICIES
--- ==========================================================
+-- 8. Reminders (Source of truth for scheduled push notifications)
+CREATE TABLE IF NOT EXISTS public.reminders (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    task_id UUID REFERENCES public.tasks(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    body TEXT NOT NULL,
+    scheduled_at TIMESTAMPTZ NOT NULL,
+    status TEXT DEFAULT 'pending' NOT NULL, -- 'pending' | 'scheduled' | 'sent' | 'failed' | 'cancelled'
+    onesignal_notification_id TEXT,
+    error_message TEXT,
+    reminder_type TEXT DEFAULT 'task_reminder' NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
 
 -- Enable RLS on all tables
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
@@ -122,6 +134,7 @@ ALTER TABLE public.tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.task_completions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notification_preferences ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notification_schedules ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.reminders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.chat_conversations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.chat_messages ENABLE ROW LEVEL SECURITY;
 
@@ -148,6 +161,11 @@ CREATE POLICY "Users can manage their own notification preferences"
 -- Notification schedules policies
 CREATE POLICY "Users can manage their own notification schedules"
     ON public.notification_schedules FOR ALL
+    USING (auth.uid() = user_id);
+
+-- Reminders policies
+CREATE POLICY "Users can manage their own reminders"
+    ON public.reminders FOR ALL
     USING (auth.uid() = user_id);
 
 -- Chat conversations policies

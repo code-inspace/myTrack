@@ -7,11 +7,15 @@ export async function POST(req: NextRequest) {
     const {
       userId,
       taskTitle,
+      taskId,
       startTime,
       reminderOffsetMinutes = 10,
       reminderTimes = [],
       date,
       category,
+      type = "task_reminder",
+      customMessage,
+      targetInMinutes,
     } = body;
 
     if (!taskTitle) {
@@ -19,10 +23,51 @@ export async function POST(req: NextRequest) {
     }
 
     const scheduledDateStr = date || new Date().toISOString().split("T")[0];
-    const results = [];
+    const results: Array<{
+      deliveryDate: string;
+      deliveryDateUtc: string;
+      success: boolean;
+      onesignalId: string | null;
+      error: string | null;
+      targetType?: string;
+    }> = [];
 
-    if (startTime) {
-      // 1. Timed Task Reminder (e.g. 10 mins before start)
+    // Helper to send and track single notification
+    const processDelivery = async (deliveryDate: Date, messageTitle: string, messageBody: string) => {
+      console.log(`[API /api/notifications/schedule] Scheduling push for ${deliveryDate.toISOString()} to user=${userId || "all"}`);
+
+      const pushRes = await sendOneSignalPushNotification({
+        userId,
+        title: messageTitle,
+        body: messageBody,
+        sendAfterDate: deliveryDate,
+        data: {
+          taskId,
+          taskTitle,
+          scheduledDate: scheduledDateStr,
+          type,
+        },
+      });
+
+      results.push({
+        deliveryDate: deliveryDate.toISOString(),
+        deliveryDateUtc: deliveryDate.toUTCString(),
+        success: pushRes.success,
+        onesignalId: pushRes.id || null,
+        error: pushRes.error || null,
+        targetType: pushRes.targetType,
+      });
+    };
+
+    // Case A: Custom relative offset in minutes (e.g. test in 2 minutes)
+    if (typeof targetInMinutes === "number") {
+      const deliveryDate = new Date(Date.now() + targetInMinutes * 60 * 1000);
+      const title = `🔔 ${taskTitle}`;
+      const bodyText = customMessage || `Rappel programmé à ${deliveryDate.toLocaleTimeString("fr-FR")} 🎯`;
+      await processDelivery(deliveryDate, title, bodyText);
+    }
+    // Case B: Timed Task Reminder (e.g. 10 mins before start)
+    else if (startTime) {
       const [hours, minutes] = startTime.split(":").map((v: string) => parseInt(v, 10) || 0);
       const targetDate = new Date(`${scheduledDateStr}T${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:00`);
 
@@ -34,16 +79,12 @@ export async function POST(req: NextRequest) {
         reminderDate.setDate(reminderDate.getDate() + 1);
       }
 
-      const res = await sendOneSignalPushNotification({
-        userId,
-        title: `Rappel • ${taskTitle}`,
-        body: `C'est l'heure de ton habitude prévue à ${startTime} 🎯`,
-        sendAfterDate: reminderDate,
-        data: { taskTitle, scheduledDate: scheduledDateStr },
-      });
-      results.push(res);
-    } else if (Array.isArray(reminderTimes) && reminderTimes.length > 0) {
-      // 2. All-Day Task Reminders (each specific time)
+      const title = `Rappel • ${taskTitle}`;
+      const bodyText = `C'est l'heure de ton habitude prévue à ${startTime} 🎯`;
+      await processDelivery(reminderDate, title, bodyText);
+    }
+    // Case C: All-Day Task Reminders (each specific time)
+    else if (Array.isArray(reminderTimes) && reminderTimes.length > 0) {
       for (const rTime of reminderTimes) {
         const [hours, minutes] = rTime.split(":").map((v: string) => parseInt(v, 10) || 0);
         const reminderDate = new Date(`${scheduledDateStr}T${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:00`);
@@ -52,20 +93,24 @@ export async function POST(req: NextRequest) {
           reminderDate.setDate(reminderDate.getDate() + 1);
         }
 
-        const res = await sendOneSignalPushNotification({
-          userId,
-          title: `Rappel • ${taskTitle}`,
-          body: `N'oublie pas ton objectif du jour : ${taskTitle} 💪`,
-          sendAfterDate: reminderDate,
-          data: { taskTitle, scheduledDate: scheduledDateStr },
-        });
-        results.push(res);
+        const title = `Rappel • ${taskTitle}`;
+        const bodyText = `N'oublie pas ton objectif du jour : ${taskTitle} 💪`;
+        await processDelivery(reminderDate, title, bodyText);
       }
+    } else {
+      // Case D: Immediate / direct push
+      const now = new Date(Date.now() + 1000);
+      const title = `🔔 ${taskTitle}`;
+      const bodyText = customMessage || `Rappel MyTrack`;
+      await processDelivery(now, title, bodyText);
     }
 
-    return NextResponse.json({ success: true, results });
+    return NextResponse.json({
+      success: results.some((r) => r.success),
+      results,
+    });
   } catch (err: any) {
-    console.error("API /api/notifications/schedule error:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error("[API /api/notifications/schedule] Server error:", err);
+    return NextResponse.json({ error: err?.message || "Server error" }, { status: 500 });
   }
 }

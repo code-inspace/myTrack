@@ -64,14 +64,51 @@ export const NotificationPermissionButton: React.FC<NotificationPermissionButton
     }
   };
 
-  const handleTestNotification = async () => {
-    await sendNativeNotification({
-      title: "🔔 Test MyTrack Réussi !",
-      body: "Les notifications push fonctionnent parfaitement sur votre appareil.",
-      tag: "direct-test",
-    });
-    setFeedback("Notification de test envoyée sur votre écran !");
-    setTimeout(() => setFeedback(null), 3000);
+  const handleTestImmediate = async () => {
+    setLoading(true);
+    setFeedback("Envoi de la notification immédiate...");
+    try {
+      await sendNativeNotification({
+        title: "🔔 Test Immédiat MyTrack",
+        body: "Les notifications locales et OneSignal fonctionnent parfaitement sur votre appareil !",
+        tag: "direct-test",
+      });
+
+      // Also trigger server push test
+      await fetch("/api/notifications/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ delayMinutes: 0 }),
+      });
+
+      setLoading(false);
+      setFeedback("✅ Notification envoyée sur votre écran !");
+    } catch (err: any) {
+      setLoading(false);
+      setFeedback(`⚠️ Erreur: ${err.message}`);
+    }
+  };
+
+  const handleTestScheduled = async () => {
+    setLoading(true);
+    setFeedback("Programmation du rappel dans 2 minutes...");
+    try {
+      const res = await fetch("/api/notifications/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ delayMinutes: 2 }),
+      });
+      const data = await res.json();
+      setLoading(false);
+      if (data.success) {
+        setFeedback(`✅ Rappel OneSignal programmé pour ${data.scheduledTimeLocal} ! Tu peux fermer l'app.`);
+      } else {
+        setFeedback(`⚠️ Info OneSignal: ${data.error || "Abonnement en cours d'enregistrement"}`);
+      }
+    } catch (err: any) {
+      setLoading(false);
+      setFeedback(`⚠️ Erreur: ${err.message}`);
+    }
   };
 
   return (
@@ -99,25 +136,25 @@ export const NotificationPermissionButton: React.FC<NotificationPermissionButton
             </span>
           </div>
 
-          <div className="flex items-center gap-2 pt-1 border-t border-[#252830]">
+          <div className="grid grid-cols-2 gap-2 pt-1 border-t border-[#252830]">
             <button
               type="button"
-              onClick={handleTestNotification}
-              className="flex-1 py-2 px-3 rounded-xl bg-[#22242B] hover:bg-[#2E313C] border border-[#343740] text-[11px] font-bold text-[#D4F63D] flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+              onClick={handleTestImmediate}
+              disabled={loading}
+              className="py-2 px-2.5 rounded-xl bg-[#22242B] hover:bg-[#2E313C] border border-[#343740] text-[11px] font-bold text-[#D4F63D] flex items-center justify-center gap-1.5 transition-all cursor-pointer truncate"
             >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Tester une notif</span>
+              <Sparkles className="w-3.5 h-3.5 flex-shrink-0" />
+              <span>Test direct</span>
             </button>
 
             <button
               type="button"
-              onClick={handleEnable}
+              onClick={handleTestScheduled}
               disabled={loading}
-              title="Re-synchroniser la souscription"
-              className="py-2 px-3 rounded-xl bg-[#22242B] hover:bg-[#2E313C] border border-[#343740] text-[11px] font-bold text-[#9CA3AF] hover:text-white flex items-center gap-1.5 transition-all cursor-pointer"
+              className="py-2 px-2.5 rounded-xl bg-[#22242B] hover:bg-[#2E313C] border border-[#343740] text-[11px] font-bold text-[#818CF8] flex items-center justify-center gap-1.5 transition-all cursor-pointer truncate"
             >
-              <RefreshCw className={cn("w-3.5 h-3.5", loading && "animate-spin")} />
-              <span>Re-synchroniser</span>
+              <Bell className="w-3.5 h-3.5 flex-shrink-0" />
+              <span>Test dans 2 min</span>
             </button>
           </div>
         </div>

@@ -39,6 +39,7 @@ model User {
   completions             TaskCompletion[]
   notificationPreferences NotificationPreference?
   notificationSchedules   NotificationSchedule[]
+  reminders               Reminder[]
   conversations           ChatConversation[]
 
   @@map("users")
@@ -155,4 +156,26 @@ model ChatMessage {
 
   @@index([conversationId])
   @@map("chat_messages")
+}
+
+model Reminder {
+  id                      String    @id @default(uuid())
+  userId                  String
+  taskId                  String?
+  title                   String
+  body                    String
+  scheduledAt             DateTime
+  status                  String    @default("pending") // "pending" | "scheduled" | "sent" | "failed" | "cancelled"
+  onesignalNotificationId String?
+  errorMessage            String?
+  reminderType            String    @default("task_reminder") // "task_reminder" | "bedtime" | "checkin" | "custom" | "morning" | "evening"
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+
+  user                    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task                    Task?     @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  @@index([userId, status])
+  @@index([scheduledAt])
+  @@map("reminders")
 }

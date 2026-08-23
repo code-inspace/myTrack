@@ -12,6 +12,8 @@ import {
 import { createClient } from "@/utils/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 
+import { loginOneSignalUser, logoutOneSignalUser } from "@/lib/onesignal/client";
+
 interface AuthContextType {
   user: UserSession | null;
   isLoading: boolean;
@@ -35,7 +37,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     supabase.auth.getSession().then((res: any) => {
       const session = res.data?.session;
       if (session?.user) {
-        setUser(mapSupabaseUserToSession(session.user));
+        const mapped = mapSupabaseUserToSession(session.user);
+        setUser(mapped);
+        loginOneSignalUser(mapped.id);
       } else {
         setUser(null);
       }
@@ -47,9 +51,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
       if (session?.user) {
-        setUser(mapSupabaseUserToSession(session.user));
+        const mapped = mapSupabaseUserToSession(session.user);
+        setUser(mapped);
+        loginOneSignalUser(mapped.id);
       } else {
         setUser(null);
+        logoutOneSignalUser();
       }
       queryClient.invalidateQueries();
     });
