@@ -23,6 +23,7 @@ function mapDbTaskToModel(row: any): Task {
     endTime: row.end_time || null,
     recurrence: row.recurrence,
     recurrenceConfig: row.recurrence_config || null,
+    dateOverrides: row.date_overrides || {},
     trackingType: row.tracking_type,
     targetValue: row.target_value !== null && row.target_value !== undefined ? parseFloat(row.target_value) : null,
     unit: row.unit || null,
@@ -45,6 +46,10 @@ function mapDbCompletionToModel(row: any): TaskCompletion {
     value: row.value !== null && row.value !== undefined ? parseFloat(row.value) : null,
     duration: row.duration || null,
     notes: row.notes || null,
+    scheduledStartTime: row.scheduled_start_time || null,
+    scheduledEndTime: row.scheduled_end_time || null,
+    actualStartTime: row.actual_start_time || null,
+    actualEndTime: row.actual_end_time || null,
     createdAt: row.created_at || new Date().toISOString(),
     updatedAt: row.updated_at || new Date().toISOString(),
   };
@@ -120,6 +125,7 @@ export async function createDbTask(task: Omit<Task, "id" | "createdAt" | "update
           end_time: task.endTime || null,
           recurrence: task.recurrence,
           recurrence_config: task.recurrenceConfig || null,
+          date_overrides: task.dateOverrides || {},
           tracking_type: task.trackingType,
           target_value: task.targetValue !== undefined ? task.targetValue : null,
           unit: task.unit || null,
@@ -198,6 +204,77 @@ export async function updateDbTaskActive(taskId: string, isActive: boolean, user
     return isActive ? { ...t, isActive: false, startedAt: null } : t;
   });
   saveStoredTasks(updated, targetId);
+}
+
+/**
+ * Updates schedule for a specific date (or globally).
+ * If task is recurring and not applyToAll, saves to dateOverrides[date].
+ */
+export async function updateTaskSchedule({
+  taskId,
+  date,
+  startTime,
+  endTime,
+  applyToAll = false,
+  userId,
+}: {
+  taskId: string;
+  date: string;
+  startTime: string | null;
+  endTime: string | null;
+  applyToAll?: boolean;
+  userId?: string;
+}): Promise<void> {
+  const supabase = createClient();
+  let targetId = userId;
+  if (!targetId) {
+    const { data: { session } } = await supabase.auth.getSession();
+    targetId = session?.user?.id || getEffectiveUserId();
+  }
+
+  const tasks = getStoredTasks(targetId);
+  const target = tasks.find((t) => t.id === taskId);
+  const nowIso = new Date().toISOString();
+
+  const isRecurring = target?.recurrence && target.recurrence !== "ONCE";
+
+  if (isRecurring && !applyToAll) {
+    // Specific day override
+    const currentOverrides = target?.dateOverrides || {};
+    const updatedOverrides = {
+      ...currentOverrides,
+      [date]: { startTime, endTime },
+    };
+
+    try {
+      await supabase
+        .from("tasks")
+        .update({ date_overrides: updatedOverrides, updated_at: nowIso })
+        .eq("id", taskId);
+    } catch (err) {
+      console.warn("Supabase updateTaskSchedule override error:", err);
+    }
+
+    const updated = tasks.map((t) =>
+      t.id === taskId ? { ...t, dateOverrides: updatedOverrides, updatedAt: nowIso } : t
+    );
+    saveStoredTasks(updated, targetId);
+  } else {
+    // Global schedule update
+    try {
+      await supabase
+        .from("tasks")
+        .update({ start_time: startTime, end_time: endTime, updated_at: nowIso })
+        .eq("id", taskId);
+    } catch (err) {
+      console.warn("Supabase updateTaskSchedule global error:", err);
+    }
+
+    const updated = tasks.map((t) =>
+      t.id === taskId ? { ...t, startTime, endTime, updatedAt: nowIso } : t
+    );
+    saveStoredTasks(updated, targetId);
+  }
 }
 
 export async function deleteDbTask(taskId: string, userId?: string): Promise<void> {
@@ -291,6 +368,10 @@ export async function upsertDbCompletion(
           value: completion.value,
           duration: completion.duration,
           notes: completion.notes,
+          scheduled_start_time: completion.scheduledStartTime || null,
+          scheduled_end_time: completion.scheduledEndTime || null,
+          actual_start_time: completion.actualStartTime || null,
+          actual_end_time: completion.actualEndTime || null,
         },
       ],
       { onConflict: "task_id,date" }
@@ -312,6 +393,10 @@ export async function upsertDbCompletion(
       completed: completion.completed,
       value: completion.value !== undefined ? completion.value : updated[existingIdx].value,
       duration: completion.duration !== undefined ? completion.duration : updated[existingIdx].duration,
+      scheduledStartTime: completion.scheduledStartTime !== undefined ? completion.scheduledStartTime : updated[existingIdx].scheduledStartTime,
+      scheduledEndTime: completion.scheduledEndTime !== undefined ? completion.scheduledEndTime : updated[existingIdx].scheduledEndTime,
+      actualStartTime: completion.actualStartTime !== undefined ? completion.actualStartTime : updated[existingIdx].actualStartTime,
+      actualEndTime: completion.actualEndTime !== undefined ? completion.actualEndTime : updated[existingIdx].actualEndTime,
       updatedAt: new Date().toISOString(),
     };
   } else {

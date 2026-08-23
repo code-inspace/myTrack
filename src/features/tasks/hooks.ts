@@ -2,13 +2,13 @@
 
 import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { taskQueryKeys } from "./queries";
 import { Task, TaskCompletion, TaskFormValues, TaskWithCompletion } from "./types";
 import {
   fetchTasks,
   fetchCompletions,
   createDbTask,
   updateDbTaskActive,
+  updateTaskSchedule,
   upsertDbCompletion,
   deleteDbTask,
   getStoredTasks,
@@ -18,14 +18,14 @@ import { isTaskScheduledForDate } from "@/lib/dates";
 import { mapTaskWithCompletion, sortTasksByPriority } from "./mappers";
 import { useAuth } from "@/providers/AuthProvider";
 import { createClient } from "@/utils/supabase/client";
-import { parseISO } from "date-fns";
+import { parseISO, format } from "date-fns";
 
 export function useTasks(selectedDateStr: string) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const userId = user?.id || "00000000-0000-0000-0000-000000000001";
 
-  // 1. Supabase Realtime Listener across devices
+  // Supabase Realtime Listener across devices
   useEffect(() => {
     const supabase = createClient();
     const channel = supabase
@@ -102,6 +102,7 @@ export function useTaskMutations() {
         endTime: values.endTime || null,
         recurrence: values.recurrence || "DAILY",
         recurrenceConfig: values.recurrenceConfig || null,
+        dateOverrides: {},
         trackingType: values.trackingType || "BOOLEAN",
         targetValue: values.targetValue || null,
         unit: values.unit || null,
@@ -131,6 +132,34 @@ export function useTaskMutations() {
     },
   });
 
+  const updateSchedule = useMutation({
+    mutationFn: async ({
+      taskId,
+      date,
+      startTime,
+      endTime,
+      applyToAll,
+    }: {
+      taskId: string;
+      date: string;
+      startTime: string | null;
+      endTime: string | null;
+      applyToAll?: boolean;
+    }) => {
+      await updateTaskSchedule({
+        taskId,
+        date,
+        startTime,
+        endTime,
+        applyToAll,
+        userId,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    },
+  });
+
   const toggleCompletion = useMutation({
     mutationFn: async ({
       taskId,
@@ -147,6 +176,10 @@ export function useTaskMutations() {
       const existing = completions.find((c) => c.taskId === taskId && c.date === date);
       const newStatus = existing ? !existing.completed : true;
 
+      const tasks = getStoredTasks(userId);
+      const targetTask = tasks.find((t) => t.id === taskId);
+      const nowTime = format(new Date(), "HH:mm");
+
       await upsertDbCompletion({
         taskId,
         userId,
@@ -154,10 +187,65 @@ export function useTaskMutations() {
         completed: newStatus,
         value: value !== undefined ? value : existing?.value || null,
         duration: duration !== undefined ? duration : existing?.duration || null,
+        scheduledStartTime: targetTask?.startTime || existing?.scheduledStartTime || null,
+        scheduledEndTime: targetTask?.endTime || existing?.scheduledEndTime || null,
+        actualStartTime: existing?.actualStartTime || (newStatus ? nowTime : null),
+        actualEndTime: newStatus ? nowTime : null,
         notes: null,
       });
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["completions"] });
+    },
+  });
+
+  const startTaskExecution = useMutation({
+    mutationFn: async ({ taskId, date }: { taskId: string; date: string }) => {
+      const completions = getStoredCompletions(userId);
+      const existing = completions.find((c) => c.taskId === taskId && c.date === date);
+      const tasks = getStoredTasks(userId);
+      const targetTask = tasks.find((t) => t.id === taskId);
+      const nowTime = format(new Date(), "HH:mm");
+
+      await upsertDbCompletion({
+        taskId,
+        userId,
+        date,
+        completed: existing?.completed || false,
+        scheduledStartTime: targetTask?.startTime || null,
+        scheduledEndTime: targetTask?.endTime || null,
+        actualStartTime: nowTime,
+        actualEndTime: existing?.actualEndTime || null,
+      });
+
+      // Also set task active
+      await updateDbTaskActive(taskId, true, userId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["completions"] });
+    },
+  });
+
+  const finishTaskExecution = useMutation({
+    mutationFn: async ({ taskId, date }: { taskId: string; date: string }) => {
+      const completions = getStoredCompletions(userId);
+      const existing = completions.find((c) => c.taskId === taskId && c.date === date);
+      const nowTime = format(new Date(), "HH:mm");
+
+      await upsertDbCompletion({
+        taskId,
+        userId,
+        date,
+        completed: true,
+        actualEndTime: nowTime,
+      });
+
+      // Deactivate timer
+      await updateDbTaskActive(taskId, false, userId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
       queryClient.invalidateQueries({ queryKey: ["completions"] });
     },
   });
@@ -202,7 +290,10 @@ export function useTaskMutations() {
   return {
     createTask,
     toggleTaskActive,
+    updateSchedule,
     toggleCompletion,
+    startTaskExecution,
+    finishTaskExecution,
     updateCompletionValue,
     deleteTask,
   };

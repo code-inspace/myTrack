@@ -1,0 +1,150 @@
+"use client";
+
+import React from "react";
+import { TaskWithCompletion } from "@/features/tasks/types";
+import { CheckCircle2, Circle, Clock, Play, Check, AlertCircle, ArrowRight } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+interface HistoryTaskCardProps {
+  task: TaskWithCompletion;
+  date: string;
+  onStartTask: (taskId: string) => void;
+  onFinishTask: (taskId: string) => void;
+  onToggleComplete: (taskId: string) => void;
+}
+
+export const HistoryTaskCard: React.FC<HistoryTaskCardProps> = ({
+  task,
+  date,
+  onStartTask,
+  onFinishTask,
+  onToggleComplete,
+}) => {
+  const completion = task.completion;
+  const isCompleted = Boolean(completion?.completed || task.isCompletedToday);
+
+  const scheduledStart = task.effectiveStartTime || task.startTime || completion?.scheduledStartTime;
+  const scheduledEnd = task.effectiveEndTime || task.endTime || completion?.scheduledEndTime;
+
+  const actualStart = completion?.actualStartTime;
+  const actualEnd = completion?.actualEndTime;
+
+  const hasScheduledTime = Boolean(scheduledStart);
+  const hasActualTime = Boolean(actualStart || actualEnd);
+
+  return (
+    <div
+      className={cn(
+        "rounded-2xl p-4 border transition-all duration-200 shadow-sm",
+        isCompleted
+          ? "bg-[#141519] border-[#2A2D35]"
+          : "bg-[#1C1D22] border-[#2E313B] hover:border-[#3E424F]"
+      )}
+    >
+      {/* Top row: Title and Status check */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <span className="text-xs px-2 py-0.5 rounded-md bg-[#252830] text-[#A0A4B0] font-semibold">
+              {task.category || "Général"}
+            </span>
+            <span className="text-xs text-[#8E929E] font-medium">
+              {task.recurrence === "DAILY"
+                ? "Quotidien"
+                : task.recurrence === "WEEKDAYS"
+                ? "Lun-Ven"
+                : task.recurrence}
+            </span>
+          </div>
+
+          <h3
+            className={cn(
+              "text-base font-bold mt-1 text-white leading-snug",
+              isCompleted ? "line-through text-[#8E929E]" : ""
+            )}
+          >
+            {task.title}
+          </h3>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => onToggleComplete(task.id)}
+          className="p-1 text-[#D4F63D] hover:scale-110 transition-transform cursor-pointer"
+        >
+          {isCompleted ? (
+            <CheckCircle2 className="w-5 h-5 fill-[#D4F63D]/20 text-[#D4F63D]" />
+          ) : (
+            <Circle className="w-5 h-5 text-[#8E929E]" />
+          )}
+        </button>
+      </div>
+
+      {/* Comparison Grid: Temps Prévu vs Temps Réel */}
+      <div className="mt-3 pt-3 border-t border-[#252830] grid grid-cols-2 gap-3 text-xs">
+        {/* 1. Temps Prévu */}
+        <div className="bg-[#121316] p-2.5 rounded-xl border border-[#202228]">
+          <div className="flex items-center gap-1.5 text-[#8E929E] font-semibold mb-1">
+            <Clock className="w-3.5 h-3.5 text-[#60A5FA]" />
+            <span>Prévu</span>
+          </div>
+          <div className="text-white font-medium">
+            {hasScheduledTime ? (
+              <span>
+                {scheduledStart} {scheduledEnd ? `→ ${scheduledEnd}` : ""}
+              </span>
+            ) : (
+              <span className="text-[#8E929E] italic">Journée entière</span>
+            )}
+          </div>
+        </div>
+
+        {/* 2. Temps Réel */}
+        <div className="bg-[#121316] p-2.5 rounded-xl border border-[#202228]">
+          <div className="flex items-center gap-1.5 text-[#8E929E] font-semibold mb-1">
+            <CheckCircle2 className="w-3.5 h-3.5 text-[#D4F63D]" />
+            <span>Réalisé</span>
+          </div>
+          <div className="text-white font-medium">
+            {hasActualTime ? (
+              <span className="text-[#D4F63D] font-bold">
+                {actualStart || "—"} {actualEnd ? `→ ${actualEnd}` : ""}
+              </span>
+            ) : isCompleted ? (
+              <span className="text-[#A0A4B0]">Validé (sans chrono)</span>
+            ) : (
+              <span className="text-[#6B7280] italic">Non démarré</span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Real-time execution controls */}
+      <div className="mt-3 flex items-center justify-between gap-2">
+        {!isCompleted ? (
+          !actualStart ? (
+            <button
+              onClick={() => onStartTask(task.id)}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-[#D4F63D] hover:bg-[#c2e42f] text-black font-bold text-xs shadow-md transition-all cursor-pointer"
+            >
+              <Play className="w-3.5 h-3.5 fill-current" />
+              Commencer maintenant
+            </button>
+          ) : (
+            <button
+              onClick={() => onFinishTask(task.id)}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-[#22C55E] hover:bg-[#16A34A] text-white font-bold text-xs shadow-md transition-all cursor-pointer"
+            >
+              <Check className="w-4 h-4" />
+              Terminer & Enregistrer
+            </button>
+          )
+        ) : (
+          <div className="w-full text-center py-1 text-[11px] font-semibold text-[#22C55E] bg-[#22C55E]/10 rounded-lg">
+            ✓ Accomplie le {date}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};

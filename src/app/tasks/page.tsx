@@ -74,6 +74,25 @@ export default function TasksPage() {
         onSelectDate={setSelectedDate}
       />
 
+      {/* Quick View Mode Switcher */}
+      <div className="flex items-center justify-center gap-1 p-1 bg-[#141518] rounded-full border border-[#23242A] mx-auto my-1">
+        <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-[#252830] text-white shadow-sm">
+          📋 Habitudes
+        </span>
+        <a
+          href="/agenda"
+          className="px-3 py-1 rounded-full text-[11px] font-medium text-[#8E929E] hover:text-white transition-colors"
+        >
+          📅 Agenda
+        </a>
+        <a
+          href="/history"
+          className="px-3 py-1 rounded-full text-[11px] font-medium text-[#8E929E] hover:text-white transition-colors"
+        >
+          ⏳ Historique
+        </a>
+      </div>
+
       {/* Section Divider / Handle matching visual reference */}
       <div className="w-8 h-1 bg-[#282A30] rounded-full mx-auto my-1" />
 
