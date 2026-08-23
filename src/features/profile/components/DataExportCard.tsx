@@ -53,49 +53,76 @@ export const DataExportCard: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2">
+      <div className="flex flex-col gap-2.5 pt-2">
+        {/* Ligne 1: Liste des tâches */}
         <button
           onClick={handleExportTasks}
-          className="p-3 rounded-2xl bg-[#252830] hover:bg-[#343740] border border-[#343740] text-left transition-all active:scale-98 cursor-pointer flex items-center justify-between"
+          className="w-full p-3.5 rounded-2xl bg-[#252830] hover:bg-[#2F333E] border border-[#343740] text-left transition-all active:scale-[0.99] cursor-pointer flex items-center justify-between shadow-sm"
         >
-          <div>
-            <div className="text-xs font-bold text-white">Liste des tâches</div>
-            <div className="text-[11px] text-[#8E929E]">taches.csv</div>
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-[#1C1D22] border border-[#343740] flex items-center justify-center text-[#D4F63D]">
+              <Database className="w-3.5 h-3.5" />
+            </div>
+            <div>
+              <div className="text-xs font-bold text-white">1. Liste des tâches & habitudes</div>
+              <div className="text-[11px] text-[#8E929E]">Export du paramétrage (taches.csv)</div>
+            </div>
           </div>
           {downloadedItem === "tasks" ? (
-            <Check className="w-4 h-4 text-[#D4F63D]" />
+            <div className="flex items-center gap-1 text-[#D4F63D] text-xs font-bold">
+              <Check className="w-4 h-4" />
+              <span>Téléchargé</span>
+            </div>
           ) : (
             <Download className="w-4 h-4 text-[#8E929E]" />
           )}
         </button>
 
+        {/* Ligne 2: Historique & Logs */}
         <button
           onClick={handleExportCompletions}
-          className="p-3 rounded-2xl bg-[#252830] hover:bg-[#343740] border border-[#343740] text-left transition-all active:scale-98 cursor-pointer flex items-center justify-between"
+          className="w-full p-3.5 rounded-2xl bg-[#252830] hover:bg-[#2F333E] border border-[#343740] text-left transition-all active:scale-[0.99] cursor-pointer flex items-center justify-between shadow-sm"
         >
-          <div>
-            <div className="text-xs font-bold text-white">Historique & Logs</div>
-            <div className="text-[11px] text-[#8E929E]">accomplissements.csv</div>
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-[#1C1D22] border border-[#343740] flex items-center justify-center text-[#D4F63D]">
+              <Database className="w-3.5 h-3.5" />
+            </div>
+            <div>
+              <div className="text-xs font-bold text-white">2. Historique & Validations</div>
+              <div className="text-[11px] text-[#8E929E]">Tous les accomplissements datés (accomplissements.csv)</div>
+            </div>
           </div>
           {downloadedItem === "completions" ? (
-            <Check className="w-4 h-4 text-[#D4F63D]" />
+            <div className="flex items-center gap-1 text-[#D4F63D] text-xs font-bold">
+              <Check className="w-4 h-4" />
+              <span>Téléchargé</span>
+            </div>
           ) : (
             <Download className="w-4 h-4 text-[#8E929E]" />
           )}
         </button>
 
+        {/* Ligne 3: Sauvegarde complète */}
         <button
           onClick={handleExportAll}
-          className="p-3 rounded-2xl bg-[#252830] hover:bg-[#343740] border border-[#343740] text-left transition-all active:scale-98 cursor-pointer flex items-center justify-between"
+          className="w-full p-3.5 rounded-2xl bg-[#252830] hover:bg-[#2F333E] border border-[#343740] text-left transition-all active:scale-[0.99] cursor-pointer flex items-center justify-between shadow-sm"
         >
-          <div>
-            <div className="text-xs font-bold text-white">Export Complet</div>
-            <div className="text-[11px] text-[#8E929E]">sauvegarde.csv</div>
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-[#1C1D22] border border-[#343740] flex items-center justify-center text-[#D4F63D]">
+              <FileSpreadsheet className="w-3.5 h-3.5" />
+            </div>
+            <div>
+              <div className="text-xs font-bold text-white">3. Sauvegarde Complète (Tout-en-un)</div>
+              <div className="text-[11px] text-[#8E929E]">Export combiné prêt pour réimport (sauvegarde.csv)</div>
+            </div>
           </div>
           {downloadedItem === "all" ? (
-            <Check className="w-4 h-4 text-[#D4F63D]" />
+            <div className="flex items-center gap-1 text-[#D4F63D] text-xs font-bold">
+              <Check className="w-4 h-4" />
+              <span>Téléchargé</span>
+            </div>
           ) : (
-            <FileSpreadsheet className="w-4 h-4 text-[#D4F63D]" />
+            <Download className="w-4 h-4 text-[#8E929E]" />
           )}
         </button>
       </div>

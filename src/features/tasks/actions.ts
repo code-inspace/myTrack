@@ -118,24 +118,31 @@ export async function fetchTasks(userId?: string): Promise<Task[]> {
 import { generateDemoSeedTasks, generateDemoSeedCompletions } from "./demoSeed";
 
 export function getStoredTasks(userId?: string): Task[] {
-  if (typeof window === "undefined") return generateDemoSeedTasks();
   const targetId = getEffectiveUserId(userId);
+  const isDemo = targetId === DEMO_USER.id;
+  if (typeof window === "undefined") return isDemo ? generateDemoSeedTasks() : [];
   const key = TASKS_STORAGE_PREFIX + targetId;
 
   const stored = localStorage.getItem(key);
   if (!stored) {
-    const seed = generateDemoSeedTasks(targetId);
-    localStorage.setItem(key, JSON.stringify(seed));
-    return seed;
-  }
-  try {
-    const parsed = JSON.parse(stored);
-    if (Array.isArray(parsed) && parsed.length === 0 && targetId === DEMO_USER.id) {
+    if (isDemo) {
       const seed = generateDemoSeedTasks(targetId);
       localStorage.setItem(key, JSON.stringify(seed));
       return seed;
     }
-    return parsed;
+    return [];
+  }
+  try {
+    const parsed = JSON.parse(stored);
+    if (Array.isArray(parsed)) {
+      if (parsed.length === 0 && isDemo) {
+        const seed = generateDemoSeedTasks(targetId);
+        localStorage.setItem(key, JSON.stringify(seed));
+        return seed;
+      }
+      return parsed;
+    }
+    return [];
   } catch {
     return [];
   }
@@ -660,24 +667,31 @@ export async function fetchCompletions(userId?: string): Promise<TaskCompletion[
 }
 
 export function getStoredCompletions(userId?: string): TaskCompletion[] {
-  if (typeof window === "undefined") return generateDemoSeedCompletions();
   const targetId = getEffectiveUserId(userId);
+  const isDemo = targetId === DEMO_USER.id;
+  if (typeof window === "undefined") return isDemo ? generateDemoSeedCompletions() : [];
   const key = COMPLETIONS_STORAGE_PREFIX + targetId;
 
   const stored = localStorage.getItem(key);
   if (!stored) {
-    const seed = generateDemoSeedCompletions(targetId);
-    localStorage.setItem(key, JSON.stringify(seed));
-    return seed;
-  }
-  try {
-    const parsed = JSON.parse(stored);
-    if (Array.isArray(parsed) && parsed.length === 0 && targetId === DEMO_USER.id) {
+    if (isDemo) {
       const seed = generateDemoSeedCompletions(targetId);
       localStorage.setItem(key, JSON.stringify(seed));
       return seed;
     }
-    return parsed;
+    return [];
+  }
+  try {
+    const parsed = JSON.parse(stored);
+    if (Array.isArray(parsed)) {
+      if (parsed.length === 0 && isDemo) {
+        const seed = generateDemoSeedCompletions(targetId);
+        localStorage.setItem(key, JSON.stringify(seed));
+        return seed;
+      }
+      return parsed;
+    }
+    return [];
   } catch {
     return [];
   }
