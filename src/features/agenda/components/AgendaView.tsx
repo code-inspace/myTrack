@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { AgendaHeader } from "./AgendaHeader";
+import { TasksHeaderWithNav } from "@/components/shared/TasksHeaderWithNav";
 import { AllDaySection } from "./AllDaySection";
 import { AgendaTimeline } from "./AgendaTimeline";
 import { TaskFormModal } from "@/features/tasks/components/TaskFormModal";
@@ -9,7 +9,7 @@ import { QuantityLoggingModal } from "@/features/tasks/components/QuantityLoggin
 import { useTasks, useTaskMutations } from "@/features/tasks/hooks";
 import { TaskWithCompletion, TaskFormValues } from "@/features/tasks/types";
 import { getTodayDateString } from "@/lib/dates";
-import { Sparkles, CalendarDays, Info } from "lucide-react";
+import { CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const AgendaView: React.FC = () => {
@@ -44,7 +44,7 @@ export const AgendaView: React.FC = () => {
       date: selectedDate,
       startTime,
       endTime,
-      applyToAll: !isRecurring, // By default for recurring tasks, apply to this occurrence
+      applyToAll: !isRecurring,
     });
   };
 
@@ -66,44 +66,47 @@ export const AgendaView: React.FC = () => {
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-[#0E0F12] relative overflow-hidden">
-      {/* 1. iOS Style Header */}
-      <AgendaHeader
-        selectedDate={selectedDate}
-        onSelectDate={setSelectedDate}
-        onOpenNewTaskModal={() => setIsTaskModalOpen(true)}
-      />
+    <div className="flex-1 flex flex-col h-screen max-h-screen bg-[#0E0F12] relative overflow-hidden">
+      {/* 1. Fixed Header Area: TasksHeaderWithNav */}
+      <div className="flex-shrink-0 z-30 shadow-md">
+        <TasksHeaderWithNav
+          title="Mon Agenda"
+          selectedDate={selectedDate}
+          onSelectDate={setSelectedDate}
+        />
 
-      {/* 2. All-Day Section */}
-      <AllDaySection
-        tasks={allDayTasks}
-        onToggleComplete={(taskId) => toggleCompletion.mutate({ taskId, date: selectedDate })}
-        onDropToAllDay={handleDropToAllDay}
-        onDragStartTask={handleDragStartTask}
-        onSelectTask={(task) => {
-          if (task.trackingType === "NUMBER" || task.trackingType === "QUANTITY" || task.trackingType === "DURATION") {
-            setSelectedLoggingTask(task);
-          }
-        }}
-      />
+        {/* 2. Fixed "Jour entier" Section directly below header */}
+        <AllDaySection
+          tasks={allDayTasks}
+          onToggleComplete={(taskId) => toggleCompletion.mutate({ taskId, date: selectedDate })}
+          onDropToAllDay={handleDropToAllDay}
+          onDragStartTask={handleDragStartTask}
+          onSelectTask={(task) => {
+            if (task.trackingType === "NUMBER" || task.trackingType === "QUANTITY" || task.trackingType === "DURATION") {
+              setSelectedLoggingTask(task);
+            }
+          }}
+        />
+      </div>
 
-      {/* 3. Hourly Timeline */}
-      <AgendaTimeline
-        selectedDate={selectedDate}
-        tasks={timedTasks}
-        onToggleComplete={(taskId) => toggleCompletion.mutate({ taskId, date: selectedDate })}
-        onMoveTaskToTime={handleMoveTaskToTime}
-        onDragStartTask={handleDragStartTask}
-        onSelectTask={(task) => {
-          if (task.trackingType === "NUMBER" || task.trackingType === "QUANTITY" || task.trackingType === "DURATION") {
-            setSelectedLoggingTask(task);
-          }
-        }}
-      />
+      {/* 3. Scrollable Hourly Timeline Area */}
+      <div className="flex-1 flex flex-col min-h-0 relative overflow-hidden">
+        <AgendaTimeline
+          selectedDate={selectedDate}
+          tasks={timedTasks}
+          onToggleComplete={(taskId) => toggleCompletion.mutate({ taskId, date: selectedDate })}
+          onMoveTaskToTime={handleMoveTaskToTime}
+          onDragStartTask={handleDragStartTask}
+          onSelectTask={(task) => {
+            if (task.trackingType === "NUMBER" || task.trackingType === "QUANTITY" || task.trackingType === "DURATION") {
+              setSelectedLoggingTask(task);
+            }
+          }}
+        />
+      </div>
 
-      {/* 4. Floating Bottom Action Controls (matching iOS Calendar screenshot) */}
+      {/* 4. Floating Bottom Return Pill */}
       <div className="absolute bottom-20 inset-x-0 px-4 flex items-center justify-between pointer-events-none z-30">
-        {/* "Aujourd'hui" Return Pill */}
         <button
           type="button"
           onClick={() => setSelectedDate(todayStr)}
@@ -115,7 +118,6 @@ export const AgendaView: React.FC = () => {
           Aujourd'hui
         </button>
 
-        {/* Task counter indicator */}
         <div className="pointer-events-auto bg-[#1F2228]/90 text-white font-semibold text-xs py-2 px-3.5 rounded-full shadow-2xl backdrop-blur-md border border-[#333742] flex items-center gap-2">
           <CalendarDays className="w-3.5 h-3.5 text-[#D4F63D]" />
           <span>{tasks.length} tâche{tasks.length > 1 ? "s" : ""}</span>

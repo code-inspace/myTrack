@@ -1,11 +1,11 @@
 "use client";
 
 import React, { useState } from "react";
-import { HistoryHeader } from "./HistoryHeader";
+import { TasksHeaderWithNav } from "@/components/shared/TasksHeaderWithNav";
 import { HistoryTaskCard } from "./HistoryTaskCard";
 import { useTasks, useTaskMutations } from "@/features/tasks/hooks";
 import { getTodayDateString } from "@/lib/dates";
-import { CheckCircle2, TrendingUp, AlertTriangle, Inbox } from "lucide-react";
+import { TrendingUp, Inbox } from "lucide-react";
 
 export const HistoryView: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<string>(getTodayDateString());
@@ -23,14 +23,15 @@ export const HistoryView: React.FC = () => {
 
   return (
     <div className="flex-1 flex flex-col h-full bg-[#0E0F12] pb-24 overflow-y-auto">
-      {/* 1. Header with date navigation */}
-      <HistoryHeader
+      {/* 1. Cohesive Header with View Switcher */}
+      <TasksHeaderWithNav
+        title="Mon Historique"
         selectedDate={selectedDate}
         onSelectDate={setSelectedDate}
       />
 
       {/* 2. Daily Summary Stats Card */}
-      <div className="p-4">
+      <div className="p-4 max-w-md mx-auto w-full">
         <div className="bg-[#16181D] border border-[#252830] rounded-2xl p-4 flex items-center justify-between shadow-sm">
           <div>
             <span className="text-xs font-semibold text-[#8E929E] uppercase tracking-wider">
@@ -64,7 +65,7 @@ export const HistoryView: React.FC = () => {
               <Inbox className="w-10 h-10 text-[#6B7280] mx-auto mb-2" />
               <h4 className="text-base font-bold text-white">Aucune tâche ce jour-là</h4>
               <p className="text-xs text-[#8E929E] mt-1">
-                Aucune habitude programmée pour le {selectedDate}.
+                Aucune habitude programmée pour cette date.
               </p>
             </div>
           ) : (

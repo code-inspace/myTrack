@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { AppHeader } from "@/components/shared/AppHeader";
-import { HorizontalDatePicker } from "@/features/tasks/components/HorizontalDatePicker";
+import { TasksHeaderWithNav } from "@/components/shared/TasksHeaderWithNav";
 import { ActiveTaskBanner } from "@/features/tasks/components/ActiveTaskBanner";
 import { TaskCard } from "@/features/tasks/components/TaskCard";
 import { TaskFormModal } from "@/features/tasks/components/TaskFormModal";
@@ -61,43 +60,17 @@ export default function TasksPage() {
   };
 
   return (
-    <div className="flex-1 flex flex-col pb-8">
-      {/* Top App Header */}
-      <AppHeader
-        title="Mes Tâches"
+    <div className="flex-1 flex flex-col pb-24">
+      {/* Unified Top Header & Switcher */}
+      <TasksHeaderWithNav
+        title="Mes Habitudes"
+        selectedDate={selectedDate}
+        onSelectDate={setSelectedDate}
         onOpenNotifications={() => setIsTestNotificationOpen(true)}
       />
 
-      {/* Horizontal 7-Day Calendar */}
-      <HorizontalDatePicker
-        selectedDate={selectedDate}
-        onSelectDate={setSelectedDate}
-      />
-
-      {/* Quick View Mode Switcher */}
-      <div className="flex items-center justify-center gap-1 p-1 bg-[#141518] rounded-full border border-[#23242A] mx-auto my-1">
-        <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-[#252830] text-white shadow-sm">
-          📋 Habitudes
-        </span>
-        <a
-          href="/agenda"
-          className="px-3 py-1 rounded-full text-[11px] font-medium text-[#8E929E] hover:text-white transition-colors"
-        >
-          📅 Agenda
-        </a>
-        <a
-          href="/history"
-          className="px-3 py-1 rounded-full text-[11px] font-medium text-[#8E929E] hover:text-white transition-colors"
-        >
-          ⏳ Historique
-        </a>
-      </div>
-
-      {/* Section Divider / Handle matching visual reference */}
-      <div className="w-8 h-1 bg-[#282A30] rounded-full mx-auto my-1" />
-
-      {/* Today Section */}
-      <div className="mt-2 space-y-3.5">
+      {/* Main Content Area */}
+      <div className="px-4 mt-3 space-y-3.5 max-w-md mx-auto w-full">
         <div className="flex items-center justify-between px-1">
           <h2 className="text-xl font-bold text-white tracking-tight">Aujourd'hui</h2>
           <button
@@ -109,7 +82,7 @@ export default function TasksPage() {
           </button>
         </div>
 
-        {/* Quick Task Input Bar (Matching screenshot "✓ Task name") */}
+        {/* Quick Task Input Bar */}
         <form onSubmit={handleQuickAdd} className="w-full relative">
           <div className="relative flex items-center">
             <div className="absolute left-4 text-[#D4F63D]">
@@ -125,7 +98,7 @@ export default function TasksPage() {
           </div>
         </form>
 
-        {/* Active Task Banner in vibrant Lime (Matching screenshot top active card!) */}
+        {/* Active Task Banner */}
         {activeTaskMapped && (
           <ActiveTaskBanner
             task={activeTaskMapped}
@@ -159,7 +132,6 @@ export default function TasksPage() {
             </div>
           ) : (
             tasks
-              // If active task is shown above, don't duplicate it below unless stopped
               .filter((task) => !task.isActive)
               .map((task) => (
                 <TaskCard
