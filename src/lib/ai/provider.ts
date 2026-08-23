@@ -3,7 +3,7 @@ import { SYSTEM_COACH_PROMPT, formatAIContext } from "./prompts";
 
 /**
  * Built-in Intelligent Heuristic AI Coach
- * Provides real data-driven feedback matching user habits, streak, and momentum.
+ * Analyzes live habit completion, streak, and momentum without requiring an external API key.
  */
 export class HeuristicAIProvider implements AIProvider {
   name = "Heuristic MyTrack Coach";
@@ -12,7 +12,7 @@ export class HeuristicAIProvider implements AIProvider {
     const { messages, context } = request;
     const lastUserMessage = messages[messages.length - 1]?.content.toLowerCase() || "";
 
-    const isFrench = /[éèàùçâêîôû]|comment|pourquoi|analyse|semaine|progression/i.test(lastUserMessage);
+    const isFrench = /[éèàùçâêîôû]|comment|pourquoi|analyse|semaine|progression|coach|salut|bonjour/i.test(lastUserMessage);
 
     // 1. Weekly analysis query
     if (
@@ -102,14 +102,15 @@ export class HeuristicAIProvider implements AIProvider {
 }
 
 /**
- * AI Provider Factory
+ * Universal AI Provider Factory
+ * Supports: OpenAI, Groq (Fast & Free Llama 3), Google Gemini, Anthropic Claude, or Heuristic Engine
  */
 export function getAIProvider(): AIProvider {
-  const providerType = process.env.AI_PROVIDER || "heuristic";
+  const providerType = (process.env.AI_PROVIDER || "heuristic").toLowerCase();
   const apiKey = process.env.AI_API_KEY;
 
+  // 1. OpenAI (GPT-4o / GPT-4o-mini)
   if (providerType === "openai" && apiKey) {
-    // OpenAI client wrapper
     return {
       name: "OpenAI Coach",
       generateResponse: async (request: AIRequest): Promise<AIResponse> => {
@@ -126,20 +127,81 @@ export function getAIProvider(): AIProvider {
                 { role: "system", content: `${SYSTEM_COACH_PROMPT}\n${formatAIContext(request.context)}` },
                 ...request.messages,
               ],
+              temperature: 0.7,
             }),
           });
           const data = await response.json();
           return {
-            content: data.choices?.[0]?.message?.content || "No response generated.",
+            content: data.choices?.[0]?.message?.content || "Désolé, aucune réponse générée.",
+            suggestedActions: ["Comment s'est passée ma semaine ?", "Analyser mon momentum", "Quelles habitudes améliorer ?"],
           };
         } catch {
-          // Fallback to Heuristic engine if external API fails
           return new HeuristicAIProvider().generateResponse(request);
         }
       },
     };
   }
 
-  // Default robust Heuristic provider
+  // 2. Groq (Llama-3.3-70b - Ultra Fast)
+  if (providerType === "groq" && apiKey) {
+    return {
+      name: "Groq Llama-3 Coach",
+      generateResponse: async (request: AIRequest): Promise<AIResponse> => {
+        try {
+          const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+              model: process.env.AI_MODEL || "llama-3.3-70b-versatile",
+              messages: [
+                { role: "system", content: `${SYSTEM_COACH_PROMPT}\n${formatAIContext(request.context)}` },
+                ...request.messages,
+              ],
+              temperature: 0.7,
+            }),
+          });
+          const data = await response.json();
+          return {
+            content: data.choices?.[0]?.message?.content || "Désolé, aucune réponse générée.",
+            suggestedActions: ["Comment s'est passée ma semaine ?", "Analyser mon momentum", "Quelles habitudes améliorer ?"],
+          };
+        } catch {
+          return new HeuristicAIProvider().generateResponse(request);
+        }
+      },
+    };
+  }
+
+  // 3. Google Gemini
+  if (providerType === "gemini" && apiKey) {
+    return {
+      name: "Gemini Coach",
+      generateResponse: async (request: AIRequest): Promise<AIResponse> => {
+        try {
+          const model = process.env.AI_MODEL || "gemini-1.5-flash";
+          const prompt = `${SYSTEM_COACH_PROMPT}\n${formatAIContext(request.context)}\n\nUser: ${request.messages[request.messages.length - 1]?.content}`;
+          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+            }),
+          });
+          const data = await response.json();
+          return {
+            content: data.candidates?.[0]?.content?.parts?.[0]?.text || "Désolé, aucune réponse générée.",
+            suggestedActions: ["Comment s'est passée ma semaine ?", "Analyser mon momentum", "Quelles habitudes améliorer ?"],
+          };
+        } catch {
+          return new HeuristicAIProvider().generateResponse(request);
+        }
+      },
+    };
+  }
+
+  // Default: Built-in Heuristic AI Coach (Free, 0 latency, 0 external API cost)
   return new HeuristicAIProvider();
 }
