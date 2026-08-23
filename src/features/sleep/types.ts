@@ -4,6 +4,7 @@ export interface DailySleepLog {
   wakeTime?: string | null; // e.g. "07:30"
   bedtimeValidated?: boolean;
   wakeTimeValidated?: boolean;
+  bedtimeOffsets?: number[]; // e.g. [60, 30, 15]
   bedtimeReminders: string[]; // e.g. ["22:00", "22:30", "22:45"]
   enableBedtimeReminders: boolean;
   notes?: string; // Daily reflection / comment

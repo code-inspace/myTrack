@@ -12,6 +12,27 @@ export function getEffectiveUserId(explicitUserId?: string): string {
   return session?.id || DEMO_USER.id;
 }
 
+export const BEDTIME_OFFSET_OPTIONS = [
+  { value: 60, label: "1h" },
+  { value: 30, label: "30 min" },
+  { value: 20, label: "20 min" },
+  { value: 15, label: "15 min" },
+  { value: 0, label: "À l'heure" },
+];
+
+export const DEFAULT_BEDTIME_OFFSETS = [60, 30, 15];
+
+/**
+ * Calculates bedtime reminder times from an array of minute offsets
+ */
+export function computeBedtimeRemindersFromOffsets(bedtime: string, offsets: number[] = DEFAULT_BEDTIME_OFFSETS): string[] {
+  if (!bedtime) return ["22:00", "22:30", "22:45"];
+  const sorted = [...offsets].sort((a, b) => b - a);
+  return sorted.map((offset) =>
+    offset === 0 ? bedtime : subtractMinutesFromTime(bedtime, offset)
+  );
+}
+
 /**
  * Calculates 3 default bedtime reminders:
  * 1. 1 hour (60 min) before
@@ -19,12 +40,7 @@ export function getEffectiveUserId(explicitUserId?: string): string {
  * 3. 15 minutes before
  */
 export function computeDefaultBedtimeReminders(bedtime: string): string[] {
-  if (!bedtime) return ["22:00", "22:30", "22:45"];
-  return [
-    subtractMinutesFromTime(bedtime, 60),
-    subtractMinutesFromTime(bedtime, 30),
-    subtractMinutesFromTime(bedtime, 15),
-  ];
+  return computeBedtimeRemindersFromOffsets(bedtime, DEFAULT_BEDTIME_OFFSETS);
 }
 
 /**
@@ -71,6 +87,7 @@ export function getStoredSleepLog(date: string, userId?: string): DailySleepLog 
       wakeTime: "07:00",
       bedtimeValidated: false,
       wakeTimeValidated: false,
+      bedtimeOffsets: DEFAULT_BEDTIME_OFFSETS,
       bedtimeReminders: ["22:00", "22:30", "22:45"],
       enableBedtimeReminders: true,
       notes: "",
@@ -80,7 +97,11 @@ export function getStoredSleepLog(date: string, userId?: string): DailySleepLog 
   try {
     const raw = localStorage.getItem(key);
     if (raw) {
-      return JSON.parse(raw);
+      const parsed = JSON.parse(raw);
+      return {
+        ...parsed,
+        bedtimeOffsets: parsed.bedtimeOffsets || DEFAULT_BEDTIME_OFFSETS,
+      };
     }
   } catch (err) {
     console.warn("getStoredSleepLog parse error:", err);
@@ -94,6 +115,7 @@ export function getStoredSleepLog(date: string, userId?: string): DailySleepLog 
     wakeTime: "07:00",
     bedtimeValidated: false,
     wakeTimeValidated: false,
+    bedtimeOffsets: DEFAULT_BEDTIME_OFFSETS,
     bedtimeReminders: computeDefaultBedtimeReminders(defaultBedtime),
     enableBedtimeReminders: true,
     notes: "",
