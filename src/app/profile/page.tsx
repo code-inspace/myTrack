@@ -94,41 +94,9 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          <div
-            className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full ${
-              isDemoAccount
-                ? "bg-[#D4F63D]/15 text-[#D4F63D] border border-[#D4F63D]/30"
-                : "bg-blue-500/15 text-blue-400 border border-blue-500/30"
-            }`}
-          >
-            <ShieldCheck className="w-3 h-3" />
-            <span>{isDemoAccount ? "Compte Démo" : "Compte Actif"}</span>
-          </div>
-        </div>
-
-        {/* Account Switcher Bar */}
-        <div className="pt-2 border-t border-[#282A30] flex items-center justify-between gap-2 text-xs">
-          {isDemoAccount ? (
-            <Link
-              href="/auth/signup"
-              className="text-[#8E929E] hover:text-[#D4F63D] font-semibold transition-colors flex items-center gap-1"
-            >
-              <UserPlus className="w-3.5 h-3.5" />
-              <span>Créer un compte vierge</span>
-            </Link>
-          ) : (
-            <button
-              onClick={() => switchToDemo()}
-              className="text-[#8E929E] hover:text-[#D4F63D] font-semibold transition-colors flex items-center gap-1 cursor-pointer"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Basculer sur le compte Démo (demo@de.mo)</span>
-            </button>
-          )}
-
           <button
             onClick={handleLogout}
-            className="text-[#F87171] hover:text-red-300 font-semibold transition-colors flex items-center gap-1 cursor-pointer"
+            className="px-3.5 py-2 rounded-xl bg-[#252830] hover:bg-[#343740] text-[#F87171] hover:text-red-300 font-bold text-xs transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
           >
             <LogOut className="w-3.5 h-3.5" />
             <span>Déconnexion</span>

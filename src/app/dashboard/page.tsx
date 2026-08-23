@@ -69,9 +69,9 @@ export default function DashboardPage() {
 
       {/* View per selected period */}
       {period === "month" ? (
-        /* Monthly Calendar with Habit Select Dropdown */
+        /* Monthly Calendar with Habit Select Dropdown (Recurring Habits only) */
         <MonthlyHabitCalendar
-          tasks={allTasks}
+          tasks={allTasks.filter((t) => t.recurrence && t.recurrence !== "ONCE")}
           completions={allCompletions}
           monthDate={referenceDate}
         />

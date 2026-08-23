@@ -255,8 +255,13 @@ export function calculateDashboardStats(
   period: Period = "week",
   referenceDate: Date = new Date()
 ): DashboardStats {
-  const habitStreaks = calculateHabitStreakStats(tasks, completions, referenceDate);
-  const last7DaysStatus = calculateLast7DaysStatus(tasks, completions, referenceDate);
+  // Filter out one-shot tasks: Dashboard only tracks recurring habits
+  const recurringTasks = tasks.filter((t) => t.recurrence && t.recurrence !== "ONCE");
+  const recurringTaskIds = new Set(recurringTasks.map((t) => t.id));
+  const recurringCompletions = completions.filter((c) => recurringTaskIds.has(c.taskId));
+
+  const habitStreaks = calculateHabitStreakStats(recurringTasks, recurringCompletions, referenceDate);
+  const last7DaysStatus = calculateLast7DaysStatus(recurringTasks, recurringCompletions, referenceDate);
 
   // Period calculation
   const daysInPeriod = period === "week" ? 7 : period === "month" ? 30 : 60;
@@ -267,11 +272,11 @@ export function calculateDashboardStats(
     const dateObj = subDays(referenceDate, i);
     const dateStr = format(dateObj, "yyyy-MM-dd");
 
-    const scheduled = tasks.filter((t) =>
+    const scheduled = recurringTasks.filter((t) =>
       isTaskScheduledForDate(t.recurrence, t.recurrenceConfig, dateObj, t.createdAt)
     ).length;
 
-    const completed = completions.filter((c) => c.date === dateStr && c.completed).length;
+    const completed = recurringCompletions.filter((c) => c.date === dateStr && c.completed).length;
 
     totalScheduledInPeriod += scheduled;
     totalCompletedInPeriod += completed;
@@ -300,12 +305,11 @@ export function calculateDashboardStats(
 
   if (period === "week") {
     // 7 days of the reference week (Monday to Sunday)
-    const weekStart = subDays(referenceDate, 6);
     for (let i = 0; i < 7; i++) {
       const dayDate = subDays(referenceDate, 6 - i);
       const dayDateStr = format(dayDate, "yyyy-MM-dd");
-      const dayCompleted = completions.filter((c) => c.date === dayDateStr && c.completed).length;
-      const dayScheduled = tasks.filter((t) =>
+      const dayCompleted = recurringCompletions.filter((c) => c.date === dayDateStr && c.completed).length;
+      const dayScheduled = recurringTasks.filter((t) =>
         isTaskScheduledForDate(t.recurrence, t.recurrenceConfig, dayDate, t.createdAt)
       ).length;
 
@@ -331,13 +335,12 @@ export function calculateDashboardStats(
       let weekCompleted = 0;
       let weekScheduled = 0;
       const weekEndDate = subDays(referenceDate, w * 6);
-      const weekStartDate = subDays(weekEndDate, 5);
 
       for (let d = 0; d < 6; d++) {
         const currDate = subDays(weekEndDate, d);
         const currDateStr = format(currDate, "yyyy-MM-dd");
-        weekCompleted += completions.filter((c) => c.date === currDateStr && c.completed).length;
-        weekScheduled += tasks.filter((t) =>
+        weekCompleted += recurringCompletions.filter((c) => c.date === currDateStr && c.completed).length;
+        weekScheduled += recurringTasks.filter((t) =>
           isTaskScheduledForDate(t.recurrence, t.recurrenceConfig, currDate, t.createdAt)
         ).length;
       }
@@ -367,8 +370,8 @@ export function calculateDashboardStats(
       for (let d = 0; d < 30; d++) {
         const currDate = subDays(monthRef, d);
         const currDateStr = format(currDate, "yyyy-MM-dd");
-        monthCompleted += completions.filter((c) => c.date === currDateStr && c.completed).length;
-        monthScheduled += tasks.filter((t) =>
+        monthCompleted += recurringCompletions.filter((c) => c.date === currDateStr && c.completed).length;
+        monthScheduled += recurringTasks.filter((t) =>
           isTaskScheduledForDate(t.recurrence, t.recurrenceConfig, currDate, t.createdAt)
         ).length;
       }
@@ -397,8 +400,8 @@ export function calculateDashboardStats(
   const totalTargetWins = Math.max(totalWins, totalScheduledInPeriod);
   const averageDailyCompletion = Math.round(completionRate);
   const tasksMissed = Math.max(0, totalScheduledInPeriod - totalCompletedInPeriod);
-  const globalStreak = calculateCurrentStreak(completions, referenceDate);
-  const bestGlobalStreak = calculateBestStreak(completions);
+  const globalStreak = calculateCurrentStreak(recurringCompletions, referenceDate);
+  const bestGlobalStreak = calculateBestStreak(recurringCompletions);
 
   return {
     momentum,
