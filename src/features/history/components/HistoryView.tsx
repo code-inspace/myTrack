@@ -11,10 +11,12 @@ import { TrendingUp, Inbox } from "lucide-react";
 
 export const HistoryView: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<string>(getTodayDateString());
+  const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskWithCompletion | null>(null);
 
   const { tasks, isLoading } = useTasks(selectedDate);
   const {
+    createTask,
     updateTask,
     toggleCompletion,
     startTaskExecution,
@@ -25,11 +27,14 @@ export const HistoryView: React.FC = () => {
   const completedTasks = tasks.filter((t) => t.isCompletedToday).length;
   const completionPercentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
-  const handleUpdateTask = (values: TaskFormValues, taskId?: string) => {
+  const handleCreateOrUpdateTask = (values: TaskFormValues, taskId?: string) => {
     if (taskId) {
       updateTask.mutate({ taskId, values });
+    } else {
+      createTask.mutate(values);
     }
     setEditingTask(null);
+    setIsTaskModalOpen(false);
   };
 
   return (
@@ -40,6 +45,10 @@ export const HistoryView: React.FC = () => {
           title="Mon Historique"
           selectedDate={selectedDate}
           onSelectDate={setSelectedDate}
+          onNewTask={() => {
+            setEditingTask(null);
+            setIsTaskModalOpen(true);
+          }}
         />
       </div>
 
@@ -98,12 +107,15 @@ export const HistoryView: React.FC = () => {
         </div>
       </div>
 
-      {/* Task Edit Modal */}
+      {/* Task Create & Edit Modal */}
       <TaskFormModal
-        isOpen={Boolean(editingTask)}
+        isOpen={isTaskModalOpen || Boolean(editingTask)}
         initialTask={editingTask}
-        onClose={() => setEditingTask(null)}
-        onSubmit={handleUpdateTask}
+        onClose={() => {
+          setIsTaskModalOpen(false);
+          setEditingTask(null);
+        }}
+        onSubmit={handleCreateOrUpdateTask}
       />
     </div>
   );

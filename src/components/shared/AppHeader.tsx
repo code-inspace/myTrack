@@ -40,15 +40,15 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         )}
       </div>
 
-      {/* Right: New Task Action Button (or Notification) */}
+      {/* Right: New Task Action Button (Dark Background Theme) */}
       {onNewTask ? (
         <button
           onClick={onNewTask}
           aria-label="Nouvelle tâche"
           title="Ajouter une nouvelle tâche"
-          className="w-9 h-9 rounded-full bg-[#D4F63D] hover:bg-[#c2e42f] flex items-center justify-center text-black font-bold transition-all cursor-pointer shadow-md shadow-[#D4F63D]/20 hover:scale-105 active:scale-95"
+          className="w-9 h-9 rounded-full bg-[#1C1D22] hover:bg-[#252830] border border-[#282A30] flex items-center justify-center text-[#D4F63D] transition-all cursor-pointer shadow-sm hover:scale-105 active:scale-95"
         >
-          <Plus className="w-5 h-5 stroke-[2.8]" />
+          <Plus className="w-5 h-5 stroke-[2.5]" />
         </button>
       ) : (
         <button

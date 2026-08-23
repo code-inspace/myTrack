@@ -79,8 +79,11 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
   const endTime = task.effectiveEndTime !== undefined ? task.effectiveEndTime : task.endTime;
   const isRemindersEnabled = task.enableReminders !== false;
 
-  const isNarrow = widthPercent < 45;
-  const isVeryNarrow = widthPercent < 30; // 4 columns or more (e.g. 25% width)
+  const activeLeftPercent = isSelected ? 0 : leftPercent;
+  const activeWidthPercent = isSelected ? 100 : widthPercent;
+
+  const isNarrow = !isSelected && widthPercent < 45;
+  const isVeryNarrow = !isSelected && widthPercent < 30; // 4 columns or more (e.g. 25% width)
 
   return (
     <div
@@ -97,19 +100,19 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
       style={{
         top: `${topOffsetPx}px`,
         height: `${Math.max(32, heightPx)}px`,
-        left: `calc(${leftPercent}% + 2px)`,
-        width: `calc(${widthPercent}% - 4px)`,
+        left: `calc(${activeLeftPercent}% + 2px)`,
+        width: `calc(${activeWidthPercent}% - 4px)`,
       }}
       className={cn(
-        "absolute rounded-xl border flex flex-col justify-between shadow-md transition-all select-none cursor-grab active:cursor-grabbing z-10 group overflow-hidden",
+        "absolute rounded-xl border flex flex-col justify-between transition-all duration-200 select-none cursor-grab active:cursor-grabbing group overflow-hidden",
         isVeryNarrow ? "p-1" : isNarrow ? "p-1.5" : "p-2",
         style.bg,
         style.border,
         isSelected
-          ? "ring-2 ring-[#D4F63D] shadow-2xl z-30 scale-[1.008] border-transparent"
-          : "hover:ring-1 hover:ring-white/20",
+          ? "z-50 ring-2 ring-[#D4F63D] shadow-2xl scale-[1.01] border-transparent"
+          : "z-10 hover:ring-1 hover:ring-white/20",
         task.isActive
-          ? "ring-1 ring-[#D4F63D] shadow-[0_0_15px_rgba(212,246,61,0.25)] border-[#D4F63D]/60 z-20"
+          ? "ring-1 ring-[#D4F63D] shadow-[0_0_15px_rgba(212,246,61,0.25)] border-[#D4F63D]/60"
           : "",
         task.isCompletedToday ? "opacity-60 bg-[#15161A] border-[#2A2D35]" : ""
       )}
