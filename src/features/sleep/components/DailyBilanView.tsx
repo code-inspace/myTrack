@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { DailySleepLog } from "../types";
 import {
   getStoredSleepLog,
@@ -13,6 +13,7 @@ import {
   BookOpen,
   Check,
   Calendar,
+  Loader2,
 } from "lucide-react";
 import { formatDisplayDate } from "@/lib/dates";
 
@@ -22,49 +23,68 @@ interface DailyBilanViewProps {
 
 export const DailyBilanView: React.FC<DailyBilanViewProps> = ({ selectedDate }) => {
   const [log, setLog] = useState<DailySleepLog>(() => getStoredSleepLog(selectedDate));
-  const [isSaved, setIsSaved] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isEditingRef = useRef(false);
+  const logRef = useRef(log);
+
+  useEffect(() => {
+    logRef.current = log;
+  }, [log]);
 
   // Synchronize state from Supabase / localStorage when selected date changes
   useEffect(() => {
-    // 1. Instant local render
+    isEditingRef.current = false;
     setLog(getStoredSleepLog(selectedDate));
-    setIsSaved(false);
+    setSaveStatus("idle");
 
-    // 2. Fetch fresh database record from Supabase
     fetchDbSleepLog(selectedDate).then((remoteLog) => {
-      if (remoteLog) {
+      // Avoid overwriting if the user is actively typing
+      if (remoteLog && !isEditingRef.current) {
         setLog(remoteLog);
       }
     });
   }, [selectedDate]);
 
-  const triggerSave = (updated: DailySleepLog) => {
-    setLog(updated);
-    saveStoredSleepLog(updated);
-    setIsSaved(true);
-    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-    saveTimeoutRef.current = setTimeout(() => setIsSaved(false), 2500);
-  };
+  const performSave = useCallback((dataToSave: DailySleepLog) => {
+    setSaveStatus("saving");
+    saveStoredSleepLog(dataToSave).then(() => {
+      setSaveStatus("saved");
+      isEditingRef.current = false;
+      setTimeout(() => {
+        setSaveStatus((prev) => (prev === "saved" ? "idle" : prev));
+      }, 2500);
+    });
+  }, []);
+
+  // Flush on unmount if pending
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+        performSave(logRef.current);
+      }
+    };
+  }, [performSave]);
 
   const handleFieldChange = (field: "gratitude" | "manifestation" | "notes", value: string) => {
+    isEditingRef.current = true;
     const updated: DailySleepLog = {
       ...log,
       [field]: value,
     };
     setLog(updated);
+    setSaveStatus("saving");
 
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     saveTimeoutRef.current = setTimeout(() => {
-      saveStoredSleepLog(updated);
-      setIsSaved(true);
-      setTimeout(() => setIsSaved(false), 2500);
-    }, 600);
+      performSave(updated);
+    }, 500);
   };
 
   return (
     <div className="flex-1 overflow-y-auto px-4 pt-3 pb-36 space-y-4 max-w-md mx-auto w-full">
-      {/* Header with Save Confirmation & Formatted Date */}
+      {/* Header with Automatic Save Status & Formatted Date */}
       <div className="flex items-center justify-between px-1">
         <div>
           <h2 className="text-xl font-bold text-white tracking-tight">Journal & Bilan</h2>
@@ -74,10 +94,18 @@ export const DailyBilanView: React.FC<DailyBilanViewProps> = ({ selectedDate }) 
           </p>
         </div>
 
-        {isSaved && (
+        {/* Ambient Autosave Status Indicator */}
+        {saveStatus === "saving" && (
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#818CF8]/15 border border-[#818CF8]/30 text-[#818CF8] text-xs font-bold animate-pulse">
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            <span>Enregistrement...</span>
+          </div>
+        )}
+
+        {saveStatus === "saved" && (
           <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#D4F63D]/15 border border-[#D4F63D]/40 text-[#D4F63D] text-xs font-bold animate-in fade-in duration-200">
             <Check className="w-3.5 h-3.5 stroke-[3]" />
-            <span>Enregistré</span>
+            <span>Enregistré en base</span>
           </div>
         )}
       </div>
@@ -160,17 +188,6 @@ export const DailyBilanView: React.FC<DailyBilanViewProps> = ({ selectedDate }) 
             placeholder="Comment s'est passée ta journée ? Qu'as-tu accompli, quelles leçons en tires-tu ?"
             className="w-full p-4 rounded-2xl bg-[#252830] border border-[#343740] text-sm text-white focus:border-[#D4F63D] focus:ring-1 focus:ring-[#D4F63D] outline-none placeholder-[#6B7280] resize-none transition-all"
           />
-        </div>
-
-        <div className="flex justify-end pt-1">
-          <button
-            type="button"
-            onClick={() => triggerSave(log)}
-            className="px-5 py-2.5 rounded-xl bg-[#D4F63D] hover:bg-[#c2e432] text-black font-extrabold text-xs flex items-center gap-1.5 cursor-pointer shadow-md transition-all active:scale-95"
-          >
-            <Check className="w-4 h-4 stroke-[3]" />
-            <span>Enregistrer le bilan</span>
-          </button>
         </div>
       </div>
     </div>

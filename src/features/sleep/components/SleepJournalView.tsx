@@ -32,27 +32,34 @@ export const SleepJournalView: React.FC<SleepJournalViewProps> = ({ selectedDate
   const [log, setLog] = useState<DailySleepLog>(() => getStoredSleepLog(selectedDate));
   const [isSaved, setIsSaved] = useState(false);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isEditingRef = useRef(false);
 
   // Synchronize state from Supabase / localStorage when selected date changes
   useEffect(() => {
+    isEditingRef.current = false;
     // 1. Instant local render
     setLog(getStoredSleepLog(selectedDate));
     setIsSaved(false);
 
     // 2. Fetch fresh database record from Supabase
     fetchDbSleepLog(selectedDate).then((remoteLog) => {
-      if (remoteLog) {
+      if (remoteLog && !isEditingRef.current) {
         setLog(remoteLog);
       }
     });
   }, [selectedDate]);
 
   const triggerSave = (updated: DailySleepLog) => {
+    isEditingRef.current = true;
     setLog(updated);
-    saveStoredSleepLog(updated);
-    setIsSaved(true);
-    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-    saveTimeoutRef.current = setTimeout(() => setIsSaved(false), 2500);
+    saveStoredSleepLog(updated).then(() => {
+      setIsSaved(true);
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = setTimeout(() => {
+        setIsSaved(false);
+        isEditingRef.current = false;
+      }, 2500);
+    });
   };
 
   const handleBedtimeChange = (newBedtime: string, markValidated = true) => {

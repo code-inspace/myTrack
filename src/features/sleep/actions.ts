@@ -94,6 +94,20 @@ function mapDbSleepLogToModel(row: any): DailySleepLog {
     ? row.bedtime_reminders.map((r: string) => convertUtcTimeToLocal(r, row.date))
     : computeBedtimeRemindersFromOffsets(localBedtime, offsets);
 
+  let rawNotes = row.notes || "";
+  let gratitude = row.gratitude || "";
+  let manifestation = row.manifestation || "";
+
+  // Check if gratitude/manifestation were stored in JSON format inside notes
+  if (rawNotes && typeof rawNotes === "string" && rawNotes.startsWith("{") && rawNotes.includes("gratitude")) {
+    try {
+      const parsed = JSON.parse(rawNotes);
+      rawNotes = parsed.notes || "";
+      if (!gratitude) gratitude = parsed.gratitude || "";
+      if (!manifestation) manifestation = parsed.manifestation || "";
+    } catch {}
+  }
+
   return {
     date: row.date,
     bedtime: localBedtime,
@@ -103,9 +117,9 @@ function mapDbSleepLogToModel(row: any): DailySleepLog {
     bedtimeOffsets: offsets,
     bedtimeReminders: localReminders,
     enableBedtimeReminders: row.enable_bedtime_reminders !== false,
-    notes: row.notes || "",
-    gratitude: row.gratitude || "",
-    manifestation: row.manifestation || "",
+    notes: rawNotes,
+    gratitude,
+    manifestation,
     updatedAt: row.updated_at || new Date().toISOString(),
   };
 }
@@ -282,29 +296,52 @@ export async function saveStoredSleepLog(
       convertLocalTimeToUtc(r, updatedLog.date)
     );
 
-    const { error } = await supabase.from("sleep_logs").upsert(
-      [
-        {
-          user_id: targetId,
-          date: updatedLog.date,
-          bedtime: utcBedtime,
-          wake_time: utcWakeTime,
-          bedtime_validated: Boolean(updatedLog.bedtimeValidated),
-          wake_time_validated: Boolean(updatedLog.wakeTimeValidated),
-          bedtime_offsets: updatedLog.bedtimeOffsets || DEFAULT_BEDTIME_OFFSETS,
-          bedtime_reminders: utcReminders,
-          enable_bedtime_reminders: updatedLog.enableBedtimeReminders !== false,
-          notes: updatedLog.notes || null,
-          gratitude: updatedLog.gratitude || null,
-          manifestation: updatedLog.manifestation || null,
-          updated_at: nowIso,
-        },
-      ],
-      { onConflict: "user_id,date" }
-    );
+    // Primary payload attempting direct column writes
+    const payload: any = {
+      user_id: targetId,
+      date: updatedLog.date,
+      bedtime: utcBedtime,
+      wake_time: utcWakeTime,
+      bedtime_validated: Boolean(updatedLog.bedtimeValidated),
+      wake_time_validated: Boolean(updatedLog.wakeTimeValidated),
+      bedtime_offsets: updatedLog.bedtimeOffsets || DEFAULT_BEDTIME_OFFSETS,
+      bedtime_reminders: utcReminders,
+      enable_bedtime_reminders: updatedLog.enableBedtimeReminders !== false,
+      notes: updatedLog.notes || null,
+      gratitude: updatedLog.gratitude || null,
+      manifestation: updatedLog.manifestation || null,
+      updated_at: nowIso,
+    };
 
+    const { error } = await supabase.from("sleep_logs").upsert([payload], { onConflict: "user_id,date" });
+
+    // Fallback if gratitude or manifestation column does not exist yet on remote table
     if (error) {
-      console.warn("Supabase saveStoredSleepLog error:", error);
+      console.warn("Supabase initial save error, trying resilient fallback:", error.message);
+      const packedNotes = JSON.stringify({
+        notes: updatedLog.notes || "",
+        gratitude: updatedLog.gratitude || "",
+        manifestation: updatedLog.manifestation || "",
+      });
+
+      const fallbackPayload: any = {
+        user_id: targetId,
+        date: updatedLog.date,
+        bedtime: utcBedtime,
+        wake_time: utcWakeTime,
+        bedtime_validated: Boolean(updatedLog.bedtimeValidated),
+        wake_time_validated: Boolean(updatedLog.wakeTimeValidated),
+        bedtime_offsets: updatedLog.bedtimeOffsets || DEFAULT_BEDTIME_OFFSETS,
+        bedtime_reminders: utcReminders,
+        enable_bedtime_reminders: updatedLog.enableBedtimeReminders !== false,
+        notes: packedNotes,
+        updated_at: nowIso,
+      };
+
+      const fallbackRes = await supabase.from("sleep_logs").upsert([fallbackPayload], { onConflict: "user_id,date" });
+      if (fallbackRes.error) {
+        console.warn("Supabase resilient save error:", fallbackRes.error);
+      }
     }
   } catch (err) {
     console.warn("Supabase saveStoredSleepLog network fallback:", err);
