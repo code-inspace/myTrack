@@ -344,25 +344,6 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
             onMoveTaskToTime={handleMoveTaskToTime}
             onDragStartTask={handleDragStartTask}
           />
-
-          {/* Floating Bottom Return Pill */}
-          <div className="absolute bottom-20 inset-x-0 px-4 flex items-center justify-between pointer-events-none z-30">
-            <button
-              type="button"
-              onClick={() => setSelectedDate(todayStr)}
-              className={cn(
-                "pointer-events-auto bg-[#1F2228]/90 hover:bg-[#282B33] active:scale-95 text-white font-bold text-xs py-2.5 px-4 rounded-full shadow-2xl backdrop-blur-md border border-[#333742] transition-all cursor-pointer",
-                selectedDate === todayStr ? "opacity-40 pointer-events-none" : "opacity-100"
-              )}
-            >
-              Aujourd'hui
-            </button>
-
-            <div className="pointer-events-auto bg-[#1F2228]/90 text-white font-semibold text-xs py-2 px-3.5 rounded-full shadow-2xl backdrop-blur-md border border-[#333742] flex items-center gap-2">
-              <CalendarDays className="w-3.5 h-3.5 text-[#D4F63D]" />
-              <span>{tasks.length} tâche{tasks.length > 1 ? "s" : ""}</span>
-            </div>
-          </div>
         </div>
       )}
 
@@ -396,8 +377,14 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
         onRespond={handleInteractiveResponse}
       />
 
-      {/* Floating Microphone Voice Action Button */}
-      <VoiceFab selectedDate={selectedDate} />
+      {/* Dual Floating Action Buttons: New Task (+) and Voice AI (Mic) */}
+      <VoiceFab
+        selectedDate={selectedDate}
+        onNewTask={() => {
+          setEditingTask(null);
+          setIsTaskModalOpen(true);
+        }}
+      />
     </div>
   );
 };
