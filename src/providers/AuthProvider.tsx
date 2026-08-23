@@ -15,8 +15,8 @@ import { useQueryClient } from "@tanstack/react-query";
 interface AuthContextType {
   user: UserSession | null;
   isLoading: boolean;
-  login: (email: string, pass: string) => Promise<{ success: boolean; error?: string }>;
-  signup: (email: string, pass: string, name?: string) => Promise<{ success: boolean; error?: string }>;
+  login: (email: string, pass: string) => Promise<{ success: boolean; requiresConfirmation?: boolean; error?: string }>;
+  signup: (email: string, pass: string, name?: string) => Promise<{ success: boolean; requiresConfirmation?: boolean; error?: string }>;
   logout: () => void;
   switchToDemo: () => void;
 }
@@ -36,8 +36,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (session?.user) {
         setUser(mapSupabaseUserToSession(session.user));
       } else {
-        // Default to Demo user if no session is stored yet
-        setUser(DEMO_USER);
+        setUser(null);
       }
       setIsLoading(false);
     });
@@ -49,7 +48,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (session?.user) {
         setUser(mapSupabaseUserToSession(session.user));
       } else {
-        setUser(DEMO_USER);
+        setUser(null);
       }
       queryClient.invalidateQueries();
     });
@@ -68,7 +67,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       queryClient.invalidateQueries();
       return { success: true };
     }
-    return { success: false, error: res.error || "Identifiants invalides" };
+    return {
+      success: false,
+      requiresConfirmation: res.requiresConfirmation,
+      error: res.error || "Identifiants invalides",
+    };
   };
 
   const signup = async (email: string, pass: string, name?: string) => {
@@ -76,9 +79,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const res = await signupWithCredentials(email, pass, name);
     setIsLoading(false);
     if (res.success && res.user) {
+      if (res.requiresConfirmation) {
+        return { success: true, requiresConfirmation: true };
+      }
       setUser(res.user);
       queryClient.invalidateQueries();
-      return { success: true };
+      return { success: true, requiresConfirmation: false };
     }
     return { success: false, error: res.error || "Erreur d'inscription" };
   };

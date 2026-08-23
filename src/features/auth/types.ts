@@ -2,8 +2,9 @@ export interface UserSession {
   id: string;
   email: string;
   name: string;
-  avatarUrl?: string;
+  avatarUrl?: string | null;
   isDemo: boolean;
+  emailConfirmed: boolean;
   createdAt: string;
 }
 

@@ -9,6 +9,11 @@ import { cn } from "@/lib/utils";
 export const BottomNav: React.FC = () => {
   const pathname = usePathname();
 
+  // Hide navigation on auth pages
+  if (pathname.startsWith("/auth")) {
+    return null;
+  }
+
   const navItems = [
     { href: "/tasks", label: "Tâches", icon: ListTodo },
     { href: "/dashboard", label: "Dashboard", icon: TrendingUp },

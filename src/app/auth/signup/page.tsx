@@ -25,7 +25,11 @@ export default function SignupPage() {
     setIsLoading(false);
 
     if (res.success) {
-      router.push("/tasks");
+      if (res.requiresConfirmation) {
+        router.push(`/auth/verify-email?email=${encodeURIComponent(email.trim())}`);
+      } else {
+        router.push("/tasks");
+      }
     } else {
       setError(res.error || "Erreur d'inscription");
     }

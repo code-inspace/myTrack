@@ -4,6 +4,7 @@ import QueryProvider from "@/providers/QueryProvider";
 import { AuthProvider } from "@/providers/AuthProvider";
 import OneSignalProvider from "@/providers/OneSignalProvider";
 import { BottomNav } from "@/components/shared/BottomNav";
+import { AuthGuard } from "@/components/shared/AuthGuard";
 
 export const metadata: Metadata = {
   title: "MyTrack — Elite Habit & Performance Tracking",
@@ -40,13 +41,15 @@ export default function RootLayout({
         <QueryProvider>
           <AuthProvider>
             <OneSignalProvider>
-              {/* Main App Container */}
-              <main className="w-full max-w-md min-h-screen flex flex-col px-4 safe-top safe-bottom-nav relative">
-                {children}
-              </main>
+              <AuthGuard>
+                {/* Main App Container */}
+                <main className="w-full max-w-md min-h-screen flex flex-col px-4 safe-top safe-bottom-nav relative">
+                  {children}
+                </main>
 
-              {/* Fixed Thumb-friendly Navigation */}
-              <BottomNav />
+                {/* Fixed Thumb-friendly Navigation */}
+                <BottomNav />
+              </AuthGuard>
             </OneSignalProvider>
           </AuthProvider>
         </QueryProvider>

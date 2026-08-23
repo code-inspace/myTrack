@@ -25,6 +25,8 @@ export default function LoginPage() {
 
     if (res.success) {
       router.push("/tasks");
+    } else if (res.requiresConfirmation) {
+      router.push(`/auth/verify-email?email=${encodeURIComponent(email.trim())}`);
     } else {
       setError(res.error || "Erreur de connexion");
     }
