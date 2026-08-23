@@ -87,17 +87,27 @@ export async function fetchTasks(userId?: string): Promise<Task[]> {
   return getStoredTasks(targetId);
 }
 
+import { generateDemoSeedTasks, generateDemoSeedCompletions } from "./demoSeed";
+
 export function getStoredTasks(userId?: string): Task[] {
-  if (typeof window === "undefined") return [];
+  if (typeof window === "undefined") return generateDemoSeedTasks();
   const targetId = getEffectiveUserId(userId);
   const key = TASKS_STORAGE_PREFIX + targetId;
 
   const stored = localStorage.getItem(key);
   if (!stored) {
-    return [];
+    const seed = generateDemoSeedTasks(targetId);
+    localStorage.setItem(key, JSON.stringify(seed));
+    return seed;
   }
   try {
-    return JSON.parse(stored);
+    const parsed = JSON.parse(stored);
+    if (Array.isArray(parsed) && parsed.length === 0 && targetId === DEMO_USER.id) {
+      const seed = generateDemoSeedTasks(targetId);
+      localStorage.setItem(key, JSON.stringify(seed));
+      return seed;
+    }
+    return parsed;
   } catch {
     return [];
   }
@@ -334,14 +344,24 @@ export async function fetchCompletions(userId?: string): Promise<TaskCompletion[
 }
 
 export function getStoredCompletions(userId?: string): TaskCompletion[] {
-  if (typeof window === "undefined") return [];
+  if (typeof window === "undefined") return generateDemoSeedCompletions();
   const targetId = getEffectiveUserId(userId);
   const key = COMPLETIONS_STORAGE_PREFIX + targetId;
 
   const stored = localStorage.getItem(key);
-  if (!stored) return [];
+  if (!stored) {
+    const seed = generateDemoSeedCompletions(targetId);
+    localStorage.setItem(key, JSON.stringify(seed));
+    return seed;
+  }
   try {
-    return JSON.parse(stored);
+    const parsed = JSON.parse(stored);
+    if (Array.isArray(parsed) && parsed.length === 0 && targetId === DEMO_USER.id) {
+      const seed = generateDemoSeedCompletions(targetId);
+      localStorage.setItem(key, JSON.stringify(seed));
+      return seed;
+    }
+    return parsed;
   } catch {
     return [];
   }

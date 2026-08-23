@@ -84,9 +84,6 @@ export default function TasksPage() {
 
       {/* Main Content Area */}
       <div className="px-4 mt-3 space-y-3.5 max-w-md mx-auto w-full">
-        {/* Cross-Device Notification Permission Banner */}
-        <NotificationPermissionButton />
-
         <div className="flex items-center justify-between px-1">
           <h2 className="text-xl font-bold text-white tracking-tight">Aujourd'hui</h2>
           <button
