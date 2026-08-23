@@ -17,7 +17,7 @@ import { useDashboardStats } from "@/features/dashboard/hooks";
 import { useAuth } from "@/providers/AuthProvider";
 import { getTodayDateString } from "@/lib/dates";
 import { CustomReminder } from "@/features/notifications/types";
-import { User, Flame, Trophy, Award, RotateCcw, ShieldCheck, LogOut, Sparkles, UserPlus } from "lucide-react";
+import { User, Flame, Trophy, Award, RotateCcw, ShieldCheck, LogOut, Sparkles, UserPlus, Bell, ChevronRight } from "lucide-react";
 import Link from "next/link";
 
 export default function ProfilePage() {
@@ -157,15 +157,27 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* Notifications Section */}
-      <NotificationSettingsCard
-        preferences={preferences}
-        reminders={reminders}
-        onUpdatePreferences={handleUpdatePrefs}
-        onOpenNewReminder={() => setIsReminderModalOpen(true)}
-        onDeleteReminder={handleDeleteReminder}
-        onTestNotification={(rem) => setActiveTestReminder(rem)}
-      />
+      {/* Notifications Management Link Banner */}
+      <Link
+        href="/profile/notifications"
+        className="w-full p-4.5 rounded-3xl bg-[#1C1D22] border border-[#282A30] hover:border-[#D4F63D]/50 transition-all flex items-center justify-between group shadow-sm cursor-pointer"
+      >
+        <div className="flex items-center gap-3.5">
+          <div className="w-11 h-11 rounded-2xl bg-[#252830] group-hover:bg-[#D4F63D]/20 text-[#D4F63D] flex items-center justify-center transition-colors">
+            <Bell className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="text-sm font-bold text-white flex items-center gap-1.5">
+              <span>Gestion des Notifications</span>
+              <span className="text-[10px] px-2 py-0.2 rounded-full bg-[#D4F63D]/15 text-[#D4F63D] font-mono font-bold">
+                Nouveau
+              </span>
+            </div>
+            <p className="text-xs text-[#8E929E]">Rappels d'action actuelle, bilans & mode pause</p>
+          </div>
+        </div>
+        <ChevronRight className="w-5 h-5 text-[#8E929E] group-hover:text-white group-hover:translate-x-0.5 transition-all" />
+      </Link>
 
       {/* CSV Data Export Card */}
       <DataExportCard />

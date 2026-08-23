@@ -36,7 +36,48 @@ export default function NotificationWatcherProvider({ children }: { children: Re
       const preferences = getStoredPreferences();
       const customReminders = getStoredReminders();
 
-      // 1. Task Reminders Dispatcher
+      // If Master Mute is ON or push is disabled globally, do not fire any notifications
+      if (preferences.allDisabled || !preferences.pushEnabled) {
+        return;
+      }
+
+      // 1. Periodic Current Action Check-in ("Que fais-tu actuellement ?")
+      if (preferences.currentActionCheckinEnabled) {
+        const currentMinutesTotal = now.getHours() * 60 + now.getMinutes();
+        const startH = parseInt((preferences.currentActionStartTime || "09:00").split(":")[0], 10) || 9;
+        const startM = parseInt((preferences.currentActionStartTime || "09:00").split(":")[1], 10) || 0;
+        const endH = parseInt((preferences.currentActionEndTime || "22:00").split(":")[0], 10) || 22;
+        const endM = parseInt((preferences.currentActionEndTime || "22:00").split(":")[1], 10) || 0;
+
+        const startTotal = startH * 60 + startM;
+        const endTotal = endH * 60 + endM;
+        const interval = preferences.currentActionIntervalMinutes || 30;
+        const activeDays = preferences.currentActionDays || [0, 1, 2, 3, 4, 5, 6];
+
+        if (
+          activeDays.includes(now.getDay()) &&
+          currentMinutesTotal >= startTotal &&
+          currentMinutesTotal <= endTotal &&
+          currentMinutesTotal % interval === 0
+        ) {
+          const cacheKey = `${todayDateStr}_current_action_${currentTimeStr}`;
+          if (!sentNotificationsRef.current.has(cacheKey)) {
+            sentNotificationsRef.current.add(cacheKey);
+
+            sendNativeNotification({
+              title: "⚡ Que fais-tu actuellement ?",
+              body: "Prends 5 secondes pour enregistrer ton action ou ton habitude sur MyTrack !",
+              tag: `current-action-${currentTimeStr}`,
+              actions: [
+                { action: "LOG", title: "📝 Enregistrer" },
+                { action: "LATER", title: "Plus tard" },
+              ],
+            });
+          }
+        }
+      }
+
+      // 2. Task Reminders Dispatcher
       tasks.forEach((task) => {
         if (task.isArchived) return;
         if (task.enableReminders === false) return;

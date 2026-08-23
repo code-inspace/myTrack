@@ -377,34 +377,72 @@ export async function updateDbTaskStartedAt(
   const newStartDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, 0);
   const newStartedAtIso = newStartDate.toISOString();
   const nowIso = now.toISOString();
+  const todayStr = getTodayDateString();
+
+  const tasks = getStoredTasks(targetId);
+  const target = tasks.find((t) => t.id === taskId);
+  const isRecurring = target?.recurrence && target.recurrence !== "ONCE";
+
+  // Calculate new end time if current end time is before new start time
+  let provisionalEndTime = target?.endTime;
+  if (!provisionalEndTime) {
+    const endH = (hours + 1) % 24;
+    provisionalEndTime = `${String(endH).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+  }
+
+  const currentOverrides = target?.dateOverrides || {};
+  const updatedOverrides = {
+    ...currentOverrides,
+    [todayStr]: {
+      ...(currentOverrides[todayStr] || {}),
+      startTime: startedAtTime,
+      endTime: provisionalEndTime,
+    },
+  };
+
+  const dbUpdates: any = {
+    started_at: newStartedAtIso,
+    updated_at: nowIso,
+    date_overrides: updatedOverrides,
+  };
+
+  if (!isRecurring) {
+    dbUpdates.start_time = startedAtTime;
+    dbUpdates.end_time = provisionalEndTime;
+  }
 
   try {
     await supabase
       .from("tasks")
-      .update({ started_at: newStartedAtIso, updated_at: nowIso })
+      .update(dbUpdates)
       .eq("id", taskId);
   } catch (err) {
     console.warn("Supabase updateDbTaskStartedAt error:", err);
   }
 
   // Update completions actualStartTime as well
-  const todayStr = getTodayDateString();
   try {
     await supabase
       .from("task_completions")
-      .update({ actual_start_time: startedAtTime, updated_at: nowIso })
+      .update({
+        actual_start_time: startedAtTime,
+        scheduled_start_time: startedAtTime,
+        updated_at: nowIso,
+      })
       .eq("task_id", taskId)
       .eq("date", todayStr);
   } catch (err) {
     console.warn("Supabase updateDbTaskStartedAt completion error:", err);
   }
 
-  const tasks = getStoredTasks(targetId);
   const updated = tasks.map((t) => {
     if (t.id === taskId) {
       return {
         ...t,
         startedAt: newStartedAtIso,
+        startTime: !isRecurring ? startedAtTime : t.startTime,
+        endTime: !isRecurring ? provisionalEndTime : t.endTime,
+        dateOverrides: updatedOverrides,
         updatedAt: nowIso,
       };
     }
@@ -420,6 +458,7 @@ export async function updateDbTaskStartedAt(
     nextCompletions[compIdx] = {
       ...nextCompletions[compIdx],
       actualStartTime: startedAtTime,
+      scheduledStartTime: startedAtTime,
       updatedAt: nowIso,
     };
     saveStoredCompletions(nextCompletions, targetId);

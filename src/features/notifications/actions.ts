@@ -10,12 +10,19 @@ export const DEFAULT_REMINDERS: CustomReminder[] = [];
 
 export const DEFAULT_PREFERENCES: NotificationPreference = {
   pushEnabled: true,
+  allDisabled: false,
+  previousPreferencesBackup: null,
   morningReminder: true,
   morningReminderTime: "08:00",
   eveningRecap: true,
   eveningRecapTime: "21:00",
   streakReminder: true,
   missedTaskReminder: true,
+  currentActionCheckinEnabled: false,
+  currentActionIntervalMinutes: 30,
+  currentActionStartTime: "09:00",
+  currentActionEndTime: "22:00",
+  currentActionDays: [1, 2, 3, 4, 5],
 };
 
 export async function fetchReminders(userId?: string): Promise<CustomReminder[]> {
@@ -114,15 +121,23 @@ export async function fetchPreferences(userId?: string): Promise<NotificationPre
       .single();
 
     if (!error && data) {
+      const stored = getStoredPreferences();
       const mapped: NotificationPreference = {
-        pushEnabled: data.push_enabled,
-        morningReminder: data.morning_reminder,
-        morningReminderTime: data.morning_reminder_time,
-        eveningRecap: data.evening_recap,
-        eveningRecapTime: data.evening_recap_time,
-        streakReminder: data.streak_reminder,
-        missedTaskReminder: data.missed_task_reminder,
+        pushEnabled: data.push_enabled ?? true,
+        morningReminder: data.morning_reminder ?? true,
+        morningReminderTime: data.morning_reminder_time || "08:00",
+        eveningRecap: data.evening_recap ?? true,
+        eveningRecapTime: data.evening_recap_time || "21:00",
+        streakReminder: data.streak_reminder ?? true,
+        missedTaskReminder: data.missed_task_reminder ?? true,
         oneSignalPlayerId: data.onesignal_player_id,
+        allDisabled: data.all_disabled !== undefined ? data.all_disabled : stored.allDisabled ?? false,
+        previousPreferencesBackup: stored.previousPreferencesBackup || null,
+        currentActionCheckinEnabled: data.current_action_checkin_enabled !== undefined ? data.current_action_checkin_enabled : stored.currentActionCheckinEnabled ?? false,
+        currentActionIntervalMinutes: data.current_action_interval_minutes || stored.currentActionIntervalMinutes || 30,
+        currentActionStartTime: data.current_action_start_time || stored.currentActionStartTime || "09:00",
+        currentActionEndTime: data.current_action_end_time || stored.currentActionEndTime || "22:00",
+        currentActionDays: data.current_action_days || stored.currentActionDays || [1, 2, 3, 4, 5],
       };
       saveStoredPreferences(mapped);
       return mapped;
@@ -138,7 +153,7 @@ export function getStoredPreferences(): NotificationPreference {
   const stored = localStorage.getItem(PREFERENCES_KEY);
   if (!stored) return DEFAULT_PREFERENCES;
   try {
-    return JSON.parse(stored);
+    return { ...DEFAULT_PREFERENCES, ...JSON.parse(stored) };
   } catch {
     return DEFAULT_PREFERENCES;
   }
