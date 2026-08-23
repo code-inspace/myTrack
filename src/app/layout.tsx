@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import QueryProvider from "@/providers/QueryProvider";
+import { AuthProvider } from "@/providers/AuthProvider";
 import OneSignalProvider from "@/providers/OneSignalProvider";
 import { BottomNav } from "@/components/shared/BottomNav";
 import { DynamicIsland } from "@/components/shared/DynamicIsland";
@@ -38,18 +39,20 @@ export default function RootLayout({
       </head>
       <body className="bg-[#111214] text-[#F3F4F6] min-h-screen antialiased flex flex-col items-center">
         <QueryProvider>
-          <OneSignalProvider>
-            {/* Dynamic Island Floating Notification Pill */}
-            <DynamicIsland />
+          <AuthProvider>
+            <OneSignalProvider>
+              {/* Dynamic Island Floating Notification Pill */}
+              <DynamicIsland />
 
-            {/* Main App Container */}
-            <main className="w-full max-w-md min-h-screen flex flex-col px-4 safe-top safe-bottom-nav relative">
-              {children}
-            </main>
+              {/* Main App Container */}
+              <main className="w-full max-w-md min-h-screen flex flex-col px-4 safe-top safe-bottom-nav relative">
+                {children}
+              </main>
 
-            {/* Fixed Thumb-friendly Navigation */}
-            <BottomNav />
-          </OneSignalProvider>
+              {/* Fixed Thumb-friendly Navigation */}
+              <BottomNav />
+            </OneSignalProvider>
+          </AuthProvider>
         </QueryProvider>
       </body>
     </html>

@@ -1,11 +1,12 @@
 import { Task, TaskCompletion, TaskFormValues, LogCompletionValues } from "./types";
 import { getTodayDateString } from "@/lib/dates";
+import { getStoredUserSession } from "@/features/auth/actions";
 
-const TASKS_STORAGE_KEY = "mytrack_tasks_v1";
-const COMPLETIONS_STORAGE_KEY = "mytrack_completions_v1";
+const TASKS_STORAGE_PREFIX = "mytrack_tasks_";
+const COMPLETIONS_STORAGE_PREFIX = "mytrack_completions_";
 
-// Seed data initial réaliste en français
-export const INITIAL_SEED_TASKS: Task[] = [
+// Données initiales spécifiques au compte demo@de.mo
+export const INITIAL_DEMO_TASKS: Task[] = [
   {
     id: "task-seed-1",
     userId: "user-demo",
@@ -76,7 +77,7 @@ export const INITIAL_SEED_TASKS: Task[] = [
   },
 ];
 
-export const INITIAL_SEED_COMPLETIONS: TaskCompletion[] = [
+export const INITIAL_DEMO_COMPLETIONS: TaskCompletion[] = [
   {
     id: "c-1",
     taskId: "task-seed-2",
@@ -89,40 +90,59 @@ export const INITIAL_SEED_COMPLETIONS: TaskCompletion[] = [
   },
 ];
 
-export function getStoredTasks(): Task[] {
-  if (typeof window === "undefined") return INITIAL_SEED_TASKS;
-  const stored = localStorage.getItem(TASKS_STORAGE_KEY);
+export function getEffectiveUserId(explicitUserId?: string): string {
+  if (explicitUserId) return explicitUserId;
+  const session = getStoredUserSession();
+  return session?.id || "user-demo";
+}
+
+export function getStoredTasks(userId?: string): Task[] {
+  if (typeof window === "undefined") return INITIAL_DEMO_TASKS;
+  const targetId = getEffectiveUserId(userId);
+  const key = TASKS_STORAGE_PREFIX + targetId;
+
+  const stored = localStorage.getItem(key);
   if (!stored) {
-    localStorage.setItem(TASKS_STORAGE_KEY, JSON.stringify(INITIAL_SEED_TASKS));
-    return INITIAL_SEED_TASKS;
+    // Si c'est le compte démo, charger les tâches de démo, sinon compte vierge = []
+    const defaultData = targetId === "user-demo" ? INITIAL_DEMO_TASKS : [];
+    localStorage.setItem(key, JSON.stringify(defaultData));
+    return defaultData;
   }
   try {
     return JSON.parse(stored);
   } catch {
-    return INITIAL_SEED_TASKS;
+    return targetId === "user-demo" ? INITIAL_DEMO_TASKS : [];
   }
 }
 
-export function saveStoredTasks(tasks: Task[]): void {
+export function saveStoredTasks(tasks: Task[], userId?: string): void {
   if (typeof window === "undefined") return;
-  localStorage.setItem(TASKS_STORAGE_KEY, JSON.stringify(tasks));
+  const targetId = getEffectiveUserId(userId);
+  const key = TASKS_STORAGE_PREFIX + targetId;
+  localStorage.setItem(key, JSON.stringify(tasks));
 }
 
-export function getStoredCompletions(): TaskCompletion[] {
-  if (typeof window === "undefined") return INITIAL_SEED_COMPLETIONS;
-  const stored = localStorage.getItem(COMPLETIONS_STORAGE_KEY);
+export function getStoredCompletions(userId?: string): TaskCompletion[] {
+  if (typeof window === "undefined") return INITIAL_DEMO_COMPLETIONS;
+  const targetId = getEffectiveUserId(userId);
+  const key = COMPLETIONS_STORAGE_PREFIX + targetId;
+
+  const stored = localStorage.getItem(key);
   if (!stored) {
-    localStorage.setItem(COMPLETIONS_STORAGE_KEY, JSON.stringify(INITIAL_SEED_COMPLETIONS));
-    return INITIAL_SEED_COMPLETIONS;
+    const defaultData = targetId === "user-demo" ? INITIAL_DEMO_COMPLETIONS : [];
+    localStorage.setItem(key, JSON.stringify(defaultData));
+    return defaultData;
   }
   try {
     return JSON.parse(stored);
   } catch {
-    return INITIAL_SEED_COMPLETIONS;
+    return targetId === "user-demo" ? INITIAL_DEMO_COMPLETIONS : [];
   }
 }
 
-export function saveStoredCompletions(completions: TaskCompletion[]): void {
+export function saveStoredCompletions(completions: TaskCompletion[], userId?: string): void {
   if (typeof window === "undefined") return;
-  localStorage.setItem(COMPLETIONS_STORAGE_KEY, JSON.stringify(completions));
+  const targetId = getEffectiveUserId(userId);
+  const key = COMPLETIONS_STORAGE_PREFIX + targetId;
+  localStorage.setItem(key, JSON.stringify(completions));
 }

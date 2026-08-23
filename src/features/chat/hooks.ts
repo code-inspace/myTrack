@@ -8,14 +8,18 @@ import {
   processUserMessage,
   DEFAULT_INITIAL_MESSAGES,
 } from "./actions";
+import { useAuth } from "@/providers/AuthProvider";
 
 export function useChat() {
+  const { user } = useAuth();
+  const userId = user?.id || "user-demo";
+
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    setMessages(getStoredChatMessages());
-  }, []);
+    setMessages(getStoredChatMessages(userId));
+  }, [userId]);
 
   const sendMessage = async (text: string) => {
     if (!text.trim() || isLoading) return;
@@ -29,14 +33,14 @@ export function useChat() {
 
     const newMessages = [...messages, userMsg];
     setMessages(newMessages);
-    saveStoredChatMessages(newMessages);
+    saveStoredChatMessages(newMessages, userId);
     setIsLoading(true);
 
     try {
-      const assistantMsg = await processUserMessage(text.trim());
+      const assistantMsg = await processUserMessage(text.trim(), userId);
       const updatedMessages = [...newMessages, assistantMsg];
       setMessages(updatedMessages);
-      saveStoredChatMessages(updatedMessages);
+      saveStoredChatMessages(updatedMessages, userId);
     } catch (err) {
       const errorMsg: ChatMessage = {
         id: "msg-err-" + Date.now(),
@@ -46,7 +50,7 @@ export function useChat() {
       };
       const updatedMessages = [...newMessages, errorMsg];
       setMessages(updatedMessages);
-      saveStoredChatMessages(updatedMessages);
+      saveStoredChatMessages(updatedMessages, userId);
     } finally {
       setIsLoading(false);
     }
@@ -54,7 +58,7 @@ export function useChat() {
 
   const clearChat = () => {
     setMessages(DEFAULT_INITIAL_MESSAGES);
-    saveStoredChatMessages(DEFAULT_INITIAL_MESSAGES);
+    saveStoredChatMessages(DEFAULT_INITIAL_MESSAGES, userId);
   };
 
   return {

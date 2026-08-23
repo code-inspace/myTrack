@@ -11,17 +11,21 @@ import {
 } from "./actions";
 import { isTaskScheduledForDate } from "@/lib/dates";
 import { mapTaskWithCompletion, sortTasksByPriority } from "./mappers";
+import { useAuth } from "@/providers/AuthProvider";
 import { parseISO } from "date-fns";
 
 export function useTasks(selectedDateStr: string) {
+  const { user } = useAuth();
+  const userId = user?.id || "user-demo";
+
   const { data: allTasks = [], isLoading: isLoadingTasks } = useQuery({
-    queryKey: taskQueryKeys.all,
-    queryFn: async () => getStoredTasks(),
+    queryKey: [...taskQueryKeys.all, userId],
+    queryFn: async () => getStoredTasks(userId),
   });
 
   const { data: allCompletions = [], isLoading: isLoadingCompletions } = useQuery({
-    queryKey: taskQueryKeys.completions(),
-    queryFn: async () => getStoredCompletions(),
+    queryKey: [...taskQueryKeys.completions(), userId],
+    queryFn: async () => getStoredCompletions(userId),
   });
 
   const selectedDate = parseISO(selectedDateStr);
@@ -48,13 +52,15 @@ export function useTasks(selectedDateStr: string) {
 
 export function useTaskMutations() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const userId = user?.id || "user-demo";
 
   const createTask = useMutation({
     mutationFn: async (values: TaskFormValues & { userId?: string }) => {
-      const tasks = getStoredTasks();
+      const tasks = getStoredTasks(userId);
       const newTask: Task = {
         id: "task-" + Date.now(),
-        userId: values.userId || "user-demo",
+        userId: values.userId || userId,
         title: values.title,
         description: values.description || null,
         category: values.category || "General",
@@ -72,7 +78,7 @@ export function useTaskMutations() {
       };
 
       const updated = [newTask, ...tasks];
-      saveStoredTasks(updated);
+      saveStoredTasks(updated, userId);
       return newTask;
     },
     onSuccess: () => {
@@ -82,11 +88,11 @@ export function useTaskMutations() {
 
   const toggleTaskActive = useMutation({
     mutationFn: async (taskId: string) => {
-      const tasks = getStoredTasks();
+      const tasks = getStoredTasks(userId);
       const target = tasks.find((t) => t.id === taskId);
       const isCurrentlyActive = target?.isActive;
 
-      // If making active, deactivate all others first (only 1 active task at a time)
+      // If making active, deactivate all others first
       const updated = tasks.map((t) => {
         if (t.id === taskId) {
           return { ...t, isActive: !isCurrentlyActive, updatedAt: new Date().toISOString() };
@@ -94,7 +100,7 @@ export function useTaskMutations() {
         return { ...t, isActive: false };
       });
 
-      saveStoredTasks(updated);
+      saveStoredTasks(updated, userId);
       return updated;
     },
     onSuccess: () => {
@@ -114,7 +120,7 @@ export function useTaskMutations() {
       value?: number | null;
       duration?: number | null;
     }) => {
-      const completions = getStoredCompletions();
+      const completions = getStoredCompletions(userId);
       const existingIndex = completions.findIndex(
         (c) => c.taskId === taskId && c.date === date
       );
@@ -136,7 +142,7 @@ export function useTaskMutations() {
         const newCompletion: TaskCompletion = {
           id: "comp-" + Date.now(),
           taskId,
-          userId: "user-demo",
+          userId,
           date,
           completed: true,
           value: value || null,
@@ -147,7 +153,7 @@ export function useTaskMutations() {
         updatedCompletions = [newCompletion, ...completions];
       }
 
-      saveStoredCompletions(updatedCompletions);
+      saveStoredCompletions(updatedCompletions, userId);
       return updatedCompletions;
     },
     onSuccess: () => {
@@ -165,7 +171,7 @@ export function useTaskMutations() {
       date: string;
       value: number;
     }) => {
-      const completions = getStoredCompletions();
+      const completions = getStoredCompletions(userId);
       const existingIndex = completions.findIndex(
         (c) => c.taskId === taskId && c.date === date
       );
@@ -183,7 +189,7 @@ export function useTaskMutations() {
         const newComp: TaskCompletion = {
           id: "comp-" + Date.now(),
           taskId,
-          userId: "user-demo",
+          userId,
           date,
           completed: true,
           value,
@@ -192,7 +198,7 @@ export function useTaskMutations() {
         };
         updated = [newComp, ...completions];
       }
-      saveStoredCompletions(updated);
+      saveStoredCompletions(updated, userId);
       return updated;
     },
     onSuccess: () => {
@@ -202,9 +208,9 @@ export function useTaskMutations() {
 
   const deleteTask = useMutation({
     mutationFn: async (taskId: string) => {
-      const tasks = getStoredTasks();
+      const tasks = getStoredTasks(userId);
       const updated = tasks.filter((t) => t.id !== taskId);
-      saveStoredTasks(updated);
+      saveStoredTasks(updated, userId);
       return updated;
     },
     onSuccess: () => {

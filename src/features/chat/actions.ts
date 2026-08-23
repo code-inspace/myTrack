@@ -4,7 +4,7 @@ import { getStoredTasks, getStoredCompletions } from "../tasks/actions";
 import { calculateDashboardStats } from "../analytics/calculations";
 import { getAIProvider } from "@/lib/ai/provider";
 
-const CHAT_STORAGE_KEY = "mytrack_chat_messages_v1";
+const CHAT_STORAGE_PREFIX = "mytrack_chat_messages_";
 
 export const DEFAULT_INITIAL_MESSAGES: ChatMessage[] = [
   {
@@ -21,12 +21,11 @@ export const DEFAULT_INITIAL_MESSAGES: ChatMessage[] = [
   },
 ];
 
-export function extractAICoachContext(): AICoachContext {
-  const tasks = getStoredTasks();
-  const completions = getStoredCompletions();
+export function extractAICoachContext(userId?: string): AICoachContext {
+  const tasks = getStoredTasks(userId);
+  const completions = getStoredCompletions(userId);
   const stats = calculateDashboardStats(tasks, completions, "week");
 
-  // Identify top habits (most completed) and struggling habits (scheduled but low completions)
   const taskCompletionCounts = tasks.map((t) => {
     const count = completions.filter((c) => c.taskId === t.id && c.completed).length;
     return { title: t.title, count };
@@ -42,7 +41,7 @@ export function extractAICoachContext(): AICoachContext {
     .map((t) => t.title);
 
   const recentDaysSummary = stats.last7DaysStatus
-    .map((d) => `${d.dayName}: ${d.status === "completed" ? "Done" : "Missed"}`)
+    .map((d) => `${d.dayName}: ${d.status === "completed" ? "Fait" : "Manqué"}`)
     .join(", ");
 
   return {
@@ -59,11 +58,12 @@ export function extractAICoachContext(): AICoachContext {
   };
 }
 
-export function getStoredChatMessages(): ChatMessage[] {
+export function getStoredChatMessages(userId: string = "user-demo"): ChatMessage[] {
   if (typeof window === "undefined") return DEFAULT_INITIAL_MESSAGES;
-  const stored = localStorage.getItem(CHAT_STORAGE_KEY);
+  const key = CHAT_STORAGE_PREFIX + userId;
+  const stored = localStorage.getItem(key);
   if (!stored) {
-    localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(DEFAULT_INITIAL_MESSAGES));
+    localStorage.setItem(key, JSON.stringify(DEFAULT_INITIAL_MESSAGES));
     return DEFAULT_INITIAL_MESSAGES;
   }
   try {
@@ -73,13 +73,14 @@ export function getStoredChatMessages(): ChatMessage[] {
   }
 }
 
-export function saveStoredChatMessages(messages: ChatMessage[]): void {
+export function saveStoredChatMessages(messages: ChatMessage[], userId: string = "user-demo"): void {
   if (typeof window === "undefined") return;
-  localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(messages));
+  const key = CHAT_STORAGE_PREFIX + userId;
+  localStorage.setItem(key, JSON.stringify(messages));
 }
 
-export async function processUserMessage(userText: string): Promise<ChatMessage> {
-  const context = extractAICoachContext();
+export async function processUserMessage(userText: string, userId?: string): Promise<ChatMessage> {
+  const context = extractAICoachContext(userId);
   const provider = getAIProvider();
 
   const response = await provider.generateResponse({
