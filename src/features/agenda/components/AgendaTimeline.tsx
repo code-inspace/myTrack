@@ -225,11 +225,11 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
 
           {/* Timed Task Blocks */}
           {tasks.map((task) => {
-            const startTimeStr = task.effectiveStartTime || task.startTime;
+            const startTimeStr = task.effectiveStartTime !== undefined ? task.effectiveStartTime : task.startTime;
             if (!startTimeStr) return null;
 
             const startMins = parseTimeToMinutes(startTimeStr);
-            const endTimeStr = task.effectiveEndTime || task.endTime;
+            const endTimeStr = task.effectiveEndTime !== undefined ? task.effectiveEndTime : task.endTime;
             const endMins = endTimeStr
               ? parseTimeToMinutes(endTimeStr)
               : startMins + 60;

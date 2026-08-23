@@ -67,8 +67,8 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
 }) => {
   const style = CATEGORY_STYLES[task.category] || CATEGORY_STYLES.General;
   const isRecurring = task.recurrence && task.recurrence !== "ONCE";
-  const startTime = task.effectiveStartTime || task.startTime || "09:00";
-  const endTime = task.effectiveEndTime || task.endTime;
+  const startTime = (task.effectiveStartTime !== undefined ? task.effectiveStartTime : task.startTime) || "09:00";
+  const endTime = task.effectiveEndTime !== undefined ? task.effectiveEndTime : task.endTime;
 
   return (
     <div

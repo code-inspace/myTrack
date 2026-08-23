@@ -27,8 +27,12 @@ export const AgendaView: React.FC = () => {
   } = useTaskMutations();
 
   // Separate all-day tasks vs timed tasks
-  const allDayTasks = tasks.filter((t) => !(t.effectiveStartTime || t.startTime));
-  const timedTasks = tasks.filter((t) => Boolean(t.effectiveStartTime || t.startTime));
+  const isTaskAllDay = (t: TaskWithCompletion) => {
+    const time = t.effectiveStartTime !== undefined ? t.effectiveStartTime : t.startTime;
+    return !time;
+  };
+  const allDayTasks = tasks.filter(isTaskAllDay);
+  const timedTasks = tasks.filter((t) => !isTaskAllDay(t));
 
   const handleDragStartTask = (e: React.DragEvent, task: TaskWithCompletion) => {
     e.dataTransfer.setData("text/plain", task.id);

@@ -1,14 +1,13 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Bell, CheckCircle2, AlertTriangle, Smartphone, Sparkles, Send } from "lucide-react";
+import { Bell, Smartphone } from "lucide-react";
 import {
   enableCrossDeviceNotifications,
   isIosDevice,
   isStandalonePwa,
   NotificationStatusResult,
 } from "@/lib/notifications/enableNotifications";
-import { sendNativeNotification } from "@/lib/notifications/service";
 import { cn } from "@/lib/utils";
 
 interface NotificationPermissionButtonProps {
@@ -18,7 +17,6 @@ interface NotificationPermissionButtonProps {
 
 export const NotificationPermissionButton: React.FC<NotificationPermissionButtonProps> = ({
   className,
-  variant = "button",
 }) => {
   const [permission, setPermission] = useState<NotificationPermission | "unsupported" | "ios_needed">("default");
   const [loading, setLoading] = useState(false);
@@ -60,41 +58,14 @@ export const NotificationPermissionButton: React.FC<NotificationPermissionButton
       setShowIosGuide(true);
     } else if (res.status === "granted") {
       setPermission("granted");
-      setFeedback("✓ Notifications activées sur cet appareil !");
-      setTimeout(() => setFeedback(null), 4000);
     } else {
       setFeedback(res.message);
     }
   };
 
-  const handleSendTest = async () => {
-    await sendNativeNotification({
-      title: "MyTrack • Test Réussi !",
-      body: "Les notifications fonctionnent parfaitement sur cet appareil. 🚀",
-      tag: "manual-test",
-    });
-    setFeedback("✓ Notification de test envoyée !");
-    setTimeout(() => setFeedback(null), 3000);
-  };
-
-  // If already granted in button variant, show active badge + test button
+  // If already granted, hide button completely!
   if (permission === "granted") {
-    return (
-      <div className={cn("flex items-center gap-2", className)}>
-        <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#22C55E]/15 border border-[#22C55E]/30 text-[#4ADE80] text-xs font-bold">
-          <CheckCircle2 className="w-4 h-4 text-[#22C55E]" />
-          <span>Notifications activées sur cet appareil</span>
-        </div>
-        <button
-          onClick={handleSendTest}
-          className="px-3 py-2 rounded-xl bg-[#252830] hover:bg-[#343844] text-[#D4F63D] text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
-          title="Envoyer un test immédiat"
-        >
-          <Send className="w-3 h-3" />
-          <span>Tester</span>
-        </button>
-      </div>
-    );
+    return null;
   }
 
   return (

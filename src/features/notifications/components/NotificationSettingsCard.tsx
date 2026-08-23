@@ -139,22 +139,11 @@ export const NotificationSettingsCard: React.FC<NotificationSettingsCardProps> =
 
               <div className="flex items-center gap-2">
                 <button
-                  onClick={async () => {
-                    await sendNativeNotification({
-                      title: "MyTrack • " + (rem.taskTitle || "Rappel"),
-                      body: rem.question,
-                    });
-                    onTestNotification(rem);
-                  }}
-                  className="px-2.5 py-1 rounded-lg bg-[#D4F63D]/15 hover:bg-[#D4F63D]/25 text-[#D4F63D] font-bold text-[11px] cursor-pointer"
-                >
-                  Tester
-                </button>
-                <button
                   onClick={() => onDeleteReminder(rem.id)}
                   className="p-1 text-[#6B7280] hover:text-[#F87171] transition-colors cursor-pointer"
+                  title="Supprimer ce rappel"
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
+                  <Trash2 className="w-4 h-4" />
                 </button>
               </div>
             </div>
