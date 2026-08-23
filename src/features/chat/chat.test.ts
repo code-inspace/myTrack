@@ -18,8 +18,8 @@ describe("AI Coach Context Formatting", () => {
     };
 
     const formatted = formatAIContext(context);
-    expect(formatted).toContain("Current Streak: 4 days");
-    expect(formatted).toContain("Momentum Score: 64/100");
+    expect(formatted).toContain("Série actuelle (Streak) : 4 jours");
+    expect(formatted).toContain("Score de Momentum : 64/100");
     expect(formatted).toContain("Morning workout, Push-ups");
     expect(formatted).toContain("Read book");
   });

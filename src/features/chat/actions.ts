@@ -12,7 +12,7 @@ export const DEFAULT_INITIAL_MESSAGES: ChatMessage[] = [
     id: "msg-welcome",
     sender: "assistant",
     content:
-      "Salut ! Je suis ton **coach MyTrack (Llama 3.3 70B)**. J'analyse en continu tes habitudes, ton momentum et tes streaks pour t'aider à progresser chaque jour.\n\nPose-moi une question sur ta semaine ou choisis une suggestion ci-dessous !",
+      "### 👋 Salut, je suis Tracky !\n\nJe suis ton **coach IA personnel**. J'analyse en continu tes habitudes, ton momentum et tes streaks pour t'aider à progresser chaque jour.\n\n> 🎯 *Pose-moi une question sur ta semaine ou choisis une suggestion ci-dessous !*",
     timestamp: new Date().toISOString(),
     suggestedActions: [
       "Comment s'est passée ma semaine ?",

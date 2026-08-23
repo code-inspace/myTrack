@@ -6,7 +6,7 @@ import { SYSTEM_COACH_PROMPT, formatAIContext } from "./prompts";
  * Analyzes live habit completion, streak, and momentum without requiring an external API key.
  */
 export class HeuristicAIProvider implements AIProvider {
-  name = "Heuristic MyTrack Coach";
+  name = "Tracky • Coach IA";
 
   async generateResponse(request: AIRequest): Promise<AIResponse> {
     const { messages, context } = request;
@@ -23,20 +23,38 @@ export class HeuristicAIProvider implements AIProvider {
     ) {
       if (isFrench) {
         return {
-          content: `Voici l'analyse de ta semaine :\n\n- **Taux de complétion** : **${context.completionRate}%** avec **${context.totalWins} victoires** au total.\n- **Série actuelle (Streak)** : **${context.currentStreak} jours** consécutifs (ton record personnel est de **${context.bestStreak} jours**).\n- **Momentum** : **${context.momentum}/100**.\n\n${
-            context.strugglingHabits.length > 0
-              ? `💡 **Point d'attention** : Tu as manqué de régularité sur **${context.strugglingHabits.join(", ")}**. Je te conseille de réduire la cible ou de caler ces tâches plus tôt dans la journée.`
-              : `🔥 **Superbe régularité** ! Tu as maintenu l'ensemble de tes habitudes.`
-          }\n\nMon conseil pour demain : continue sur cette lancée sans augmenter brutalement la charge.`,
+          content: `### 📊 Bilan de ta semaine
+
+- 🔥 **Série active (Streak)** : **${context.currentStreak} jours** consécutifs *(ton record est de **${context.bestStreak} jours**)*.
+- ⚡ **Momentum** : **${context.momentum}/100**.
+- 🎯 **Taux de complétion** : **${context.completionRate}%** avec **${context.totalWins} victoires** validées.
+
+${
+  context.strugglingHabits.length > 0
+    ? `> 💡 **Point d'attention** : Tu as rencontré des difficultés sur **${context.strugglingHabits.join(", ")}**. Planifie ces tâches plus tôt dans la journée pour protéger ta série.`
+    : `> 🚀 **Excellente constance** ! Tu as validé l'ensemble de tes habitudes prévues cette semaine.`
+}
+
+### 🎯 Plan d'action pour demain :
+Maintiens ton rythme sans surcharger ton planning. Valide ta première action dès le matin !`,
           suggestedActions: ["Analyser mon momentum", "Quelles habitudes améliorer ?", "Programme de demain"],
         };
       } else {
         return {
-          content: `Here is your weekly performance breakdown:\n\n- **Completion Rate**: **${context.completionRate}%** with **${context.totalWins} total wins**.\n- **Current Streak**: **${context.currentStreak} days** (Your best streak is **${context.bestStreak} days**).\n- **Momentum Score**: **${context.momentum}/100**.\n\n${
-            context.strugglingHabits.length > 0
-              ? `💡 **Area for improvement**: You experienced missed days with **${context.strugglingHabits.join(", ")}**. Consider locking in an earlier time slot.`
-              : `🔥 **Incredible consistency** across all your scheduled habits!`
-          }\n\nTactical takeaway: Focus on protecting your **${context.currentStreak}-day streak** tomorrow!`,
+          content: `### 📊 Weekly Performance Breakdown
+
+- 🔥 **Active Streak**: **${context.currentStreak} days** *(Your personal best is **${context.bestStreak} days**)*.
+- ⚡ **Momentum Score**: **${context.momentum}/100**.
+- 🎯 **Completion Rate**: **${context.completionRate}%** with **${context.totalWins} total wins**.
+
+${
+  context.strugglingHabits.length > 0
+    ? `> 💡 **Key Takeaway**: You missed days with **${context.strugglingHabits.join(", ")}**. Lock in an earlier time slot.`
+    : `> 🚀 **Incredible consistency** across all your scheduled actions!`
+}
+
+### 🎯 Action Plan:
+Protect your streak tomorrow by completing your priority task first!`,
           suggestedActions: ["Why is my momentum going down?", "What should I focus on tomorrow?", "Analyze my habits"],
         };
       }
@@ -46,20 +64,36 @@ export class HeuristicAIProvider implements AIProvider {
     if (lastUserMessage.includes("momentum") || lastUserMessage.includes("score")) {
       if (isFrench) {
         return {
-          content: `Ton score de **Momentum est à ${context.momentum}/100**.\n\nLe Momentum combine ton taux de complétion quotidien (${context.completionRate}%), ton streak actif (${context.currentStreak} jours) et le respect de tes créneaux horaires.\n\n${
-            context.momentum >= 60
-              ? `🚀 Ton momentum est en hausse (+10 pts) ! Tu as une excellente dynamique.`
-              : `⚡ Pour faire grimper ton momentum au-dessus de 70, valide tes tâches prioritaires dès le matin.`
-          }`,
+          content: `### ⚡ Analyse de ton Momentum
+
+Ton score actuel est de **${context.momentum}/100**.
+
+- 📈 **Complétion** : **${context.completionRate}%**
+- 🔥 **Streak actif** : **${context.currentStreak} jours**
+- 🏆 **Victoires** : **${context.totalWins} actions**
+
+${
+  context.momentum >= 60
+    ? `> 🚀 **Dynamique excellente (+10 pts)** : Tu as un rythme solide et régulier.`
+    : `> ⚡ **Objectif** : Valide tes habitudes dès le matin pour faire grimper ton momentum au-dessus de **75/100**.`
+}`,
           suggestedActions: ["Comment s'est passée ma semaine ?", "Quelles habitudes améliorer ?"],
         };
       } else {
         return {
-          content: `Your **Momentum is at ${context.momentum}/100**.\n\nMomentum scales based on your recent habit completion (${context.completionRate}%), streak multiplier (${context.currentStreak} days), and task consistency.\n\n${
-            context.momentum >= 60
-              ? `🚀 Strong velocity (+10 points vs previous period). You are locked into a great rhythm.`
-              : `⚡ Complete your active tasks early in the morning to push your momentum past 70.`
-          }`,
+          content: `### ⚡ Momentum Analysis
+
+Your current momentum is **${context.momentum}/100**.
+
+- 📈 **Completion**: **${context.completionRate}%**
+- 🔥 **Active Streak**: **${context.currentStreak} days**
+- 🏆 **Total Wins**: **${context.totalWins} actions**
+
+${
+  context.momentum >= 60
+    ? `> 🚀 **Strong velocity**: You are maintaining great discipline.`
+    : `> ⚡ **Target**: Complete your morning routine to push past **75/100**.`
+}`,
           suggestedActions: ["How am I doing this week?", "What habits am I struggling with?"],
         };
       }
@@ -68,12 +102,20 @@ export class HeuristicAIProvider implements AIProvider {
     // Default response
     if (isFrench) {
       return {
-        content: `Je suis ton coach MyTrack. Avec **${context.totalWins} tâches validées**, un **streak de ${context.currentStreak} jours** et un **momentum de ${context.momentum}/100**, tu progresses bien.\n\nQue souhaites-tu analyser en détail ?`,
+        content: `### 🤖 Salut, je suis Tracky !
+
+Je suis ton coach MyTrack. Avec **${context.totalWins} victoires**, un **streak de ${context.currentStreak} jours** et un **momentum de ${context.momentum}/100**, tu es sur une bonne dynamique.
+
+> 💡 **Que souhaites-tu analyser ensemble ?**`,
         suggestedActions: ["Comment s'est passée ma semaine ?", "Pourquoi mon momentum change ?", "Quelles habitudes améliorer ?"],
       };
     } else {
       return {
-        content: `I'm your MyTrack AI Coach. With **${context.totalWins} completed wins**, a **${context.currentStreak}-day streak**, and **${context.momentum}/100 momentum**, you are building solid consistency.\n\nWhat would you like me to analyze?`,
+        content: `### 🤖 Hi, I'm Tracky!
+
+I'm your personal MyTrack coach. With **${context.totalWins} wins**, a **${context.currentStreak}-day streak**, and **${context.momentum}/100 momentum**, you are making steady progress.
+
+> 💡 **What would you like to review together?**`,
         suggestedActions: ["How am I doing this week?", "What habits am I struggling with?", "Analyze my momentum"],
       };
     }

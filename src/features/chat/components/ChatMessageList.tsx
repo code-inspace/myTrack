@@ -4,6 +4,7 @@ import React, { useRef, useEffect } from "react";
 import { ChatMessage } from "../types";
 import { Bot, User, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { MarkdownRenderer } from "./MarkdownRenderer";
 
 interface ChatMessageListProps {
   messages: ChatMessage[];
@@ -47,16 +48,16 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
             </div>
 
             {/* Bubble */}
-            <div className="flex flex-col max-w-[82%]">
+            <div className="flex flex-col max-w-[85%]">
               <div
                 className={cn(
-                  "p-4 rounded-3xl whitespace-pre-wrap leading-relaxed shadow-sm",
+                  "p-4 rounded-3xl leading-relaxed shadow-sm",
                   isUser
-                    ? "bg-[#252830] text-white rounded-tr-sm border border-[#343740]"
+                    ? "bg-[#252830] text-white rounded-tr-sm border border-[#343740] whitespace-pre-wrap"
                     : "bg-[#1C1D22] text-[#E5E7EB] rounded-tl-sm border border-[#282A30]"
                 )}
               >
-                {msg.content}
+                {isUser ? msg.content : <MarkdownRenderer content={msg.content} />}
               </div>
 
               {/* Dynamic suggestion chips under assistant message */}

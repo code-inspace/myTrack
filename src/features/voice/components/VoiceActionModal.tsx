@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { Mic, MicOff, Sparkles, X, Check, Clock, Repeat, Calendar, Trash2, ArrowRight, AlertCircle, Lock } from "lucide-react";
+import { Mic, MicOff, Sparkles, X, Check, Clock, Repeat, Calendar, Trash2, ArrowRight, AlertCircle, Lock, Volume2 } from "lucide-react";
 import { TaskFormValues } from "@/features/tasks/types";
 import { parseVoiceTranscriptToTasks } from "../parser";
 import { cn } from "@/lib/utils";
@@ -44,72 +44,28 @@ export const VoiceActionModal: React.FC<VoiceActionModalProps> = ({
   const [transcript, setTranscript] = useState("");
   const [parsedTasks, setParsedTasks] = useState<ParsedVoiceTask[]>([]);
   const [permissionStatus, setPermissionStatus] = useState<"prompt" | "granted" | "denied" | "unsupported">("prompt");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const recognitionRef = useRef<any>(null);
 
-  // Check browser permissions on mount / open
+  // Check support on open
   useEffect(() => {
     if (!isOpen) {
       stopListening();
       setTranscript("");
       setParsedTasks([]);
+      setErrorMessage(null);
       return;
     }
 
-    checkMicrophonePermission();
+    if (typeof window !== "undefined") {
+      const hasSpeechRec = Boolean(
+        (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+      );
+      if (!hasSpeechRec) {
+        setPermissionStatus("unsupported");
+      }
+    }
   }, [isOpen]);
-
-  const checkMicrophonePermission = async () => {
-    if (typeof window === "undefined") return;
-
-    // Check Web Speech API support
-    const SpeechRecognition =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-
-    if (!SpeechRecognition) {
-      setPermissionStatus("unsupported");
-      return;
-    }
-
-    // Check Navigator Permissions API if available
-    if (navigator.permissions && navigator.permissions.query) {
-      try {
-        const status = await navigator.permissions.query({ name: "microphone" as PermissionName });
-        setPermissionStatus(status.state as any);
-
-        status.onchange = () => {
-          setPermissionStatus(status.state as any);
-        };
-
-        if (status.state === "granted") {
-          startListening();
-        }
-      } catch {
-        // Fallback: try starting directly
-        startListening();
-      }
-    } else {
-      startListening();
-    }
-  };
-
-  const requestPermissionAndListen = async () => {
-    if (typeof navigator !== "undefined" && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        // Stop audio tracks immediately after permission check
-        stream.getTracks().forEach((track) => track.stop());
-        setPermissionStatus("granted");
-        startListening();
-      } catch (err: any) {
-        if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
-          setPermissionStatus("denied");
-        }
-        console.warn("Permission micro refusée:", err);
-      }
-    } else {
-      startListening();
-    }
-  };
 
   // Update parsed tasks automatically as transcript evolves
   useEffect(() => {
@@ -121,7 +77,8 @@ export const VoiceActionModal: React.FC<VoiceActionModalProps> = ({
     }
   }, [transcript, selectedDate]);
 
-  const startListening = () => {
+  const startListening = async () => {
+    setErrorMessage(null);
     if (typeof window === "undefined") return;
 
     const SpeechRecognition =
@@ -132,33 +89,66 @@ export const VoiceActionModal: React.FC<VoiceActionModalProps> = ({
       return;
     }
 
+    // 1. Request microphone via getUserMedia to trigger native browser prompt if needed
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach((track) => track.stop());
+        setPermissionStatus("granted");
+      } catch (err: any) {
+        if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
+          setPermissionStatus("denied");
+          setErrorMessage("Accès micro refusé. Clique sur le cadenas 🔒 dans la barre d'adresse pour autoriser le micro.");
+          setIsListening(false);
+          return;
+        }
+      }
+    }
+
+    // 2. Initialize and start SpeechRecognition instance
     try {
       if (recognitionRef.current) {
-        recognitionRef.current.abort();
+        try {
+          recognitionRef.current.abort();
+        } catch {}
       }
 
       const recognition = new SpeechRecognition();
       recognition.lang = "fr-FR";
       recognition.continuous = true;
       recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
 
       recognition.onstart = () => {
         setIsListening(true);
         setPermissionStatus("granted");
+        setErrorMessage(null);
       };
 
       recognition.onresult = (event: any) => {
-        let currentTranscript = "";
+        let finalStr = "";
+        let interimStr = "";
         for (let i = 0; i < event.results.length; i++) {
-          currentTranscript += event.results[i][0].transcript + " ";
+          const res = event.results[i];
+          if (res.isFinal) {
+            finalStr += res[0].transcript + " ";
+          } else {
+            interimStr += res[0].transcript;
+          }
         }
-        setTranscript(currentTranscript.trim());
+        const fullText = (finalStr + interimStr).trim();
+        if (fullText) {
+          setTranscript(fullText);
+        }
       };
 
       recognition.onerror = (event: any) => {
-        console.warn("Erreur reconnaissance vocale:", event.error);
+        console.warn("Speech recognition error:", event.error);
         if (event.error === "not-allowed" || event.error === "service-not-allowed") {
           setPermissionStatus("denied");
+          setErrorMessage("Microphone bloqué dans le navigateur.");
+        } else if (event.error === "network") {
+          setErrorMessage("Erreur de connexion pour la reconnaissance vocale.");
         }
         setIsListening(false);
       };
@@ -169,7 +159,8 @@ export const VoiceActionModal: React.FC<VoiceActionModalProps> = ({
 
       recognitionRef.current = recognition;
       recognition.start();
-    } catch (e) {
+      setIsListening(true);
+    } catch (e: any) {
       console.error("Impossible de démarrer la reconnaissance vocale:", e);
       setIsListening(false);
     }
@@ -186,9 +177,7 @@ export const VoiceActionModal: React.FC<VoiceActionModalProps> = ({
   };
 
   const toggleListening = () => {
-    if (permissionStatus === "denied" || permissionStatus === "prompt") {
-      requestPermissionAndListen();
-    } else if (isListening) {
+    if (isListening) {
       stopListening();
     } else {
       startListening();
@@ -236,7 +225,7 @@ export const VoiceActionModal: React.FC<VoiceActionModalProps> = ({
 
           <button
             onClick={onClose}
-            className="p-1.5 text-[#8E929E] hover:text-white rounded-full hover:bg-[#252832] transition-colors"
+            className="p-1.5 text-[#8E929E] hover:text-white rounded-full hover:bg-[#252832] transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -247,10 +236,10 @@ export const VoiceActionModal: React.FC<VoiceActionModalProps> = ({
           <div className="bg-red-500/15 border border-red-500/30 rounded-2xl p-3.5 space-y-2 text-xs text-red-200">
             <div className="flex items-center gap-2 font-bold text-red-300">
               <AlertCircle className="w-4 h-4 flex-shrink-0" />
-              <span>Accès au micro refusé par le navigateur</span>
+              <span>Accès au micro non autorisé</span>
             </div>
             <p className="text-[11px] text-red-200/80 leading-relaxed">
-              Pour activer la voix, clique sur l'icône <Lock className="w-3 h-3 inline mx-0.5" /> à gauche de l'URL dans la barre de ton navigateur et autorise le <strong>Microphone</strong>.
+              Pour parler sur PC/Mac, clique sur l'icône <Lock className="w-3 h-3 inline mx-0.5" /> à gauche de l'URL dans ton navigateur et active le <strong>Microphone</strong>.
             </p>
           </div>
         )}
@@ -262,11 +251,18 @@ export const VoiceActionModal: React.FC<VoiceActionModalProps> = ({
           </div>
         )}
 
+        {/* Error message */}
+        {errorMessage && permissionStatus !== "denied" && (
+          <div className="bg-amber-500/15 border border-amber-500/30 rounded-2xl p-2.5 text-xs text-amber-300">
+            {errorMessage}
+          </div>
+        )}
+
         {/* Microphone Center Control */}
         <div className="flex flex-col items-center justify-center py-4 space-y-3 bg-[#111214] rounded-2xl border border-[#22252E] p-4 relative overflow-hidden">
           {/* Animated Wave Glow while listening */}
           {isListening && (
-            <div className="absolute inset-0 bg-radial from-[#D4F63D]/10 to-transparent animate-pulse pointer-events-none" />
+            <div className="absolute inset-0 bg-radial from-[#D4F63D]/15 to-transparent animate-pulse pointer-events-none" />
           )}
 
           <button
@@ -277,8 +273,8 @@ export const VoiceActionModal: React.FC<VoiceActionModalProps> = ({
               isListening
                 ? "bg-[#D4F63D] text-black ring-8 ring-[#D4F63D]/20 scale-110"
                 : permissionStatus === "denied"
-                ? "bg-red-500/20 text-red-400 border border-red-500/40"
-                : "bg-[#252830] text-[#D4F63D] hover:bg-[#323640] border border-[#3A3F4D]"
+                ? "bg-red-500/20 text-red-400 border border-red-500/40 hover:bg-red-500/30"
+                : "bg-[#252830] text-[#D4F63D] hover:bg-[#323640] hover:scale-105 border border-[#3A3F4D]"
             )}
           >
             {isListening ? (
@@ -288,13 +284,17 @@ export const VoiceActionModal: React.FC<VoiceActionModalProps> = ({
             )}
           </button>
 
-          <span className="text-xs font-bold text-white">
+          <button
+            type="button"
+            onClick={toggleListening}
+            className="text-xs font-bold text-white hover:text-[#D4F63D] transition-colors cursor-pointer"
+          >
             {isListening
-              ? "À l'écoute... (parle maintenant)"
+              ? "🔴 À l'écoute... (parle maintenant, clique pour stopper)"
               : permissionStatus === "denied"
-              ? "Microphone bloqué — Débloque dans le navigateur"
-              : "Micro en pause — Clique pour parler"}
-          </span>
+              ? "⚠️ Micro bloqué — Clique pour réessayer"
+              : "🎙️ Clique ici pour parler"}
+          </button>
 
           {/* Transcript input / editable preview */}
           <div className="w-full">
@@ -312,7 +312,7 @@ export const VoiceActionModal: React.FC<VoiceActionModalProps> = ({
         {!transcript && (
           <div className="space-y-1.5">
             <span className="text-[11px] font-semibold text-[#8E929E] uppercase tracking-wider">
-              Exemples à tester :
+              Exemples rapides à tester :
             </span>
             <div className="flex flex-col gap-1.5">
               <button
@@ -403,7 +403,7 @@ export const VoiceActionModal: React.FC<VoiceActionModalProps> = ({
                 <button
                   type="button"
                   onClick={() => handleRemoveTask(idx)}
-                  className="p-1 text-[#6B7280] hover:text-red-400 transition-colors rounded-lg hover:bg-[#252830]"
+                  className="p-1 text-[#6B7280] hover:text-red-400 transition-colors rounded-lg hover:bg-[#252830] cursor-pointer"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
