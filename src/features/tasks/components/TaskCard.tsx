@@ -2,7 +2,7 @@
 
 import React from "react";
 import { TaskWithCompletion } from "../types";
-import { Clock, Repeat, Play, Check, Plus, Trash2, Edit3, GripVertical } from "lucide-react";
+import { Clock, Repeat, Play, Check, Plus, Trash2, Edit3, GripVertical, Bell, BellOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import confetti from "canvas-confetti";
 
@@ -16,6 +16,7 @@ interface TaskCardProps {
   onDragEnd?: (e: React.DragEvent) => void;
   onToggleActive: (taskId: string) => void;
   onToggleComplete: (taskId: string) => void;
+  onToggleReminder?: (taskId: string) => void;
   onOpenLogModal: (task: TaskWithCompletion) => void;
   onEditTask?: (task: TaskWithCompletion) => void;
   onDeleteTask: (taskId: string) => void;
@@ -39,11 +40,13 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   onDragEnd,
   onToggleActive,
   onToggleComplete,
+  onToggleReminder,
   onOpenLogModal,
   onEditTask,
   onDeleteTask,
 }) => {
   const isCompleted = task.isCompletedToday;
+  const isRemindersEnabled = task.enableReminders !== false;
 
   // No quantitative counter if it's duration / minutes (handled in real-time or agenda)
   const isDurationUnit =
@@ -134,13 +137,40 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           </div>
         </div>
 
-        {/* Action icons: Edit & Delete */}
+        {/* Action icons: Bell Toggle, Edit & Delete */}
         <div className="flex items-center gap-1 flex-shrink-0">
+          {onToggleReminder && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleReminder(task.id);
+              }}
+              title={
+                isRemindersEnabled
+                  ? "Rappels activés — Cliquer pour désactiver"
+                  : "Rappels désactivés — Cliquer pour activer"
+              }
+              className={cn(
+                "p-1.5 rounded-lg transition-all cursor-pointer",
+                isRemindersEnabled
+                  ? "text-[#D4F63D] hover:bg-[#D4F63D]/10"
+                  : "text-[#6B7280] hover:text-white hover:bg-[#282A30]"
+              )}
+            >
+              {isRemindersEnabled ? (
+                <Bell className="w-3.5 h-3.5 fill-[#D4F63D]/20" />
+              ) : (
+                <BellOff className="w-3.5 h-3.5" />
+              )}
+            </button>
+          )}
+
           {onEditTask && (
             <button
               onClick={() => onEditTask(task)}
               title="Modifier l'habitude"
-              className="p-1 text-[#8E929E] hover:text-[#D4F63D] transition-colors rounded-lg hover:bg-[#282A30] cursor-pointer"
+              className="p-1.5 text-[#8E929E] hover:text-[#D4F63D] transition-colors rounded-lg hover:bg-[#282A30] cursor-pointer"
             >
               <Edit3 className="w-3.5 h-3.5" />
             </button>
@@ -149,7 +179,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           <button
             onClick={() => onDeleteTask(task.id)}
             title="Supprimer la tâche"
-            className="p-1 text-[#6B7280] hover:text-[#EF4444] transition-colors rounded-lg hover:bg-[#282A30] cursor-pointer"
+            className="p-1.5 text-[#6B7280] hover:text-[#EF4444] transition-colors rounded-lg hover:bg-[#282A30] cursor-pointer"
           >
             <Trash2 className="w-3.5 h-3.5" />
           </button>

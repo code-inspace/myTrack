@@ -91,6 +91,11 @@ export const AgendaView: React.FC = () => {
         <AllDaySection
           tasks={allDayTasks}
           onToggleComplete={(taskId) => toggleCompletion.mutate({ taskId, date: selectedDate })}
+          onToggleReminder={(taskId) => {
+            const target = tasks.find((t) => t.id === taskId) || allTasks.find((t) => t.id === taskId);
+            const newEnable = target ? !(target.enableReminders !== false) : true;
+            updateTask.mutate({ taskId, values: { enableReminders: newEnable } });
+          }}
           onDropToAllDay={handleDropToAllDay}
           onDragStartTask={handleDragStartTask}
           onSelectTask={(task) => {
@@ -106,6 +111,11 @@ export const AgendaView: React.FC = () => {
           selectedDate={selectedDate}
           tasks={timedTasks}
           onToggleComplete={(taskId) => toggleCompletion.mutate({ taskId, date: selectedDate })}
+          onToggleReminder={(taskId) => {
+            const target = tasks.find((t) => t.id === taskId) || allTasks.find((t) => t.id === taskId);
+            const newEnable = target ? !(target.enableReminders !== false) : true;
+            updateTask.mutate({ taskId, values: { enableReminders: newEnable } });
+          }}
           onMoveTaskToTime={handleMoveTaskToTime}
           onDragStartTask={handleDragStartTask}
           onSelectTask={(task) => {

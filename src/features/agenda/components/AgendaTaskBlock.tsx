@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { TaskWithCompletion } from "@/features/tasks/types";
-import { CheckCircle2, Circle, Repeat, GripHorizontal } from "lucide-react";
+import { CheckCircle2, Circle, Repeat, GripHorizontal, Bell, BellOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface AgendaTaskBlockProps {
@@ -11,6 +11,7 @@ interface AgendaTaskBlockProps {
   heightPx: number;
   isSelected?: boolean;
   onToggleComplete: (taskId: string) => void;
+  onToggleReminder?: (taskId: string) => void;
   onDragStart: (e: React.DragEvent, task: TaskWithCompletion) => void;
   onClick?: () => void;
   onStartResize?: (e: React.PointerEvent, task: TaskWithCompletion) => void;
@@ -61,6 +62,7 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
   heightPx,
   isSelected = false,
   onToggleComplete,
+  onToggleReminder,
   onDragStart,
   onClick,
   onStartResize,
@@ -69,6 +71,7 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
   const isRecurring = task.recurrence && task.recurrence !== "ONCE";
   const startTime = (task.effectiveStartTime !== undefined ? task.effectiveStartTime : task.startTime) || "09:00";
   const endTime = task.effectiveEndTime !== undefined ? task.effectiveEndTime : task.endTime;
+  const isRemindersEnabled = task.enableReminders !== false;
 
   return (
     <div
@@ -126,20 +129,46 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleComplete(task.id);
-          }}
-          className="p-1 text-[#D4F63D] hover:scale-110 transition-transform cursor-pointer"
-        >
-          {task.isCompletedToday ? (
-            <CheckCircle2 className="w-4 h-4 fill-[#D4F63D]/20 text-[#D4F63D]" />
-          ) : (
-            <Circle className="w-4 h-4 text-[#8E929E]" />
+        <div className="flex items-center gap-1 flex-shrink-0">
+          {/* Bell notification toggle */}
+          {onToggleReminder && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleReminder(task.id);
+              }}
+              title={
+                isRemindersEnabled
+                  ? "Rappels activés (10 min avant) — Cliquer pour désactiver"
+                  : "Rappels désactivés — Cliquer pour activer"
+              }
+              className="p-1 rounded-lg transition-transform hover:scale-110 cursor-pointer"
+            >
+              {isRemindersEnabled ? (
+                <Bell className="w-3.5 h-3.5 text-[#D4F63D] fill-[#D4F63D]/25" />
+              ) : (
+                <BellOff className="w-3.5 h-3.5 text-[#717684] hover:text-white" />
+              )}
+            </button>
           )}
-        </button>
+
+          {/* Completion check */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleComplete(task.id);
+            }}
+            className="p-1 text-[#D4F63D] hover:scale-110 transition-transform cursor-pointer"
+          >
+            {task.isCompletedToday ? (
+              <CheckCircle2 className="w-4 h-4 fill-[#D4F63D]/20 text-[#D4F63D]" />
+            ) : (
+              <Circle className="w-4 h-4 text-[#8E929E]" />
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Interactive Bottom Resize Handle (Enabled on click / selection) */}

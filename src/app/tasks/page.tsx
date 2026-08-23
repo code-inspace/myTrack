@@ -214,6 +214,11 @@ export default function TasksPage() {
                 onDragEnd={handleDragEnd}
                 onToggleActive={(id) => toggleTaskActive.mutate({ taskId: id, date: selectedDate })}
                 onToggleComplete={(id) => toggleCompletion.mutate({ taskId: id, date: selectedDate })}
+                onToggleReminder={(id) => {
+                  const target = tasks.find((t) => t.id === id);
+                  const newEnable = target ? !(target.enableReminders !== false) : true;
+                  updateTask.mutate({ taskId: id, values: { enableReminders: newEnable } });
+                }}
                 onOpenLogModal={(t) => setSelectedLoggingTask(t)}
                 onEditTask={(t) => {
                   setEditingTask(t);

@@ -2,12 +2,13 @@
 
 import React, { useState } from "react";
 import { TaskWithCompletion } from "@/features/tasks/types";
-import { CheckCircle2, Circle, Clock, Sparkles } from "lucide-react";
+import { CheckCircle2, Circle, Clock, Sparkles, Bell, BellOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface AllDaySectionProps {
   tasks: TaskWithCompletion[];
   onToggleComplete: (taskId: string) => void;
+  onToggleReminder?: (taskId: string) => void;
   onDropToAllDay: (taskId: string) => void;
   onDragStartTask: (e: React.DragEvent, task: TaskWithCompletion) => void;
   onSelectTask?: (task: TaskWithCompletion) => void;
@@ -25,6 +26,7 @@ const CATEGORY_COLORS: Record<string, { bg: string; text: string; border: string
 export const AllDaySection: React.FC<AllDaySectionProps> = ({
   tasks,
   onToggleComplete,
+  onToggleReminder,
   onDropToAllDay,
   onDragStartTask,
   onSelectTask,
@@ -47,7 +49,6 @@ export const AllDaySection: React.FC<AllDaySectionProps> = ({
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    // Only set isOver false if leaving the container itself
     const currentTarget = e.currentTarget as HTMLElement;
     const relatedTarget = e.relatedTarget as HTMLElement;
     if (!currentTarget.contains(relatedTarget)) {
@@ -100,6 +101,7 @@ export const AllDaySection: React.FC<AllDaySectionProps> = ({
         ) : (
           tasks.map((task) => {
             const style = CATEGORY_COLORS[task.category] || CATEGORY_COLORS.General;
+            const isRemindersEnabled = task.enableReminders !== false;
 
             return (
               <div
@@ -135,6 +137,29 @@ export const AllDaySection: React.FC<AllDaySectionProps> = ({
                   )}
                 </button>
                 <span className="truncate max-w-[140px]">{task.title}</span>
+
+                {/* Bell notification toggle */}
+                {onToggleReminder && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleReminder(task.id);
+                    }}
+                    title={
+                      isRemindersEnabled
+                        ? "Rappels activés (11h & 18h) — Cliquer pour désactiver"
+                        : "Rappels désactivés — Cliquer pour activer"
+                    }
+                    className="hover:scale-115 transition-transform cursor-pointer ml-0.5 p-0.5 text-current opacity-80 hover:opacity-100"
+                  >
+                    {isRemindersEnabled ? (
+                      <Bell className="w-3 h-3 text-[#D4F63D] fill-[#D4F63D]/30" />
+                    ) : (
+                      <BellOff className="w-3 h-3 opacity-50 hover:opacity-100" />
+                    )}
+                  </button>
+                )}
               </div>
             );
           })
