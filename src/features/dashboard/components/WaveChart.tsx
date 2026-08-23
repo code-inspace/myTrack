@@ -1,15 +1,16 @@
 "use client";
 
 import React, { useState } from "react";
-import { MomentumPoint } from "../types";
+import { MomentumPoint, Period } from "../types";
 import { Sparkles, TrendingUp, CheckCircle2, Award, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface WaveChartProps {
   data: MomentumPoint[];
+  period?: Period;
 }
 
-export const WaveChart: React.FC<WaveChartProps> = ({ data }) => {
+export const WaveChart: React.FC<WaveChartProps> = ({ data, period = "week" }) => {
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [mode, setMode] = useState<"rate" | "count">("rate");
 
@@ -63,13 +64,20 @@ export const WaveChart: React.FC<WaveChartProps> = ({ data }) => {
   // Selected point details (defaults to last point if none selected)
   const activePoint = selectedIdx !== null ? points[selectedIdx] : points[points.length - 1];
 
+  const periodBadgeLabel =
+    period === "week"
+      ? "Semaine (7 jours)"
+      : period === "month"
+      ? "Mois (5 semaines)"
+      : "Historique (6 mois)";
+
   return (
     <div className="w-full relative rounded-2xl bg-[#141518] border border-[#23242A] p-3 space-y-2.5">
       {/* Chart Header: Live Tooltip / Selected Point Info + Mode Toggle */}
       <div className="flex items-center justify-between pb-1">
         {/* Dynamic Detail Tooltip */}
         <div className="flex items-center gap-2">
-          <div className="w-2.5 h-2.5 rounded-full bg-[#D4F63D] animate-ping" />
+          <div className="w-2.5 h-2.5 rounded-full bg-[#D4F63D] animate-ping flex-shrink-0" />
           <div>
             <div className="text-xs font-extrabold text-white flex items-center gap-1.5">
               <span>{activePoint.label} :</span>
@@ -81,32 +89,38 @@ export const WaveChart: React.FC<WaveChartProps> = ({ data }) => {
           </div>
         </div>
 
-        {/* View Mode Toggle: % vs Volume */}
-        <div className="flex items-center p-0.5 bg-[#1C1D22] border border-[#282A30] rounded-xl text-[10px] font-bold">
-          <button
-            type="button"
-            onClick={() => setMode("rate")}
-            className={cn(
-              "px-2 py-1 rounded-lg transition-all cursor-pointer",
-              mode === "rate"
-                ? "bg-[#D4F63D] text-black shadow-sm"
-                : "text-[#8E929E] hover:text-white"
-            )}
-          >
-            % Taux
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode("count")}
-            className={cn(
-              "px-2 py-1 rounded-lg transition-all cursor-pointer",
-              mode === "count"
-                ? "bg-[#D4F63D] text-black shadow-sm"
-                : "text-[#8E929E] hover:text-white"
-            )}
-          >
-            Nb Tâches
-          </button>
+        {/* Right side: Period badge & Mode Toggle */}
+        <div className="flex items-center gap-2">
+          <span className="hidden sm:inline-block text-[10px] font-semibold text-[#6B7280] bg-[#1C1D22] px-2 py-0.5 rounded-md border border-[#282A30]">
+            {periodBadgeLabel}
+          </span>
+
+          <div className="flex items-center p-0.5 bg-[#1C1D22] border border-[#282A30] rounded-xl text-[10px] font-bold">
+            <button
+              type="button"
+              onClick={() => setMode("rate")}
+              className={cn(
+                "px-2 py-1 rounded-lg transition-all cursor-pointer",
+                mode === "rate"
+                  ? "bg-[#D4F63D] text-black shadow-sm"
+                  : "text-[#8E929E] hover:text-white"
+              )}
+            >
+              % Taux
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("count")}
+              className={cn(
+                "px-2 py-1 rounded-lg transition-all cursor-pointer",
+                mode === "count"
+                  ? "bg-[#D4F63D] text-black shadow-sm"
+                  : "text-[#8E929E] hover:text-white"
+              )}
+            >
+              Nb Tâches
+            </button>
+          </div>
         </div>
       </div>
 

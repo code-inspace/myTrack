@@ -24,7 +24,7 @@ export function generateDemoSeedTasks(userId: string = DEMO_USER_ID): Task[] {
       isActive: false,
       startedAt: null,
       isArchived: false,
-      createdAt: subDays(new Date(), 40).toISOString(),
+      createdAt: subDays(new Date(), 180).toISOString(),
       updatedAt: now,
     },
     {
@@ -44,7 +44,7 @@ export function generateDemoSeedTasks(userId: string = DEMO_USER_ID): Task[] {
       isActive: false,
       startedAt: null,
       isArchived: false,
-      createdAt: subDays(new Date(), 40).toISOString(),
+      createdAt: subDays(new Date(), 180).toISOString(),
       updatedAt: now,
     },
     {
@@ -64,7 +64,7 @@ export function generateDemoSeedTasks(userId: string = DEMO_USER_ID): Task[] {
       isActive: false,
       startedAt: null,
       isArchived: false,
-      createdAt: subDays(new Date(), 40).toISOString(),
+      createdAt: subDays(new Date(), 180).toISOString(),
       updatedAt: now,
     },
     {
@@ -84,7 +84,7 @@ export function generateDemoSeedTasks(userId: string = DEMO_USER_ID): Task[] {
       isActive: false,
       startedAt: null,
       isArchived: false,
-      createdAt: subDays(new Date(), 40).toISOString(),
+      createdAt: subDays(new Date(), 180).toISOString(),
       updatedAt: now,
     },
   ];
@@ -94,14 +94,18 @@ export function generateDemoSeedCompletions(userId: string = DEMO_USER_ID): Task
   const completions: TaskCompletion[] = [];
   const today = new Date();
 
-  // Generate 35 days of history
-  for (let i = 35; i >= 0; i--) {
+  // Generate 180 days of realistic history
+  for (let i = 180; i >= 0; i--) {
     const d = subDays(today, i);
     const dateStr = format(d, "yyyy-MM-dd");
     const dayOfWeek = d.getDay(); // 0 = Dim, 6 = Sam
 
-    // Task 1 (Muscu): Done on weekdays and Saturdays, rested some Sundays
-    const t1Done = dayOfWeek !== 0 || i % 2 === 0;
+    // Progressive completion probability (higher for recent days)
+    const completionBonus = (180 - i) / 180; // 0.0 to 1.0
+
+    // Task 1 (Muscu): Done 4-6 days a week
+    const t1Chance = 0.4 + completionBonus * 0.45;
+    const t1Done = (i % 7 !== 0) && (((i * 13) % 100) / 100 < t1Chance);
     completions.push({
       id: `comp-demo-1-${dateStr}`,
       taskId: "demo-task-1",
@@ -118,8 +122,9 @@ export function generateDemoSeedCompletions(userId: string = DEMO_USER_ID): Task
       updatedAt: d.toISOString(),
     });
 
-    // Task 2 (Méditation): Done almost every day (85% consistency)
-    const t2Done = i !== 3 && i !== 12 && i !== 22;
+    // Task 2 (Méditation): Very regular habit
+    const t2Chance = 0.5 + completionBonus * 0.4;
+    const t2Done = (((i * 7) % 100) / 100 < t2Chance);
     completions.push({
       id: `comp-demo-2-${dateStr}`,
       taskId: "demo-task-2",
@@ -134,8 +139,9 @@ export function generateDemoSeedCompletions(userId: string = DEMO_USER_ID): Task
       updatedAt: d.toISOString(),
     });
 
-    // Task 3 (Lecture): Done 5 days a week
-    const t3Done = dayOfWeek !== 6 && dayOfWeek !== 2;
+    // Task 3 (Lecture): Done on weekdays and relaxed weekends
+    const t3Chance = 0.45 + completionBonus * 0.4;
+    const t3Done = (((i * 17) % 100) / 100 < t3Chance);
     completions.push({
       id: `comp-demo-3-${dateStr}`,
       taskId: "demo-task-3",
@@ -151,8 +157,9 @@ export function generateDemoSeedCompletions(userId: string = DEMO_USER_ID): Task
       updatedAt: d.toISOString(),
     });
 
-    // Task 4 (Eau): Done daily
-    const t4Done = i !== 8 && i !== 19;
+    // Task 4 (Eau): Daily habit
+    const t4Chance = 0.6 + completionBonus * 0.35;
+    const t4Done = (((i * 19) % 100) / 100 < t4Chance);
     completions.push({
       id: `comp-demo-4-${dateStr}`,
       taskId: "demo-task-4",

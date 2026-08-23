@@ -44,7 +44,7 @@ export default function DashboardPage() {
         />
 
         {/* Wave Chart with Grid and Neon Lime Curve */}
-        <WaveChart data={stats?.momentumHistory || []} />
+        <WaveChart data={stats?.momentumHistory || []} period={period} />
       </div>
 
       {/* Two Metric Cards Side-by-Side: Complétion moyenne & Victoires totales */}
