@@ -65,6 +65,8 @@ export function getStoredReminders(): CustomReminder[] {
   }
 }
 
+import { scheduleTaskPushNotification } from "@/lib/onesignal/client";
+
 export async function saveDbReminder(reminder: Omit<CustomReminder, "id"> & { id?: string }): Promise<void> {
   const targetId = reminder.userId || getEffectiveUserId();
 
@@ -91,6 +93,17 @@ export async function saveDbReminder(reminder: Omit<CustomReminder, "id"> & { id
     userId: targetId,
   };
   saveStoredReminders([...current, newRecord]);
+
+  // Schedule OneSignal push for this custom reminder
+  if (newRecord.enabled && newRecord.time) {
+    scheduleTaskPushNotification({
+      userId: targetId,
+      taskId: newRecord.taskId || undefined,
+      taskTitle: newRecord.question,
+      startTime: newRecord.time,
+      type: "custom_reminder",
+    }).catch((e) => console.warn("OneSignal custom reminder push note:", e));
+  }
 }
 
 export async function deleteDbReminder(reminderId: string): Promise<void> {
@@ -183,6 +196,29 @@ export async function updateDbPreferences(prefs: NotificationPreference, userId?
     console.warn("Supabase updateDbPreferences fallback:", err);
   }
   saveStoredPreferences(prefs);
+
+  // Schedule Morning & Evening routines via OneSignal
+  if (prefs.pushEnabled && !prefs.allDisabled) {
+    if (prefs.morningReminder && prefs.morningReminderTime) {
+      scheduleTaskPushNotification({
+        userId: targetId,
+        taskTitle: "☀️ Objectifs du jour",
+        startTime: prefs.morningReminderTime,
+        type: "morning_routine",
+        customMessage: "Ta journée MyTrack commence ! Découvre tes habitudes au programme.",
+      }).catch(() => {});
+    }
+
+    if (prefs.eveningRecap && prefs.eveningRecapTime) {
+      scheduleTaskPushNotification({
+        userId: targetId,
+        taskTitle: "🌙 Bilan de ta journée",
+        startTime: prefs.eveningRecapTime,
+        type: "evening_recap",
+        customMessage: "C'est l'heure de faire le bilan de tes accomplissements du jour !",
+      }).catch(() => {});
+    }
+  }
 }
 
 export function saveStoredPreferences(prefs: NotificationPreference): void {

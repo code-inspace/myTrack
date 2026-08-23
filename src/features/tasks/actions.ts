@@ -321,6 +321,20 @@ export async function updateDbTask(
       const updated = mapDbTaskToModel(data);
       const nextList = tasks.map((t) => (t.id === taskId ? updated : t));
       saveStoredTasks(nextList, targetId);
+
+      if (updated.enableReminders) {
+        scheduleTaskPushNotification({
+          userId: targetId,
+          taskId: updated.id,
+          taskTitle: updated.title,
+          startTime: updated.startTime,
+          reminderOffsetMinutes: updated.reminderOffsetMinutes ?? 10,
+          reminderTimes: updated.reminderTimes || ["11:00", "18:00"],
+          date: updates.date || getTodayDateString(),
+          category: updated.category,
+        }).catch((e) => console.warn("scheduleTaskPushNotification note:", e));
+      }
+
       return updated;
     }
   } catch (err) {
@@ -365,6 +379,20 @@ export async function updateDbTask(
     ? tasks.map((t) => (t.id === taskId ? updatedTask : t))
     : [updatedTask, ...tasks];
   saveStoredTasks(nextList, targetId);
+
+  if (updatedTask.enableReminders) {
+    scheduleTaskPushNotification({
+      userId: targetId,
+      taskId: updatedTask.id,
+      taskTitle: updatedTask.title,
+      startTime: updatedTask.startTime,
+      reminderOffsetMinutes: updatedTask.reminderOffsetMinutes ?? 10,
+      reminderTimes: updatedTask.reminderTimes || ["11:00", "18:00"],
+      date: updates.date || getTodayDateString(),
+      category: updatedTask.category,
+    }).catch((e) => console.warn("scheduleTaskPushNotification note:", e));
+  }
+
   return updatedTask;
 }
 
