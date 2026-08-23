@@ -79,6 +79,9 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
   const endTime = task.effectiveEndTime !== undefined ? task.effectiveEndTime : task.endTime;
   const isRemindersEnabled = task.enableReminders !== false;
 
+  const isNarrow = widthPercent < 45;
+  const isVeryNarrow = widthPercent < 30; // 4 columns or more (e.g. 25% width)
+
   return (
     <div
       draggable
@@ -94,11 +97,12 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
       style={{
         top: `${topOffsetPx}px`,
         height: `${Math.max(32, heightPx)}px`,
-        left: `calc(${leftPercent}% + 4px)`,
-        width: `calc(${widthPercent}% - 8px)`,
+        left: `calc(${leftPercent}% + 2px)`,
+        width: `calc(${widthPercent}% - 4px)`,
       }}
       className={cn(
-        "absolute rounded-xl border p-2 flex flex-col justify-between shadow-md transition-all select-none cursor-grab active:cursor-grabbing z-10 group overflow-hidden",
+        "absolute rounded-xl border flex flex-col justify-between shadow-md transition-all select-none cursor-grab active:cursor-grabbing z-10 group overflow-hidden",
+        isVeryNarrow ? "p-1" : isNarrow ? "p-1.5" : "p-2",
         style.bg,
         style.border,
         isSelected
@@ -111,50 +115,65 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
       )}
     >
       {/* Left colored indicator bar */}
-      <div className={cn("absolute left-1.5 top-1.5 bottom-1.5 w-1 rounded-full", style.bar)} />
+      <div
+        className={cn(
+          "absolute top-1 bottom-1 rounded-full",
+          isVeryNarrow ? "left-1 w-0.5" : "left-1.5 w-1",
+          style.bar
+        )}
+      />
 
       {/* Content */}
-      <div className="pl-2.5 flex items-start justify-between gap-1 overflow-hidden">
+      <div
+        className={cn(
+          "flex items-start justify-between gap-1 overflow-hidden",
+          isVeryNarrow ? "pl-1.5" : "pl-2.5"
+        )}
+      >
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1">
             {task.isActive && (
-              <div className="w-2 h-2 rounded-full bg-[#D4F63D] animate-pulse flex-shrink-0" />
+              <div className="w-1.5 h-1.5 rounded-full bg-[#D4F63D] animate-pulse flex-shrink-0" />
             )}
             <h4
               className={cn(
-                "text-xs font-bold truncate text-white leading-tight",
+                "font-bold truncate text-white leading-tight",
+                isVeryNarrow ? "text-[10px]" : "text-xs",
                 task.isCompletedToday ? "line-through text-[#8E929E]" : ""
               )}
+              title={task.title}
             >
               {task.title}
             </h4>
-            {isRecurring && (
-              <Repeat className="w-3 h-3 text-[#8E929E] flex-shrink-0" />
+            {isRecurring && !isVeryNarrow && (
+              <Repeat className="w-2.5 h-2.5 text-[#8E929E] flex-shrink-0" />
             )}
           </div>
 
-          <div className="flex items-center gap-2 mt-0.5 text-[10px] text-[#94A3B8] font-medium">
-            <span className="font-mono">
+          <div className="flex items-center gap-1.5 mt-0.5 text-[9px] text-[#94A3B8] font-medium truncate">
+            <span className="font-mono truncate">
               {startTime}
               {task.isActive ? (
-                <strong className="text-[#D4F63D] font-bold"> - En cours ({endTime || "maintenant"})</strong>
+                <strong className="text-[#D4F63D] font-bold">
+                  {isVeryNarrow ? " • Live" : ` - En cours (${endTime || "now"})`}
+                </strong>
               ) : endTime ? (
                 ` - ${endTime}`
               ) : (
                 ""
               )}
             </span>
-            {task.category && (
-              <span className={cn("px-1.5 py-0.2 rounded font-semibold", style.text)}>
+            {task.category && !isNarrow && (
+              <span className={cn("px-1.5 py-0.2 rounded font-semibold text-[9px]", style.text)}>
                 {task.category}
               </span>
             )}
           </div>
         </div>
 
-        <div className="flex items-center gap-1 flex-shrink-0" onPointerDown={(e) => e.stopPropagation()}>
-          {/* Bell notification toggle */}
-          {onToggleReminder && (
+        <div className="flex items-center gap-0.5 flex-shrink-0" onPointerDown={(e) => e.stopPropagation()}>
+          {/* Bell notification toggle (hidden on very narrow 4-col view to keep clean) */}
+          {onToggleReminder && !isVeryNarrow && (
             <button
               type="button"
               onPointerDown={(e) => e.stopPropagation()}
@@ -168,18 +187,18 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
                   ? "Rappels activés (10 min avant) — Cliquer pour désactiver"
                   : "Rappels désactivés — Cliquer pour activer"
               }
-              className="p-1 rounded-lg transition-transform hover:scale-110 cursor-pointer"
+              className="p-0.5 rounded-lg transition-transform hover:scale-110 cursor-pointer"
             >
               {isRemindersEnabled ? (
-                <Bell className="w-3.5 h-3.5 text-[#D4F63D] fill-[#D4F63D]/25" />
+                <Bell className="w-3 h-3 text-[#D4F63D] fill-[#D4F63D]/25" />
               ) : (
-                <BellOff className="w-3.5 h-3.5 text-[#717684] hover:text-white" />
+                <BellOff className="w-3 h-3 text-[#717684] hover:text-white" />
               )}
             </button>
           )}
 
           {/* Explicit Edit Button */}
-          {onEditTask && (
+          {onEditTask && !isVeryNarrow && (
             <button
               type="button"
               onPointerDown={(e) => e.stopPropagation()}
@@ -189,9 +208,9 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
                 onEditTask(task);
               }}
               title="Modifier l'événement"
-              className="p-1 text-[#8E929E] hover:text-[#D4F63D] hover:scale-110 transition-all rounded-lg cursor-pointer"
+              className="p-0.5 text-[#8E929E] hover:text-[#D4F63D] hover:scale-110 transition-all rounded-lg cursor-pointer"
             >
-              <Edit3 className="w-3.5 h-3.5" />
+              <Edit3 className="w-3 h-3" />
             </button>
           )}
 
@@ -204,12 +223,12 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
               e.stopPropagation();
               onToggleComplete(task.id);
             }}
-            className="p-1 text-[#D4F63D] hover:scale-110 transition-transform cursor-pointer"
+            className="p-0.5 text-[#D4F63D] hover:scale-110 transition-transform cursor-pointer"
           >
             {task.isCompletedToday ? (
-              <CheckCircle2 className="w-4 h-4 fill-[#D4F63D]/20 text-[#D4F63D]" />
+              <CheckCircle2 className={cn(isVeryNarrow ? "w-3 h-3" : "w-3.5 h-3.5", "fill-[#D4F63D]/20 text-[#D4F63D]")} />
             ) : (
-              <Circle className="w-4 h-4 text-[#8E929E]" />
+              <Circle className={cn(isVeryNarrow ? "w-3 h-3" : "w-3.5 h-3.5", "text-[#8E929E]")} />
             )}
           </button>
         </div>

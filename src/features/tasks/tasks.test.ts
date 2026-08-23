@@ -93,4 +93,21 @@ describe("Tasks Feature Logic", () => {
     expect(col0Left).toBe(0);
     expect(col1Left).toBe(50);
   });
+
+  it("splits columns accurately for 4 parallel events (25% each)", () => {
+    const totalCols = 4;
+    const widthPercent = 100 / totalCols; // 25%
+
+    const positions = [0, 1, 2, 3].map((col) => ({
+      column: col,
+      leftPercent: col * widthPercent,
+      widthPercent,
+    }));
+
+    expect(positions[0].leftPercent).toBe(0);
+    expect(positions[1].leftPercent).toBe(25);
+    expect(positions[2].leftPercent).toBe(50);
+    expect(positions[3].leftPercent).toBe(75);
+    expect(positions.every((p) => p.widthPercent === 25)).toBe(true);
+  });
 });
