@@ -2,8 +2,9 @@
 
 import React, { useState } from "react";
 import { TaskWithCompletion } from "@/features/tasks/types";
-import { CheckCircle2, Circle, Repeat, GripHorizontal, Bell, BellOff, Edit3 } from "lucide-react";
+import { CheckCircle2, Circle, Repeat, GripHorizontal, Bell, BellOff, Edit3, Flame } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getPriorityCardClass, getPriorityTitleClass, getPriorityIconColorClass } from "@/features/tasks/priority";
 
 interface AgendaTaskBlockProps {
   task: TaskWithCompletion;
@@ -114,7 +115,9 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
         task.isActive
           ? "ring-1 ring-[#D4F63D] shadow-[0_0_15px_rgba(212,246,61,0.25)] border-[#D4F63D]/60"
           : "",
-        task.isCompletedToday ? "opacity-60 bg-[#15161A] border-[#2A2D35]" : ""
+        task.isCompletedToday ? "opacity-60 bg-[#15161A] border-[#2A2D35]" : "",
+        !task.isCompletedToday && !task.isActive && task.priority === "VERY_URGENT" ? "ring-2 ring-red-500" : "",
+        !task.isCompletedToday && !task.isActive && task.priority === "URGENT" ? "ring-1 ring-amber-500" : ""
       )}
     >
       {/* Left colored indicator bar */}
@@ -138,11 +141,15 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
             {task.isActive && (
               <div className="w-1.5 h-1.5 rounded-full bg-[#D4F63D] animate-pulse flex-shrink-0" />
             )}
+            {task.priority && task.priority !== "NORMAL" && !task.isCompletedToday && !isVeryNarrow && (
+              <Flame className={cn("w-2.5 h-2.5 flex-shrink-0", getPriorityIconColorClass(task.priority))} />
+            )}
             <h4
               className={cn(
                 "font-bold truncate text-white leading-tight",
                 isVeryNarrow ? "text-[10px]" : "text-xs",
-                task.isCompletedToday ? "line-through text-[#8E929E]" : ""
+                task.isCompletedToday ? "line-through text-[#8E929E]" : "",
+                !task.isCompletedToday && getPriorityTitleClass(task.priority)
               )}
               title={task.title}
             >

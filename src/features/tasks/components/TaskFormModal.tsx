@@ -22,12 +22,16 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProjects, useProjectMutations } from "@/features/projects/hooks";
-import { PROJECT_STATUS_COLUMNS, ProjectStatus } from "@/features/projects/types";
+import { getProjectColumns, DEFAULT_PROJECT_COLUMNS } from "@/features/projects/types";
 import { ProjectFormModal } from "@/features/projects/components/ProjectFormModal";
+import { TaskPriority, PRIORITY_OPTIONS, getPriorityIconColorClass } from "@/features/tasks/priority";
+import { Flame } from "lucide-react";
 
 interface TaskFormModalProps {
   isOpen: boolean;
   initialTask?: Task | TaskWithCompletion | null;
+  /** Pre-fills a brand-new task's project assignment (e.g. from a Kanban column's "+" button) */
+  prefill?: { projectId?: string | null; projectStatus?: string | null } | null;
   onClose: () => void;
   onSubmit: (values: TaskFormValues, taskId?: string) => void;
 }
@@ -67,6 +71,7 @@ const OFFSET_OPTIONS = [
 export const TaskFormModal: React.FC<TaskFormModalProps> = ({
   isOpen,
   initialTask,
+  prefill,
   onClose,
   onSubmit,
 }) => {
@@ -86,6 +91,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
     return (initialTask as any)?.date || (initialTask?.createdAt ? initialTask.createdAt.split("T")[0] : getTodayDateString());
   });
   const [deadline, setDeadline] = useState<string>("");
+  const [priority, setPriority] = useState<TaskPriority>("NORMAL");
 
   // Notifications & Reminders State
   const [enableReminders, setEnableReminders] = useState<boolean>(false);
@@ -94,7 +100,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
 
   // Project assignment state
   const [projectId, setProjectId] = useState<string | null>(null);
-  const [projectStatus, setProjectStatus] = useState<ProjectStatus>("TODO");
+  const [projectStatus, setProjectStatus] = useState<string>(DEFAULT_PROJECT_COLUMNS[0].id);
   const [isNewProjectOpen, setIsNewProjectOpen] = useState(false);
   const { projects } = useProjects();
   const { createProject } = useProjectMutations();
@@ -147,8 +153,9 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
             : ["11:00", "18:00"]
         );
         setProjectId(initialTask.projectId || null);
-        setProjectStatus(initialTask.projectStatus || "TODO");
+        setProjectStatus(initialTask.projectStatus || DEFAULT_PROJECT_COLUMNS[0].id);
         setDeadline(initialTask.deadline || "");
+        setPriority((initialTask.priority as TaskPriority) || "NORMAL");
       } else {
         setTitle("");
         setDescription("");
@@ -165,14 +172,15 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
         setEnableReminders(false);
         setReminderOffsetMinutes(10);
         setReminderTimes(["11:00", "18:00"]);
-        setProjectId(null);
-        setProjectStatus("TODO");
+        setProjectId(prefill?.projectId || null);
+        setProjectStatus(prefill?.projectStatus || DEFAULT_PROJECT_COLUMNS[0].id);
         setDeadline("");
+        setPriority("NORMAL");
       }
     }
     prevIsOpenRef.current = isOpen;
     prevTaskIdRef.current = initialTask?.id;
-  }, [isOpen, initialTask]);
+  }, [isOpen, initialTask, prefill]);
 
   if (!isOpen) return null;
 
@@ -215,6 +223,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
         endTime: hasScheduledTime && endTime ? endTime : undefined,
         date: targetDate,
         deadline: deadline || null,
+        priority,
         recurrence,
         recurrenceConfig: recurrence === "CUSTOM" ? { days: selectedDays } : undefined,
         enableReminders,
@@ -252,7 +261,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
               {isEditing ? (
                 <>
                   <Edit3 className="w-5 h-5 text-[#D4F63D]" />
-                  <span>Modifier l'habitude</span>
+                  <span>Modifier la tâche</span>
                 </>
               ) : (
                 <>
@@ -347,6 +356,41 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                   <X className="w-3.5 h-3.5" />
                 </button>
               )}
+            </div>
+          </div>
+
+          {/* Priority Field (Normale / Urgente / Très urgente) */}
+          <div className="p-3 rounded-2xl bg-[#22242B] border border-[#2F323E] space-y-2">
+            <div className="flex items-center gap-2.5">
+              <Flame className="w-4 h-4 text-[#D4F63D]" />
+              <div>
+                <div className="text-xs font-bold text-white">Priorité</div>
+                <div className="text-[10px] text-[#8E929E]">Visible sur tous les écrans</div>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {PRIORITY_OPTIONS.map((opt) => (
+                <button
+                  type="button"
+                  key={opt.id}
+                  onClick={() => setPriority(opt.id)}
+                  className={cn(
+                    "px-2 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer flex items-center justify-center gap-1.5",
+                    priority === opt.id
+                      ? opt.id === "VERY_URGENT"
+                        ? "bg-red-500/15 border-red-500 text-red-400 font-extrabold"
+                        : opt.id === "URGENT"
+                        ? "bg-amber-500/15 border-amber-500 text-amber-400 font-bold"
+                        : "bg-[#D4F63D]/15 border-[#D4F63D] text-[#D4F63D]"
+                      : "bg-[#1C1D22] border-[#343740] text-[#9CA3AF] hover:border-[#4B5563]"
+                  )}
+                >
+                  {opt.id !== "NORMAL" && (
+                    <Flame className={cn("w-3 h-3", getPriorityIconColorClass(opt.id))} />
+                  )}
+                  <span className="truncate">{opt.label}</span>
+                </button>
+              ))}
             </div>
           </div>
 
@@ -845,7 +889,10 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                     <button
                       type="button"
                       key={p.id}
-                      onClick={() => setProjectId(p.id)}
+                      onClick={() => {
+                        setProjectId(p.id);
+                        setProjectStatus(getProjectColumns(p)[0].id);
+                      }}
                       className={cn(
                         "px-3 py-2 rounded-xl text-xs font-semibold border transition-all text-center truncate cursor-pointer flex items-center justify-center gap-1.5",
                         projectId === p.id
@@ -870,7 +917,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                   <div className="pt-2 border-t border-[#343740] space-y-2">
                     <span className="block text-[11px] font-semibold text-[#8E929E]">Colonne</span>
                     <div className="grid grid-cols-2 gap-2">
-                      {PROJECT_STATUS_COLUMNS.map((col) => (
+                      {getProjectColumns(projects.find((p) => p.id === projectId) || { columns: [] }).map((col) => (
                         <button
                           type="button"
                           key={col.id}
@@ -915,15 +962,13 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
       <ProjectFormModal
         isOpen={isNewProjectOpen}
         onClose={() => setIsNewProjectOpen(false)}
-        onSubmit={(name, color) => {
-          createProject.mutate(
-            { name, color },
-            {
-              onSuccess: (newProject) => {
-                setProjectId(newProject.id);
-              },
-            }
-          );
+        onSubmit={(data) => {
+          createProject.mutate(data, {
+            onSuccess: (newProject) => {
+              setProjectId(newProject.id);
+              setProjectStatus(getProjectColumns(newProject)[0].id);
+            },
+          });
         }}
       />
     </div>

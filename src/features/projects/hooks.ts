@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Project } from "./types";
+import { Project, ProjectColumn } from "./types";
 import { fetchProjects, createDbProject, updateDbProject, deleteDbProject, getStoredProjects } from "./actions";
 import { useAuth } from "@/providers/AuthProvider";
 
@@ -25,8 +25,8 @@ export function useProjectMutations() {
   const userId = user?.id || "00000000-0000-0000-0000-000000000001";
 
   const createProject = useMutation({
-    mutationFn: async ({ name, color }: { name: string; color: string }) =>
-      createDbProject(name, color, userId),
+    mutationFn: async ({ name, color, columns }: { name: string; color: string; columns: ProjectColumn[] }) =>
+      createDbProject(name, color, columns, userId),
     onSuccess: (newProject) => {
       queryClient.setQueryData<Project[]>(["projects", userId], (old = []) => [newProject, ...old]);
       queryClient.invalidateQueries({ queryKey: ["projects"] });
@@ -34,8 +34,13 @@ export function useProjectMutations() {
   });
 
   const updateProject = useMutation({
-    mutationFn: async ({ projectId, updates }: { projectId: string; updates: { name?: string; color?: string } }) =>
-      updateDbProject(projectId, updates, userId),
+    mutationFn: async ({
+      projectId,
+      updates,
+    }: {
+      projectId: string;
+      updates: { name?: string; color?: string; columns?: ProjectColumn[] };
+    }) => updateDbProject(projectId, updates, userId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["projects"] });
     },

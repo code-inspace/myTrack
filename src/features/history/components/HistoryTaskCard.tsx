@@ -2,8 +2,9 @@
 
 import React from "react";
 import { TaskWithCompletion } from "@/features/tasks/types";
-import { CheckCircle2, Circle, Clock, Play, Check, AlertCircle, ArrowRight } from "lucide-react";
+import { CheckCircle2, Circle, Clock, Play, Check, AlertCircle, ArrowRight, Flame } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getPriorityCardClass, getPriorityTitleClass, getPriorityIconColorClass } from "@/features/tasks/priority";
 
 interface HistoryTaskCardProps {
   task: TaskWithCompletion;
@@ -40,7 +41,8 @@ export const HistoryTaskCard: React.FC<HistoryTaskCardProps> = ({
         "rounded-2xl p-4 border transition-all duration-200 shadow-sm",
         isCompleted
           ? "bg-[#141519] border-[#2A2D35]"
-          : "bg-[#1C1D22] border-[#2E313B] hover:border-[#3E424F]"
+          : "bg-[#1C1D22] border-[#2E313B] hover:border-[#3E424F]",
+        !isCompleted && getPriorityCardClass(task.priority)
       )}
     >
       {/* Top row: Title and Status check */}
@@ -65,11 +67,15 @@ export const HistoryTaskCard: React.FC<HistoryTaskCardProps> = ({
 
           <h3
             className={cn(
-              "text-base font-bold mt-1 text-white leading-snug hover:text-[#D4F63D] transition-colors",
-              isCompleted ? "line-through text-[#8E929E]" : ""
+              "text-base font-bold mt-1 text-white leading-snug hover:text-[#D4F63D] transition-colors flex items-center gap-1.5",
+              isCompleted ? "line-through text-[#8E929E]" : "",
+              !isCompleted && getPriorityTitleClass(task.priority)
             )}
           >
-            {task.title}
+            {task.priority && task.priority !== "NORMAL" && !isCompleted && (
+              <Flame className={cn("w-3.5 h-3.5 flex-shrink-0", getPriorityIconColorClass(task.priority))} />
+            )}
+            <span>{task.title}</span>
           </h3>
         </div>
 

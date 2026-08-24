@@ -6,31 +6,16 @@ import {
   ArrowLeft,
   Bell,
   BellOff,
-  Clock,
-  Plus,
-  Trash2,
   Zap,
   ShieldAlert,
   Moon,
   Sun,
-  CheckCircle2,
-  Calendar,
   Sparkles,
 } from "lucide-react";
-import { NotificationPreference, CustomReminder } from "@/features/notifications/types";
-import {
-  getStoredPreferences,
-  saveStoredPreferences,
-  updateDbPreferences,
-  getStoredReminders,
-  saveStoredReminders,
-  saveDbReminder,
-  deleteDbReminder,
-} from "@/features/notifications/actions";
+import { NotificationPreference } from "@/features/notifications/types";
+import { getStoredPreferences, saveStoredPreferences, updateDbPreferences } from "@/features/notifications/actions";
 import { sendNativeNotification } from "@/lib/notifications/service";
 import { NotificationPermissionButton } from "@/features/notifications/components/NotificationPermissionButton";
-import { CustomReminderModal } from "@/features/notifications/components/CustomReminderModal";
-import { InteractiveNotificationSheet } from "@/features/notifications/components/InteractiveNotificationSheet";
 import { cn } from "@/lib/utils";
 
 const INTERVAL_OPTIONS = [
@@ -53,17 +38,9 @@ const DAYS_SHORT = [
 
 export default function NotificationSettingsPage() {
   const [prefs, setPrefs] = useState<NotificationPreference>(getStoredPreferences);
-  const [reminders, setReminders] = useState<CustomReminder[]>(getStoredReminders);
-  const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
-  const [testNotification, setTestNotification] = useState<{ isOpen: boolean; question: string; taskTitle: string }>({
-    isOpen: false,
-    question: "",
-    taskTitle: "",
-  });
 
   useEffect(() => {
     setPrefs(getStoredPreferences());
-    setReminders(getStoredReminders());
   }, []);
 
   const handleUpdatePrefs = (newPrefs: NotificationPreference) => {
@@ -109,25 +86,6 @@ export default function NotificationSettingsPage() {
   const handleTogglePref = (key: keyof NotificationPreference) => {
     const updated = { ...prefs, [key]: !prefs[key] };
     handleUpdatePrefs(updated);
-  };
-
-  const handleSaveCustomReminder = (data: any) => {
-    const newRem: CustomReminder = {
-      ...data,
-      id: "rem-" + Date.now(),
-      userId: "user-local",
-    };
-    const updated = [...reminders, newRem];
-    setReminders(updated);
-    saveStoredReminders(updated);
-    saveDbReminder(newRem);
-  };
-
-  const handleDeleteReminder = (id: string) => {
-    const updated = reminders.filter((r) => r.id !== id);
-    setReminders(updated);
-    saveStoredReminders(updated);
-    deleteDbReminder(id);
   };
 
   const handleTestCheckinNotification = async () => {
@@ -450,96 +408,7 @@ export default function NotificationSettingsPage() {
             </div>
           </div>
         </div>
-
-        {/* ========================================================================= */}
-        {/* 4. RAPPELS INTERACTIFS & QUESTIONS PERSONNALISÉES                         */}
-        {/* ========================================================================= */}
-        <div className="bg-[#1C1D22] border border-[#282A30] rounded-3xl p-5 shadow-sm space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-xs font-bold text-white">Rappels interactifs</h3>
-              <p className="text-[11px] text-[#8E929E]">Questions avec validation directe</p>
-            </div>
-
-            <button
-              onClick={() => setIsReminderModalOpen(true)}
-              className="p-2 rounded-xl bg-[#252830] hover:bg-[#343740] text-[#D4F63D] transition-all cursor-pointer"
-              title="Ajouter un rappel interactif"
-            >
-              <Plus className="w-4 h-4" />
-            </button>
-          </div>
-
-          <div className="space-y-2 pt-1">
-            {reminders.length === 0 ? (
-              <div className="p-4 text-center rounded-2xl bg-[#141518] border border-[#2B2E38] text-[11px] text-[#8E929E]">
-                Aucun rappel personnalisé créé pour le moment.
-              </div>
-            ) : (
-              reminders.map((rem) => (
-                <div
-                  key={rem.id}
-                  className="p-3 rounded-2xl bg-[#141518] border border-[#2B2E38] flex items-center justify-between gap-2"
-                >
-                  <div>
-                    <p className="text-xs font-bold text-white">{rem.question}</p>
-                    <div className="flex items-center gap-2 text-[11px] text-[#8E929E] mt-1">
-                      <Clock className="w-3 h-3 text-[#D4F63D]" />
-                      <span>{rem.time}</span>
-                      <span>•</span>
-                      <span>{rem.taskTitle || "Habitude"}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      onClick={() =>
-                        setTestNotification({
-                          isOpen: true,
-                          question: rem.question,
-                          taskTitle: rem.taskTitle || "Habitude",
-                        })
-                      }
-                      className="p-1.5 text-[#8E929E] hover:text-[#D4F63D] transition-colors rounded-lg bg-[#22242B]"
-                      title="Tester l'affichage"
-                    >
-                      <Sparkles className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteReminder(rem.id)}
-                      className="p-1.5 text-[#8E929E] hover:text-[#EF4444] transition-colors rounded-lg bg-[#22242B]"
-                      title="Supprimer ce rappel"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
       </div>
-
-      {/* Modal for creating interactive reminders */}
-      <CustomReminderModal
-        isOpen={isReminderModalOpen}
-        tasks={[]}
-        onClose={() => setIsReminderModalOpen(false)}
-        onSaveReminder={handleSaveCustomReminder}
-      />
-
-      {/* Actionable sheet test */}
-      {testNotification.isOpen && (
-        <InteractiveNotificationSheet
-          isOpen={testNotification.isOpen}
-          question={testNotification.question}
-          taskTitle={testNotification.taskTitle}
-          onClose={() => setTestNotification({ isOpen: false, question: "", taskTitle: "" })}
-          onRespond={() => {
-            setTestNotification({ isOpen: false, question: "", taskTitle: "" });
-          }}
-        />
-      )}
     </div>
   );
 }

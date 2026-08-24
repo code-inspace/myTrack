@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS public.projects (
     user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
     color TEXT DEFAULT '#D4F63D',
+    columns JSONB,
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
@@ -49,6 +50,7 @@ CREATE TABLE IF NOT EXISTS public.tasks (
     start_time TEXT,
     end_time TEXT,
     deadline TEXT,
+    priority TEXT DEFAULT 'NORMAL',
     recurrence "RecurrenceType" DEFAULT 'DAILY' NOT NULL,
     recurrence_config JSONB,
     tracking_type "TrackingType" DEFAULT 'BOOLEAN' NOT NULL,

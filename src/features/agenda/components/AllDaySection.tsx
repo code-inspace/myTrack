@@ -2,8 +2,9 @@
 
 import React, { useState } from "react";
 import { TaskWithCompletion } from "@/features/tasks/types";
-import { CheckCircle2, Circle, Sparkles, Bell, BellOff, Edit3 } from "lucide-react";
+import { CheckCircle2, Circle, Sparkles, Bell, BellOff, Edit3, Flame } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getPriorityIconColorClass } from "@/features/tasks/priority";
 
 interface AllDaySectionProps {
   tasks: TaskWithCompletion[];
@@ -120,7 +121,9 @@ export const AllDaySection: React.FC<AllDaySectionProps> = ({
                   style.bg,
                   style.text,
                   style.border,
-                  task.isCompletedToday ? "opacity-60 line-through" : ""
+                  task.isCompletedToday ? "opacity-60 line-through" : "",
+                  !task.isCompletedToday && task.priority === "VERY_URGENT" ? "ring-2 ring-red-500" : "",
+                  !task.isCompletedToday && task.priority === "URGENT" ? "ring-1 ring-amber-500" : ""
                 )}
                 title="Glisse vers la timeline pour définir une heure"
               >
@@ -140,6 +143,9 @@ export const AllDaySection: React.FC<AllDaySectionProps> = ({
                     <Circle className="w-3.5 h-3.5 opacity-60" />
                   )}
                 </button>
+                {task.priority && task.priority !== "NORMAL" && !task.isCompletedToday && (
+                  <Flame className={cn("w-3 h-3 flex-shrink-0", getPriorityIconColorClass(task.priority))} />
+                )}
                 <span className="truncate max-w-[140px]">{task.title}</span>
 
                 {/* Bell notification toggle */}

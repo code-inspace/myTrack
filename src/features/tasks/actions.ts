@@ -39,6 +39,7 @@ function mapDbTaskToModel(row: any): Task {
     startTime: row.start_time ? convertUtcTimeToLocal(row.start_time) : null,
     endTime: row.end_time ? convertUtcTimeToLocal(row.end_time) : null,
     deadline: row.deadline || null,
+    priority: row.priority || "NORMAL",
     recurrence: row.recurrence,
     recurrenceConfig: row.recurrence_config || null,
     dateOverrides,
@@ -182,6 +183,7 @@ export async function createDbTask(task: Omit<Task, "id" | "createdAt" | "update
     start_time: utcStartTime,
     end_time: utcEndTime,
     deadline: task.deadline || null,
+    priority: task.priority || "NORMAL",
     recurrence: task.recurrence,
     recurrence_config: task.recurrenceConfig || null,
     date_overrides: taskOverrides,
@@ -246,6 +248,7 @@ export async function createDbTask(task: Omit<Task, "id" | "createdAt" | "update
     startTime: task.startTime || null,
     endTime: task.endTime || null,
     deadline: task.deadline || null,
+    priority: task.priority || "NORMAL",
     recurrence: task.recurrence,
     recurrenceConfig: task.recurrenceConfig || null,
     dateOverrides: taskOverrides,
@@ -324,6 +327,7 @@ export async function updateDbTask(
   if (updates.startTime !== undefined) dbUpdates.start_time = updates.startTime ? convertLocalTimeToUtc(updates.startTime, updates.date) : null;
   if (updates.endTime !== undefined) dbUpdates.end_time = updates.endTime ? convertLocalTimeToUtc(updates.endTime, updates.date) : null;
   if (updates.deadline !== undefined) dbUpdates.deadline = updates.deadline || null;
+  if (updates.priority !== undefined) dbUpdates.priority = updates.priority || "NORMAL";
   if (updates.recurrence !== undefined) dbUpdates.recurrence = updates.recurrence;
   if (updates.recurrenceConfig !== undefined) dbUpdates.recurrence_config = updates.recurrenceConfig;
   if (updates.trackingType !== undefined) dbUpdates.tracking_type = updates.trackingType;
@@ -406,6 +410,7 @@ export async function updateDbTask(
     startTime: updates.startTime !== undefined ? (updates.startTime || null) : baseTask.startTime,
     endTime: updates.endTime !== undefined ? (updates.endTime || null) : baseTask.endTime,
     deadline: updates.deadline !== undefined ? (updates.deadline || null) : baseTask.deadline,
+    priority: updates.priority !== undefined ? (updates.priority || "NORMAL") : baseTask.priority,
     recurrence: updates.recurrence !== undefined ? updates.recurrence : baseTask.recurrence,
     recurrenceConfig: updates.recurrenceConfig !== undefined ? updates.recurrenceConfig : baseTask.recurrenceConfig,
     trackingType: updates.trackingType !== undefined ? updates.trackingType : baseTask.trackingType,

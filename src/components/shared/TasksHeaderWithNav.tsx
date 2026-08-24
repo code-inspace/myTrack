@@ -35,7 +35,7 @@ export const TasksHeaderWithNav: React.FC<TasksHeaderWithNavProps> = ({
   const pathname = usePathname();
 
   const views: Array<{ id: TasksTab; href: string; label: string; icon: any; activePaths: string[] }> = [
-    { id: "habits", href: "/tasks", label: "Habitudes", icon: ListTodo, activePaths: ["/tasks", "/"] },
+    { id: "habits", href: "/tasks", label: "Liste", icon: ListTodo, activePaths: ["/tasks", "/"] },
     { id: "agenda", href: "/agenda", label: "Agenda", icon: Calendar, activePaths: ["/agenda"] },
     { id: "sleep", href: "/sleep", label: "Sommeil", icon: Moon, activePaths: ["/sleep"] },
     { id: "bilan", href: "/bilan", label: "Bilan", icon: BookOpen, activePaths: ["/bilan"] },

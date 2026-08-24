@@ -2,12 +2,13 @@
 
 import React from "react";
 import { TaskWithCompletion } from "../types";
-import { Clock, Repeat, Play, Check, Plus, Trash2, Edit3, GripVertical, Bell, BellOff, Flag } from "lucide-react";
+import { Clock, Repeat, Play, Check, Plus, Trash2, Edit3, GripVertical, Bell, BellOff, Flag, Flame } from "lucide-react";
 import { cn } from "@/lib/utils";
 import confetti from "canvas-confetti";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { getTodayDateString } from "@/lib/dates";
+import { getPriorityCardClass, getPriorityTitleClass, getPriorityIconColorClass } from "../priority";
 
 interface TaskCardProps {
   task: TaskWithCompletion;
@@ -95,7 +96,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           ? "opacity-40 border-[#D4F63D] scale-[0.98] ring-2 ring-[#D4F63D]/50 bg-[#22242B]"
           : isCompleted
           ? "bg-[#141518]/90 border-[#23242A] opacity-75"
-          : "bg-[#1C1D22] hover:bg-[#22242B] border-[#282A30] hover:border-[#383C48]"
+          : "bg-[#1C1D22] hover:bg-[#22242B] border-[#282A30] hover:border-[#383C48]",
+        !isCompleted && getPriorityCardClass(task.priority)
       )}
     >
       {/* Level 1: Grip + Check Circle + Title Header + Actions on Right */}
@@ -129,15 +131,19 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           <div
             className="flex-1 min-w-0 cursor-pointer"
             onClick={() => onEditTask && onEditTask(task)}
-            title="Cliquer pour éditer cette habitude"
+            title="Cliquer pour éditer cette tâche"
           >
             <h4
               className={cn(
-                "text-base font-bold transition-colors leading-tight text-white break-words hover:text-[#D4F63D]",
-                isCompleted ? "text-[#8E929E] line-through" : "text-[#F3F4F6]"
+                "text-base font-bold transition-colors leading-tight text-white break-words hover:text-[#D4F63D] flex items-center gap-1.5",
+                isCompleted ? "text-[#8E929E] line-through" : "text-[#F3F4F6]",
+                !isCompleted && getPriorityTitleClass(task.priority)
               )}
             >
-              {task.title}
+              {task.priority && task.priority !== "NORMAL" && !isCompleted && (
+                <Flame className={cn("w-3.5 h-3.5 flex-shrink-0", getPriorityIconColorClass(task.priority))} />
+              )}
+              <span className="break-words">{task.title}</span>
             </h4>
 
             {task.description && (
@@ -188,7 +194,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                 e.stopPropagation();
                 onEditTask(task);
               }}
-              title="Modifier l'habitude"
+              title="Modifier la tâche"
               className="p-1.5 text-[#8E929E] hover:text-[#D4F63D] transition-colors rounded-lg hover:bg-[#282A30] cursor-pointer"
             >
               <Edit3 className="w-3.5 h-3.5" />

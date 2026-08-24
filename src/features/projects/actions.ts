@@ -1,4 +1,4 @@
-import { Project } from "./types";
+import { Project, ProjectColumn } from "./types";
 import { getEffectiveUserId } from "@/features/tasks/actions";
 import { createClient } from "@/utils/supabase/client";
 
@@ -10,6 +10,7 @@ function mapDbProjectToModel(row: any): Project {
     userId: row.user_id,
     name: row.name,
     color: row.color || "#D4F63D",
+    columns: Array.isArray(row.columns) ? row.columns : [],
     createdAt: row.created_at || new Date().toISOString(),
     updatedAt: row.updated_at || new Date().toISOString(),
   };
@@ -62,7 +63,12 @@ export async function fetchProjects(userId?: string): Promise<Project[]> {
   return getStoredProjects(targetId);
 }
 
-export async function createDbProject(name: string, color: string, userId?: string): Promise<Project> {
+export async function createDbProject(
+  name: string,
+  color: string,
+  columns: ProjectColumn[],
+  userId?: string
+): Promise<Project> {
   const supabase = createClient();
   let targetId = userId;
   if (!targetId) {
@@ -73,7 +79,7 @@ export async function createDbProject(name: string, color: string, userId?: stri
   try {
     const { data, error } = await supabase
       .from("projects")
-      .insert([{ user_id: targetId, name, color }])
+      .insert([{ user_id: targetId, name, color, columns }])
       .select()
       .single();
 
@@ -93,6 +99,7 @@ export async function createDbProject(name: string, color: string, userId?: stri
     userId: targetId!,
     name,
     color,
+    columns,
     createdAt: nowIso,
     updatedAt: nowIso,
   };
@@ -103,7 +110,7 @@ export async function createDbProject(name: string, color: string, userId?: stri
 
 export async function updateDbProject(
   projectId: string,
-  updates: { name?: string; color?: string },
+  updates: { name?: string; color?: string; columns?: ProjectColumn[] },
   userId?: string
 ): Promise<void> {
   const supabase = createClient();

@@ -3,14 +3,16 @@
 import React, { useState } from "react";
 import { Task } from "@/features/tasks/types";
 import { Project } from "../types";
-import { ChevronRight, FolderKanban, Plus, Inbox } from "lucide-react";
+import { ChevronRight, FolderKanban, Plus, Inbox, Pencil, Flame } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getPriorityCardClass, getPriorityTitleClass, getPriorityIconColorClass } from "@/features/tasks/priority";
 
 interface ProjectsListViewProps {
   projects: Project[];
   tasks: Task[];
   onSelectProject: (projectId: string) => void;
   onOpenNewProject: () => void;
+  onEditProject: (project: Project) => void;
   onEditTask: (task: Task) => void;
 }
 
@@ -19,6 +21,7 @@ export const ProjectsListView: React.FC<ProjectsListViewProps> = ({
   tasks,
   onSelectProject,
   onOpenNewProject,
+  onEditProject,
   onEditTask,
 }) => {
   const [expandedUnassigned, setExpandedUnassigned] = useState(false);
@@ -58,26 +61,38 @@ export const ProjectsListView: React.FC<ProjectsListViewProps> = ({
           {projects.map((project) => {
             const projectTasks = tasksByProject(project.id);
             return (
-              <button
-                type="button"
+              <div
                 key={project.id}
-                onClick={() => onSelectProject(project.id)}
-                className="w-full flex items-center justify-between gap-3 p-4 rounded-2xl bg-[#1C1D22] hover:bg-[#22242B] border border-[#282A30] hover:border-[#383C48] transition-all cursor-pointer text-left"
+                className="w-full flex items-center gap-2 p-4 rounded-2xl bg-[#1C1D22] hover:bg-[#22242B] border border-[#282A30] hover:border-[#383C48] transition-all"
               >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div
-                    className="w-3 h-3 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: project.color }}
-                  />
-                  <div className="min-w-0">
-                    <div className="text-sm font-bold text-white truncate">{project.name}</div>
-                    <div className="text-[11px] text-[#8E929E]">
-                      {projectTasks.length} tâche{projectTasks.length !== 1 ? "s" : ""}
+                <button
+                  type="button"
+                  onClick={() => onSelectProject(project.id)}
+                  className="flex-1 min-w-0 flex items-center justify-between gap-3 cursor-pointer text-left"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div
+                      className="w-3 h-3 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: project.color }}
+                    />
+                    <div className="min-w-0">
+                      <div className="text-sm font-bold text-white truncate">{project.name}</div>
+                      <div className="text-[11px] text-[#8E929E]">
+                        {projectTasks.length} tâche{projectTasks.length !== 1 ? "s" : ""}
+                      </div>
                     </div>
                   </div>
-                </div>
-                <ChevronRight className="w-4 h-4 text-[#6B7280] flex-shrink-0" />
-              </button>
+                  <ChevronRight className="w-4 h-4 text-[#6B7280] flex-shrink-0" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onEditProject(project)}
+                  title="Modifier le projet"
+                  className="p-2 rounded-lg text-[#8E929E] hover:text-[#D4F63D] hover:bg-[#282A30] transition-colors cursor-pointer flex-shrink-0"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
+              </div>
             );
           })}
         </div>
@@ -110,10 +125,15 @@ export const ProjectsListView: React.FC<ProjectsListViewProps> = ({
                   key={task.id}
                   onClick={() => onEditTask(task)}
                   className={cn(
-                    "w-full text-left px-3 py-2.5 rounded-xl bg-[#1C1D22] hover:bg-[#282A30] border border-[#282A30] text-xs font-semibold text-white transition-all cursor-pointer truncate"
+                    "w-full text-left px-3 py-2.5 rounded-xl bg-[#1C1D22] hover:bg-[#282A30] border border-[#282A30] text-xs font-semibold text-white transition-all cursor-pointer truncate flex items-center gap-1.5",
+                    getPriorityCardClass(task.priority),
+                    getPriorityTitleClass(task.priority)
                   )}
                 >
-                  {task.title}
+                  {task.priority && task.priority !== "NORMAL" && (
+                    <Flame className={cn("w-3 h-3 flex-shrink-0", getPriorityIconColorClass(task.priority))} />
+                  )}
+                  <span className="truncate">{task.title}</span>
                 </button>
               ))
             )}

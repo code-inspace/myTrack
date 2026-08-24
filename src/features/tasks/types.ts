@@ -21,6 +21,7 @@ export interface Task {
   startTime?: string | null; // "07:00"
   endTime?: string | null;   // "08:00"
   deadline?: string | null;  // "YYYY-MM-DD"
+  priority?: string | null;  // "NORMAL" | "URGENT" | "VERY_URGENT"
   recurrence: RecurrenceType;
   recurrenceConfig?: RecurrenceConfig | null;
   dateOverrides?: Record<string, any> | null;
@@ -35,7 +36,8 @@ export interface Task {
   isArchived: boolean;
   sortOrder?: number | null;
   projectId?: string | null;
-  projectStatus?: "TODO" | "IN_PROGRESS" | "WAITING" | "DONE" | null;
+  /** References a column id from the assigned project's own custom columns */
+  projectStatus?: string | null;
   createdAt: string;
   updatedAt: string;
 }
