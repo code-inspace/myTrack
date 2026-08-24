@@ -1,48 +1,86 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sendOneSignalPushNotification } from "@/lib/onesignal/server";
+import { sendOneSignalPushNotification, cancelOneSignalNotification } from "@/lib/onesignal/server";
 import { createClient } from "@/utils/supabase/client";
 
-// Cancel any existing scheduled notifications for a given task
-async function cancelExistingNotifications(taskId: string) {
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from("task_notifications")
-    .select("onesignal_id")
-    .eq("task_id", taskId);
-  if (error) {
-    console.warn("Failed to fetch existing notifications for cancellation", error);
-    return;
-  }
-  if (data && data.length) {
-    for (const row of data) {
-      try {
-        await fetch(`https://onesignal.com/api/v1/notifications/${row.onesignal_id}`, {
-          method: "DELETE",
-          headers: { Authorization: `Basic ${process.env.ONESIGNAL_REST_API_KEY}` },
-        });
-      } catch (e) {
-        console.warn("Error cancelling OneSignal notification", e);
-      }
-    }
-    await supabase.from("task_notifications").delete().eq("task_id", taskId);
-  }
-}
-
-// Store a newly scheduled notification for later cancellation
-async function storeScheduledNotification(taskId: string, userId: string | undefined, onesignalId: string, scheduleDate: string) {
+// Helper to cancel any existing scheduled notifications for a given task/item
+async function cancelExistingNotifications(taskId: string, userId?: string) {
   const supabase = createClient();
   try {
-    await supabase.from("task_notifications").insert({
-      task_id: taskId,
-      user_id: userId,
-      onesignal_id: onesignalId,
-      scheduled_at: scheduleDate,
-    });
+    let query = supabase
+      .from("reminders")
+      .select("id, onesignal_notification_id")
+      .eq("task_id", taskId)
+      .in("status", ["pending", "scheduled"]);
+
+    if (userId && userId !== "00000000-0000-0000-0000-000000000001") {
+      query = query.eq("user_id", userId);
+    }
+
+    const { data, error } = await query;
+    if (!error && data && data.length > 0) {
+      for (const row of data) {
+        if (row.onesignal_notification_id) {
+          await cancelOneSignalNotification(row.onesignal_notification_id);
+        }
+      }
+
+      await supabase
+        .from("reminders")
+        .update({ status: "cancelled", updated_at: new Date().toISOString() })
+        .in(
+          "id",
+          data.map((r: any) => r.id)
+        );
+    }
   } catch (e) {
-    console.warn("Failed to store scheduled notification", e);
+    console.warn("[Notifications] Error cancelling existing notifications:", e);
   }
 }
 
+// Store a newly scheduled reminder record in database for future cancellation
+async function storeScheduledReminder(params: {
+  userId?: string;
+  taskId?: string;
+  title: string;
+  body: string;
+  scheduledAt: string;
+  onesignalId?: string | null;
+  reminderType?: string;
+}) {
+  const supabase = createClient();
+  const userId = params.userId || "00000000-0000-0000-0000-000000000001";
+  const nowIso = new Date().toISOString();
+
+  try {
+    await supabase.from("reminders").insert([
+      {
+        user_id: userId,
+        task_id: params.taskId || null,
+        title: params.title,
+        body: params.body,
+        scheduled_at: params.scheduledAt,
+        status: "scheduled",
+        onesignal_notification_id: params.onesignalId || null,
+        reminder_type: params.reminderType || "task_reminder",
+        created_at: nowIso,
+        updated_at: nowIso,
+      },
+    ]);
+  } catch (e) {
+    console.warn("[Notifications] Failed to store reminder in database:", e);
+  }
+}
+
+/**
+ * Computes exact UTC Date from local date "YYYY-MM-DD" and local time "HH:mm"
+ * using the client's timezone offset in minutes (from new Date().getTimezoneOffset()).
+ */
+function computeUtcDateFromLocal(dateStr: string, timeStr: string, tzOffsetMinutes: number = 0): Date {
+  const [year, month, day] = dateStr.split("-").map((v) => parseInt(v, 10) || 0);
+  const [hours, minutes] = timeStr.split(":").map((v) => parseInt(v, 10) || 0);
+  const utcMs = Date.UTC(year, month - 1, day, hours, minutes, 0) + tzOffsetMinutes * 60 * 1000;
+  return new Date(utcMs);
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -61,12 +99,14 @@ export async function POST(req: NextRequest) {
       customMessage,
       targetInMinutes,
       replaceExisting,
+      timezoneOffsetMinutes = 0,
     } = body;
 
-    // If replaceExisting flag is set, cancel any existing notifications for this task before scheduling new ones
+    // 1. If replaceExisting flag is set, cancel previous notifications for this task/routine
     if (replaceExisting && taskId) {
-      await cancelExistingNotifications(taskId);
+      await cancelExistingNotifications(taskId, userId);
     }
+
     if (!taskTitle) {
       return NextResponse.json({ error: "taskTitle is required" }, { status: 400 });
     }
@@ -81,7 +121,7 @@ export async function POST(req: NextRequest) {
       targetType?: string;
     }> = [];
 
-    // Helper to send and track single notification
+    // Helper to send, track and persist single push notification
     const processDelivery = async (deliveryDate: Date, messageTitle: string, messageBody: string) => {
       console.log(`[API /api/notifications/schedule] Scheduling push for ${deliveryDate.toISOString()} to user=${userId || "all"}`);
 
@@ -97,6 +137,18 @@ export async function POST(req: NextRequest) {
           type,
         },
       });
+
+      if (pushRes.success && pushRes.id) {
+        await storeScheduledReminder({
+          userId,
+          taskId,
+          title: messageTitle,
+          body: messageBody,
+          scheduledAt: deliveryDate.toISOString(),
+          onesignalId: pushRes.id,
+          reminderType: type,
+        });
+      }
 
       results.push({
         deliveryDate: deliveryDate.toISOString(),
@@ -114,9 +166,7 @@ export async function POST(req: NextRequest) {
       const title = `${taskTitle}`;
       const bodyText =
         customMessage ||
-        (targetInMinutes > 0
-          ? `Dans ${targetInMinutes} minute${targetInMinutes > 1 ? "s" : ""}`
-          : `C'est l'heure ! 🎯`);
+        (targetInMinutes > 0 ? `Dans ${targetInMinutes} min` : "C'est l'heure");
       await processDelivery(deliveryDate, title, bodyText);
     }
     // Case B: Timed Task Reminder (e.g. 10 mins before start)
@@ -125,13 +175,10 @@ export async function POST(req: NextRequest) {
       if (scheduledIso) {
         targetDate = new Date(scheduledIso);
       } else {
-        const [hours, minutes] = (startTime || "12:00").split(":").map((v: string) => parseInt(v, 10) || 0);
-        targetDate = new Date(`${scheduledDateStr}T${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:00`);
+        targetDate = computeUtcDateFromLocal(scheduledDateStr, startTime || "12:00", timezoneOffsetMinutes);
       }
 
       const offset = typeof reminderOffsetMinutes === "number" ? reminderOffsetMinutes : 10;
-
-      // Subtract offset minutes
       const reminderDate = new Date(targetDate.getTime() - offset * 60000);
 
       // If scheduled time has already passed today, advance by 24h for recurring habits
@@ -140,28 +187,27 @@ export async function POST(req: NextRequest) {
       }
 
       const title = `${taskTitle}`;
-      const bodyText = offset > 0 ? `Dans ${offset} minute${offset > 1 ? "s" : ""}` : `C'est l'heure ! 🎯`;
+      const bodyText = customMessage || (offset > 0 ? `Dans ${offset} min` : "C'est l'heure");
       await processDelivery(reminderDate, title, bodyText);
     }
     // Case C: All-Day Task Reminders (each specific time)
     else if (Array.isArray(reminderTimes) && reminderTimes.length > 0) {
       for (const rTime of reminderTimes) {
-        const [hours, minutes] = rTime.split(":").map((v: string) => parseInt(v, 10) || 0);
-        const reminderDate = new Date(`${scheduledDateStr}T${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:00`);
+        const reminderDate = computeUtcDateFromLocal(scheduledDateStr, rTime, timezoneOffsetMinutes);
 
         if (reminderDate.getTime() <= Date.now()) {
           reminderDate.setDate(reminderDate.getDate() + 1);
         }
 
         const title = `${taskTitle}`;
-        const bodyText = `Objectif du jour à ${rTime}`;
+        const bodyText = customMessage || "C'est l'heure";
         await processDelivery(reminderDate, title, bodyText);
       }
     } else {
       // Case D: Immediate / direct push
       const now = new Date(Date.now() + 1000);
       const title = `${taskTitle}`;
-      const bodyText = customMessage || `C'est l'heure ! 🎯`;
+      const bodyText = customMessage || "C'est l'heure";
       await processDelivery(now, title, bodyText);
     }
 
@@ -174,3 +220,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: err?.message || "Server error" }, { status: 500 });
   }
 }
+

@@ -149,12 +149,23 @@ export async function scheduleTaskPushNotification(params: {
   targetInMinutes?: number;
   customMessage?: string;
   replaceExisting?: boolean;
+  timezoneOffsetMinutes?: number;
 }): Promise<any> {
   try {
+    const tzOffset =
+      params.timezoneOffsetMinutes !== undefined
+        ? params.timezoneOffsetMinutes
+        : typeof window !== "undefined"
+        ? new Date().getTimezoneOffset()
+        : 0;
+
     const res = await fetch("/api/notifications/schedule", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(params),
+      body: JSON.stringify({
+        ...params,
+        timezoneOffsetMinutes: tzOffset,
+      }),
     });
     return await res.json();
   } catch (err) {
@@ -162,3 +173,22 @@ export async function scheduleTaskPushNotification(params: {
     return { success: false, error: err };
   }
 }
+
+export async function cancelTaskPushNotifications(params: {
+  taskId?: string;
+  userId?: string;
+  reminderType?: string;
+}): Promise<any> {
+  try {
+    const res = await fetch("/api/notifications/cancel", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(params),
+    });
+    return await res.json();
+  } catch (err) {
+    console.warn("[OneSignal Client] cancelTaskPushNotifications error:", err);
+    return { success: false, error: err };
+  }
+}
+

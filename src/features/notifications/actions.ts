@@ -213,20 +213,24 @@ export async function updateDbPreferences(prefs: NotificationPreference, userId?
     if (prefs.morningReminder && prefs.morningReminderTime) {
       scheduleTaskPushNotification({
         userId: targetId,
-        taskTitle: "☀️ Objectifs du jour",
+        taskId: `routine_morning_${targetId}`,
+        taskTitle: "Objectifs du jour",
         startTime: prefs.morningReminderTime,
         type: "morning_routine",
-        customMessage: "Ta journée MyTrack commence ! Découvre tes habitudes au programme.",
+        customMessage: "C'est l'heure",
+        replaceExisting: true,
       }).catch(() => {});
     }
 
     if (prefs.eveningRecap && prefs.eveningRecapTime) {
       scheduleTaskPushNotification({
         userId: targetId,
-        taskTitle: "🌙 Bilan de ta journée",
+        taskId: `routine_evening_${targetId}`,
+        taskTitle: "Bilan de ta journée",
         startTime: prefs.eveningRecapTime,
         type: "evening_recap",
-        customMessage: "C'est l'heure de faire le bilan de tes accomplissements du jour !",
+        customMessage: "C'est l'heure",
+        replaceExisting: true,
       }).catch(() => {});
     }
   }

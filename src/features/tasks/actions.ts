@@ -2,7 +2,7 @@ import { Task, TaskCompletion, TaskFormValues } from "./types";
 import { getStoredUserSession, DEMO_USER } from "@/features/auth/actions";
 import { createClient } from "@/utils/supabase/client";
 import { getTodayDateString, convertLocalTimeToUtc, convertUtcTimeToLocal, createUtcIsoFromLocalDateTime } from "@/lib/dates";
-import { scheduleTaskPushNotification } from "@/lib/onesignal/client";
+import { scheduleTaskPushNotification, cancelTaskPushNotifications } from "@/lib/onesignal/client";
 
 const TASKS_STORAGE_PREFIX = "mytrack_tasks_";
 const COMPLETIONS_STORAGE_PREFIX = "mytrack_completions_";
@@ -208,9 +208,11 @@ export async function createDbTask(task: Omit<Task, "id" | "createdAt" | "update
           : undefined;
         scheduleTaskPushNotification({
           userId: targetId,
+          taskId: created.id,
           taskTitle: created.title,
           startTime: created.startTime,
           scheduledIso,
+          replaceExisting: true,
           reminderOffsetMinutes: created.reminderOffsetMinutes ?? 10,
           reminderTimes: created.reminderTimes || ["11:00", "18:00"],
           date: taskDate,
@@ -261,9 +263,11 @@ export async function createDbTask(task: Omit<Task, "id" | "createdAt" | "update
       : undefined;
     scheduleTaskPushNotification({
       userId: targetId,
+      taskId: createdLocal.id,
       taskTitle: createdLocal.title,
       startTime: createdLocal.startTime,
       scheduledIso,
+      replaceExisting: true,
       reminderOffsetMinutes: createdLocal.reminderOffsetMinutes ?? 10,
       reminderTimes: createdLocal.reminderTimes || ["11:00", "18:00"],
       date: taskDate,
@@ -347,6 +351,11 @@ export async function updateDbTask(
           date: targetDate,
           category: updated.category,
         }).catch((e) => console.warn("scheduleTaskPushNotification note:", e));
+      } else {
+        cancelTaskPushNotifications({
+          taskId: updated.id,
+          userId: targetId,
+        }).catch(() => {});
       }
 
       return updated;
@@ -405,11 +414,17 @@ export async function updateDbTask(
       taskTitle: updatedTask.title,
       startTime: updatedTask.startTime,
       scheduledIso,
+      replaceExisting: true,
       reminderOffsetMinutes: updatedTask.reminderOffsetMinutes ?? 10,
       reminderTimes: updatedTask.reminderTimes || ["11:00", "18:00"],
       date: targetDate,
       category: updatedTask.category,
     }).catch((e) => console.warn("scheduleTaskPushNotification note:", e));
+  } else {
+    cancelTaskPushNotifications({
+      taskId: updatedTask.id,
+      userId: targetId,
+    }).catch(() => {});
   }
 
   return updatedTask;
@@ -655,6 +670,28 @@ export async function updateTaskSchedule({
     );
     saveStoredTasks(updated, targetId);
   }
+
+  // Reschedule or cancel push notification for this task
+  if (target && target.enableReminders !== false) {
+    const scheduledIso = startTime ? createUtcIsoFromLocalDateTime(startTime, date) : undefined;
+    scheduleTaskPushNotification({
+      userId: targetId,
+      taskId: target.id,
+      taskTitle: target.title,
+      startTime,
+      scheduledIso,
+      replaceExisting: true,
+      reminderOffsetMinutes: target.reminderOffsetMinutes ?? 10,
+      reminderTimes: target.reminderTimes || ["11:00", "18:00"],
+      date,
+      category: target.category,
+    }).catch((e) => console.warn("updateTaskSchedule reminder note:", e));
+  } else if (target) {
+    cancelTaskPushNotifications({
+      taskId: target.id,
+      userId: targetId,
+    }).catch(() => {});
+  }
 }
 
 export async function deleteDbTask(taskId: string, userId?: string): Promise<void> {
@@ -664,6 +701,12 @@ export async function deleteDbTask(taskId: string, userId?: string): Promise<voi
     const { data: { session } } = await supabase.auth.getSession();
     targetId = session?.user?.id || getEffectiveUserId();
   }
+
+  // Cancel any pending notifications for this task
+  cancelTaskPushNotifications({
+    taskId,
+    userId: targetId,
+  }).catch(() => {});
 
   try {
     await supabase.from("tasks").delete().eq("id", taskId);

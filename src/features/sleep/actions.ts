@@ -6,7 +6,7 @@ import {
   convertLocalTimeToUtc,
   convertUtcTimeToLocal,
 } from "@/lib/dates";
-import { scheduleTaskPushNotification } from "@/lib/onesignal/client";
+import { scheduleTaskPushNotification, cancelTaskPushNotifications } from "@/lib/onesignal/client";
 import { createDbReminder } from "@/features/notifications/reminderActions";
 import { createClient } from "@/utils/supabase/client";
 import { subDays, parseISO, format } from "date-fns";
@@ -347,16 +347,32 @@ export async function saveStoredSleepLog(
     console.warn("Supabase saveStoredSleepLog network fallback:", err);
   }
 
-  // 3. Schedule OneSignal bedtime push notifications & database reminder records if enabled
-  if (updatedLog.enableBedtimeReminders && updatedLog.bedtimeReminders?.length > 0) {
+  // 3. Manage OneSignal bedtime push notifications & database reminder records
+  const bedtimeTaskId = `sleep_bedtime_${targetId}`;
+  if (updatedLog.enableBedtimeReminders && updatedLog.bedtimeReminders && updatedLog.bedtimeReminders.length > 0) {
+    // Cancel previous bedtime notifications first
+    await cancelTaskPushNotifications({
+      taskId: bedtimeTaskId,
+      userId: targetId,
+      reminderType: "bedtime",
+    }).catch(() => {});
+
     for (const rTime of updatedLog.bedtimeReminders) {
       const scheduledIso = createUtcIsoFromLocalDateTime(rTime, updatedLog.date);
+      const [rH, rM] = rTime.split(":").map((v) => parseInt(v, 10) || 0);
+      const [bH, bM] = (updatedLog.bedtime || "23:00").split(":").map((v) => parseInt(v, 10) || 0);
+      let diffMinutes = (bH * 60 + bM) - (rH * 60 + rM);
+      if (diffMinutes < 0) diffMinutes += 24 * 60;
+
+      const title = "Préparation au Sommeil";
+      const body = diffMinutes > 0 ? `Dans ${diffMinutes} min` : "C'est l'heure";
 
       // Record in Supabase reminders table
       createDbReminder({
         userId: targetId || getEffectiveUserId(userId),
-        title: "🌙 Préparation au Sommeil",
-        body: `C'est l'heure de te préparer pour ton coucher prévu à ${updatedLog.bedtime || "23:00"} !`,
+        taskId: bedtimeTaskId,
+        title,
+        body,
         scheduledAt: scheduledIso,
         reminderType: "bedtime",
       }).catch((e) => console.warn("Bedtime reminder DB record error:", e));
@@ -364,14 +380,25 @@ export async function saveStoredSleepLog(
       // Push via OneSignal
       scheduleTaskPushNotification({
         userId: targetId,
-        taskTitle: `Préparation au Sommeil (Coucher à ${updatedLog.bedtime})`,
+        taskId: bedtimeTaskId,
+        taskTitle: title,
         startTime: rTime,
+        scheduledIso,
         reminderOffsetMinutes: 0,
+        customMessage: body,
         date: updatedLog.date,
         category: "Sleep",
-        replaceExisting: true,
+        type: "bedtime",
+        replaceExisting: false, // Already cancelled once above for the whole batch
       }).catch((err) => console.warn("Bedtime reminder schedule error:", err));
     }
+  } else {
+    // If disabled, cancel any existing bedtime notifications
+    cancelTaskPushNotifications({
+      taskId: bedtimeTaskId,
+      userId: targetId,
+      reminderType: "bedtime",
+    }).catch(() => {});
   }
 
   return updatedLog;

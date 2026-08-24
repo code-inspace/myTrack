@@ -109,14 +109,11 @@ export default function NotificationWatcherProvider({ children }: { children: Re
             if (!sentNotificationsRef.current.has(cacheKey)) {
               sentNotificationsRef.current.add(cacheKey);
 
-              const minutesText =
-                offset === 0
-                  ? "maintenant"
-                  : `dans ${offset} minute${offset > 1 ? "s" : ""}`;
+              const bodyText = offset > 0 ? `Dans ${offset} min` : "C'est l'heure";
 
               sendNativeNotification({
-                title: `⏰ Rappel : ${task.title}`,
-                body: `Ton action "${task.title}" est programmée pour ${effectiveStart} (${minutesText}).`,
+                title: task.title,
+                body: bodyText,
                 tag: `task-${task.id}`,
                 data: { taskId: task.id, date: todayDateStr },
               });
@@ -134,8 +131,8 @@ export default function NotificationWatcherProvider({ children }: { children: Re
               sentNotificationsRef.current.add(cacheKey);
 
               sendNativeNotification({
-                title: `🎯 Habitude du jour : ${task.title}`,
-                body: `N'oublie pas de valider ton habitude "${task.title}" aujourd'hui !`,
+                title: task.title,
+                body: "C'est l'heure",
                 tag: `task-allday-${task.id}`,
                 data: { taskId: task.id, date: todayDateStr },
               });
@@ -153,8 +150,8 @@ export default function NotificationWatcherProvider({ children }: { children: Re
             sentNotificationsRef.current.add(cacheKey);
 
             sendNativeNotification({
-              title: `💬 Question MyTrack`,
-              body: rem.question,
+              title: rem.question,
+              body: "C'est l'heure",
               tag: `custom-${rem.id}`,
               data: { taskId: rem.taskId, reminderId: rem.id, date: todayDateStr },
             });
@@ -175,8 +172,8 @@ export default function NotificationWatcherProvider({ children }: { children: Re
           }).length;
 
           sendNativeNotification({
-            title: "☀️ Bonjour ! Ta journée MyTrack commence",
-            body: `Tu as ${pendingCount} habitude${pendingCount > 1 ? "s" : ""} au programme aujourd'hui. Faisons de cette journée un succès !`,
+            title: "Objectifs du jour",
+            body: `Tu as ${pendingCount} habitude${pendingCount > 1 ? "s" : ""} au programme aujourd'hui`,
             tag: "morning-recap",
           });
         }
@@ -191,8 +188,8 @@ export default function NotificationWatcherProvider({ children }: { children: Re
           const todayCompletions = completions.filter((c) => c.date === todayDateStr && c.completed).length;
 
           sendNativeNotification({
-            title: "🌙 Bilan du soir MyTrack",
-            body: `Tu as complété ${todayCompletions} habitude${todayCompletions > 1 ? "s" : ""} aujourd'hui. Bravo pour tes efforts !`,
+            title: "Bilan du soir",
+            body: `Tu as complété ${todayCompletions} habitude${todayCompletions > 1 ? "s" : ""} aujourd'hui`,
             tag: "evening-recap",
           });
         }
@@ -206,9 +203,14 @@ export default function NotificationWatcherProvider({ children }: { children: Re
           if (!sentNotificationsRef.current.has(cacheKey)) {
             sentNotificationsRef.current.add(cacheKey);
 
+            const [rH, rM] = currentTimeStr.split(":").map((v) => parseInt(v, 10) || 0);
+            const [bH, bM] = (sleepLog.bedtime || "23:00").split(":").map((v) => parseInt(v, 10) || 0);
+            let diffMinutes = (bH * 60 + bM) - (rH * 60 + rM);
+            if (diffMinutes < 0) diffMinutes += 24 * 60;
+
             sendNativeNotification({
-              title: "😴 Préparation au Sommeil",
-              body: `C'est l'heure de te préparer pour ton coucher prévu à ${sleepLog.bedtime || "23:00"} !`,
+              title: "Préparation au Sommeil",
+              body: diffMinutes > 0 ? `Dans ${diffMinutes} min` : "C'est l'heure",
               tag: `bedtime-${currentTimeStr}`,
             });
           }
