@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isTaskScheduledForDate } from "@/lib/dates";
+import { isTaskScheduledForDate, isOnceTaskCarriedOver } from "@/lib/dates";
 import { mapTaskWithCompletion, sortTasksByPriority } from "./mappers";
 import { Task, TaskCompletion } from "./types";
 import { parseISO } from "date-fns";
@@ -25,6 +25,48 @@ describe("Tasks Feature Logic", () => {
 
     expect(isTaskScheduledForDate("CUSTOM", customConfig, sunday)).toBe(false);
     expect(isTaskScheduledForDate("CUSTOM", customConfig, tuesday)).toBe(true);
+  });
+
+  it("respects drag-to-day dateOverrides (skip origin, honor moved-to date)", () => {
+    // 2026-08-24 is Monday (day 1), matches WEEKDAYS
+    const monday = parseISO("2026-08-24");
+    // 2026-08-22 is Saturday (day 6), does NOT match WEEKDAYS
+    const saturday = parseISO("2026-08-22");
+
+    // Normally scheduled on Monday, but this occurrence was dragged away (skipped)
+    expect(
+      isTaskScheduledForDate("WEEKDAYS", null, monday, undefined, {
+        "2026-08-24": { skipped: true },
+      })
+    ).toBe(false);
+
+    // Dragged onto Saturday, which wouldn't normally match WEEKDAYS
+    expect(
+      isTaskScheduledForDate("WEEKDAYS", null, saturday, undefined, {
+        "2026-08-22": { startTime: "09:00", endTime: "10:00", movedFrom: "2026-08-24" },
+      })
+    ).toBe(true);
+
+    // Untouched dates still follow the normal recurrence pattern
+    expect(isTaskScheduledForDate("WEEKDAYS", null, saturday, undefined, {})).toBe(false);
+  });
+
+  it("carries over uncompleted one-shot tasks up to today, stops once completed", () => {
+    // Created 2026-08-20, still not done — should show on every day up to "today"
+    expect(isOnceTaskCarriedOver("2026-08-20", "2026-08-21", "2026-08-23", false)).toBe(true);
+    expect(isOnceTaskCarriedOver("2026-08-20", "2026-08-23", "2026-08-23", false)).toBe(true);
+
+    // Never shows for a date before its original date
+    expect(isOnceTaskCarriedOver("2026-08-20", "2026-08-19", "2026-08-23", false)).toBe(false);
+
+    // Never rolls forward past the real "today"
+    expect(isOnceTaskCarriedOver("2026-08-20", "2026-08-25", "2026-08-23", false)).toBe(false);
+
+    // Stops carrying over once completed
+    expect(isOnceTaskCarriedOver("2026-08-20", "2026-08-21", "2026-08-23", true)).toBe(false);
+
+    // No original date means nothing to carry over
+    expect(isOnceTaskCarriedOver(null, "2026-08-21", "2026-08-23", false)).toBe(false);
   });
 
   it("maps task completion and sorts active task first", () => {
@@ -68,6 +110,31 @@ describe("Tasks Feature Logic", () => {
 
     const sorted = sortTasksByPriority([mapped1, mapped2]);
     expect(sorted[0].id).toBe("t2"); // Active task must be first
+  });
+
+  it("orders non-active tasks by drag-and-drop sort_order before falling back to time/title", () => {
+    const base: Task = {
+      id: "t1",
+      userId: "u1",
+      title: "Zebra",
+      category: "General",
+      recurrence: "DAILY",
+      trackingType: "BOOLEAN",
+      isActive: false,
+      isArchived: false,
+      createdAt: "2026-08-01",
+      updatedAt: "2026-08-01",
+    };
+
+    const taskA = { ...base, id: "a", title: "Alpha", sortOrder: 2 };
+    const taskB = { ...base, id: "b", title: "Beta", sortOrder: 0 };
+    const taskC = { ...base, id: "c", title: "Charlie", sortOrder: null }; // no manual order set
+
+    const mapped = [taskA, taskB, taskC].map((t) => mapTaskWithCompletion(t, [], "2026-08-23"));
+    const sorted = sortTasksByPriority(mapped);
+
+    // Tasks with a sortOrder come first (by ascending order), unordered tasks fall back after
+    expect(sorted.map((t) => t.id)).toEqual(["b", "a", "c"]);
   });
 
   it("calculates updated start time dynamically for running task", () => {

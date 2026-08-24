@@ -17,8 +17,13 @@ import {
   Tag,
   Sliders,
   Repeat,
+  FolderKanban,
+  Flag,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useProjects, useProjectMutations } from "@/features/projects/hooks";
+import { PROJECT_STATUS_COLUMNS, ProjectStatus } from "@/features/projects/types";
+import { ProjectFormModal } from "@/features/projects/components/ProjectFormModal";
 
 interface TaskFormModalProps {
   isOpen: boolean;
@@ -80,11 +85,19 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
   const [selectedDays, setSelectedDays] = useState<number[]>([1, 2, 3, 4, 5]);  const [targetDate, setTargetDate] = useState<string>(() => {
     return (initialTask as any)?.date || (initialTask?.createdAt ? initialTask.createdAt.split("T")[0] : getTodayDateString());
   });
+  const [deadline, setDeadline] = useState<string>("");
 
   // Notifications & Reminders State
-  const [enableReminders, setEnableReminders] = useState<boolean>(true);
+  const [enableReminders, setEnableReminders] = useState<boolean>(false);
   const [reminderOffsetMinutes, setReminderOffsetMinutes] = useState<number>(10);
   const [reminderTimes, setReminderTimes] = useState<string[]>(["11:00", "18:00"]);
+
+  // Project assignment state
+  const [projectId, setProjectId] = useState<string | null>(null);
+  const [projectStatus, setProjectStatus] = useState<ProjectStatus>("TODO");
+  const [isNewProjectOpen, setIsNewProjectOpen] = useState(false);
+  const { projects } = useProjects();
+  const { createProject } = useProjectMutations();
 
   // Expandable sections state
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
@@ -93,6 +106,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
     recurrence: false,
     schedule: false,
     reminders: false,
+    project: false,
   });
 
   const toggleSection = (key: string) => {
@@ -132,6 +146,9 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
             ? initialTask.reminderTimes
             : ["11:00", "18:00"]
         );
+        setProjectId(initialTask.projectId || null);
+        setProjectStatus(initialTask.projectStatus || "TODO");
+        setDeadline(initialTask.deadline || "");
       } else {
         setTitle("");
         setDescription("");
@@ -145,9 +162,12 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
         setTargetDate(getTodayDateString());
         setRecurrence("ONCE");
         setSelectedDays([1, 2, 3, 4, 5]);
-        setEnableReminders(true);
+        setEnableReminders(false);
         setReminderOffsetMinutes(10);
         setReminderTimes(["11:00", "18:00"]);
+        setProjectId(null);
+        setProjectStatus("TODO");
+        setDeadline("");
       }
     }
     prevIsOpenRef.current = isOpen;
@@ -194,11 +214,14 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
         startTime: hasScheduledTime && startTime ? startTime : undefined,
         endTime: hasScheduledTime && endTime ? endTime : undefined,
         date: targetDate,
+        deadline: deadline || null,
         recurrence,
         recurrenceConfig: recurrence === "CUSTOM" ? { days: selectedDays } : undefined,
         enableReminders,
         reminderOffsetMinutes: hasScheduledTime ? reminderOffsetMinutes : undefined,
         reminderTimes: !hasScheduledTime ? reminderTimes : undefined,
+        projectId: projectId || null,
+        projectStatus: projectId ? projectStatus : null,
       },
       initialTask?.id
     );
@@ -295,6 +318,36 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
               onChange={(e) => setTargetDate(e.target.value)}
               className="h-9 px-3 rounded-xl bg-[#252830] border border-[#343740] text-white text-xs font-mono font-bold focus:border-[#D4F63D] outline-none text-center cursor-pointer"
             />
+          </div>
+
+          {/* Deadline Field (optional) */}
+          <div className="p-3 rounded-2xl bg-[#22242B] border border-[#2F323E] flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <Flag className="w-4 h-4 text-[#D4F63D]" />
+              <div>
+                <div className="text-xs font-bold text-white">Deadline</div>
+                <div className="text-[10px] text-[#8E929E]">Optionnel — date limite</div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <input
+                type="date"
+                value={deadline}
+                onChange={(e) => setDeadline(e.target.value)}
+                className="h-9 px-3 rounded-xl bg-[#252830] border border-[#343740] text-white text-xs font-mono font-bold focus:border-[#D4F63D] outline-none text-center cursor-pointer"
+              />
+              {deadline && (
+                <button
+                  type="button"
+                  onClick={() => setDeadline("")}
+                  title="Retirer la deadline"
+                  className="p-1.5 rounded-lg text-[#8E929E] hover:text-red-400 hover:bg-[#252830] transition-colors cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
           </div>
 
           {/* ========================================================================= */}
@@ -747,6 +800,98 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
             )}
           </div>
 
+          {/* ========================================================================= */}
+          {/* 6. SECTION EXPANDABLE: Projet                                             */}
+          {/* ========================================================================= */}
+          <div className="rounded-2xl bg-[#22242B] border border-[#2F323E] overflow-hidden transition-all">
+            <button
+              type="button"
+              onClick={() => toggleSection("project")}
+              className="w-full p-3.5 flex items-center justify-between hover:bg-[#282B35] transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-2.5">
+                <FolderKanban className="w-4 h-4 text-[#D4F63D]" />
+                <span className="text-xs font-bold text-white">Projet</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-[#17181D] text-[#D4F63D] border border-[#2E323E]">
+                  {projectId ? projects.find((p) => p.id === projectId)?.name || "…" : "Aucun"}
+                </span>
+                <ChevronDown
+                  className={cn(
+                    "w-4 h-4 text-[#8E929E] transition-transform duration-200",
+                    expandedSections.project ? "rotate-180 text-white" : ""
+                  )}
+                />
+              </div>
+            </button>
+
+            {expandedSections.project && (
+              <div className="p-3.5 pt-1 border-t border-[#2B2E39] space-y-3 animate-in fade-in duration-150">
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setProjectId(null)}
+                    className={cn(
+                      "px-3 py-2 rounded-xl text-xs font-semibold border transition-all text-center truncate cursor-pointer",
+                      !projectId
+                        ? "bg-[#D4F63D]/15 border-[#D4F63D] text-[#D4F63D]"
+                        : "bg-[#1C1D22] border-[#343740] text-[#9CA3AF] hover:border-[#4B5563]"
+                    )}
+                  >
+                    Aucun projet
+                  </button>
+                  {projects.map((p) => (
+                    <button
+                      type="button"
+                      key={p.id}
+                      onClick={() => setProjectId(p.id)}
+                      className={cn(
+                        "px-3 py-2 rounded-xl text-xs font-semibold border transition-all text-center truncate cursor-pointer flex items-center justify-center gap-1.5",
+                        projectId === p.id
+                          ? "bg-[#D4F63D]/15 border-[#D4F63D] text-[#D4F63D]"
+                          : "bg-[#1C1D22] border-[#343740] text-[#9CA3AF] hover:border-[#4B5563]"
+                      )}
+                    >
+                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: p.color }} />
+                      <span className="truncate">{p.name}</span>
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setIsNewProjectOpen(true)}
+                    className="px-3 py-2 rounded-xl text-xs font-semibold border border-dashed border-[#4B5563] text-[#8E929E] hover:border-[#D4F63D] hover:text-[#D4F63D] transition-all text-center truncate cursor-pointer"
+                  >
+                    + Nouveau
+                  </button>
+                </div>
+
+                {projectId && (
+                  <div className="pt-2 border-t border-[#343740] space-y-2">
+                    <span className="block text-[11px] font-semibold text-[#8E929E]">Colonne</span>
+                    <div className="grid grid-cols-2 gap-2">
+                      {PROJECT_STATUS_COLUMNS.map((col) => (
+                        <button
+                          type="button"
+                          key={col.id}
+                          onClick={() => setProjectStatus(col.id)}
+                          className={cn(
+                            "px-3 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer",
+                            projectStatus === col.id
+                              ? "bg-[#D4F63D] text-black border-[#D4F63D] font-bold shadow-sm"
+                              : "bg-[#1C1D22] border-[#343740] text-[#D1D5DB] hover:border-[#4B5563]"
+                          )}
+                        >
+                          {col.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* Submit Action Button */}
           <button
             type="submit"
@@ -766,6 +911,21 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
           </button>
         </form>
       </div>
+
+      <ProjectFormModal
+        isOpen={isNewProjectOpen}
+        onClose={() => setIsNewProjectOpen(false)}
+        onSubmit={(name, color) => {
+          createProject.mutate(
+            { name, color },
+            {
+              onSuccess: (newProject) => {
+                setProjectId(newProject.id);
+              },
+            }
+          );
+        }}
+      />
     </div>
   );
 };

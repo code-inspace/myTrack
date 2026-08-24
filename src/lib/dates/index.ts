@@ -162,13 +162,32 @@ export function getLast7Days(endDate: Date = new Date()): Array<{
   });
 }
 
+interface TaskDateOverrideEntry {
+  skipped?: boolean;
+  startTime?: string | null;
+  endTime?: string | null;
+  movedFrom?: string;
+}
+
 export function isTaskScheduledForDate(
   recurrence: "ONCE" | "DAILY" | "WEEKDAYS" | "WEEKLY" | "CUSTOM",
   recurrenceConfig: { days?: number[] } | null | undefined,
   targetDate: Date,
-  taskCreatedAt?: string | Date
+  taskCreatedAt?: string | Date,
+  dateOverrides?: Record<string, TaskDateOverrideEntry> | null
 ): boolean {
   const dayOfWeek = targetDate.getDay(); // 0=Dim, 1=Lun, ..., 6=Sam
+
+  // Per-occurrence drag-to-day overrides take precedence over the recurrence pattern
+  if (dateOverrides && recurrence !== "ONCE") {
+    const dateStr = format(targetDate, "yyyy-MM-dd");
+    const override = dateOverrides[dateStr];
+    if (override && typeof override === "object") {
+      if (override.skipped) return false;
+      // Any other override on a date outside the normal pattern means this occurrence was moved here
+      return true;
+    }
+  }
 
   if (recurrence === "DAILY") return true;
 
@@ -199,4 +218,18 @@ export function isTaskScheduledForDate(
   }
 
   return true;
+}
+
+/**
+ * Uncompleted one-shot (ONCE) tasks carry over onto every day after their original date, up to
+ * and including today, until they are completed — so they don't silently disappear if missed.
+ */
+export function isOnceTaskCarriedOver(
+  originalDate: string | null | undefined,
+  viewDateStr: string,
+  todayStr: string,
+  hasBeenCompleted: boolean
+): boolean {
+  if (!originalDate || hasBeenCompleted) return false;
+  return viewDateStr > originalDate && viewDateStr <= todayStr;
 }

@@ -20,6 +20,7 @@ export interface Task {
   category: string;
   startTime?: string | null; // "07:00"
   endTime?: string | null;   // "08:00"
+  deadline?: string | null;  // "YYYY-MM-DD"
   recurrence: RecurrenceType;
   recurrenceConfig?: RecurrenceConfig | null;
   dateOverrides?: Record<string, any> | null;
@@ -32,6 +33,9 @@ export interface Task {
   reminderOffsetMinutes?: number | null;
   reminderTimes?: string[] | null;
   isArchived: boolean;
+  sortOrder?: number | null;
+  projectId?: string | null;
+  projectStatus?: "TODO" | "IN_PROGRESS" | "WAITING" | "DONE" | null;
   createdAt: string;
   updatedAt: string;
 }

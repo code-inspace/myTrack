@@ -33,7 +33,14 @@ export function sortTasksByPriority(tasks: TaskWithCompletion[]): TaskWithComple
     if (!a.isCompletedToday && b.isCompletedToday) return -1;
     if (a.isCompletedToday && !b.isCompletedToday) return 1;
 
-    // 3. Start time if set
+    // 3. Manual drag-and-drop priority order, when set
+    const aOrder = a.sortOrder;
+    const bOrder = b.sortOrder;
+    if (aOrder != null && bOrder != null) return aOrder - bOrder;
+    if (aOrder != null) return -1;
+    if (bOrder != null) return 1;
+
+    // 4. Start time if set
     const aTime = a.effectiveStartTime || a.startTime;
     const bTime = b.effectiveStartTime || b.startTime;
     if (aTime && bTime) return aTime.localeCompare(bTime);

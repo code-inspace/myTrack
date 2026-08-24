@@ -29,7 +29,17 @@ CREATE TABLE IF NOT EXISTS public.users (
     updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
--- 2. Tasks Table
+-- 2. Projects Table (referenced by tasks.project_id below)
+CREATE TABLE IF NOT EXISTS public.projects (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    color TEXT DEFAULT '#D4F63D',
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+-- 3. Tasks Table
 CREATE TABLE IF NOT EXISTS public.tasks (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
@@ -38,6 +48,7 @@ CREATE TABLE IF NOT EXISTS public.tasks (
     category TEXT DEFAULT 'General' NOT NULL,
     start_time TEXT,
     end_time TEXT,
+    deadline TEXT,
     recurrence "RecurrenceType" DEFAULT 'DAILY' NOT NULL,
     recurrence_config JSONB,
     tracking_type "TrackingType" DEFAULT 'BOOLEAN' NOT NULL,
@@ -45,11 +56,14 @@ CREATE TABLE IF NOT EXISTS public.tasks (
     unit TEXT,
     is_active BOOLEAN DEFAULT false NOT NULL,
     is_archived BOOLEAN DEFAULT false NOT NULL,
+    sort_order INTEGER,
+    project_id UUID REFERENCES public.projects(id) ON DELETE SET NULL,
+    project_status TEXT DEFAULT 'TODO',
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
--- 3. Task Completions Table
+-- 4. Task Completions Table
 CREATE TABLE IF NOT EXISTS public.task_completions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     task_id UUID NOT NULL REFERENCES public.tasks(id) ON DELETE CASCADE,
@@ -150,6 +164,7 @@ CREATE TABLE IF NOT EXISTS public.sleep_logs (
 
 -- Enable RLS on all tables
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.task_completions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notification_preferences ENABLE ROW LEVEL SECURITY;
@@ -163,6 +178,11 @@ ALTER TABLE public.chat_messages ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can view and edit own profile"
     ON public.users FOR ALL
     USING (auth.uid() = id);
+
+-- Projects policies
+CREATE POLICY "Users can manage their own projects"
+    ON public.projects FOR ALL
+    USING (auth.uid() = user_id);
 
 -- Tasks policies
 CREATE POLICY "Users can manage their own tasks"

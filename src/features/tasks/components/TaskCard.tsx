@@ -2,18 +2,17 @@
 
 import React from "react";
 import { TaskWithCompletion } from "../types";
-import { Clock, Repeat, Play, Check, Plus, Trash2, Edit3, GripVertical, Bell, BellOff } from "lucide-react";
+import { Clock, Repeat, Play, Check, Plus, Trash2, Edit3, GripVertical, Bell, BellOff, Flag } from "lucide-react";
 import { cn } from "@/lib/utils";
 import confetti from "canvas-confetti";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { getTodayDateString } from "@/lib/dates";
 
 interface TaskCardProps {
   task: TaskWithCompletion;
-  index?: number;
-  isDraggable?: boolean;
-  isDragging?: boolean;
-  onDragStart?: (e: React.DragEvent, index: number) => void;
-  onDragOver?: (e: React.DragEvent, index: number) => void;
-  onDragEnd?: (e: React.DragEvent) => void;
+  /** Enables drag-to-reorder via dnd-kit (grip handle becomes the drag source). */
+  sortable?: boolean;
   onToggleActive: (taskId: string) => void;
   onToggleComplete: (taskId: string) => void;
   onToggleReminder?: (taskId: string) => void;
@@ -32,12 +31,7 @@ const RECURRENCE_LABEL_MAP: Record<string, string> = {
 
 export const TaskCard: React.FC<TaskCardProps> = ({
   task,
-  index = 0,
-  isDraggable = false,
-  isDragging = false,
-  onDragStart,
-  onDragOver,
-  onDragEnd,
+  sortable = false,
   onToggleActive,
   onToggleComplete,
   onToggleReminder,
@@ -47,6 +41,15 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 }) => {
   const isCompleted = task.isCompletedToday;
   const isRemindersEnabled = task.enableReminders !== false;
+
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: task.id, disabled: !sortable });
 
   // No quantitative counter if it's duration / minutes (handled in real-time or agenda)
   const isDurationUnit =
@@ -76,13 +79,16 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   const displayEnd = task.effectiveEndTime !== undefined ? task.effectiveEndTime : task.endTime;
   const hasTime = Boolean(displayStart || displayEnd);
 
+  const isDeadlinePassed = Boolean(task.deadline) && !isCompleted && task.deadline! < getTodayDateString();
+
   return (
     <div
-      draggable={isDraggable}
-      onDragStart={(e) => onDragStart && onDragStart(e, index)}
-      onDragOver={(e) => onDragOver && onDragOver(e, index)}
-      onDragEnd={(e) => onDragEnd && onDragEnd(e)}
-      style={{ touchAction: "pan-y" }}
+      ref={setNodeRef}
+      style={{
+        touchAction: "pan-y",
+        transform: CSS.Transform.toString(transform),
+        transition,
+      }}
       className={cn(
         "relative w-full rounded-2xl p-4 transition-all duration-200 border space-y-3 shadow-sm select-none touch-pan-y",
         isDragging
@@ -96,9 +102,11 @@ export const TaskCard: React.FC<TaskCardProps> = ({
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-2.5 flex-1 min-w-0">
           {/* Reordering Drag Handle */}
-          {isDraggable && (
+          {sortable && (
             <div
-              className="p-1 -ml-1 text-[#6B7280] hover:text-[#D4F63D] cursor-grab active:cursor-grabbing flex-shrink-0 transition-colors mt-0.5"
+              {...attributes}
+              {...listeners}
+              className="p-1 -ml-1 text-[#6B7280] hover:text-[#D4F63D] cursor-grab active:cursor-grabbing flex-shrink-0 transition-colors mt-0.5 touch-none"
               title="Glisser pour réorganiser par priorité"
             >
               <GripVertical className="w-4 h-4" />
@@ -230,6 +238,21 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           {task.category && task.category !== "General" && (
             <span className="px-2 py-0.5 rounded-md bg-[#252830] text-[#9CA3AF] text-[10px] font-semibold whitespace-nowrap">
               {task.category}
+            </span>
+          )}
+
+          {task.deadline && (
+            <span
+              className={cn(
+                "inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[11px] font-semibold whitespace-nowrap",
+                isDeadlinePassed
+                  ? "bg-red-500/15 border-red-500/50 text-red-400 animate-pulse"
+                  : "bg-[#141518] border-[#252830] text-[#8E929E]"
+              )}
+              title={isDeadlinePassed ? "Deadline dépassée" : "Deadline"}
+            >
+              <Flag className={cn("w-3 h-3", isDeadlinePassed ? "text-red-400" : "text-[#6B7280]")} />
+              <span>{task.deadline}</span>
             </span>
           )}
         </div>

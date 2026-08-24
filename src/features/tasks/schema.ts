@@ -7,6 +7,7 @@ export const TaskFormSchema = z.object({
   startTime: z.string().optional(),
   endTime: z.string().optional(),
   date: z.string().optional(),
+  deadline: z.string().optional().nullable(),
   recurrence: z.enum(["ONCE", "DAILY", "WEEKDAYS", "WEEKLY", "CUSTOM"]).default("ONCE"),
   recurrenceConfig: z
     .object({
@@ -21,6 +22,8 @@ export const TaskFormSchema = z.object({
   enableReminders: z.boolean().optional(),
   reminderOffsetMinutes: z.number().optional().nullable(),
   reminderTimes: z.array(z.string()).optional().nullable(),
+  projectId: z.string().optional().nullable(),
+  projectStatus: z.enum(["TODO", "IN_PROGRESS", "WAITING", "DONE"]).optional().nullable(),
 });
 
 export type TaskFormValues = z.infer<typeof TaskFormSchema>;

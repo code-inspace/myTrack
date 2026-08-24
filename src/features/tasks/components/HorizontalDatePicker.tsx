@@ -7,15 +7,41 @@ import { cn } from "@/lib/utils";
 import { parseISO, format, addDays, subDays, eachDayOfInterval } from "date-fns";
 import { fr } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, ChevronDown, Calendar, RotateCcw } from "lucide-react";
+import { useDroppable } from "@dnd-kit/core";
+import { cn as cnClass } from "@/lib/utils";
+
+export const DAY_DROP_ID_PREFIX = "day-drop-";
 
 interface HorizontalDatePickerProps {
   selectedDate: string; // "YYYY-MM-DD"
   onSelectDate: (date: string) => void;
+  /** true while a habit card is being dragged, to hint that days accept drops */
+  isDragActive?: boolean;
 }
+
+const DayDropTarget: React.FC<{ dateStr: string; isDragActive?: boolean; children: React.ReactNode }> = ({
+  dateStr,
+  isDragActive,
+  children,
+}) => {
+  const { setNodeRef, isOver } = useDroppable({ id: `${DAY_DROP_ID_PREFIX}${dateStr}` });
+  return (
+    <div
+      ref={setNodeRef}
+      className={cnClass(
+        "flex-shrink-0 rounded-2xl transition-all",
+        isOver ? "ring-2 ring-[#D4F63D] scale-105" : isDragActive ? "ring-1 ring-[#D4F63D]/30" : ""
+      )}
+    >
+      {children}
+    </div>
+  );
+};
 
 export const HorizontalDatePicker: React.FC<HorizontalDatePickerProps> = ({
   selectedDate,
   onSelectDate,
+  isDragActive,
 }) => {
   const [isMonthModalOpen, setIsMonthModalOpen] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
@@ -147,13 +173,13 @@ export const HorizontalDatePicker: React.FC<HorizontalDatePickerProps> = ({
           const isSelected = day.dateStr === selectedDate;
 
           return (
+            <DayDropTarget key={day.dateStr} dateStr={day.dateStr} isDragActive={isDragActive}>
             <button
-              key={day.dateStr}
               ref={isSelected ? selectedButtonRef : null}
               type="button"
               onClick={() => onSelectDate(day.dateStr)}
               className={cn(
-                "flex-shrink-0 min-w-[50px] w-[50px] flex flex-col items-center justify-center py-2 px-1 rounded-2xl transition-all duration-200 cursor-pointer text-center select-none",
+                "min-w-[50px] w-[50px] flex flex-col items-center justify-center py-2 px-1 rounded-2xl transition-all duration-200 cursor-pointer text-center select-none",
                 isSelected
                   ? "bg-[#252830] ring-1 ring-[#3a3e4c] shadow-lg scale-[1.04]"
                   : "hover:bg-[#1c1d22]/80 opacity-70 hover:opacity-100 bg-[#16171C]/50"
@@ -190,6 +216,7 @@ export const HorizontalDatePicker: React.FC<HorizontalDatePickerProps> = ({
                 ) : null}
               </div>
             </button>
+            </DayDropTarget>
           );
         })}
       </div>

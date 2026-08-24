@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { TasksHeaderWithNav } from "@/components/shared/TasksHeaderWithNav";
+import { TasksHeaderWithNav, TasksTab } from "@/components/shared/TasksHeaderWithNav";
+import { ProjectsView } from "@/features/projects/components/ProjectsView";
 import { ActiveTaskBanner } from "@/features/tasks/components/ActiveTaskBanner";
 import { TaskCard } from "@/features/tasks/components/TaskCard";
 import { TaskFormModal } from "@/features/tasks/components/TaskFormModal";
@@ -13,13 +14,24 @@ import { AgendaTimeline } from "@/features/agenda/components/AgendaTimeline";
 import { SleepJournalView } from "@/features/sleep/components/SleepJournalView";
 import { DailyBilanView } from "@/features/sleep/components/DailyBilanView";
 import { useTasks, useTaskMutations } from "@/features/tasks/hooks";
-import { TaskWithCompletion, TaskFormValues } from "@/features/tasks/types";
+import { Task, TaskWithCompletion, TaskFormValues } from "@/features/tasks/types";
 import { getTodayDateString } from "@/lib/dates";
 import { CheckCircle2, Inbox, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  DndContext,
+  DragEndEvent,
+  DragStartEvent,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+} from "@dnd-kit/core";
+import { SortableContext, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
+import { DAY_DROP_ID_PREFIX } from "@/features/tasks/components/HorizontalDatePicker";
 
 interface UnifiedTasksAgendaViewProps {
-  initialTab?: "habits" | "agenda" | "sleep" | "bilan";
+  initialTab?: TasksTab;
 }
 
 export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
@@ -27,40 +39,61 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
 }) => {
   const todayStr = getTodayDateString();
   const [selectedDate, setSelectedDate] = useState<string>(todayStr);
-  const [activeTab, setActiveTab] = useState<"habits" | "agenda" | "sleep" | "bilan">(initialTab);
+  const [activeTab, setActiveTab] = useState<TasksTab>(initialTab);
 
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
-  const [editingTask, setEditingTask] = useState<TaskWithCompletion | null>(null);
+  const [editingTask, setEditingTask] = useState<TaskWithCompletion | Task | null>(null);
   const [selectedLoggingTask, setSelectedLoggingTask] = useState<TaskWithCompletion | null>(null);
   const [quickTitle, setQuickTitle] = useState("");
   const [isTestNotificationOpen, setIsTestNotificationOpen] = useState(false);
 
   const { tasks, allTasks } = useTasks(selectedDate);
 
-  // Drag and drop priority reordering state for Habits tab
-  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
-  const [customOrder, setCustomOrder] = useState<string[]>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const saved = localStorage.getItem("mytrack_custom_task_order");
-        return saved ? JSON.parse(saved) : [];
-      } catch {
-        return [];
-      }
-    }
-    return [];
-  });
-
   const {
     createTask,
     updateTask,
     updateSchedule,
+    reorderTasks,
+    moveOccurrence,
     toggleTaskActive,
     toggleCompletion,
     updateCompletionValue,
     updateTaskStartedAt,
     deleteTask,
   } = useTaskMutations();
+
+  // dnd-kit: shared drag context for habit reordering + drag-onto-day rescheduling
+  const dndSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
+  );
+  const [activeDragTaskId, setActiveDragTaskId] = useState<string | null>(null);
+
+  const handleHabitDragStart = (event: DragStartEvent) => {
+    setActiveDragTaskId(String(event.active.id));
+  };
+
+  const handleHabitDragEnd = (event: DragEndEvent) => {
+    setActiveDragTaskId(null);
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const overId = String(over.id);
+
+    if (overId.startsWith(DAY_DROP_ID_PREFIX)) {
+      const toDate = overId.slice(DAY_DROP_ID_PREFIX.length);
+      if (toDate && toDate !== selectedDate) {
+        moveOccurrence.mutate({ taskId: String(active.id), fromDate: selectedDate, toDate });
+      }
+      return;
+    }
+
+    const oldIndex = orderedTasks.findIndex((t) => t.id === active.id);
+    const newIndex = orderedTasks.findIndex((t) => t.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const reordered = arrayMove(orderedTasks, oldIndex, newIndex);
+    reorderTasks.mutate(reordered.map((t) => t.id));
+  };
 
   // Active tasks for Habits view (shows all tasks scheduled for the date)
   const activeTasksMapped = tasks.filter((t) => t.isActive);
@@ -81,7 +114,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
       title: quickTitle.trim(),
       category: "General",
       trackingType: "BOOLEAN",
-      recurrence: "DAILY",
+      recurrence: "ONCE",
       date: selectedDate,
     });
     setQuickTitle("");
@@ -108,41 +141,9 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
     }
   };
 
-  // Reorder tasks according to custom drag-and-drop priority
-  const nonActiveTasks = tasks.filter((task) => !task.isActive);
-  const orderedTasks = [...nonActiveTasks].sort((a, b) => {
-    const aIndex = customOrder.indexOf(a.id);
-    const bIndex = customOrder.indexOf(b.id);
-    if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
-    if (aIndex !== -1) return -1;
-    if (bIndex !== -1) return 1;
-    return 0;
-  });
-
-  const handleDragStart = (e: React.DragEvent, index: number) => {
-    setDraggedIndex(index);
-    e.dataTransfer.effectAllowed = "move";
-  };
-
-  const handleDragOver = (e: React.DragEvent, targetIndex: number) => {
-    e.preventDefault();
-    if (draggedIndex === null || draggedIndex === targetIndex) return;
-
-    const newTasks = [...orderedTasks];
-    const [draggedItem] = newTasks.splice(draggedIndex, 1);
-    newTasks.splice(targetIndex, 0, draggedItem);
-
-    const newOrderIds = newTasks.map((t) => t.id);
-    setCustomOrder(newOrderIds);
-    setDraggedIndex(targetIndex);
-    try {
-      localStorage.setItem("mytrack_custom_task_order", JSON.stringify(newOrderIds));
-    } catch {}
-  };
-
-  const handleDragEnd = () => {
-    setDraggedIndex(null);
-  };
+  // Non-active tasks for the Habits list — already ordered by sortTasksByPriority (active first,
+  // then sort_order, then start time/title) via useTasks()
+  const orderedTasks = tasks.filter((task) => !task.isActive);
 
   // Agenda Drag & Schedule handlers
   const handleDragStartTask = (e: React.DragEvent, task: TaskWithCompletion) => {
@@ -176,7 +177,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
     });
   };
 
-  const handleTabChange = (tab: "habits" | "agenda" | "sleep" | "bilan") => {
+  const handleTabChange = (tab: TasksTab) => {
     setActiveTab(tab);
     if (typeof window !== "undefined") {
       window.history.replaceState(
@@ -188,12 +189,20 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
           ? "/sleep"
           : tab === "bilan"
           ? "/bilan"
+          : tab === "projects"
+          ? "/projects"
           : "/tasks"
       );
     }
   };
 
   return (
+    <DndContext
+      sensors={dndSensors}
+      collisionDetection={closestCenter}
+      onDragStart={handleHabitDragStart}
+      onDragEnd={handleHabitDragEnd}
+    >
     <div className="flex-1 flex flex-col h-screen max-h-screen bg-[#0E0F12] relative overflow-hidden">
       {/* 1. Permanent Fixed Header Area: zero reload / zero unmount */}
       <div className="flex-shrink-0 z-30 shadow-md">
@@ -205,6 +214,8 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
               ? "Mon Agenda"
               : activeTab === "sleep"
               ? "Sommeil"
+              : activeTab === "projects"
+              ? "Projets"
               : "Journal & Bilan"
           }
           selectedDate={selectedDate}
@@ -215,6 +226,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
           }}
           activeTab={activeTab}
           onChangeTab={handleTabChange}
+          isDragActive={Boolean(activeDragTaskId)}
         />
 
         {/* Fixed "Jour entier" Section when in Agenda mode */}
@@ -244,6 +256,15 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
       ) : activeTab === "sleep" ? (
         /* SOMMEIL TAB */
         <SleepJournalView selectedDate={selectedDate} />
+      ) : activeTab === "projects" ? (
+        /* PROJETS TAB */
+        <ProjectsView
+          allTasks={allTasks}
+          onEditTask={(t) => {
+            setEditingTask(t);
+            setIsTaskModalOpen(true);
+          }}
+        />
       ) : activeTab === "habits" ? (
         /* HABIT LIST TAB */
         <div
@@ -309,31 +330,28 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
                 </button>
               </div>
             ) : (
-              orderedTasks.map((task, idx) => (
-                <TaskCard
-                  key={task.id}
-                  task={task}
-                  index={idx}
-                  isDraggable={true}
-                  isDragging={draggedIndex === idx}
-                  onDragStart={handleDragStart}
-                  onDragOver={handleDragOver}
-                  onDragEnd={handleDragEnd}
-                  onToggleActive={(id) => toggleTaskActive.mutate({ taskId: id, date: selectedDate })}
-                  onToggleComplete={(id) => toggleCompletion.mutate({ taskId: id, date: selectedDate })}
-                  onToggleReminder={(id) => {
-                    const target = tasks.find((t) => t.id === id);
-                    const newEnable = target ? !(target.enableReminders !== false) : true;
-                    updateTask.mutate({ taskId: id, values: { enableReminders: newEnable } });
-                  }}
-                  onOpenLogModal={(t) => setSelectedLoggingTask(t)}
-                  onEditTask={(t) => {
-                    setEditingTask(t);
-                    setIsTaskModalOpen(true);
-                  }}
-                  onDeleteTask={(id) => deleteTask.mutate(id)}
-                />
-              ))
+              <SortableContext items={orderedTasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+                {orderedTasks.map((task) => (
+                  <TaskCard
+                    key={task.id}
+                    task={task}
+                    sortable
+                    onToggleActive={(id) => toggleTaskActive.mutate({ taskId: id, date: selectedDate })}
+                    onToggleComplete={(id) => toggleCompletion.mutate({ taskId: id, date: selectedDate })}
+                    onToggleReminder={(id) => {
+                      const target = tasks.find((t) => t.id === id);
+                      const newEnable = target ? !(target.enableReminders !== false) : true;
+                      updateTask.mutate({ taskId: id, values: { enableReminders: newEnable } });
+                    }}
+                    onOpenLogModal={(t) => setSelectedLoggingTask(t)}
+                    onEditTask={(t) => {
+                      setEditingTask(t);
+                      setIsTaskModalOpen(true);
+                    }}
+                    onDeleteTask={(id) => deleteTask.mutate(id)}
+                  />
+                ))}
+              </SortableContext>
             )}
           </div>
         </div>
@@ -398,5 +416,6 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
         }}
       />
     </div>
+    </DndContext>
   );
 };

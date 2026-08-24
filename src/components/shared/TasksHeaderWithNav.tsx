@@ -5,8 +5,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AppHeader } from "@/components/shared/AppHeader";
 import { HorizontalDatePicker } from "@/features/tasks/components/HorizontalDatePicker";
-import { ListTodo, Calendar, Moon, BookOpen } from "lucide-react";
+import { ListTodo, Calendar, Moon, BookOpen, FolderKanban } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+export type TasksTab = "habits" | "agenda" | "sleep" | "bilan" | "projects";
 
 interface TasksHeaderWithNavProps {
   title?: string;
@@ -14,8 +16,10 @@ interface TasksHeaderWithNavProps {
   onSelectDate: (date: string) => void;
   onOpenNotifications?: () => void;
   onNewTask?: () => void;
-  activeTab?: "habits" | "agenda" | "sleep" | "bilan";
-  onChangeTab?: (tab: "habits" | "agenda" | "sleep" | "bilan") => void;
+  activeTab?: TasksTab;
+  onChangeTab?: (tab: TasksTab) => void;
+  /** true while a habit card is being dragged, to hint that the day strip accepts drops */
+  isDragActive?: boolean;
 }
 
 export const TasksHeaderWithNav: React.FC<TasksHeaderWithNavProps> = ({
@@ -26,17 +30,19 @@ export const TasksHeaderWithNav: React.FC<TasksHeaderWithNavProps> = ({
   onNewTask,
   activeTab,
   onChangeTab,
+  isDragActive,
 }) => {
   const pathname = usePathname();
 
-  const views: Array<{ id: "habits" | "agenda" | "sleep" | "bilan"; href: string; label: string; icon: any; activePaths: string[] }> = [
+  const views: Array<{ id: TasksTab; href: string; label: string; icon: any; activePaths: string[] }> = [
     { id: "habits", href: "/tasks", label: "Habitudes", icon: ListTodo, activePaths: ["/tasks", "/"] },
     { id: "agenda", href: "/agenda", label: "Agenda", icon: Calendar, activePaths: ["/agenda"] },
     { id: "sleep", href: "/sleep", label: "Sommeil", icon: Moon, activePaths: ["/sleep"] },
     { id: "bilan", href: "/bilan", label: "Bilan", icon: BookOpen, activePaths: ["/bilan"] },
+    { id: "projects", href: "/projects", label: "Projets", icon: FolderKanban, activePaths: ["/projects"] },
   ];
 
-  const currentTab =
+  const currentTab: TasksTab =
     activeTab ||
     (pathname.includes("/agenda")
       ? "agenda"
@@ -44,6 +50,8 @@ export const TasksHeaderWithNav: React.FC<TasksHeaderWithNavProps> = ({
       ? "sleep"
       : pathname.includes("/bilan")
       ? "bilan"
+      : pathname.includes("/projects")
+      ? "projects"
       : "habits");
 
   return (
@@ -59,11 +67,15 @@ export const TasksHeaderWithNav: React.FC<TasksHeaderWithNavProps> = ({
       <HorizontalDatePicker
         selectedDate={selectedDate}
         onSelectDate={onSelectDate}
+        isDragActive={isDragActive}
       />
 
-      {/* 3. Cohesive Segmented View Switcher (Habitudes / Agenda / Sommeil / Bilan) */}
+      {/* 3. Cohesive Segmented View Switcher (Habitudes / Agenda / Sommeil / Bilan / Projets) */}
       <div className="px-3 pb-3 pt-0.5">
-        <div className="grid grid-cols-4 gap-1 p-1 bg-[#1A1C22] rounded-2xl border border-[#2B2E38] shadow-inner max-w-md mx-auto">
+        <div
+          className="flex items-center gap-1 overflow-x-auto scrollbar-none touch-pan-x overscroll-x-contain p-1 bg-[#1A1C22] rounded-2xl border border-[#2B2E38] shadow-inner max-w-md mx-auto"
+          style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+        >
           {views.map((v) => {
             const Icon = v.icon;
             const isActive = currentTab === v.id;
@@ -75,7 +87,7 @@ export const TasksHeaderWithNav: React.FC<TasksHeaderWithNavProps> = ({
                   type="button"
                   onClick={() => onChangeTab(v.id)}
                   className={cn(
-                    "flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer text-center",
+                    "flex-shrink-0 min-w-[92px] flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer text-center",
                     isActive
                       ? "bg-[#272A34] text-white shadow-md ring-1 ring-[#3D4252] scale-[1.02]"
                       : "text-[#8E929E] hover:text-[#D1D5DB] hover:bg-[#20232B]/60"
@@ -97,7 +109,7 @@ export const TasksHeaderWithNav: React.FC<TasksHeaderWithNavProps> = ({
                 key={v.href}
                 href={v.href}
                 className={cn(
-                  "flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer text-center",
+                  "flex-shrink-0 min-w-[92px] flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer text-center",
                   isActive
                     ? "bg-[#272A34] text-white shadow-md ring-1 ring-[#3D4252] scale-[1.02]"
                     : "text-[#8E929E] hover:text-[#D1D5DB] hover:bg-[#20232B]/60"

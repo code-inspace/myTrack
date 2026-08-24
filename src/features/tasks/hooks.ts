@@ -11,12 +11,14 @@ import {
   updateDbTaskActive,
   updateDbTaskStartedAt,
   updateTaskSchedule,
+  updateTaskSortOrder,
+  moveTaskOccurrence,
   upsertDbCompletion,
   deleteDbTask,
   getStoredTasks,
   getStoredCompletions,
 } from "./actions";
-import { isTaskScheduledForDate, addHoursToTimeString, getTodayDateString } from "@/lib/dates";
+import { isTaskScheduledForDate, isOnceTaskCarriedOver, addHoursToTimeString, getTodayDateString } from "@/lib/dates";
 import { mapTaskWithCompletion, sortTasksByPriority } from "./mappers";
 import { useAuth } from "@/providers/AuthProvider";
 import { createClient } from "@/utils/supabase/client";
@@ -68,13 +70,30 @@ export function useTasks(selectedDateStr: string) {
   });
 
   const selectedDate = parseISO(selectedDateStr);
+  const todayStr = getTodayDateString();
 
   // Filter tasks scheduled for the selected date
   const filteredTasks: TaskWithCompletion[] = allTasks
     .filter((task) => !task.isArchived)
-    .filter((task) =>
-      isTaskScheduledForDate(task.recurrence, task.recurrenceConfig, selectedDate, task.createdAt)
-    )
+    .filter((task) => {
+      const scheduled = isTaskScheduledForDate(
+        task.recurrence,
+        task.recurrenceConfig,
+        selectedDate,
+        task.createdAt,
+        task.dateOverrides
+      );
+      if (scheduled) return true;
+
+      // Uncompleted one-shot tasks carry over to the next day(s) instead of disappearing
+      if (task.recurrence === "ONCE") {
+        const originalDate = task.createdAt ? task.createdAt.split("T")[0] : null;
+        const hasBeenCompleted = allCompletions.some((c) => c.taskId === task.id && c.completed);
+        return isOnceTaskCarriedOver(originalDate, selectedDateStr, todayStr, hasBeenCompleted);
+      }
+
+      return false;
+    })
     .map((task) => mapTaskWithCompletion(task, allCompletions, selectedDateStr));
 
   const sortedTasks = sortTasksByPriority(filteredTasks);
@@ -112,6 +131,8 @@ export function useTaskMutations() {
         unit: values.unit || null,
         isActive: false,
         isArchived: false,
+        projectId: values.projectId || null,
+        projectStatus: values.projectStatus || null,
       });
     },
     onSuccess: (newTask) => {
@@ -176,6 +197,40 @@ export function useTaskMutations() {
       }
     },
     onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    },
+  });
+
+  const reorderTasks = useMutation({
+    mutationFn: async (taskIds: string[]) => {
+      await updateTaskSortOrder(taskIds, userId);
+    },
+    onMutate: async (taskIds: string[]) => {
+      await queryClient.cancelQueries({ queryKey: ["tasks", userId] });
+      const prevTasks = queryClient.getQueryData<Task[]>(["tasks", userId]);
+      const orderMap = new Map(taskIds.map((id, index) => [id, index]));
+
+      queryClient.setQueryData<Task[]>(["tasks", userId], (old = []) =>
+        old.map((t) => (orderMap.has(t.id) ? { ...t, sortOrder: orderMap.get(t.id)! } : t))
+      );
+
+      return { prevTasks };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.prevTasks) {
+        queryClient.setQueryData(["tasks", userId], context.prevTasks);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    },
+  });
+
+  const moveOccurrence = useMutation({
+    mutationFn: async ({ taskId, fromDate, toDate }: { taskId: string; fromDate: string; toDate: string }) => {
+      await moveTaskOccurrence(taskId, fromDate, toDate, userId);
+    },
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
     },
   });
@@ -463,6 +518,8 @@ export function useTaskMutations() {
     updateTask,
     toggleTaskActive,
     updateSchedule,
+    reorderTasks,
+    moveOccurrence,
     toggleCompletion,
     startTaskExecution,
     finishTaskExecution,

@@ -38,6 +38,7 @@ function mapDbTaskToModel(row: any): Task {
     category: row.category || "General",
     startTime: row.start_time ? convertUtcTimeToLocal(row.start_time) : null,
     endTime: row.end_time ? convertUtcTimeToLocal(row.end_time) : null,
+    deadline: row.deadline || null,
     recurrence: row.recurrence,
     recurrenceConfig: row.recurrence_config || null,
     dateOverrides,
@@ -58,6 +59,9 @@ function mapDbTaskToModel(row: any): Task {
     isActive: Boolean(row.is_active),
     startedAt: row.started_at || null,
     isArchived: Boolean(row.is_archived),
+    sortOrder: row.sort_order !== undefined && row.sort_order !== null ? row.sort_order : null,
+    projectId: row.project_id || null,
+    projectStatus: row.project_status || null,
     createdAt: row.created_at || new Date().toISOString(),
     updatedAt: row.updated_at || new Date().toISOString(),
   };
@@ -159,7 +163,7 @@ export async function createDbTask(task: Omit<Task, "id" | "createdAt" | "update
 
   const taskOverrides = {
     ...(task.dateOverrides || {}),
-    _enableReminders: task.enableReminders !== undefined ? task.enableReminders : true,
+    _enableReminders: task.enableReminders !== undefined ? task.enableReminders : false,
     _reminderOffsetMinutes: task.reminderOffsetMinutes !== undefined ? task.reminderOffsetMinutes : 10,
     _reminderTimes: task.reminderTimes || ["11:00", "18:00"],
   };
@@ -177,6 +181,7 @@ export async function createDbTask(task: Omit<Task, "id" | "createdAt" | "update
     category: task.category || "General",
     start_time: utcStartTime,
     end_time: utcEndTime,
+    deadline: task.deadline || null,
     recurrence: task.recurrence,
     recurrence_config: task.recurrenceConfig || null,
     date_overrides: taskOverrides,
@@ -186,6 +191,8 @@ export async function createDbTask(task: Omit<Task, "id" | "createdAt" | "update
     is_active: false,
     started_at: null,
     is_archived: false,
+    project_id: task.projectId || null,
+    project_status: task.projectId ? task.projectStatus || "TODO" : null,
     created_at: createdIso,
   };
 
@@ -238,18 +245,22 @@ export async function createDbTask(task: Omit<Task, "id" | "createdAt" | "update
     category: task.category || "General",
     startTime: task.startTime || null,
     endTime: task.endTime || null,
+    deadline: task.deadline || null,
     recurrence: task.recurrence,
     recurrenceConfig: task.recurrenceConfig || null,
     dateOverrides: taskOverrides,
     trackingType: task.trackingType,
     targetValue: task.targetValue !== undefined ? task.targetValue : null,
     unit: task.unit || null,
-    enableReminders: task.enableReminders !== undefined ? task.enableReminders : true,
+    enableReminders: task.enableReminders !== undefined ? task.enableReminders : false,
     reminderOffsetMinutes: task.reminderOffsetMinutes !== undefined ? task.reminderOffsetMinutes : 10,
     reminderTimes: task.reminderTimes || ["11:00", "18:00"],
     isActive: false,
     startedAt: null,
     isArchived: false,
+    sortOrder: null,
+    projectId: task.projectId || null,
+    projectStatus: task.projectId ? task.projectStatus || "TODO" : null,
     createdAt: createdIso,
     updatedAt: new Date().toISOString(),
   };
@@ -312,11 +323,18 @@ export async function updateDbTask(
   if (updates.category !== undefined) dbUpdates.category = updates.category;
   if (updates.startTime !== undefined) dbUpdates.start_time = updates.startTime ? convertLocalTimeToUtc(updates.startTime, updates.date) : null;
   if (updates.endTime !== undefined) dbUpdates.end_time = updates.endTime ? convertLocalTimeToUtc(updates.endTime, updates.date) : null;
+  if (updates.deadline !== undefined) dbUpdates.deadline = updates.deadline || null;
   if (updates.recurrence !== undefined) dbUpdates.recurrence = updates.recurrence;
   if (updates.recurrenceConfig !== undefined) dbUpdates.recurrence_config = updates.recurrenceConfig;
   if (updates.trackingType !== undefined) dbUpdates.tracking_type = updates.trackingType;
   if (updates.targetValue !== undefined) dbUpdates.target_value = updates.targetValue;
   if (updates.unit !== undefined) dbUpdates.unit = updates.unit || null;
+  if (updates.projectId !== undefined) {
+    dbUpdates.project_id = updates.projectId || null;
+    dbUpdates.project_status = updates.projectId ? (updates.projectStatus || target?.projectStatus || "TODO") : null;
+  } else if (updates.projectStatus !== undefined) {
+    dbUpdates.project_status = updates.projectStatus || null;
+  }
   if (updates.date !== undefined && (updates.recurrence === "ONCE" || target?.recurrence === "ONCE")) {
     dbUpdates.created_at = `${updates.date}T12:00:00.000Z`;
   }
@@ -387,6 +405,7 @@ export async function updateDbTask(
     category: updates.category !== undefined ? updates.category : baseTask.category,
     startTime: updates.startTime !== undefined ? (updates.startTime || null) : baseTask.startTime,
     endTime: updates.endTime !== undefined ? (updates.endTime || null) : baseTask.endTime,
+    deadline: updates.deadline !== undefined ? (updates.deadline || null) : baseTask.deadline,
     recurrence: updates.recurrence !== undefined ? updates.recurrence : baseTask.recurrence,
     recurrenceConfig: updates.recurrenceConfig !== undefined ? updates.recurrenceConfig : baseTask.recurrenceConfig,
     trackingType: updates.trackingType !== undefined ? updates.trackingType : baseTask.trackingType,
@@ -396,6 +415,13 @@ export async function updateDbTask(
     enableReminders: updates.enableReminders !== undefined ? updates.enableReminders : baseTask.enableReminders ?? true,
     reminderOffsetMinutes: updates.reminderOffsetMinutes !== undefined ? updates.reminderOffsetMinutes : baseTask.reminderOffsetMinutes ?? 10,
     reminderTimes: updates.reminderTimes !== undefined ? updates.reminderTimes : baseTask.reminderTimes || ["11:00", "18:00"],
+    projectId: updates.projectId !== undefined ? (updates.projectId || null) : baseTask.projectId,
+    projectStatus:
+      updates.projectId !== undefined
+        ? (updates.projectId ? updates.projectStatus || baseTask.projectStatus || "TODO" : null)
+        : updates.projectStatus !== undefined
+        ? updates.projectStatus || null
+        : baseTask.projectStatus,
     updatedAt: nowIso,
   };
   const nextList = target
@@ -694,6 +720,96 @@ export async function updateTaskSchedule({
   }
 }
 
+/**
+ * Persists a new drag-and-drop priority order for a set of tasks (0..n-1 by array position).
+ */
+export async function updateTaskSortOrder(taskIds: string[], userId?: string): Promise<void> {
+  const supabase = createClient();
+  let targetId = userId;
+  if (!targetId) {
+    const { data: { session } } = await supabase.auth.getSession();
+    targetId = session?.user?.id || getEffectiveUserId();
+  }
+
+  const nowIso = new Date().toISOString();
+
+  try {
+    await Promise.all(
+      taskIds.map((taskId, index) =>
+        supabase
+          .from("tasks")
+          .update({ sort_order: index, updated_at: nowIso })
+          .eq("id", taskId)
+      )
+    );
+  } catch (err) {
+    console.warn("Supabase updateTaskSortOrder error:", err);
+  }
+
+  const tasks = getStoredTasks(targetId);
+  const orderMap = new Map(taskIds.map((id, index) => [id, index]));
+  const updated = tasks.map((t) =>
+    orderMap.has(t.id) ? { ...t, sortOrder: orderMap.get(t.id)!, updatedAt: nowIso } : t
+  );
+  saveStoredTasks(updated, targetId);
+}
+
+/**
+ * Moves a single occurrence of a task from one date to another (used by drag-and-drop onto the day strip).
+ * For a ONCE task this just changes its date. For a recurring task, the origin date is marked "skipped"
+ * and the destination date gets an added-occurrence override, both stored in the existing dateOverrides JSONB.
+ */
+export async function moveTaskOccurrence(
+  taskId: string,
+  fromDate: string,
+  toDate: string,
+  userId?: string
+): Promise<void> {
+  if (fromDate === toDate) return;
+
+  const supabase = createClient();
+  let targetId = userId;
+  if (!targetId) {
+    const { data: { session } } = await supabase.auth.getSession();
+    targetId = session?.user?.id || getEffectiveUserId();
+  }
+
+  const tasks = getStoredTasks(targetId);
+  const target = tasks.find((t) => t.id === taskId);
+  if (!target) return;
+
+  const nowIso = new Date().toISOString();
+
+  if (target.recurrence === "ONCE") {
+    await updateDbTask(taskId, { date: toDate, recurrence: "ONCE" }, targetId);
+    return;
+  }
+
+  const currentOverrides = target.dateOverrides || {};
+  const carriedStart = currentOverrides[fromDate]?.startTime ?? target.startTime ?? null;
+  const carriedEnd = currentOverrides[fromDate]?.endTime ?? target.endTime ?? null;
+
+  const updatedOverrides = {
+    ...currentOverrides,
+    [fromDate]: { skipped: true },
+    [toDate]: { startTime: carriedStart, endTime: carriedEnd, movedFrom: fromDate },
+  };
+
+  try {
+    await supabase
+      .from("tasks")
+      .update({ date_overrides: updatedOverrides, updated_at: nowIso })
+      .eq("id", taskId);
+  } catch (err) {
+    console.warn("Supabase moveTaskOccurrence error:", err);
+  }
+
+  const updated = tasks.map((t) =>
+    t.id === taskId ? { ...t, dateOverrides: updatedOverrides, updatedAt: nowIso } : t
+  );
+  saveStoredTasks(updated, targetId);
+}
+
 export async function deleteDbTask(taskId: string, userId?: string): Promise<void> {
   const supabase = createClient();
   let targetId = userId;
@@ -702,11 +818,18 @@ export async function deleteDbTask(taskId: string, userId?: string): Promise<voi
     targetId = session?.user?.id || getEffectiveUserId();
   }
 
-  // Cancel any pending notifications for this task
-  cancelTaskPushNotifications({
+  // Cancel any pending push notifications for this task before removing it
+  await cancelTaskPushNotifications({
     taskId,
     userId: targetId,
   }).catch(() => {});
+
+  try {
+    // Hard-delete associated reminders (don't rely solely on DB-level ON DELETE CASCADE)
+    await supabase.from("reminders").delete().eq("task_id", taskId);
+  } catch (err) {
+    console.warn("Supabase deleteDbTask reminders cleanup error:", err);
+  }
 
   try {
     await supabase.from("tasks").delete().eq("id", taskId);
