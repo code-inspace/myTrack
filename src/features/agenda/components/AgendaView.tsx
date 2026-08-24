@@ -85,10 +85,6 @@ export const AgendaView: React.FC = () => {
           title="Mon Agenda"
           selectedDate={selectedDate}
           onSelectDate={setSelectedDate}
-          onNewTask={() => {
-            setEditingTask(null);
-            setIsTaskModalOpen(true);
-          }}
         />
 
         {/* 2. Fixed "Jour entier" Section directly below header */}

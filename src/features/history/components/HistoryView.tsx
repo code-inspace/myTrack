@@ -45,10 +45,6 @@ export const HistoryView: React.FC = () => {
           title="Mon Historique"
           selectedDate={selectedDate}
           onSelectDate={setSelectedDate}
-          onNewTask={() => {
-            setEditingTask(null);
-            setIsTaskModalOpen(true);
-          }}
         />
       </div>
 

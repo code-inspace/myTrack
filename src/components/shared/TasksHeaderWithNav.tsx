@@ -14,8 +14,6 @@ interface TasksHeaderWithNavProps {
   title?: string;
   selectedDate: string;
   onSelectDate: (date: string) => void;
-  onOpenNotifications?: () => void;
-  onNewTask?: () => void;
   activeTab?: TasksTab;
   onChangeTab?: (tab: TasksTab) => void;
   /** true while a habit card is being dragged, to hint that the day strip accepts drops */
@@ -26,8 +24,6 @@ export const TasksHeaderWithNav: React.FC<TasksHeaderWithNavProps> = ({
   title = "Mes Tâches",
   selectedDate,
   onSelectDate,
-  onOpenNotifications,
-  onNewTask,
   activeTab,
   onChangeTab,
   isDragActive,
@@ -56,12 +52,8 @@ export const TasksHeaderWithNav: React.FC<TasksHeaderWithNavProps> = ({
 
   return (
     <div className="sticky top-0 z-40 w-full bg-[#111214] border-b border-[#23242A] select-none shadow-md">
-      {/* 1. App Header with profile and action button */}
-      <AppHeader
-        title={title}
-        onOpenNotifications={onOpenNotifications}
-        onNewTask={onNewTask}
-      />
+      {/* 1. App Header */}
+      <AppHeader title={title} />
 
       {/* 2. 7-Day Horizontal Week Calendar */}
       <HorizontalDatePicker

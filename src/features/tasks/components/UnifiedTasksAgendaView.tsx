@@ -228,11 +228,6 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
           }
           selectedDate={selectedDate}
           onSelectDate={setSelectedDate}
-          onNewTask={() => {
-            setEditingTask(null);
-            setTaskPrefill(null);
-            setIsTaskModalOpen(true);
-          }}
           activeTab={activeTab}
           onChangeTab={handleTabChange}
           isDragActive={Boolean(activeDragTaskId)}

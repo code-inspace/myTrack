@@ -2,7 +2,13 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { Task, TaskFormValues, TaskWithCompletion } from "../types";
-import { TASK_CATEGORIES, TRACKING_TYPE_OPTIONS, RECURRENCE_OPTIONS, DAYS_OF_WEEK } from "../options";
+import { useTaskMutations } from "../hooks";
+import {
+  TASK_CATEGORIES,
+  TRACKING_TYPE_OPTIONS,
+  RECURRENCE_OPTIONS,
+  DAYS_OF_WEEK,
+} from "../options";
 import { getTodayDateString } from "@/lib/dates";
 import {
   X,
@@ -22,9 +28,16 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProjects, useProjectMutations } from "@/features/projects/hooks";
-import { getProjectColumns, DEFAULT_PROJECT_COLUMNS } from "@/features/projects/types";
+import {
+  getProjectColumns,
+  DEFAULT_PROJECT_COLUMNS,
+} from "@/features/projects/types";
 import { ProjectFormModal } from "@/features/projects/components/ProjectFormModal";
-import { TaskPriority, PRIORITY_OPTIONS, getPriorityIconColorClass } from "@/features/tasks/priority";
+import {
+  TaskPriority,
+  PRIORITY_OPTIONS,
+  getPriorityIconColorClass,
+} from "@/features/tasks/priority";
 import { Flame } from "lucide-react";
 
 interface TaskFormModalProps {
@@ -47,7 +60,10 @@ function addHoursToTimeString(timeStr: string, hoursToAdd: number = 1): string {
   return `${String(newH).padStart(2, "0")}:${String(newM).padStart(2, "0")}`;
 }
 
-function subtractMinutesFromTime(timeStr: string, minutesToSubtract: number): string {
+function subtractMinutesFromTime(
+  timeStr: string,
+  minutesToSubtract: number,
+): string {
   if (!timeStr || !timeStr.includes(":")) return "08:50";
   const [hStr, mStr] = timeStr.split(":");
   const h = parseInt(hStr, 10) || 0;
@@ -80,33 +96,53 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("General");
-  const [trackingType, setTrackingType] = useState<"BOOLEAN" | "NUMBER" | "DURATION" | "QUANTITY">("BOOLEAN");
+  const [trackingType, setTrackingType] = useState<
+    "BOOLEAN" | "NUMBER" | "DURATION" | "QUANTITY"
+  >("BOOLEAN");
   const [targetValue, setTargetValue] = useState<number | undefined>(undefined);
   const [unit, setUnit] = useState<string>("");
   const [hasScheduledTime, setHasScheduledTime] = useState<boolean>(false);
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("10:00");
-  const [recurrence, setRecurrence] = useState<"ONCE" | "DAILY" | "WEEKDAYS" | "WEEKLY" | "CUSTOM">("ONCE");
-  const [selectedDays, setSelectedDays] = useState<number[]>([1, 2, 3, 4, 5]);  const [targetDate, setTargetDate] = useState<string>(() => {
-    return (initialTask as any)?.date || (initialTask?.createdAt ? initialTask.createdAt.split("T")[0] : getTodayDateString());
+  const [recurrence, setRecurrence] = useState<
+    "ONCE" | "DAILY" | "WEEKDAYS" | "WEEKLY" | "CUSTOM"
+  >("ONCE");
+  const [selectedDays, setSelectedDays] = useState<number[]>([1, 2, 3, 4, 5]);
+  const [targetDate, setTargetDate] = useState<string>(() => {
+    return (
+      (initialTask as any)?.date ||
+      (initialTask?.createdAt
+        ? initialTask.createdAt.split("T")[0]
+        : getTodayDateString())
+    );
   });
   const [deadline, setDeadline] = useState<string>("");
   const [priority, setPriority] = useState<TaskPriority>("NORMAL");
 
   // Notifications & Reminders State
   const [enableReminders, setEnableReminders] = useState<boolean>(false);
-  const [reminderOffsetMinutes, setReminderOffsetMinutes] = useState<number>(10);
-  const [reminderTimes, setReminderTimes] = useState<string[]>(["11:00", "18:00"]);
+  const [reminderOffsetMinutes, setReminderOffsetMinutes] =
+    useState<number>(10);
+  const [reminderTimes, setReminderTimes] = useState<string[]>([
+    "11:00",
+    "18:00",
+  ]);
 
   // Project assignment state
   const [projectId, setProjectId] = useState<string | null>(null);
-  const [projectStatus, setProjectStatus] = useState<string>(DEFAULT_PROJECT_COLUMNS[0].id);
+  const [projectStatus, setProjectStatus] = useState<string>(
+    DEFAULT_PROJECT_COLUMNS[0].id,
+  );
   const [isNewProjectOpen, setIsNewProjectOpen] = useState(false);
   const { projects } = useProjects();
   const { createProject } = useProjectMutations();
+  const { updateTask } = useTaskMutations();
 
   // Expandable sections state
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+  const [expandedSections, setExpandedSections] = useState<
+    Record<string, boolean>
+  >({
+    priority: false,
     category: false,
     tracking: false,
     recurrence: false,
@@ -124,10 +160,19 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
 
   const prevIsOpenRef = useRef(false);
   const prevTaskIdRef = useRef<string | null | undefined>(undefined);
+  const skipNextAutoSaveRef = useRef(true);
+  const autoSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingAutoSaveRef = useRef<{
+    taskId: string;
+    values: TaskFormValues;
+  } | null>(null);
 
   useEffect(() => {
     // Only synchronize/reset form fields when modal opens or when editing a different task
-    if (isOpen && (!prevIsOpenRef.current || prevTaskIdRef.current !== initialTask?.id)) {
+    if (
+      isOpen &&
+      (!prevIsOpenRef.current || prevTaskIdRef.current !== initialTask?.id)
+    ) {
       if (initialTask) {
         setTitle(initialTask.title || "");
         setDescription(initialTask.description || "");
@@ -140,22 +185,36 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
         setStartTime(initialTask.startTime || "09:00");
         setEndTime(
           initialTask.endTime ||
-            (initialTask.startTime ? addHoursToTimeString(initialTask.startTime, 1) : "10:00")
+            (initialTask.startTime
+              ? addHoursToTimeString(initialTask.startTime, 1)
+              : "10:00"),
         );
-        setTargetDate((initialTask as any)?.date || (initialTask?.createdAt ? initialTask.createdAt.split("T")[0] : getTodayDateString()));
+        setTargetDate(
+          (initialTask as any)?.date ||
+            (initialTask?.createdAt
+              ? initialTask.createdAt.split("T")[0]
+              : getTodayDateString()),
+        );
         setRecurrence(initialTask.recurrence || "ONCE");
         setSelectedDays(initialTask.recurrenceConfig?.days || [1, 2, 3, 4, 5]);
-        setEnableReminders(initialTask.enableReminders !== undefined ? initialTask.enableReminders : true);
+        setEnableReminders(
+          initialTask.enableReminders !== undefined
+            ? initialTask.enableReminders
+            : true,
+        );
         setReminderOffsetMinutes(initialTask.reminderOffsetMinutes ?? 10);
         setReminderTimes(
           initialTask.reminderTimes && initialTask.reminderTimes.length > 0
             ? initialTask.reminderTimes
-            : ["11:00", "18:00"]
+            : ["11:00", "18:00"],
         );
         setProjectId(initialTask.projectId || null);
-        setProjectStatus(initialTask.projectStatus || DEFAULT_PROJECT_COLUMNS[0].id);
+        setProjectStatus(
+          initialTask.projectStatus || DEFAULT_PROJECT_COLUMNS[0].id,
+        );
         setDeadline(initialTask.deadline || "");
         setPriority((initialTask.priority as TaskPriority) || "NORMAL");
+        skipNextAutoSaveRef.current = true;
       } else {
         setTitle("");
         setDescription("");
@@ -173,7 +232,9 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
         setReminderOffsetMinutes(10);
         setReminderTimes(["11:00", "18:00"]);
         setProjectId(prefill?.projectId || null);
-        setProjectStatus(prefill?.projectStatus || DEFAULT_PROJECT_COLUMNS[0].id);
+        setProjectStatus(
+          prefill?.projectStatus || DEFAULT_PROJECT_COLUMNS[0].id,
+        );
         setDeadline("");
         setPriority("NORMAL");
       }
@@ -182,7 +243,105 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
     prevTaskIdRef.current = initialTask?.id;
   }, [isOpen, initialTask, prefill]);
 
+  const buildFormValues = (): TaskFormValues => ({
+    title: title.trim(),
+    description: description.trim() || undefined,
+    category,
+    trackingType,
+    targetValue: trackingType !== "BOOLEAN" ? targetValue : undefined,
+    unit: trackingType !== "BOOLEAN" ? unit || "reps" : undefined,
+    startTime: hasScheduledTime && startTime ? startTime : undefined,
+    endTime: hasScheduledTime && endTime ? endTime : undefined,
+    date: targetDate,
+    deadline: deadline || null,
+    priority,
+    recurrence,
+    recurrenceConfig:
+      recurrence === "CUSTOM" ? { days: selectedDays } : undefined,
+    enableReminders,
+    reminderOffsetMinutes: hasScheduledTime ? reminderOffsetMinutes : undefined,
+    reminderTimes: !hasScheduledTime ? reminderTimes : undefined,
+    projectId: projectId || null,
+    projectStatus: projectId ? projectStatus : null,
+  });
+
+  const flushAutoSave = () => {
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+      autoSaveTimeoutRef.current = null;
+    }
+    if (pendingAutoSaveRef.current) {
+      updateTask.mutate(pendingAutoSaveRef.current);
+      pendingAutoSaveRef.current = null;
+    }
+  };
+
+  // Auto-save while editing an existing task: debounce field changes and persist them
+  // without requiring an explicit "Save" action.
+  useEffect(() => {
+    if (!isOpen || !isEditing || !initialTask?.id) return;
+    const taskId = initialTask.id;
+
+    if (skipNextAutoSaveRef.current) {
+      skipNextAutoSaveRef.current = false;
+      return;
+    }
+    if (!title.trim()) return;
+
+    pendingAutoSaveRef.current = { taskId, values: buildFormValues() };
+    if (autoSaveTimeoutRef.current) clearTimeout(autoSaveTimeoutRef.current);
+    autoSaveTimeoutRef.current = setTimeout(flushAutoSave, 700);
+
+    return () => {
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+        autoSaveTimeoutRef.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    isOpen,
+    isEditing,
+    initialTask?.id,
+    title,
+    description,
+    category,
+    trackingType,
+    targetValue,
+    unit,
+    hasScheduledTime,
+    startTime,
+    endTime,
+    targetDate,
+    deadline,
+    priority,
+    recurrence,
+    selectedDays,
+    enableReminders,
+    reminderOffsetMinutes,
+    reminderTimes,
+    projectId,
+    projectStatus,
+  ]);
+
   if (!isOpen) return null;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title.trim()) return;
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+      autoSaveTimeoutRef.current = null;
+      pendingAutoSaveRef.current = null;
+    }
+    onSubmit(buildFormValues(), initialTask?.id);
+    onClose();
+  };
+
+  const handleCloseWhileEditing = () => {
+    flushAutoSave();
+    onClose();
+  };
 
   const handleStartTimeChange = (newStart: string) => {
     setStartTime(newStart);
@@ -193,7 +352,12 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
   };
 
   const handleAddAllDayReminder = () => {
-    const nextHour = reminderTimes.length === 0 ? "11:00" : reminderTimes.length === 1 ? "18:00" : "20:00";
+    const nextHour =
+      reminderTimes.length === 0
+        ? "11:00"
+        : reminderTimes.length === 1
+          ? "18:00"
+          : "20:00";
     setReminderTimes([...reminderTimes, nextHour]);
   };
 
@@ -207,37 +371,6 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
     setReminderTimes(updated);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!title.trim()) return;
-
-    onSubmit(
-      {
-        title: title.trim(),
-        description: description.trim() || undefined,
-        category,
-        trackingType,
-        targetValue: trackingType !== "BOOLEAN" ? targetValue : undefined,
-        unit: trackingType !== "BOOLEAN" ? (unit || "reps") : undefined,
-        startTime: hasScheduledTime && startTime ? startTime : undefined,
-        endTime: hasScheduledTime && endTime ? endTime : undefined,
-        date: targetDate,
-        deadline: deadline || null,
-        priority,
-        recurrence,
-        recurrenceConfig: recurrence === "CUSTOM" ? { days: selectedDays } : undefined,
-        enableReminders,
-        reminderOffsetMinutes: hasScheduledTime ? reminderOffsetMinutes : undefined,
-        reminderTimes: !hasScheduledTime ? reminderTimes : undefined,
-        projectId: projectId || null,
-        projectStatus: projectId ? projectStatus : null,
-      },
-      initialTask?.id
-    );
-
-    onClose();
-  };
-
   const toggleDay = (dayIndex: number) => {
     if (selectedDays.includes(dayIndex)) {
       setSelectedDays(selectedDays.filter((d) => d !== dayIndex));
@@ -247,9 +380,14 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
   };
 
   // Helper labels for collapsed summaries
-  const currentCategoryObj = TASK_CATEGORIES.find((c) => c.id === category) || TASK_CATEGORIES[0];
-  const currentTrackingObj = TRACKING_TYPE_OPTIONS.find((t) => t.id === trackingType) || TRACKING_TYPE_OPTIONS[0];
-  const currentRecurrenceObj = RECURRENCE_OPTIONS.find((r) => r.id === recurrence) || RECURRENCE_OPTIONS[0];
+  const currentCategoryObj =
+    TASK_CATEGORIES.find((c) => c.id === category) || TASK_CATEGORIES[0];
+  const currentTrackingObj =
+    TRACKING_TYPE_OPTIONS.find((t) => t.id === trackingType) ||
+    TRACKING_TYPE_OPTIONS[0];
+  const currentRecurrenceObj =
+    RECURRENCE_OPTIONS.find((r) => r.id === recurrence) ||
+    RECURRENCE_OPTIONS[0];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200">
@@ -272,19 +410,19 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
             </h2>
             <p className="text-xs text-[#8E929E] mt-0.5">
               {isEditing
-                ? "Modifie les paramètres et enregistre dans Supabase"
+                ? "Modifie les paramètres"
                 : "Définis ton habitude ou ton action"}
             </p>
           </div>
           <button
-            onClick={onClose}
+            onClick={isEditing ? handleCloseWhileEditing : onClose}
             className="text-[#8E929E] hover:text-white p-2 rounded-full bg-[#252830] transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-3.5">
+        <form onSubmit={handleSubmit} className="space-y-2.5">
           {/* 1. Main Task Name Input (Always Visible) */}
           <div className="space-y-1.5">
             <label className="block text-xs font-semibold uppercase tracking-wider text-[#8E929E]">
@@ -316,8 +454,12 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
             <div className="flex items-center gap-2.5">
               <CalendarDays className="w-4 h-4 text-[#D4F63D]" />
               <div>
-                <div className="text-xs font-bold text-white">Date de la tâche</div>
-                <div className="text-[10px] text-[#8E929E]">Jour d'exécution ou départ</div>
+                <div className="text-xs font-bold text-white">
+                  Date de la tâche
+                </div>
+                <div className="text-[10px] text-[#8E929E]">
+                  Jour d'exécution ou départ
+                </div>
               </div>
             </div>
 
@@ -335,7 +477,9 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
               <Flag className="w-4 h-4 text-[#D4F63D]" />
               <div>
                 <div className="text-xs font-bold text-white">Deadline</div>
-                <div className="text-[10px] text-[#8E929E]">Optionnel — date limite</div>
+                <div className="text-[10px] text-[#8E929E]">
+                  Optionnel — date limite
+                </div>
               </div>
             </div>
 
@@ -359,39 +503,66 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
             </div>
           </div>
 
-          {/* Priority Field (Normale / Urgente / Très urgente) */}
-          <div className="p-3 rounded-2xl bg-[#22242B] border border-[#2F323E] space-y-2">
-            <div className="flex items-center gap-2.5">
-              <Flame className="w-4 h-4 text-[#D4F63D]" />
-              <div>
-                <div className="text-xs font-bold text-white">Priorité</div>
-                <div className="text-[10px] text-[#8E929E]">Visible sur tous les écrans</div>
+          {/* ========================================================================= */}
+          {/* 1. SECTION EXPANDABLE: Priorité                                           */}
+          {/* ========================================================================= */}
+          <div className="rounded-2xl bg-[#22242B] border border-[#2F323E] overflow-hidden transition-all">
+            <button
+              type="button"
+              onClick={() => toggleSection("priority")}
+              className="w-full p-2.5 flex items-center justify-between hover:bg-[#282B35] transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-2.5">
+                <Flame className="w-4 h-4 text-[#D4F63D]" />
+                <span className="text-xs font-bold text-white">Priorité</span>
               </div>
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              {PRIORITY_OPTIONS.map((opt) => (
-                <button
-                  type="button"
-                  key={opt.id}
-                  onClick={() => setPriority(opt.id)}
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-[#17181D] text-[#D4F63D] border border-[#2E323E]">
+                  {PRIORITY_OPTIONS.find((o) => o.id === priority)?.label}
+                </span>
+                <ChevronDown
                   className={cn(
-                    "px-2 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer flex items-center justify-center gap-1.5",
-                    priority === opt.id
-                      ? opt.id === "VERY_URGENT"
-                        ? "bg-red-500/15 border-red-500 text-red-400 font-extrabold"
-                        : opt.id === "URGENT"
-                        ? "bg-amber-500/15 border-amber-500 text-amber-400 font-bold"
-                        : "bg-[#D4F63D]/15 border-[#D4F63D] text-[#D4F63D]"
-                      : "bg-[#1C1D22] border-[#343740] text-[#9CA3AF] hover:border-[#4B5563]"
+                    "w-4 h-4 text-[#8E929E] transition-transform duration-200",
+                    expandedSections.priority ? "rotate-180 text-white" : "",
                   )}
-                >
-                  {opt.id !== "NORMAL" && (
-                    <Flame className={cn("w-3 h-3", getPriorityIconColorClass(opt.id))} />
-                  )}
-                  <span className="truncate">{opt.label}</span>
-                </button>
-              ))}
-            </div>
+                />
+              </div>
+            </button>
+
+            {expandedSections.priority && (
+              <div className="p-2.5 pt-1 border-t border-[#2B2E39] grid grid-cols-3 gap-2 animate-in fade-in duration-150">
+                {PRIORITY_OPTIONS.map((opt) => (
+                  <button
+                    type="button"
+                    key={opt.id}
+                    onClick={() => {
+                      setPriority(opt.id);
+                      toggleSection("priority");
+                    }}
+                    className={cn(
+                      "px-2 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer flex items-center justify-center gap-1.5",
+                      priority === opt.id
+                        ? opt.id === "VERY_URGENT"
+                          ? "bg-red-500/15 border-red-500 text-red-400 font-extrabold"
+                          : opt.id === "URGENT"
+                            ? "bg-amber-500/15 border-amber-500 text-amber-400 font-bold"
+                            : "bg-[#D4F63D]/15 border-[#D4F63D] text-[#D4F63D]"
+                        : "bg-[#1C1D22] border-[#343740] text-[#9CA3AF] hover:border-[#4B5563]",
+                    )}
+                  >
+                    {opt.id !== "NORMAL" && (
+                      <Flame
+                        className={cn(
+                          "w-3 h-3",
+                          getPriorityIconColorClass(opt.id),
+                        )}
+                      />
+                    )}
+                    <span className="truncate">{opt.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* ========================================================================= */}
@@ -401,7 +572,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
             <button
               type="button"
               onClick={() => toggleSection("category")}
-              className="w-full p-3.5 flex items-center justify-between hover:bg-[#282B35] transition-colors cursor-pointer"
+              className="w-full p-2.5 flex items-center justify-between hover:bg-[#282B35] transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-2.5">
                 <Tag className="w-4 h-4 text-[#D4F63D]" />
@@ -414,14 +585,14 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                 <ChevronDown
                   className={cn(
                     "w-4 h-4 text-[#8E929E] transition-transform duration-200",
-                    expandedSections.category ? "rotate-180 text-white" : ""
+                    expandedSections.category ? "rotate-180 text-white" : "",
                   )}
                 />
               </div>
             </button>
 
             {expandedSections.category && (
-              <div className="p-3.5 pt-1 border-t border-[#2B2E39] grid grid-cols-3 gap-2 animate-in fade-in duration-150">
+              <div className="p-2.5 pt-1 border-t border-[#2B2E39] grid grid-cols-3 gap-2 animate-in fade-in duration-150">
                 {TASK_CATEGORIES.map((cat) => (
                   <button
                     type="button"
@@ -431,10 +602,10 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                       toggleSection("category");
                     }}
                     className={cn(
-                      "px-3 py-2 rounded-xl text-xs font-semibold border transition-all text-center truncate cursor-pointer",
+                      "px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all text-center truncate cursor-pointer",
                       category === cat.id
                         ? "bg-[#D4F63D]/15 border-[#D4F63D] text-[#D4F63D]"
-                        : "bg-[#1C1D22] border-[#343740] text-[#9CA3AF] hover:border-[#4B5563]"
+                        : "bg-[#1C1D22] border-[#343740] text-[#9CA3AF] hover:border-[#4B5563]",
                     )}
                   >
                     {cat.label.split(" ")[0]}
@@ -451,11 +622,13 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
             <button
               type="button"
               onClick={() => toggleSection("tracking")}
-              className="w-full p-3.5 flex items-center justify-between hover:bg-[#282B35] transition-colors cursor-pointer"
+              className="w-full p-2.5 flex items-center justify-between hover:bg-[#282B35] transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-2.5">
                 <Sliders className="w-4 h-4 text-[#D4F63D]" />
-                <span className="text-xs font-bold text-white">Type de suivi</span>
+                <span className="text-xs font-bold text-white">
+                  Type de suivi
+                </span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-[#17181D] text-[#D4F63D] border border-[#2E323E]">
@@ -466,14 +639,14 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                 <ChevronDown
                   className={cn(
                     "w-4 h-4 text-[#8E929E] transition-transform duration-200",
-                    expandedSections.tracking ? "rotate-180 text-white" : ""
+                    expandedSections.tracking ? "rotate-180 text-white" : "",
                   )}
                 />
               </div>
             </button>
 
             {expandedSections.tracking && (
-              <div className="p-3.5 pt-2 border-t border-[#2B2E39] space-y-3 animate-in fade-in duration-150">
+              <div className="p-2.5 pt-1.5 border-t border-[#2B2E39] space-y-2.5 animate-in fade-in duration-150">
                 <div className="grid grid-cols-2 gap-2">
                   {TRACKING_TYPE_OPTIONS.map((t) => (
                     <button
@@ -482,25 +655,31 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                       onClick={() => {
                         setTrackingType(t.id as any);
                         if (t.defaultUnit && !unit) setUnit(t.defaultUnit);
-                        if (t.id === "NUMBER" && !targetValue) setTargetValue(50);
-                        if (t.id === "DURATION" && !targetValue) setTargetValue(30);
+                        if (t.id === "NUMBER" && !targetValue)
+                          setTargetValue(50);
+                        if (t.id === "DURATION" && !targetValue)
+                          setTargetValue(30);
                       }}
                       className={cn(
-                        "p-3 rounded-2xl border text-left transition-all cursor-pointer",
+                        "p-2.5 rounded-2xl border text-left transition-all cursor-pointer",
                         trackingType === t.id
                           ? "bg-[#D4F63D]/10 border-[#D4F63D] text-white ring-1 ring-[#D4F63D]"
-                          : "bg-[#1C1D22] border-[#343740] text-[#9CA3AF] hover:border-[#4B5563]"
+                          : "bg-[#1C1D22] border-[#343740] text-[#9CA3AF] hover:border-[#4B5563]",
                       )}
                     >
-                      <div className="text-xs font-bold text-white">{t.label}</div>
-                      <div className="text-[11px] text-[#8E929E] mt-0.5">{t.description}</div>
+                      <div className="text-xs font-bold text-white">
+                        {t.label}
+                      </div>
+                      <div className="text-[11px] text-[#8E929E] mt-0.5">
+                        {t.description}
+                      </div>
                     </button>
                   ))}
                 </div>
 
                 {/* Target & Unit Inputs */}
                 {trackingType !== "BOOLEAN" && (
-                  <div className="grid grid-cols-2 gap-3 p-3.5 rounded-2xl bg-[#17181D] border border-[#343740]">
+                  <div className="grid grid-cols-2 gap-3 p-2.5 rounded-2xl bg-[#17181D] border border-[#343740]">
                     <div>
                       <label className="block text-xs font-semibold text-[#8E929E] mb-1">
                         Objectif cible
@@ -509,8 +688,12 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                         type="number"
                         placeholder="ex: 50"
                         value={targetValue || ""}
-                        onChange={(e) => setTargetValue(parseFloat(e.target.value) || undefined)}
-                        className="w-full px-3 py-2 rounded-xl bg-[#252830] border border-[#343740] text-white text-sm focus:border-[#D4F63D] outline-none"
+                        onChange={(e) =>
+                          setTargetValue(
+                            parseFloat(e.target.value) || undefined,
+                          )
+                        }
+                        className="w-full px-3 py-1.5 rounded-xl bg-[#252830] border border-[#343740] text-white text-sm focus:border-[#D4F63D] outline-none"
                       />
                     </div>
 
@@ -523,7 +706,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                         placeholder="ex: reps, pages"
                         value={unit}
                         onChange={(e) => setUnit(e.target.value)}
-                        className="w-full px-3 py-2 rounded-xl bg-[#252830] border border-[#343740] text-white text-sm focus:border-[#D4F63D] outline-none"
+                        className="w-full px-3 py-1.5 rounded-xl bg-[#252830] border border-[#343740] text-white text-sm focus:border-[#D4F63D] outline-none"
                       />
                     </div>
                   </div>
@@ -539,7 +722,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
             <button
               type="button"
               onClick={() => toggleSection("recurrence")}
-              className="w-full p-3.5 flex items-center justify-between hover:bg-[#282B35] transition-colors cursor-pointer"
+              className="w-full p-2.5 flex items-center justify-between hover:bg-[#282B35] transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-2.5">
                 <Repeat className="w-4 h-4 text-[#D4F63D]" />
@@ -552,14 +735,14 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                 <ChevronDown
                   className={cn(
                     "w-4 h-4 text-[#8E929E] transition-transform duration-200",
-                    expandedSections.recurrence ? "rotate-180 text-white" : ""
+                    expandedSections.recurrence ? "rotate-180 text-white" : "",
                   )}
                 />
               </div>
             </button>
 
             {expandedSections.recurrence && (
-              <div className="p-3.5 pt-2 border-t border-[#2B2E39] space-y-3 animate-in fade-in duration-150">
+              <div className="p-2.5 pt-1.5 border-t border-[#2B2E39] space-y-2.5 animate-in fade-in duration-150">
                 <div className="flex flex-wrap gap-2">
                   {RECURRENCE_OPTIONS.map((rec) => (
                     <button
@@ -567,10 +750,10 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                       key={rec.id}
                       onClick={() => setRecurrence(rec.id as any)}
                       className={cn(
-                        "px-3.5 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer",
+                        "px-3.5 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer",
                         recurrence === rec.id
                           ? "bg-[#D4F63D] text-black border-[#D4F63D] font-bold shadow-sm"
-                          : "bg-[#1C1D22] border-[#343740] text-[#D1D5DB] hover:border-[#4B5563]"
+                          : "bg-[#1C1D22] border-[#343740] text-[#D1D5DB] hover:border-[#4B5563]",
                       )}
                     >
                       {rec.label}
@@ -580,7 +763,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
 
                 {/* Custom days selection */}
                 {recurrence === "CUSTOM" && (
-                  <div className="flex justify-between gap-1.5 pt-3 border-t border-[#343740]">
+                  <div className="flex justify-between gap-1.5 pt-2 border-t border-[#343740]">
                     {DAYS_OF_WEEK.map((d) => {
                       const isSelected = selectedDays.includes(d.dayIndex);
                       return (
@@ -589,10 +772,10 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                           key={d.dayIndex}
                           onClick={() => toggleDay(d.dayIndex)}
                           className={cn(
-                            "w-9 h-9 rounded-full text-xs font-bold transition-all cursor-pointer",
+                            "w-8 h-8 rounded-full text-xs font-bold transition-all cursor-pointer",
                             isSelected
                               ? "bg-[#D4F63D] text-black ring-2 ring-[#D4F63D]/40"
-                              : "bg-[#1C1D22] text-[#8E929E] hover:text-white"
+                              : "bg-[#1C1D22] text-[#8E929E] hover:text-white",
                           )}
                         >
                           {d.short[0]}
@@ -612,42 +795,48 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
             <button
               type="button"
               onClick={() => toggleSection("schedule")}
-              className="w-full p-3.5 flex items-center justify-between hover:bg-[#282B35] transition-colors cursor-pointer"
+              className="w-full p-2.5 flex items-center justify-between hover:bg-[#282B35] transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-2.5">
                 <Clock className="w-4 h-4 text-[#D4F63D]" />
-                <span className="text-xs font-bold text-white">Programmation horaire</span>
+                <span className="text-xs font-bold text-white">Horaire</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-[#17181D] text-[#D4F63D] border border-[#2E323E]">
-                  {hasScheduledTime ? `${startTime} - ${endTime}` : "Jour entier"}
+                  {hasScheduledTime
+                    ? `${startTime} - ${endTime}`
+                    : "Jour entier"}
                 </span>
                 <ChevronDown
                   className={cn(
                     "w-4 h-4 text-[#8E929E] transition-transform duration-200",
-                    expandedSections.schedule ? "rotate-180 text-white" : ""
+                    expandedSections.schedule ? "rotate-180 text-white" : "",
                   )}
                 />
               </div>
             </button>
 
             {expandedSections.schedule && (
-              <div className="p-3.5 pt-2 border-t border-[#2B2E39] space-y-3 animate-in fade-in duration-150">
+              <div className="p-2.5 pt-1.5 border-t border-[#2B2E39] space-y-2.5 animate-in fade-in duration-150">
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => setHasScheduledTime(false)}
                     className={cn(
-                      "p-3 rounded-2xl border text-left transition-all cursor-pointer flex items-center gap-2.5",
+                      "p-2.5 rounded-2xl border text-left transition-all cursor-pointer flex items-center gap-2.5",
                       !hasScheduledTime
                         ? "bg-[#D4F63D]/10 border-[#D4F63D] text-white ring-1 ring-[#D4F63D]"
-                        : "bg-[#1C1D22] border-[#343740] text-[#9CA3AF] hover:border-[#4B5563]"
+                        : "bg-[#1C1D22] border-[#343740] text-[#9CA3AF] hover:border-[#4B5563]",
                     )}
                   >
                     <CalendarDays className="w-4 h-4 text-[#D4F63D] flex-shrink-0" />
                     <div>
-                      <div className="text-xs font-bold text-white">Jour entier</div>
-                      <div className="text-[10px] text-[#8E929E]">Sans heure fixe</div>
+                      <div className="text-xs font-bold text-white">
+                        Jour entier
+                      </div>
+                      <div className="text-[10px] text-[#8E929E]">
+                        Sans heure fixe
+                      </div>
                     </div>
                   </button>
 
@@ -655,23 +844,27 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                     type="button"
                     onClick={() => setHasScheduledTime(true)}
                     className={cn(
-                      "p-3 rounded-2xl border text-left transition-all cursor-pointer flex items-center gap-2.5",
+                      "p-2.5 rounded-2xl border text-left transition-all cursor-pointer flex items-center gap-2.5",
                       hasScheduledTime
                         ? "bg-[#D4F63D]/10 border-[#D4F63D] text-white ring-1 ring-[#D4F63D]"
-                        : "bg-[#1C1D22] border-[#343740] text-[#9CA3AF] hover:border-[#4B5563]"
+                        : "bg-[#1C1D22] border-[#343740] text-[#9CA3AF] hover:border-[#4B5563]",
                     )}
                   >
                     <Clock className="w-4 h-4 text-[#D4F63D] flex-shrink-0" />
                     <div>
-                      <div className="text-xs font-bold text-white">Heure précise</div>
-                      <div className="text-[10px] text-[#8E929E]">Plage horaire</div>
+                      <div className="text-xs font-bold text-white">
+                        Heure précise
+                      </div>
+                      <div className="text-[10px] text-[#8E929E]">
+                        Plage horaire
+                      </div>
                     </div>
                   </button>
                 </div>
 
                 {/* Responsive time inputs formatted cleanly side-by-side */}
                 {hasScheduledTime && (
-                  <div className="p-3 rounded-2xl bg-[#17181D] border border-[#2F323E] overflow-hidden">
+                  <div className="p-2.5 rounded-2xl bg-[#17181D] border border-[#2F323E] overflow-hidden">
                     <div className="flex items-center justify-between gap-2.5">
                       <div className="flex-1 min-w-0 space-y-1">
                         <label className="block text-[11px] font-semibold text-[#8E929E] flex items-center gap-1">
@@ -681,12 +874,16 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                         <input
                           type="time"
                           value={startTime}
-                          onChange={(e) => handleStartTimeChange(e.target.value)}
-                          className="w-full h-10 px-2.5 rounded-xl bg-[#252830] border border-[#343740] text-white font-mono font-bold text-sm focus:border-[#D4F63D] outline-none text-center box-border"
+                          onChange={(e) =>
+                            handleStartTimeChange(e.target.value)
+                          }
+                          className="w-full h-9 px-2.5 rounded-xl bg-[#252830] border border-[#343740] text-white font-mono font-bold text-sm focus:border-[#D4F63D] outline-none text-center box-border"
                         />
                       </div>
 
-                      <div className="text-xs text-[#8E929E] font-bold pt-4">➔</div>
+                      <div className="text-xs text-[#8E929E] font-bold pt-4">
+                        ➔
+                      </div>
 
                       <div className="flex-1 min-w-0 space-y-1">
                         <label className="block text-[11px] font-semibold text-[#8E929E] flex items-center gap-1">
@@ -697,7 +894,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                           type="time"
                           value={endTime}
                           onChange={(e) => setEndTime(e.target.value)}
-                          className="w-full h-10 px-2.5 rounded-xl bg-[#252830] border border-[#343740] text-white font-mono font-bold text-sm focus:border-[#D4F63D] outline-none text-center box-border"
+                          className="w-full h-9 px-2.5 rounded-xl bg-[#252830] border border-[#343740] text-white font-mono font-bold text-sm focus:border-[#D4F63D] outline-none text-center box-border"
                         />
                       </div>
                     </div>
@@ -714,33 +911,35 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
             <button
               type="button"
               onClick={() => toggleSection("reminders")}
-              className="w-full p-3.5 flex items-center justify-between hover:bg-[#282B35] transition-colors cursor-pointer"
+              className="w-full p-2.5 flex items-center justify-between hover:bg-[#282B35] transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-2.5">
                 <BellRing className="w-4 h-4 text-[#D4F63D]" />
-                <span className="text-xs font-bold text-white">Rappels & Notifications</span>
+                <span className="text-xs font-bold text-white">Rappels</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-[#17181D] text-[#D4F63D] border border-[#2E323E]">
                   {!enableReminders
                     ? "Désactivé"
                     : hasScheduledTime
-                    ? `10 min avant (${subtractMinutesFromTime(startTime, reminderOffsetMinutes)})`
-                    : `${reminderTimes.length} rappels (${reminderTimes.join(", ")})`}
+                      ? `10 min avant (${subtractMinutesFromTime(startTime, reminderOffsetMinutes)})`
+                      : `${reminderTimes.length} rappels (${reminderTimes.join(", ")})`}
                 </span>
                 <ChevronDown
                   className={cn(
                     "w-4 h-4 text-[#8E929E] transition-transform duration-200",
-                    expandedSections.reminders ? "rotate-180 text-white" : ""
+                    expandedSections.reminders ? "rotate-180 text-white" : "",
                   )}
                 />
               </div>
             </button>
 
             {expandedSections.reminders && (
-              <div className="p-3.5 pt-2 border-t border-[#2B2E39] space-y-3.5 animate-in fade-in duration-150">
+              <div className="p-2.5 pt-1.5 border-t border-[#2B2E39] space-y-2.5 animate-in fade-in duration-150">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-white font-medium">Activer les notifications</span>
+                  <span className="text-xs text-white font-medium">
+                    Activer les notifications
+                  </span>
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input
                       type="checkbox"
@@ -753,7 +952,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                 </div>
 
                 {enableReminders && (
-                  <div className="pt-2 border-t border-[#2B2E39] space-y-3">
+                  <div className="pt-2 border-t border-[#2B2E39] space-y-2">
                     {/* CASE A: Timed Task */}
                     {hasScheduledTime ? (
                       <div className="space-y-2">
@@ -765,12 +964,14 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                             <button
                               type="button"
                               key={opt.value}
-                              onClick={() => setReminderOffsetMinutes(opt.value)}
+                              onClick={() =>
+                                setReminderOffsetMinutes(opt.value)
+                              }
                               className={cn(
-                                "py-2 px-2 rounded-xl text-[11px] font-medium border text-center transition-all cursor-pointer truncate",
+                                "py-1.5 px-2 rounded-xl text-[11px] font-medium border text-center transition-all cursor-pointer truncate",
                                 reminderOffsetMinutes === opt.value
                                   ? "bg-[#D4F63D] text-black border-[#D4F63D] font-bold shadow-sm"
-                                  : "bg-[#1C1D22] border-[#343740] text-[#D1D5DB] hover:border-[#4B5563]"
+                                  : "bg-[#1C1D22] border-[#343740] text-[#D1D5DB] hover:border-[#4B5563]",
                               )}
                             >
                               {opt.label}
@@ -779,9 +980,15 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                         </div>
 
                         <div className="mt-2.5 p-2 rounded-xl bg-[#17181D] border border-[#2B2E38] flex items-center justify-between text-xs">
-                          <span className="text-[#8E929E]">Notification prévue à :</span>
+                          <span className="text-[#8E929E]">
+                            Notification prévue à :
+                          </span>
                           <span className="font-mono font-bold text-[#D4F63D]">
-                            ⏰ {subtractMinutesFromTime(startTime, reminderOffsetMinutes)}
+                            ⏰{" "}
+                            {subtractMinutesFromTime(
+                              startTime,
+                              reminderOffsetMinutes,
+                            )}
                           </span>
                         </div>
                       </div>
@@ -815,7 +1022,12 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                                 <input
                                   type="time"
                                   value={rTime}
-                                  onChange={(e) => handleUpdateAllDayReminderTime(idx, e.target.value)}
+                                  onChange={(e) =>
+                                    handleUpdateAllDayReminderTime(
+                                      idx,
+                                      e.target.value,
+                                    )
+                                  }
                                   className="h-8 px-2 rounded-lg bg-[#252830] border border-[#343740] text-white text-xs font-mono font-bold focus:border-[#D4F63D] outline-none text-center box-border"
                                 />
                               </div>
@@ -828,7 +1040,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                                   "p-1.5 rounded-lg transition-colors",
                                   reminderTimes.length > 1
                                     ? "text-[#8E929E] hover:text-red-400 hover:bg-[#252830] cursor-pointer"
-                                    : "text-[#4B5563] cursor-not-allowed opacity-40"
+                                    : "text-[#4B5563] cursor-not-allowed opacity-40",
                                 )}
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
@@ -851,7 +1063,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
             <button
               type="button"
               onClick={() => toggleSection("project")}
-              className="w-full p-3.5 flex items-center justify-between hover:bg-[#282B35] transition-colors cursor-pointer"
+              className="w-full p-2.5 flex items-center justify-between hover:bg-[#282B35] transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-2.5">
                 <FolderKanban className="w-4 h-4 text-[#D4F63D]" />
@@ -859,28 +1071,30 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-[#17181D] text-[#D4F63D] border border-[#2E323E]">
-                  {projectId ? projects.find((p) => p.id === projectId)?.name || "…" : "Aucun"}
+                  {projectId
+                    ? projects.find((p) => p.id === projectId)?.name || "…"
+                    : "Aucun"}
                 </span>
                 <ChevronDown
                   className={cn(
                     "w-4 h-4 text-[#8E929E] transition-transform duration-200",
-                    expandedSections.project ? "rotate-180 text-white" : ""
+                    expandedSections.project ? "rotate-180 text-white" : "",
                   )}
                 />
               </div>
             </button>
 
             {expandedSections.project && (
-              <div className="p-3.5 pt-1 border-t border-[#2B2E39] space-y-3 animate-in fade-in duration-150">
+              <div className="p-2.5 pt-1 border-t border-[#2B2E39] space-y-2.5 animate-in fade-in duration-150">
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => setProjectId(null)}
                     className={cn(
-                      "px-3 py-2 rounded-xl text-xs font-semibold border transition-all text-center truncate cursor-pointer",
+                      "px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all text-center truncate cursor-pointer",
                       !projectId
                         ? "bg-[#D4F63D]/15 border-[#D4F63D] text-[#D4F63D]"
-                        : "bg-[#1C1D22] border-[#343740] text-[#9CA3AF] hover:border-[#4B5563]"
+                        : "bg-[#1C1D22] border-[#343740] text-[#9CA3AF] hover:border-[#4B5563]",
                     )}
                   >
                     Aucun projet
@@ -894,20 +1108,23 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                         setProjectStatus(getProjectColumns(p)[0].id);
                       }}
                       className={cn(
-                        "px-3 py-2 rounded-xl text-xs font-semibold border transition-all text-center truncate cursor-pointer flex items-center justify-center gap-1.5",
+                        "px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all text-center truncate cursor-pointer flex items-center justify-center gap-1.5",
                         projectId === p.id
                           ? "bg-[#D4F63D]/15 border-[#D4F63D] text-[#D4F63D]"
-                          : "bg-[#1C1D22] border-[#343740] text-[#9CA3AF] hover:border-[#4B5563]"
+                          : "bg-[#1C1D22] border-[#343740] text-[#9CA3AF] hover:border-[#4B5563]",
                       )}
                     >
-                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: p.color }} />
+                      <span
+                        className="w-2 h-2 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: p.color }}
+                      />
                       <span className="truncate">{p.name}</span>
                     </button>
                   ))}
                   <button
                     type="button"
                     onClick={() => setIsNewProjectOpen(true)}
-                    className="px-3 py-2 rounded-xl text-xs font-semibold border border-dashed border-[#4B5563] text-[#8E929E] hover:border-[#D4F63D] hover:text-[#D4F63D] transition-all text-center truncate cursor-pointer"
+                    className="px-3 py-1.5 rounded-xl text-xs font-semibold border border-dashed border-[#4B5563] text-[#8E929E] hover:border-[#D4F63D] hover:text-[#D4F63D] transition-all text-center truncate cursor-pointer"
                   >
                     + Nouveau
                   </button>
@@ -915,18 +1132,24 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
 
                 {projectId && (
                   <div className="pt-2 border-t border-[#343740] space-y-2">
-                    <span className="block text-[11px] font-semibold text-[#8E929E]">Colonne</span>
+                    <span className="block text-[11px] font-semibold text-[#8E929E]">
+                      Colonne
+                    </span>
                     <div className="grid grid-cols-2 gap-2">
-                      {getProjectColumns(projects.find((p) => p.id === projectId) || { columns: [] }).map((col) => (
+                      {getProjectColumns(
+                        projects.find((p) => p.id === projectId) || {
+                          columns: [],
+                        },
+                      ).map((col) => (
                         <button
                           type="button"
                           key={col.id}
                           onClick={() => setProjectStatus(col.id)}
                           className={cn(
-                            "px-3 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer",
+                            "px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer",
                             projectStatus === col.id
                               ? "bg-[#D4F63D] text-black border-[#D4F63D] font-bold shadow-sm"
-                              : "bg-[#1C1D22] border-[#343740] text-[#D1D5DB] hover:border-[#4B5563]"
+                              : "bg-[#1C1D22] border-[#343740] text-[#D1D5DB] hover:border-[#4B5563]",
                           )}
                         >
                           {col.label}
@@ -939,23 +1162,21 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
             )}
           </div>
 
-          {/* Submit Action Button */}
-          <button
-            type="submit"
-            className="w-full py-4 rounded-2xl bg-[#D4F63D] hover:bg-[#c2e432] active:scale-[0.98] text-[#111214] font-bold text-base shadow-xl transition-all flex items-center justify-center gap-2 cursor-pointer mt-5"
-          >
-            {isEditing ? (
-              <>
-                <Check className="w-5 h-5 stroke-[3]" />
-                Enregistrer les modifications
-              </>
-            ) : (
-              <>
-                <Plus className="w-5 h-5 stroke-[3]" />
-                Créer la tâche
-              </>
-            )}
-          </button>
+          {/* Submit Action Button (creation only — edits auto-save as you type) */}
+          {isEditing ? (
+            <p className="w-full text-center text-[11px] text-[#8E929E] mt-5 flex items-center justify-center gap-1.5">
+              <Check className="w-3.5 h-3.5 text-[#D4F63D]" />
+              Les modifications sont enregistrées automatiquement
+            </p>
+          ) : (
+            <button
+              type="submit"
+              className="w-full py-4 rounded-2xl bg-[#D4F63D] hover:bg-[#c2e432] active:scale-[0.98] text-[#111214] font-bold text-base shadow-xl transition-all flex items-center justify-center gap-2 cursor-pointer mt-5"
+            >
+              <Plus className="w-5 h-5 stroke-[3]" />
+              Créer la tâche
+            </button>
+          )}
         </form>
       </div>
 
