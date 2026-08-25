@@ -1,10 +1,12 @@
 "use client";
 
 import React, { useState } from "react";
-import { Mic, Plus } from "lucide-react";
+import Link from "next/link";
+import { Mic, Plus, MessageSquare } from "lucide-react";
 import { VoiceActionModal } from "./VoiceActionModal";
 import { useTaskMutations } from "@/features/tasks/hooks";
 import { TaskFormValues } from "@/features/tasks/types";
+import { useDisplayMode } from "@/providers/DisplayModeProvider";
 
 interface VoiceFabProps {
   selectedDate: string;
@@ -14,6 +16,7 @@ interface VoiceFabProps {
 export const VoiceFab: React.FC<VoiceFabProps> = ({ selectedDate, onNewTask }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { createTask } = useTaskMutations();
+  const { displayMode } = useDisplayMode();
 
   const handleAddTasks = (tasks: (TaskFormValues & { targetDate?: string })[]) => {
     for (const task of tasks) {
@@ -34,8 +37,20 @@ export const VoiceFab: React.FC<VoiceFabProps> = ({ selectedDate, onNewTask }) =
 
   return (
     <>
-      {/* Dual Floating Action Buttons: New Task (+) and Voice AI (Mic) */}
+      {/* Floating Action Buttons: Coach IA (modern mode only), New Task (+), Voice AI (Mic) */}
       <div className="fixed bottom-24 right-4 sm:right-6 z-40 flex items-center gap-2.5">
+        {/* 0. Coach IA — only shown in "modern" display mode, where it's no longer in the bottom nav */}
+        {displayMode === "modern" && (
+          <Link
+            href="/chat"
+            aria-label="Coach IA"
+            title="Discuter avec le Coach IA"
+            className="w-11 h-11 rounded-full bg-[#1C1D22] hover:bg-[#252830] active:scale-95 text-[#A78BFA] border border-[#2E323D] flex items-center justify-center shadow-xl transition-all duration-200 cursor-pointer hover:scale-105 group"
+          >
+            <MessageSquare className="w-5 h-5 stroke-[2.2] group-hover:scale-110 transition-transform" />
+          </Link>
+        )}
+
         {/* 1. Voice AI Command Button */}
         <button
           type="button"

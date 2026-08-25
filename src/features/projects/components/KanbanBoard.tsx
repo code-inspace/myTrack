@@ -85,11 +85,11 @@ export const BoardColumn: React.FC<{
     <div
       ref={setNodeRef}
       className={cn(
-        "flex-shrink-0 w-[78vw] max-w-[280px] sm:w-64 rounded-2xl bg-[#16171C] border p-2.5 space-y-2 transition-all",
+        "flex-shrink-0 w-[78vw] max-w-[280px] sm:w-64 h-full rounded-2xl bg-[#16171C] border p-2.5 flex flex-col transition-all",
         isOver ? "border-[#D4F63D]" : "border-[#23242A]"
       )}
     >
-      <div className="flex items-center justify-between px-1 pb-1">
+      <div className="flex items-center justify-between px-1 pb-1 flex-shrink-0">
         <span className="text-xs font-bold text-white truncate flex items-center gap-1">
           {column.isDone && <CheckCircle2 className="w-3.5 h-3.5 text-[#D4F63D] flex-shrink-0" />}
           {column.label}
@@ -110,7 +110,7 @@ export const BoardColumn: React.FC<{
           )}
         </div>
       </div>
-      <div className="space-y-2 min-h-[40px]">
+      <div className="flex-1 min-h-[40px] overflow-y-auto space-y-2 pr-0.5">
         {tasks.map((task) => (
           <BoardCard key={task.id} task={task} onEditTask={onEditTask} projectBadge={getBadge?.(task) ?? null} />
         ))}

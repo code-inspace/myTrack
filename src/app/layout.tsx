@@ -6,6 +6,7 @@ import OneSignalProvider from "@/providers/OneSignalProvider";
 import NotificationWatcherProvider from "@/providers/NotificationWatcherProvider";
 import { BottomNav } from "@/components/shared/BottomNav";
 import { AuthGuard } from "@/components/shared/AuthGuard";
+import { DisplayModeProvider } from "@/providers/DisplayModeProvider";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://mytrack-nine.vercel.app"),
@@ -91,15 +92,17 @@ export default function RootLayout({
           <AuthProvider>
             <OneSignalProvider>
               <NotificationWatcherProvider>
-                <AuthGuard>
-                  {/* Main App Container */}
-                  <main className="w-full max-w-md h-screen max-h-screen flex flex-col safe-top relative overflow-hidden">
-                    {children}
-                  </main>
+                <DisplayModeProvider>
+                  <AuthGuard>
+                    {/* Main App Container */}
+                    <main className="w-full max-w-md h-screen max-h-screen flex flex-col safe-top relative overflow-hidden">
+                      {children}
+                    </main>
 
-                  {/* Fixed Thumb-friendly Navigation */}
-                  <BottomNav />
-                </AuthGuard>
+                    {/* Fixed Thumb-friendly Navigation */}
+                    <BottomNav />
+                  </AuthGuard>
+                </DisplayModeProvider>
               </NotificationWatcherProvider>
             </OneSignalProvider>
           </AuthProvider>

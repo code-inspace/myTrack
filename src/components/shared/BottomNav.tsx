@@ -5,36 +5,34 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ListTodo, TrendingUp, MessageSquare, User } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useDisplayMode } from "@/providers/DisplayModeProvider";
+import { TASK_TABS } from "./TasksHeaderWithNav";
 
 export const BottomNav: React.FC = () => {
   const pathname = usePathname();
+  const { displayMode } = useDisplayMode();
 
   // Hide navigation on auth pages
   if (pathname.startsWith("/auth")) {
     return null;
   }
 
-  const navItems = [
-    { href: "/tasks", label: "Tâches", icon: ListTodo },
-    { href: "/dashboard", label: "Dashboard", icon: TrendingUp },
-    { href: "/chat", label: "Coach IA", icon: MessageSquare },
-    { href: "/profile", label: "Profil", icon: User },
-  ];
+  const navItems =
+    displayMode === "modern"
+      ? TASK_TABS.map((t) => ({ href: t.href, label: t.label, icon: t.icon, activePaths: t.activePaths }))
+      : [
+          { href: "/tasks", label: "Tâches", icon: ListTodo, activePaths: ["/tasks", "/", "/agenda", "/sleep", "/bilan", "/history"] },
+          { href: "/dashboard", label: "Dashboard", icon: TrendingUp, activePaths: ["/dashboard"] },
+          { href: "/chat", label: "Coach IA", icon: MessageSquare, activePaths: ["/chat"] },
+          { href: "/profile", label: "Profil", icon: User, activePaths: ["/profile"] },
+        ];
 
   return (
     <nav className="fixed bottom-0 inset-x-0 z-40 bg-[#111214]/95 backdrop-blur-xl border-t border-[#23242A] safe-bottom px-4 pt-2 pb-2">
       <div className="max-w-md mx-auto flex items-center justify-around">
         {navItems.map((item) => {
           const Icon = item.icon;
-          const isTasksTab =
-            item.href === "/tasks" &&
-            (pathname === "/tasks" ||
-              pathname === "/" ||
-              pathname === "/agenda" ||
-              pathname === "/sleep" ||
-              pathname === "/bilan" ||
-              pathname === "/history");
-          const isActive = isTasksTab || (item.href !== "/tasks" && pathname === item.href);
+          const isActive = item.activePaths.includes(pathname);
 
           return (
             <Link
