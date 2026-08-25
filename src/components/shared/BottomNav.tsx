@@ -45,17 +45,12 @@ export const BottomNav: React.FC = () => {
                   : "text-[#8E929E] hover:text-[#D1D5DB] hover:bg-[#1C1D22]/60"
               )}
             >
-              <div className="relative">
-                <Icon
-                  className={cn(
-                    "w-5 h-5 transition-transform duration-200",
-                    isActive ? "scale-110 text-[#D4F63D]" : ""
-                  )}
-                />
-                {isActive && (
-                  <div className="absolute -bottom-1 inset-x-0 mx-auto w-1.5 h-1.5 rounded-full bg-[#D4F63D] lime-glow-sm" />
+              <Icon
+                className={cn(
+                  "w-5 h-5 transition-transform duration-200",
+                  isActive ? "scale-110 text-[#D4F63D]" : ""
                 )}
-              </div>
+              />
               <span
                 className={cn(
                   "text-[11px] font-semibold tracking-tight mt-1 transition-colors",

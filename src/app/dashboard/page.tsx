@@ -12,6 +12,9 @@ import { useDashboardStats } from "@/features/dashboard/hooks";
 import { useTasks } from "@/features/tasks/hooks";
 import { Period } from "@/features/dashboard/types";
 import { getTodayDateString } from "@/lib/dates";
+import { AppHeader } from "@/components/shared/AppHeader";
+import { useAuth } from "@/providers/AuthProvider";
+import { useDisplayMode } from "@/providers/DisplayModeProvider";
 
 export default function DashboardPage() {
   const [period, setPeriod] = useState<Period>("week");
@@ -19,15 +22,21 @@ export default function DashboardPage() {
 
   const { data: stats, isLoading } = useDashboardStats(period, referenceDate);
   const { allTasks, allCompletions } = useTasks(getTodayDateString());
+  const { user } = useAuth();
+  const { displayMode } = useDisplayMode();
 
   return (
     <div className="flex-1 flex flex-col overflow-y-auto pb-28 space-y-4 max-w-md mx-auto w-full px-4 pt-2">
-      {/* Dashboard Title Header */}
-      <header className="w-full text-center py-2">
-        <h1 className="text-xl font-extrabold text-white tracking-tight">
-          Dashboard
-        </h1>
-      </header>
+      {/* Dashboard Title Header — keeps Profile reachable from here even though the bottom
+          nav in "modern" mode no longer lists it directly */}
+      <AppHeader
+        title="Dashboard"
+        rightAction={
+          displayMode === "modern"
+            ? { href: "/profile", initial: (user?.name?.[0] || "?").toUpperCase(), label: "Profil" }
+            : undefined
+        }
+      />
 
       {/* Period Selector Tabs & Chevron Navigation: [Semaine] [Mois] [Tout le temps] */}
       <PeriodSelector

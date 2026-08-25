@@ -25,7 +25,6 @@ export const BoardCard: React.FC<{
       ref={setNodeRef}
       style={{
         transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
-        touchAction: "none",
       }}
       className={cn(
         "rounded-xl bg-[#1C1D22] border border-[#282A30] p-3 flex items-start gap-2 transition-all",
@@ -85,7 +84,7 @@ export const BoardColumn: React.FC<{
     <div
       ref={setNodeRef}
       className={cn(
-        "flex-shrink-0 w-[78vw] max-w-[280px] sm:w-64 h-full rounded-2xl bg-[#16171C] border p-2.5 flex flex-col transition-all",
+        "flex-shrink-0 w-[78vw] max-w-[280px] sm:w-64 max-h-full rounded-2xl bg-[#16171C] border p-2.5 flex flex-col transition-all",
         isOver ? "border-[#D4F63D]" : "border-[#23242A]"
       )}
     >
@@ -110,11 +109,13 @@ export const BoardColumn: React.FC<{
           )}
         </div>
       </div>
-      <div className="flex-1 min-h-[40px] overflow-y-auto space-y-2 pr-0.5">
-        {tasks.map((task) => (
-          <BoardCard key={task.id} task={task} onEditTask={onEditTask} projectBadge={getBadge?.(task) ?? null} />
-        ))}
-      </div>
+      {tasks.length > 0 && (
+        <div className="min-h-0 overflow-y-auto overscroll-contain space-y-2 p-0.5 -m-0.5">
+          {tasks.map((task) => (
+            <BoardCard key={task.id} task={task} onEditTask={onEditTask} projectBadge={getBadge?.(task) ?? null} />
+          ))}
+        </div>
+      )}
     </div>
   );
 };

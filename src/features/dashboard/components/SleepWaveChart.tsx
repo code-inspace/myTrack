@@ -23,6 +23,9 @@ interface SleepWaveChartProps {
 const WINDOW_START_MINUTES = 18 * 60;
 const WINDOW_SPAN_MINUTES = 24 * 60;
 const AXIS_LABEL_OFFSETS = [0, 240, 480, 720, 960, 1200]; // every 4h from 18:00
+// Full day rendered at a legible scale (~0.5px/min); the card below caps the visible
+// height and scrolls vertically through it.
+const TRACK_HEIGHT_PX = 720;
 
 function offsetFromWindowStart(timeStr: string): number {
   const [h, m] = timeStr.split(":").map((v) => parseInt(v, 10) || 0);
@@ -162,60 +165,67 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
         </div>
       </div>
 
-      {/* Vertical 24h Timeline: 18h -> 18h, sleep/nap segments placed by time of day */}
+      {/* Vertical 24h Timeline: 18h -> 18h, sleep/nap segments placed by time of day.
+          The full day is rendered at a taller, more legible scale and the card scrolls
+          vertically through it instead of squeezing everything into one short bar. */}
       <div className="pt-2">
-        <div className="h-64 flex items-stretch gap-1.5 pl-1 pr-9 relative">
-          {/* Horizontal time-of-day gridlines */}
-          {AXIS_LABEL_OFFSETS.map((offset) => (
-            <div
-              key={offset}
-              className="absolute inset-x-0 border-b border-dashed border-[#282A30] pointer-events-none flex items-center justify-end"
-              style={{ top: `${(offset / WINDOW_SPAN_MINUTES) * 100}%` }}
-            >
-              <span className="text-[9px] font-mono text-[#6B7280] -mt-1.5 absolute -right-9">
-                {formatAxisLabel(offset)}
-              </span>
-            </div>
-          ))}
+        <div className="max-h-72 overflow-y-auto overscroll-contain rounded-xl">
+          <div
+            className="flex items-stretch gap-1.5 pl-1 pr-9 relative"
+            style={{ height: `${TRACK_HEIGHT_PX}px` }}
+          >
+            {/* Horizontal time-of-day gridlines */}
+            {AXIS_LABEL_OFFSETS.map((offset) => (
+              <div
+                key={offset}
+                className="absolute inset-x-0 border-b border-dashed border-[#282A30] pointer-events-none flex items-center justify-end"
+                style={{ top: `${(offset / WINDOW_SPAN_MINUTES) * 100}%` }}
+              >
+                <span className="text-[9px] font-mono text-[#6B7280] -mt-1.5 absolute -right-9">
+                  {formatAxisLabel(offset)}
+                </span>
+              </div>
+            ))}
 
-          {points.map((pt, idx) => (
-            <div key={idx} className="flex-1 flex flex-col items-center h-full min-w-0 group relative">
-              <div className="relative w-full h-full rounded-xl bg-[#17181D]/60 border border-[#282A30] overflow-hidden">
-                {pt.night && (
-                  <div
-                    className="absolute inset-x-[15%] rounded-md bg-gradient-to-b from-[#818CF8] to-[#6366F1] group-hover:from-[#D4F63D] group-hover:to-[#a9d61f] transition-colors"
-                    style={{ top: `${pt.night.topPct}%`, height: `${Math.max(pt.night.heightPct, 1.5)}%` }}
-                    title={`${pt.night.startTime} → ${pt.night.endTime} (${pt.night.durationText})`}
-                  />
-                )}
-                {pt.naps.map((nap, nIdx) => (
-                  <div
-                    key={nIdx}
-                    className={cn(
-                      "absolute inset-x-[25%] rounded-md bg-[#A5B4FC]/70 border border-[#A5B4FC]/50",
-                      nap.isOpen && "animate-pulse"
-                    )}
-                    style={{ top: `${nap.topPct}%`, height: `${Math.max(nap.heightPct, 1.5)}%` }}
-                    title={
-                      nap.isOpen
-                        ? `Sieste en cours depuis ${nap.startTime}`
-                        : `Sieste ${nap.startTime} → ${nap.endTime} (${nap.durationText})`
-                    }
-                  />
-                ))}
+            {points.map((pt, idx) => (
+              <div key={idx} className="flex-1 flex flex-col items-center h-full min-w-0 group relative">
+                <div className="relative w-full h-full rounded-xl bg-[#17181D]/60 border border-[#282A30] overflow-hidden">
+                  {pt.night && (
+                    <div
+                      className="absolute inset-x-[15%] rounded-md bg-gradient-to-b from-[#818CF8] to-[#6366F1] group-hover:from-[#D4F63D] group-hover:to-[#a9d61f] transition-colors"
+                      style={{ top: `${pt.night.topPct}%`, height: `${Math.max(pt.night.heightPct, 0.8)}%` }}
+                      title={`${pt.night.startTime} → ${pt.night.endTime} (${pt.night.durationText})`}
+                    />
+                  )}
+                  {pt.naps.map((nap, nIdx) => (
+                    <div
+                      key={nIdx}
+                      className={cn(
+                        "absolute inset-x-[25%] rounded-md bg-[#A5B4FC]/70 border border-[#A5B4FC]/50",
+                        nap.isOpen && "animate-pulse"
+                      )}
+                      style={{ top: `${nap.topPct}%`, height: `${Math.max(nap.heightPct, 0.8)}%` }}
+                      title={
+                        nap.isOpen
+                          ? `Sieste en cours depuis ${nap.startTime}`
+                          : `Sieste ${nap.startTime} → ${nap.endTime} (${nap.durationText})`
+                      }
+                    />
+                  ))}
+                </div>
 
-                {/* Tooltip on hover/touch */}
-                <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-[#252830] text-white text-[10px] font-mono py-0.5 px-2 rounded-lg border border-[#343740] opacity-0 group-hover:opacity-100 transition-all pointer-events-none whitespace-nowrap shadow-xl z-30">
+                {/* Tooltip on hover/touch — kept outside the clipped track so it isn't cut off */}
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-full bg-[#252830] text-white text-[10px] font-mono py-0.5 px-2 rounded-lg border border-[#343740] opacity-0 group-hover:opacity-100 transition-all pointer-events-none whitespace-nowrap shadow-xl z-30">
                   {pt.night ? `${pt.night.durationText} (${pt.night.startTime} → ${pt.night.endTime})` : "N/A"}
                 </div>
-              </div>
 
-              {/* Label */}
-              <span className="text-[10px] font-medium text-[#8E929E] mt-2 truncate max-w-full">
-                {pt.label}
-              </span>
-            </div>
-          ))}
+                {/* Label */}
+                <span className="text-[10px] font-medium text-[#8E929E] mt-2 truncate max-w-full">
+                  {pt.label}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>
