@@ -1,7 +1,7 @@
 import { Task, TaskCompletion, TaskFormValues } from "./types";
 import { getStoredUserSession, DEMO_USER } from "@/features/auth/actions";
 import { createClient } from "@/utils/supabase/client";
-import { getTodayDateString, convertLocalTimeToUtc, convertUtcTimeToLocal, createUtcIsoFromLocalDateTime } from "@/lib/dates";
+import { getTodayDateString, convertLocalTimeToUtc, convertUtcTimeToLocal, createUtcIsoFromLocalDateTime, subtractMinutesFromTime } from "@/lib/dates";
 import { scheduleTaskPushNotification, cancelTaskPushNotifications } from "@/lib/onesignal/client";
 
 const TASKS_STORAGE_PREFIX = "mytrack_tasks_";
@@ -723,6 +723,59 @@ export async function updateTaskSchedule({
       userId: targetId,
     }).catch(() => {});
   }
+}
+
+/**
+ * Marks a task as completed "now". If it was never started (no actualStartTime recorded yet for
+ * that day), defaults to a 30-minute block ending now and reflects that window in the task's own
+ * schedule so it shows up positioned in the Agenda. Idempotent — safe to call on an
+ * already-completed task (e.g. re-dropping a card on a Kanban "done" column).
+ */
+export async function closeTaskAsCompleted(
+  taskId: string,
+  date: string,
+  userId?: string,
+  options?: { value?: number | null; duration?: number | null }
+): Promise<void> {
+  const supabase = createClient();
+  const session = !userId ? (await supabase.auth.getSession()).data.session : null;
+  const targetId: string = userId || session?.user?.id || getEffectiveUserId();
+
+  const tasks = getStoredTasks(targetId);
+  const target = tasks.find((t) => t.id === taskId);
+  const completions = getStoredCompletions(targetId);
+  const existing = completions.find((c) => c.taskId === taskId && c.date === date);
+
+  const now = new Date();
+  const nowTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  const wasStarted = Boolean(existing?.actualStartTime);
+  const actualStartTime = wasStarted ? existing!.actualStartTime! : subtractMinutesFromTime(nowTime, 30);
+
+  if (!wasStarted) {
+    const isRecurring = target?.recurrence && target.recurrence !== "ONCE";
+    await updateTaskSchedule({
+      taskId,
+      date,
+      startTime: actualStartTime,
+      endTime: nowTime,
+      applyToAll: !isRecurring,
+      userId: targetId,
+    });
+  }
+
+  await upsertDbCompletion({
+    taskId,
+    userId: targetId,
+    date,
+    completed: true,
+    value: options?.value !== undefined ? options.value : existing?.value || null,
+    duration: options?.duration !== undefined ? options.duration : existing?.duration || null,
+    scheduledStartTime: target?.startTime || existing?.scheduledStartTime || null,
+    scheduledEndTime: target?.endTime || existing?.scheduledEndTime || null,
+    actualStartTime,
+    actualEndTime: nowTime,
+    notes: null,
+  });
 }
 
 /**

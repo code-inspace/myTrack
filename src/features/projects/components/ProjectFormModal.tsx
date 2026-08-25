@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { X, FolderPlus, Plus, Trash2, Columns3 } from "lucide-react";
+import { X, FolderPlus, Plus, Trash2, Columns3, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Project, ProjectColumn, getProjectColumns, generateColumnId } from "../types";
 
@@ -47,8 +47,16 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = name.trim();
-    const cleanColumns = columns.map((c) => ({ ...c, label: c.label.trim() })).filter((c) => c.label);
+    let cleanColumns = columns.map((c) => ({ ...c, label: c.label.trim() })).filter((c) => c.label);
     if (!trimmed || cleanColumns.length === 0) return;
+
+    // Guarantee there's always a "done" column that closes a task when it lands there
+    if (!cleanColumns.some((c) => c.isDone)) {
+      cleanColumns = cleanColumns.map((c, idx) =>
+        idx === cleanColumns.length - 1 ? { ...c, isDone: true } : c
+      );
+    }
+
     onSubmit({ name: trimmed, color, columns: cleanColumns }, initialProject?.id);
     onClose();
   };
@@ -59,6 +67,10 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
 
   const renameColumn = (id: string, label: string) => {
     setColumns((prev) => prev.map((c) => (c.id === id ? { ...c, label } : c)));
+  };
+
+  const toggleDoneColumn = (id: string) => {
+    setColumns((prev) => prev.map((c) => (c.id === id ? { ...c, isDone: !c.isDone } : c)));
   };
 
   const removeColumn = (id: string) => {
@@ -134,6 +146,19 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
                   />
                   <button
                     type="button"
+                    onClick={() => toggleDoneColumn(col.id)}
+                    title="Marque la tâche comme terminée quand elle arrive dans cette colonne"
+                    className={cn(
+                      "flex items-center gap-1 px-2 py-2 rounded-lg text-[10px] font-bold transition-colors flex-shrink-0 cursor-pointer border",
+                      col.isDone
+                        ? "bg-[#D4F63D]/15 border-[#D4F63D] text-[#D4F63D]"
+                        : "bg-transparent border-[#343740] text-[#6B7280] hover:text-[#9CA3AF] hover:border-[#4B5563]"
+                    )}
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => removeColumn(col.id)}
                     disabled={columns.length <= 1}
                     className={cn(
@@ -148,6 +173,10 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
                 </div>
               ))}
             </div>
+            <p className="text-[10px] text-[#6B7280] flex items-center gap-1">
+              <CheckCircle2 className="w-3 h-3 text-[#D4F63D]" />
+              Marque une colonne comme &quot;Fait&quot; pour qu&apos;y déposer une tâche la valide automatiquement
+            </p>
             <button
               type="button"
               onClick={addColumn}

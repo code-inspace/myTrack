@@ -14,6 +14,7 @@ import {
   updateTaskSortOrder,
   moveTaskOccurrence,
   upsertDbCompletion,
+  closeTaskAsCompleted,
   deleteDbTask,
   getStoredTasks,
   getStoredCompletions,
@@ -251,26 +252,46 @@ export function useTaskMutations() {
       const existing = completions.find((c) => c.taskId === taskId && c.date === date);
       const newStatus = existing ? !existing.completed : true;
 
+      if (newStatus) {
+        // Closing a task that was never started (no actualStartTime yet) defaults to a
+        // 30-minute block ending now, instead of a zero-duration now-to-now entry, and
+        // reflects that window on the task's own schedule so it shows up in the Agenda.
+        await closeTaskAsCompleted(taskId, date, userId, { value, duration });
+        return;
+      }
+
       const tasks = getStoredTasks(userId);
       const targetTask = tasks.find((t) => t.id === taskId);
-      const nowTime = format(new Date(), "HH:mm");
 
       await upsertDbCompletion({
         taskId,
         userId,
         date,
-        completed: newStatus,
+        completed: false,
         value: value !== undefined ? value : existing?.value || null,
         duration: duration !== undefined ? duration : existing?.duration || null,
         scheduledStartTime: targetTask?.startTime || existing?.scheduledStartTime || null,
         scheduledEndTime: targetTask?.endTime || existing?.scheduledEndTime || null,
-        actualStartTime: existing?.actualStartTime || (newStatus ? nowTime : null),
-        actualEndTime: newStatus ? nowTime : null,
+        actualStartTime: existing?.actualStartTime || null,
+        actualEndTime: null,
         notes: null,
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["completions"] });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    },
+  });
+
+  // Explicitly marks a task as completed "now" (idempotent) — used e.g. by dropping a
+  // Kanban card onto a project's "done" column.
+  const closeTask = useMutation({
+    mutationFn: async ({ taskId, date }: { taskId: string; date: string }) => {
+      await closeTaskAsCompleted(taskId, date, userId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["completions"] });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
     },
   });
 
@@ -521,6 +542,7 @@ export function useTaskMutations() {
     reorderTasks,
     moveOccurrence,
     toggleCompletion,
+    closeTask,
     startTaskExecution,
     finishTaskExecution,
     updateCompletionValue,

@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { TaskWithCompletion } from "@/features/tasks/types";
-import { CheckCircle2, Circle, Sparkles, Bell, BellOff, Edit3, Flame } from "lucide-react";
+import { CheckCircle2, Circle, Sparkles, Bell, BellOff, Edit3, Flame, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getPriorityIconColorClass } from "@/features/tasks/priority";
 
@@ -35,6 +35,7 @@ export const AllDaySection: React.FC<AllDaySectionProps> = ({
   onSelectTask,
 }) => {
   const [isOver, setIsOver] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
@@ -88,14 +89,29 @@ export const AllDaySection: React.FC<AllDaySectionProps> = ({
       )}
     >
       {/* Left label column (matching screenshot "Jour entier") */}
-      <div className="w-16 flex-shrink-0 p-2.5 border-r border-[#23242A] flex flex-col justify-center items-center text-center">
+      <div className="w-16 flex-shrink-0 p-2 border-r border-[#23242A] flex flex-col justify-center items-center text-center gap-1.5">
         <span className="text-[10px] font-bold text-[#8E929E] uppercase tracking-tighter leading-tight">
           Jour<br />entier
         </span>
+        {tasks.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setIsExpanded((v) => !v)}
+            title={isExpanded ? "Réduire" : "Agrandir"}
+            className="p-1 rounded-lg text-[#8E929E] hover:text-white hover:bg-[#22242B] transition-colors cursor-pointer"
+          >
+            <ChevronDown className={cn("w-3.5 h-3.5 transition-transform duration-200", isExpanded ? "rotate-180" : "")} />
+          </button>
+        )}
       </div>
 
-      {/* Right container: horizontal flex wrap badge cards */}
-      <div className="flex-1 p-2 flex flex-wrap items-center gap-2 overflow-x-auto">
+      {/* Right container: horizontal flex wrap badge cards, capped so it never hides the timeline below */}
+      <div
+        className={cn(
+          "flex-1 p-2 flex flex-wrap items-center gap-2 overflow-x-auto overflow-y-auto transition-all duration-200",
+          isExpanded ? "max-h-[220px]" : "max-h-[52px]"
+        )}
+      >
         {tasks.length === 0 ? (
           <div className="text-xs text-[#8E929E] italic px-2 py-1 flex items-center gap-1.5 pointer-events-none">
             <Sparkles className="w-3.5 h-3.5 text-[#D4F63D]" />

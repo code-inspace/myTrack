@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { Task } from "@/features/tasks/types";
 import { Project } from "../types";
-import { ChevronRight, FolderKanban, Plus, Inbox, Pencil, Flame } from "lucide-react";
+import { ChevronRight, FolderKanban, Plus, Inbox, Pencil, Flame, LayoutGrid } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getPriorityCardClass, getPriorityTitleClass, getPriorityIconColorClass } from "@/features/tasks/priority";
 
@@ -11,6 +11,7 @@ interface ProjectsListViewProps {
   projects: Project[];
   tasks: Task[];
   onSelectProject: (projectId: string) => void;
+  onOpenAllProjectsBoard: () => void;
   onOpenNewProject: () => void;
   onEditProject: (project: Project) => void;
   onEditTask: (task: Task) => void;
@@ -20,6 +21,7 @@ export const ProjectsListView: React.FC<ProjectsListViewProps> = ({
   projects,
   tasks,
   onSelectProject,
+  onOpenAllProjectsBoard,
   onOpenNewProject,
   onEditProject,
   onEditTask,
@@ -42,6 +44,21 @@ export const ProjectsListView: React.FC<ProjectsListViewProps> = ({
           <span>Nouveau projet</span>
         </button>
       </div>
+
+      <button
+        type="button"
+        onClick={onOpenAllProjectsBoard}
+        className="w-full flex items-center gap-3 p-4 rounded-2xl bg-[#1C1D22] hover:bg-[#22242B] border border-[#282A30] hover:border-[#383C48] transition-all cursor-pointer text-left"
+      >
+        <div className="w-9 h-9 rounded-xl bg-[#D4F63D]/10 border border-[#D4F63D]/20 flex items-center justify-center text-[#D4F63D] flex-shrink-0">
+          <LayoutGrid className="w-4 h-4" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-bold text-white">Tous les projets</div>
+          <div className="text-[11px] text-[#8E929E]">Toutes les tâches, filtrables par catégorie ou projet</div>
+        </div>
+        <ChevronRight className="w-4 h-4 text-[#6B7280] flex-shrink-0" />
+      </button>
 
       {projects.length === 0 ? (
         <div className="p-8 text-center bg-[#1C1D22] border border-[#282A30] rounded-3xl my-4">
