@@ -1,0 +1,412 @@
+import { getEffectiveUserId } from "./user";
+import {
+  getStoredTasks,
+  saveStoredTasks,
+  getStoredCompletions,
+  saveStoredCompletions,
+} from "./storage";
+import { updateDbTask } from "./taskCrud";
+import { createClient } from "@/utils/supabase/client";
+import {
+  getTodayDateString,
+  convertLocalTimeToUtc,
+  createUtcIsoFromLocalDateTime,
+} from "@/lib/dates";
+import {
+  scheduleTaskPushNotification,
+  cancelTaskPushNotifications,
+} from "@/lib/onesignal/client";
+
+export async function updateDbTaskActive(
+  taskId: string,
+  isActive: boolean,
+  userId?: string,
+): Promise<void> {
+  const supabase = createClient();
+  let targetId = userId;
+  if (!targetId) {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    targetId = session?.user?.id || getEffectiveUserId();
+  }
+
+  const nowIso = new Date().toISOString();
+
+  try {
+    if (isActive) {
+      // Activate target task with started_at = now (without deactivating other parallel tasks)
+      await supabase
+        .from("tasks")
+        .update({ is_active: true, started_at: nowIso, updated_at: nowIso })
+        .eq("id", taskId);
+    } else {
+      // Stop target task
+      await supabase
+        .from("tasks")
+        .update({ is_active: false, started_at: null, updated_at: nowIso })
+        .eq("id", taskId);
+    }
+  } catch (err) {
+    console.warn("Supabase updateDbTaskActive error:", err);
+  }
+
+  const tasks = getStoredTasks(targetId);
+  const updated = tasks.map((t) => {
+    if (t.id === taskId) {
+      return {
+        ...t,
+        isActive,
+        startedAt: isActive ? nowIso : null,
+        updatedAt: nowIso,
+      };
+    }
+    return t;
+  });
+  saveStoredTasks(updated, targetId);
+}
+
+export async function updateDbTaskStartedAt(
+  taskId: string,
+  startedAtTime: string,
+  userId?: string,
+): Promise<{ startedAt: string }> {
+  const supabase = createClient();
+  let targetId = userId;
+  if (!targetId) {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    targetId = session?.user?.id || getEffectiveUserId();
+  }
+
+  const now = new Date();
+  const [hours, minutes] = startedAtTime
+    .split(":")
+    .map((v) => parseInt(v, 10) || 0);
+  const newStartDate = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+    hours,
+    minutes,
+    0,
+  );
+  const newStartedAtIso = newStartDate.toISOString();
+  const nowIso = now.toISOString();
+  const todayStr = getTodayDateString();
+
+  const tasks = getStoredTasks(targetId);
+  const target = tasks.find((t) => t.id === taskId);
+  const isRecurring = target?.recurrence && target.recurrence !== "ONCE";
+
+  // Calculate new end time if current end time is before new start time
+  let provisionalEndTime = target?.endTime;
+  if (!provisionalEndTime) {
+    const endH = (hours + 1) % 24;
+    provisionalEndTime = `${String(endH).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+  }
+
+  const utcStartTime = convertLocalTimeToUtc(startedAtTime, todayStr);
+  const utcProvisionalEndTime = convertLocalTimeToUtc(
+    provisionalEndTime,
+    todayStr,
+  );
+
+  const currentOverrides = target?.dateOverrides || {};
+  const updatedOverrides = {
+    ...currentOverrides,
+    [todayStr]: {
+      ...(currentOverrides[todayStr] || {}),
+      startTime: utcStartTime,
+      endTime: utcProvisionalEndTime,
+    },
+  };
+
+  const dbUpdates: any = {
+    started_at: newStartedAtIso,
+    updated_at: nowIso,
+    date_overrides: updatedOverrides,
+  };
+
+  if (!isRecurring) {
+    dbUpdates.start_time = utcStartTime;
+    dbUpdates.end_time = utcProvisionalEndTime;
+  }
+
+  try {
+    await supabase.from("tasks").update(dbUpdates).eq("id", taskId);
+  } catch (err) {
+    console.warn("Supabase updateDbTaskStartedAt error:", err);
+  }
+
+  // Update completions actualStartTime as well
+  try {
+    await supabase
+      .from("task_completions")
+      .update({
+        actual_start_time: utcStartTime,
+        scheduled_start_time: utcStartTime,
+        updated_at: nowIso,
+      })
+      .eq("task_id", taskId)
+      .eq("date", todayStr);
+  } catch (err) {
+    console.warn("Supabase updateDbTaskStartedAt completion error:", err);
+  }
+
+  const updated = tasks.map((t) => {
+    if (t.id === taskId) {
+      return {
+        ...t,
+        startedAt: newStartedAtIso,
+        startTime: !isRecurring ? startedAtTime : t.startTime,
+        endTime: !isRecurring ? provisionalEndTime : t.endTime,
+        dateOverrides: {
+          ...currentOverrides,
+          [todayStr]: {
+            ...(currentOverrides[todayStr] || {}),
+            startTime: startedAtTime,
+            endTime: provisionalEndTime,
+          },
+        },
+        updatedAt: nowIso,
+      };
+    }
+    return t;
+  });
+  saveStoredTasks(updated, targetId);
+
+  // Update localStorage completions too
+  const completions = getStoredCompletions(targetId);
+  const compIdx = completions.findIndex(
+    (c) => c.taskId === taskId && c.date === todayStr,
+  );
+  if (compIdx >= 0) {
+    const nextCompletions = [...completions];
+    nextCompletions[compIdx] = {
+      ...nextCompletions[compIdx],
+      actualStartTime: startedAtTime,
+      scheduledStartTime: startedAtTime,
+      updatedAt: nowIso,
+    };
+    saveStoredCompletions(nextCompletions, targetId);
+  }
+
+  return { startedAt: newStartedAtIso };
+}
+
+/**
+ * Updates schedule for a specific date (or globally).
+ * If task is recurring and not applyToAll, saves to dateOverrides[date].
+ */
+export async function updateTaskSchedule({
+  taskId,
+  date,
+  startTime,
+  endTime,
+  applyToAll = false,
+  userId,
+}: {
+  taskId: string;
+  date: string;
+  startTime: string | null;
+  endTime: string | null;
+  applyToAll?: boolean;
+  userId?: string;
+}): Promise<void> {
+  const supabase = createClient();
+  let targetId = userId;
+  if (!targetId) {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    targetId = session?.user?.id || getEffectiveUserId();
+  }
+
+  const tasks = getStoredTasks(targetId);
+  const target = tasks.find((t) => t.id === taskId);
+  const nowIso = new Date().toISOString();
+
+  const isRecurring = target?.recurrence && target.recurrence !== "ONCE";
+  const utcStart = startTime ? convertLocalTimeToUtc(startTime, date) : null;
+  const utcEnd = endTime ? convertLocalTimeToUtc(endTime, date) : null;
+
+  if (isRecurring && !applyToAll) {
+    // Specific day override
+    const currentOverrides = target?.dateOverrides || {};
+    const updatedOverrides = {
+      ...currentOverrides,
+      [date]: { startTime: utcStart, endTime: utcEnd },
+    };
+
+    try {
+      await supabase
+        .from("tasks")
+        .update({ date_overrides: updatedOverrides, updated_at: nowIso })
+        .eq("id", taskId);
+    } catch (err) {
+      console.warn("Supabase updateTaskSchedule override error:", err);
+    }
+
+    const updated = tasks.map((t) =>
+      t.id === taskId
+        ? {
+            ...t,
+            dateOverrides: {
+              ...currentOverrides,
+              [date]: { startTime, endTime },
+            },
+            updatedAt: nowIso,
+          }
+        : t,
+    );
+    saveStoredTasks(updated, targetId);
+  } else {
+    // Global schedule update
+    try {
+      await supabase
+        .from("tasks")
+        .update({ start_time: utcStart, end_time: utcEnd, updated_at: nowIso })
+        .eq("id", taskId);
+    } catch (err) {
+      console.warn("Supabase updateTaskSchedule global error:", err);
+    }
+
+    const updated = tasks.map((t) =>
+      t.id === taskId ? { ...t, startTime, endTime, updatedAt: nowIso } : t,
+    );
+    saveStoredTasks(updated, targetId);
+  }
+
+  // Reschedule or cancel push notification for this task
+  if (target && target.enableReminders !== false) {
+    const scheduledIso = startTime
+      ? createUtcIsoFromLocalDateTime(startTime, date)
+      : undefined;
+    scheduleTaskPushNotification({
+      userId: targetId,
+      taskId: target.id,
+      taskTitle: target.title,
+      startTime,
+      scheduledIso,
+      replaceExisting: true,
+      reminderOffsetMinutes: target.reminderOffsetMinutes ?? 10,
+      reminderTimes: target.reminderTimes || ["11:00", "18:00"],
+      date,
+      category: target.category,
+    }).catch((e) => console.warn("updateTaskSchedule reminder note:", e));
+  } else if (target) {
+    cancelTaskPushNotifications({
+      taskId: target.id,
+      userId: targetId,
+    }).catch(() => {});
+  }
+}
+
+/**
+ * Persists a new drag-and-drop priority order for a set of tasks (0..n-1 by array position).
+ */
+export async function updateTaskSortOrder(
+  taskIds: string[],
+  userId?: string,
+): Promise<void> {
+  const supabase = createClient();
+  let targetId = userId;
+  if (!targetId) {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    targetId = session?.user?.id || getEffectiveUserId();
+  }
+
+  const nowIso = new Date().toISOString();
+
+  try {
+    await Promise.all(
+      taskIds.map((taskId, index) =>
+        supabase
+          .from("tasks")
+          .update({ sort_order: index, updated_at: nowIso })
+          .eq("id", taskId),
+      )
+    );
+  } catch (err) {
+    console.warn("Supabase updateTaskSortOrder error:", err);
+  }
+
+  const tasks = getStoredTasks(targetId);
+  const orderMap = new Map(taskIds.map((id, index) => [id, index]));
+  const updated = tasks.map((t) =>
+    orderMap.has(t.id)
+      ? { ...t, sortOrder: orderMap.get(t.id)!, updatedAt: nowIso }
+      : t,
+  );
+  saveStoredTasks(updated, targetId);
+}
+
+/**
+ * Moves a single occurrence of a task from one date to another (used by drag-and-drop onto the day strip).
+ * For a ONCE task this just changes its date. For a recurring task, the origin date is marked "skipped"
+ * and the destination date gets an added-occurrence override, both stored in the existing dateOverrides JSONB.
+ */
+export async function moveTaskOccurrence(
+  taskId: string,
+  fromDate: string,
+  toDate: string,
+  userId?: string,
+): Promise<void> {
+  if (fromDate === toDate) return;
+
+  const supabase = createClient();
+  let targetId = userId;
+  if (!targetId) {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    targetId = session?.user?.id || getEffectiveUserId();
+  }
+
+  const tasks = getStoredTasks(targetId);
+  const target = tasks.find((t) => t.id === taskId);
+  if (!target) return;
+
+  const nowIso = new Date().toISOString();
+
+  if (target.recurrence === "ONCE") {
+    await updateDbTask(taskId, { date: toDate, recurrence: "ONCE" }, targetId);
+    return;
+  }
+
+  const currentOverrides = target.dateOverrides || {};
+  const carriedStart =
+    currentOverrides[fromDate]?.startTime ?? target.startTime ?? null;
+  const carriedEnd =
+    currentOverrides[fromDate]?.endTime ?? target.endTime ?? null;
+
+  const updatedOverrides = {
+    ...currentOverrides,
+    [fromDate]: { skipped: true },
+    [toDate]: {
+      startTime: carriedStart,
+      endTime: carriedEnd,
+      movedFrom: fromDate,
+    },
+  };
+
+  try {
+    await supabase
+      .from("tasks")
+      .update({ date_overrides: updatedOverrides, updated_at: nowIso })
+      .eq("id", taskId);
+  } catch (err) {
+    console.warn("Supabase moveTaskOccurrence error:", err);
+  }
+
+  const updated = tasks.map((t) =>
+    t.id === taskId
+      ? { ...t, dateOverrides: updatedOverrides, updatedAt: nowIso }
+      : t,
+  );
+  saveStoredTasks(updated, targetId);
+}
