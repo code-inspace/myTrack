@@ -10,6 +10,7 @@ import { scheduleTaskPushNotification, cancelTaskPushNotifications } from "@/lib
 import { createDbReminder } from "@/features/notifications/reminderActions";
 import { createClient } from "@/utils/supabase/client";
 import { subDays, parseISO, format } from "date-fns";
+import { generateDemoSleepLog } from "./demoSeed";
 
 const SLEEP_STORAGE_PREFIX = "mytrack_sleeplog_";
 
@@ -250,9 +251,11 @@ export function cacheSleepHistoryLocally(logs: DailySleepLog[], userId?: string)
 
 export function getStoredSleepLog(date: string, userId?: string): DailySleepLog {
   const targetId = getEffectiveUserId(userId);
+  const isDemo = targetId === DEMO_USER.id;
   const key = `${SLEEP_STORAGE_PREFIX}${targetId}_${date}`;
 
   if (typeof window === "undefined") {
+    if (isDemo) return generateDemoSleepLog(date);
     return {
       date,
       bedtime: "23:00",
@@ -283,6 +286,12 @@ export function getStoredSleepLog(date: string, userId?: string): DailySleepLog 
     }
   } catch (err) {
     console.warn("getStoredSleepLog parse error:", err);
+  }
+
+  if (isDemo) {
+    const seed = generateDemoSleepLog(date);
+    localStorage.setItem(key, JSON.stringify(seed));
+    return seed;
   }
 
   // Default initial sleep log

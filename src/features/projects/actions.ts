@@ -1,6 +1,8 @@
 import { Project, ProjectColumn } from "./types";
 import { getEffectiveUserId } from "@/features/tasks/actions";
 import { createClient } from "@/utils/supabase/client";
+import { DEMO_USER } from "@/features/auth/actions";
+import { generateDemoSeedProjects } from "./demoSeed";
 
 const PROJECTS_STORAGE_PREFIX = "mytrack_projects_";
 
@@ -18,13 +20,30 @@ function mapDbProjectToModel(row: any): Project {
 
 export function getStoredProjects(userId?: string): Project[] {
   const targetId = getEffectiveUserId(userId);
-  if (typeof window === "undefined") return [];
+  const isDemo = targetId === DEMO_USER.id;
+  if (typeof window === "undefined") return isDemo ? generateDemoSeedProjects(targetId) : [];
+
   const key = PROJECTS_STORAGE_PREFIX + targetId;
   const stored = localStorage.getItem(key);
-  if (!stored) return [];
+  if (!stored) {
+    if (isDemo) {
+      const seed = generateDemoSeedProjects(targetId);
+      localStorage.setItem(key, JSON.stringify(seed));
+      return seed;
+    }
+    return [];
+  }
   try {
     const parsed = JSON.parse(stored);
-    return Array.isArray(parsed) ? parsed : [];
+    if (Array.isArray(parsed)) {
+      if (parsed.length === 0 && isDemo) {
+        const seed = generateDemoSeedProjects(targetId);
+        localStorage.setItem(key, JSON.stringify(seed));
+        return seed;
+      }
+      return parsed;
+    }
+    return [];
   } catch {
     return [];
   }

@@ -3,6 +3,8 @@ import { getStoredUserSession, DEMO_USER } from "@/features/auth/actions";
 import { createClient } from "@/utils/supabase/client";
 import { getTodayDateString, convertLocalTimeToUtc, convertUtcTimeToLocal, createUtcIsoFromLocalDateTime, subtractMinutesFromTime } from "@/lib/dates";
 import { scheduleTaskPushNotification, cancelTaskPushNotifications } from "@/lib/onesignal/client";
+import { getStoredProjects } from "@/features/projects/actions";
+import { getProjectColumns } from "@/features/projects/types";
 
 const TASKS_STORAGE_PREFIX = "mytrack_tasks_";
 const COMPLETIONS_STORAGE_PREFIX = "mytrack_completions_";
@@ -776,6 +778,16 @@ export async function closeTaskAsCompleted(
     actualEndTime: nowTime,
     notes: null,
   });
+
+  // A completed task that belongs to a project also moves onto that project's Kanban board's
+  // "done" column, regardless of which screen (habit list, agenda, voice) it was completed from.
+  if (target?.projectId) {
+    const project = getStoredProjects(targetId).find((p) => p.id === target.projectId);
+    const doneColumn = project ? getProjectColumns(project).find((c) => c.isDone) : undefined;
+    if (doneColumn && target.projectStatus !== doneColumn.id) {
+      await updateDbTask(taskId, { projectStatus: doneColumn.id }, targetId);
+    }
+  }
 }
 
 /**

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { TaskWithCompletion } from "../types";
-import { Clock, Repeat, Square, Edit3, Check, Flame } from "lucide-react";
+import { Clock, Repeat, Square, Edit3, Flame } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getPriorityIconColorClass } from "../priority";
 
@@ -61,11 +61,10 @@ export const ActiveTaskBanner: React.FC<ActiveTaskBannerProps> = ({
     return () => clearInterval(timer);
   }, [task.startedAt, task.id]);
 
-  const handleSaveStartTime = (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (!inputStartTime || !inputStartTime.includes(":")) return;
-    onUpdateStartTime?.(task.id, inputStartTime);
-    setIsEditingStartTime(false);
+  const handleChangeStartTime = (newTime: string) => {
+    setInputStartTime(newTime);
+    if (!newTime || !newTime.includes(":")) return;
+    onUpdateStartTime?.(task.id, newTime);
   };
 
   const formatTimer = (totalSec: number) => {
@@ -143,22 +142,16 @@ export const ActiveTaskBanner: React.FC<ActiveTaskBannerProps> = ({
         <div className="flex items-center gap-3">
           {/* Editable Start Time */}
           {isEditingStartTime ? (
-            <form onSubmit={handleSaveStartTime} className="flex items-center gap-1.5 bg-black/15 p-1 rounded-xl">
+            <div className="flex items-center gap-1.5 bg-black/15 p-1 rounded-xl">
               <input
                 type="time"
                 value={inputStartTime}
-                onChange={(e) => setInputStartTime(e.target.value)}
+                onChange={(e) => handleChangeStartTime(e.target.value)}
+                onBlur={() => setIsEditingStartTime(false)}
                 autoFocus
                 className="h-7 px-2 rounded-lg bg-black text-[#D4F63D] text-xs font-mono font-bold outline-none text-center box-border"
               />
-              <button
-                type="submit"
-                className="p-1 rounded-lg bg-black text-[#D4F63D] hover:scale-105 transition-transform cursor-pointer"
-                title="Valider l'heure de début"
-              >
-                <Check className="w-3.5 h-3.5 stroke-[3]" />
-              </button>
-            </form>
+            </div>
           ) : (
             <button
               type="button"

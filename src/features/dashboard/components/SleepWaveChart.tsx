@@ -25,9 +25,9 @@ interface SleepWaveChartProps {
 const WINDOW_START_MINUTES = 18 * 60;
 const WINDOW_SPAN_MINUTES = 24 * 60;
 const RANGE_PADDING_MINUTES = 60;
-const PX_PER_MINUTE = 0.6;
-const MIN_TRACK_HEIGHT_PX = 180;
-const MAX_TRACK_HEIGHT_PX = 900;
+const PX_PER_MINUTE = 0.4;
+const MIN_TRACK_HEIGHT_PX = 160;
+const MAX_TRACK_HEIGHT_PX = 420;
 const AXIS_LABEL_COUNT = 5;
 
 function offsetFromWindowStart(timeStr: string): number {
@@ -220,11 +220,10 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
         </div>
       </div>
 
-      {/* Vertical 24h Timeline: 18h -> 18h, sleep/nap segments placed by time of day.
-          The full day is rendered at a taller, more legible scale and the card scrolls
-          vertically through it instead of squeezing everything into one short bar. */}
+      {/* Vertical Timeline: cropped to the actual sleep/nap data ± 1h, sleep/nap segments
+          placed by time of day at a legible scale. */}
       <div className="pt-2">
-        <div className="max-h-72 overflow-y-auto overscroll-contain rounded-xl">
+        <div className="rounded-xl">
           <div
             className="flex items-stretch gap-1.5 pl-1 pr-9 relative"
             style={{ height: `${trackHeightPx}px` }}
