@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo, useState, useEffect } from "react";
-import { Moon, Sparkles, TrendingUp } from "lucide-react";
+import { Moon, Sparkles } from "lucide-react";
 import { format, subDays } from "date-fns";
 import { fr } from "date-fns/locale";
 import {
@@ -10,6 +10,7 @@ import {
   getNightSleepDuration,
   fetchSleepHistory,
 } from "@/features/sleep/actions";
+import { getTodayDateString } from "@/lib/dates";
 import { Period } from "@/features/dashboard/types";
 import { cn } from "@/lib/utils";
 
@@ -18,14 +19,49 @@ interface SleepWaveChartProps {
   referenceDate: Date;
 }
 
+// Vertical scale: 18:00 (top) to 18:00 the next day (bottom).
+const WINDOW_START_MINUTES = 18 * 60;
+const WINDOW_SPAN_MINUTES = 24 * 60;
+const AXIS_LABEL_OFFSETS = [0, 240, 480, 720, 960, 1200]; // every 4h from 18:00
+
+function offsetFromWindowStart(timeStr: string): number {
+  const [h, m] = timeStr.split(":").map((v) => parseInt(v, 10) || 0);
+  const minutes = h * 60 + m;
+  return ((minutes - WINDOW_START_MINUTES) % WINDOW_SPAN_MINUTES + WINDOW_SPAN_MINUTES) % WINDOW_SPAN_MINUTES;
+}
+
+function formatAxisLabel(offsetMinutes: number): string {
+  const minutes = (WINDOW_START_MINUTES + offsetMinutes) % (24 * 60);
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+interface Segment {
+  topPct: number;
+  heightPct: number;
+  startTime: string;
+  endTime: string;
+  durationText: string;
+  isOpen?: boolean;
+}
+
+interface DayPoint {
+  dateStr: string;
+  label: string;
+  night: Segment | null;
+  naps: Segment[];
+}
+
 export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
   period,
   referenceDate,
 }) => {
   const FRENCH_DAYS_SHORT = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
   const [syncVersion, setSyncVersion] = useState(0);
+  const todayStr = getTodayDateString();
 
-  // Sync historical sleep logs from Supabase database
+  // Sync historical sleep logs (bedtime/wakeTime/naps) from Supabase into the local cache
   useEffect(() => {
     const daysCount = period === "week" ? 7 : period === "month" ? 14 : 30;
     fetchSleepHistory(daysCount + 5).then((logs) => {
@@ -35,25 +71,18 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
     });
   }, [period, referenceDate]);
 
-  const sleepData = useMemo(() => {
+  const { points, validNights, averageText } = useMemo(() => {
     const daysCount = period === "week" ? 7 : period === "month" ? 14 : 30;
-    const points: Array<{
-      dateStr: string;
-      label: string;
-      hasData: boolean;
-      hours: number;
-      durationText: string;
-      bedtime: string;
-      wakeTime: string;
-    }> = [];
+    const pts: DayPoint[] = [];
 
     let totalMinutes = 0;
-    let validNights = 0;
+    let nights = 0;
 
     for (let i = daysCount - 1; i >= 0; i--) {
       const d = subDays(referenceDate, i);
       const dateStr = format(d, "yyyy-MM-dd");
       const nightData = getNightSleepDuration(dateStr);
+      const dayLog = getStoredSleepLog(dateStr);
 
       const dayIndex = d.getDay();
       const label =
@@ -61,49 +90,52 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
           ? `${FRENCH_DAYS_SHORT[dayIndex]} ${format(d, "d")}`
           : format(d, "d MMM", { locale: fr });
 
+      let night: Segment | null = null;
       if (nightData) {
         totalMinutes += nightData.duration.hours * 60 + nightData.duration.minutes;
-        validNights++;
-        points.push({
-          dateStr,
-          label,
-          hasData: true,
-          hours: nightData.duration.decHours,
+        nights++;
+        const top = offsetFromWindowStart(nightData.yesterdayBedtime);
+        const end = offsetFromWindowStart(nightData.todayWakeTime);
+        night = {
+          topPct: (top / WINDOW_SPAN_MINUTES) * 100,
+          heightPct: (Math.max(end - top, 0) / WINDOW_SPAN_MINUTES) * 100,
+          startTime: nightData.yesterdayBedtime,
+          endTime: nightData.todayWakeTime,
           durationText: nightData.duration.text,
-          bedtime: nightData.yesterdayBedtime,
-          wakeTime: nightData.todayWakeTime,
-        });
-      } else {
-        points.push({
-          dateStr,
-          label,
-          hasData: false,
-          hours: 0,
-          durationText: "N/A (Non renseigné)",
-          bedtime: "-",
-          wakeTime: "-",
-        });
+        };
       }
+
+      const isToday = dateStr === todayStr;
+      const naps: Segment[] = (dayLog.naps || [])
+        .filter((n) => n.endTime || isToday) // only show an ongoing (open) nap on today's column
+        .map((n) => {
+          const isOpen = !n.endTime;
+          const effectiveEnd = n.endTime || `${String(new Date().getHours()).padStart(2, "0")}:${String(new Date().getMinutes()).padStart(2, "0")}`;
+          const top = offsetFromWindowStart(n.startTime);
+          const end = offsetFromWindowStart(effectiveEnd);
+          const dur = computeSleepDuration(n.startTime, effectiveEnd);
+          return {
+            topPct: (top / WINDOW_SPAN_MINUTES) * 100,
+            heightPct: (Math.max(end - top, 0) / WINDOW_SPAN_MINUTES) * 100,
+            startTime: n.startTime,
+            endTime: effectiveEnd,
+            durationText: dur?.text || "",
+            isOpen,
+          };
+        });
+
+      pts.push({ dateStr, label, night, naps });
     }
 
     const averageText =
-      validNights > 0
-        ? `${Math.floor(totalMinutes / validNights / 60)}h ${String(
-            Math.round((totalMinutes / validNights) % 60)
+      nights > 0
+        ? `${Math.floor(totalMinutes / nights / 60)}h ${String(
+            Math.round((totalMinutes / nights) % 60)
           ).padStart(2, "0")}m`
         : "N/A";
 
-    const averageHours = validNights > 0 ? Math.round((totalMinutes / validNights / 60) * 10) / 10 : 0;
-
-    return {
-      points,
-      validNights,
-      averageText,
-      averageHours,
-    };
-  }, [period, referenceDate, syncVersion]);
-
-  const maxHours = 12; // Chart scale up to 12h
+    return { points: pts, validNights: nights, averageText };
+  }, [period, referenceDate, syncVersion, todayStr]);
 
   return (
     <div className="bg-[#1C1D22] border border-[#282A30] rounded-3xl p-5 shadow-sm space-y-4">
@@ -115,11 +147,11 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
           </div>
           <div>
             <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
-              <span>Heures de sommeil par nuit</span>
+              <span>Sommeil par nuit</span>
             </h3>
             <p className="text-[11px] text-[#8E929E]">
-              Moyenne : <strong className="text-[#D4F63D]">{sleepData.averageText}</strong>
-              {sleepData.validNights > 0 ? " / nuit" : ""}
+              Moyenne : <strong className="text-[#D4F63D]">{averageText}</strong>
+              {validNights > 0 ? " / nuit" : ""}
             </p>
           </div>
         </div>
@@ -130,63 +162,60 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
         </div>
       </div>
 
-      {/* Sleep Bar / Wave Graphic */}
+      {/* Vertical 24h Timeline: 18h -> 18h, sleep/nap segments placed by time of day */}
       <div className="pt-2">
-        <div className="h-36 flex items-end justify-between gap-1.5 px-1 relative">
-          {/* Target 8h guideline */}
-          <div
-            className="absolute inset-x-0 border-b border-dashed border-[#818CF8]/35 pointer-events-none z-10 flex items-center justify-end pr-1"
-            style={{ bottom: `${(8 / maxHours) * 100}%` }}
-          >
-            <span className="text-[9px] font-mono text-[#818CF8]/80 -mt-3.5">8h</span>
-          </div>
+        <div className="h-64 flex items-stretch gap-1.5 pl-1 pr-9 relative">
+          {/* Horizontal time-of-day gridlines */}
+          {AXIS_LABEL_OFFSETS.map((offset) => (
+            <div
+              key={offset}
+              className="absolute inset-x-0 border-b border-dashed border-[#282A30] pointer-events-none flex items-center justify-end"
+              style={{ top: `${(offset / WINDOW_SPAN_MINUTES) * 100}%` }}
+            >
+              <span className="text-[9px] font-mono text-[#6B7280] -mt-1.5 absolute -right-9">
+                {formatAxisLabel(offset)}
+              </span>
+            </div>
+          ))}
 
-          {sleepData.points.map((pt, idx) => {
-            const heightPercent = pt.hasData
-              ? Math.min(100, Math.max(16, (pt.hours / maxHours) * 100))
-              : 8;
-            const isOptimal = pt.hasData && pt.hours >= 7 && pt.hours <= 9;
-            const isShort = pt.hasData && pt.hours < 6;
-
-            return (
-              <div key={idx} className="flex-1 flex flex-col items-center h-full justify-end group relative">
-                {/* Tooltip on hover/touch */}
-                <div className="absolute -top-8 bg-[#252830] text-white text-[10px] font-mono py-0.5 px-2 rounded-lg border border-[#343740] opacity-0 group-hover:opacity-100 group-hover:-top-9 transition-all pointer-events-none whitespace-nowrap shadow-xl z-30">
-                  {pt.hasData
-                    ? `${pt.durationText} (${pt.bedtime} → ${pt.wakeTime})`
-                    : "N/A (Non renseigné)"}
-                </div>
-
-                {/* Animated Pillar Bar */}
-                <div
-                  className={cn(
-                    "w-full rounded-t-xl transition-all duration-300 relative flex items-center justify-center",
-                    pt.hasData
-                      ? isOptimal
-                        ? "bg-gradient-to-t from-[#818CF8]/40 to-[#818CF8] group-hover:to-[#D4F63D]"
-                        : isShort
-                        ? "bg-gradient-to-t from-orange-500/40 to-orange-400"
-                        : "bg-gradient-to-t from-[#6366F1]/30 to-[#818CF8]/80"
-                      : "bg-[#252830]/50 border border-dashed border-[#343740]"
-                  )}
-                  style={{ height: `${heightPercent}%` }}
-                >
-                  <div className="absolute -top-4 inset-x-0 text-center text-[10px] font-mono font-bold">
-                    {pt.hasData ? (
-                      <span className="text-white/90">{pt.hours}h</span>
-                    ) : (
-                      <span className="text-[#6B7280] font-normal text-[9px]">N/A</span>
+          {points.map((pt, idx) => (
+            <div key={idx} className="flex-1 flex flex-col items-center h-full min-w-0 group relative">
+              <div className="relative w-full h-full rounded-xl bg-[#17181D]/60 border border-[#282A30] overflow-hidden">
+                {pt.night && (
+                  <div
+                    className="absolute inset-x-[15%] rounded-md bg-gradient-to-b from-[#818CF8] to-[#6366F1] group-hover:from-[#D4F63D] group-hover:to-[#a9d61f] transition-colors"
+                    style={{ top: `${pt.night.topPct}%`, height: `${Math.max(pt.night.heightPct, 1.5)}%` }}
+                    title={`${pt.night.startTime} → ${pt.night.endTime} (${pt.night.durationText})`}
+                  />
+                )}
+                {pt.naps.map((nap, nIdx) => (
+                  <div
+                    key={nIdx}
+                    className={cn(
+                      "absolute inset-x-[25%] rounded-md bg-[#A5B4FC]/70 border border-[#A5B4FC]/50",
+                      nap.isOpen && "animate-pulse"
                     )}
-                  </div>
-                </div>
+                    style={{ top: `${nap.topPct}%`, height: `${Math.max(nap.heightPct, 1.5)}%` }}
+                    title={
+                      nap.isOpen
+                        ? `Sieste en cours depuis ${nap.startTime}`
+                        : `Sieste ${nap.startTime} → ${nap.endTime} (${nap.durationText})`
+                    }
+                  />
+                ))}
 
-                {/* Label */}
-                <span className="text-[10px] font-medium text-[#8E929E] mt-2 truncate max-w-full">
-                  {pt.label}
-                </span>
+                {/* Tooltip on hover/touch */}
+                <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-[#252830] text-white text-[10px] font-mono py-0.5 px-2 rounded-lg border border-[#343740] opacity-0 group-hover:opacity-100 transition-all pointer-events-none whitespace-nowrap shadow-xl z-30">
+                  {pt.night ? `${pt.night.durationText} (${pt.night.startTime} → ${pt.night.endTime})` : "N/A"}
+                </div>
               </div>
-            );
-          })}
+
+              {/* Label */}
+              <span className="text-[10px] font-medium text-[#8E929E] mt-2 truncate max-w-full">
+                {pt.label}
+              </span>
+            </div>
+          ))}
         </div>
       </div>
     </div>

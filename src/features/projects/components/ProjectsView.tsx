@@ -15,9 +15,10 @@ interface ProjectsViewProps {
   allTasks: Task[];
   onEditTask: (task: Task) => void;
   onAddTaskToColumn: (projectId: string, projectStatus: string) => void;
+  onNewTask: () => void;
 }
 
-export const ProjectsView: React.FC<ProjectsViewProps> = ({ allTasks, onEditTask, onAddTaskToColumn }) => {
+export const ProjectsView: React.FC<ProjectsViewProps> = ({ allTasks, onEditTask, onAddTaskToColumn, onNewTask }) => {
   const { projects } = useProjects();
   const { createProject, updateProject } = useProjectMutations();
   const { updateTask, closeTask } = useTaskMutations();
@@ -49,6 +50,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ allTasks, onEditTask
         onBack={() => setShowAllProjectsBoard(false)}
         onEditTask={onEditTask}
         onChangeStatus={handleChangeStatus}
+        onAddTask={onNewTask}
       />
     );
   }

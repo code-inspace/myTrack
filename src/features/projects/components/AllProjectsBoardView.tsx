@@ -5,7 +5,7 @@ import { Task } from "@/features/tasks/types";
 import { TASK_CATEGORIES } from "@/features/tasks/options";
 import { Project, DEFAULT_PROJECT_COLUMNS } from "../types";
 import { BoardColumn, groupTasksByColumn } from "./KanbanBoard";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Plus } from "lucide-react";
 import {
   DndContext,
   DragEndEvent,
@@ -20,6 +20,7 @@ interface AllProjectsBoardViewProps {
   onBack: () => void;
   onEditTask: (task: Task) => void;
   onChangeStatus: (taskId: string, status: string, isDoneColumn: boolean) => void;
+  onAddTask: () => void;
 }
 
 const NO_PROJECT_FILTER = "__none__";
@@ -30,6 +31,7 @@ export const AllProjectsBoardView: React.FC<AllProjectsBoardViewProps> = ({
   onBack,
   onEditTask,
   onChangeStatus,
+  onAddTask,
 }) => {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
   const [categoryFilter, setCategoryFilter] = useState("");
@@ -73,7 +75,15 @@ export const AllProjectsBoardView: React.FC<AllProjectsBoardViewProps> = ({
         >
           <ArrowLeft className="w-4 h-4" />
         </button>
-        <h2 className="text-lg font-bold text-white truncate">Tous les projets</h2>
+        <h2 className="text-lg font-bold text-white truncate flex-1 min-w-0">Tous les projets</h2>
+        <button
+          type="button"
+          onClick={onAddTask}
+          title="Nouvelle tâche"
+          className="p-2 rounded-full bg-[#D4F63D] hover:bg-[#c2e42f] text-black transition-all cursor-pointer flex-shrink-0"
+        >
+          <Plus className="w-4 h-4" />
+        </button>
       </div>
 
       <div className="flex items-center gap-2 px-4 pb-3">
@@ -105,8 +115,8 @@ export const AllProjectsBoardView: React.FC<AllProjectsBoardViewProps> = ({
       </div>
 
       <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-        <div className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden px-4 pb-6">
-          <div className="flex items-start gap-3 h-full">
+        <div className="flex-1 min-h-0 overflow-auto px-4 pb-6">
+          <div className="flex items-start gap-3">
             {columns.map((col) => (
               <BoardColumn
                 key={col.id}

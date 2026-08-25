@@ -3,7 +3,7 @@
 import React from "react";
 import { Task } from "@/features/tasks/types";
 import { ProjectColumn } from "../types";
-import { GripVertical, Plus, Flame, CheckCircle2 } from "lucide-react";
+import { GripVertical, Plus, Flame, CheckCircle2, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getPriorityCardClass, getPriorityTitleClass, getPriorityIconColorClass } from "@/features/tasks/priority";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
@@ -60,6 +60,14 @@ export const BoardCard: React.FC<{
           </span>
         )}
       </div>
+      <button
+        type="button"
+        onClick={() => onEditTask(task)}
+        title="Modifier la tâche"
+        className="p-1 rounded-lg text-[#6B7280] hover:text-[#D4F63D] hover:bg-[#22242B] transition-colors cursor-pointer flex-shrink-0"
+      >
+        <Pencil className="w-3 h-3" />
+      </button>
     </div>
   );
 };

@@ -1,4 +1,4 @@
-import { DailySleepLog } from "./types";
+import { DailySleepLog, NapSession } from "./types";
 import { getStoredUserSession, DEMO_USER } from "@/features/auth/actions";
 import {
   subtractMinutesFromTime,
@@ -86,6 +86,67 @@ export function computeSleepDuration(
   };
 }
 
+function currentLocalTimeStr(): string {
+  const now = new Date();
+  return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+}
+
+/**
+ * A "coucher"/"réveil" quick action pressed between 20:00 and 06:00 is assumed to be the main
+ * night's sleep; outside that window it's assumed to be a daytime nap.
+ */
+function isNightWindow(timeStr: string): boolean {
+  const hour = parseInt(timeStr.split(":")[0], 10) || 0;
+  return hour >= 20 || hour < 6;
+}
+
+function getOpenNap(log: DailySleepLog): NapSession | null {
+  const naps = log.naps || [];
+  return naps.find((n) => n.endTime === null) || null;
+}
+
+/**
+ * Applies "Je me couche maintenant": starts tonight's bedtime during the night window, or opens
+ * a new nap session at any other time of day.
+ */
+export function applySleepStartNow(log: DailySleepLog): DailySleepLog {
+  const now = currentLocalTimeStr();
+
+  if (isNightWindow(now)) {
+    const offsets = log.bedtimeOffsets && log.bedtimeOffsets.length > 0 ? log.bedtimeOffsets : DEFAULT_BEDTIME_OFFSETS;
+    return {
+      ...log,
+      bedtime: now,
+      bedtimeValidated: true,
+      bedtimeOffsets: offsets,
+      bedtimeReminders: computeBedtimeRemindersFromOffsets(now, offsets),
+    };
+  }
+
+  if (getOpenNap(log)) return log; // a nap is already in progress
+
+  const nap: NapSession = { id: `nap_${Date.now()}`, startTime: now, endTime: null };
+  return { ...log, naps: [...(log.naps || []), nap] };
+}
+
+/**
+ * Applies "Je me réveille maintenant": closes an in-progress nap if there is one, otherwise
+ * records the main morning wake-up time.
+ */
+export function applySleepEndNow(log: DailySleepLog): DailySleepLog {
+  const now = currentLocalTimeStr();
+  const openNap = getOpenNap(log);
+
+  if (openNap) {
+    return {
+      ...log,
+      naps: (log.naps || []).map((n) => (n.id === openNap.id ? { ...n, endTime: now } : n)),
+    };
+  }
+
+  return { ...log, wakeTime: now, wakeTimeValidated: true };
+}
+
 function mapDbSleepLogToModel(row: any): DailySleepLog {
   const localBedtime = convertUtcTimeToLocal(row.bedtime || "23:00", row.date);
   const localWakeTime = convertUtcTimeToLocal(row.wake_time || "07:00", row.date);
@@ -97,16 +158,26 @@ function mapDbSleepLogToModel(row: any): DailySleepLog {
   let rawNotes = row.notes || "";
   let gratitude = row.gratitude || "";
   let manifestation = row.manifestation || "";
+  let rawNaps: Array<{ id: string; startTime: string; endTime: string | null }> = Array.isArray(row.naps)
+    ? row.naps
+    : [];
 
-  // Check if gratitude/manifestation were stored in JSON format inside notes
+  // Check if gratitude/manifestation/naps were stored in JSON format inside notes
   if (rawNotes && typeof rawNotes === "string" && rawNotes.startsWith("{") && rawNotes.includes("gratitude")) {
     try {
       const parsed = JSON.parse(rawNotes);
       rawNotes = parsed.notes || "";
       if (!gratitude) gratitude = parsed.gratitude || "";
       if (!manifestation) manifestation = parsed.manifestation || "";
+      if (rawNaps.length === 0 && Array.isArray(parsed.naps)) rawNaps = parsed.naps;
     } catch {}
   }
+
+  const naps: NapSession[] = rawNaps.map((n) => ({
+    id: n.id,
+    startTime: convertUtcTimeToLocal(n.startTime, row.date),
+    endTime: n.endTime ? convertUtcTimeToLocal(n.endTime, row.date) : null,
+  }));
 
   return {
     date: row.date,
@@ -117,6 +188,7 @@ function mapDbSleepLogToModel(row: any): DailySleepLog {
     bedtimeOffsets: offsets,
     bedtimeReminders: localReminders,
     enableBedtimeReminders: row.enable_bedtime_reminders !== false,
+    naps,
     notes: rawNotes,
     gratitude,
     manifestation,
@@ -160,6 +232,22 @@ export async function fetchDbSleepLog(date: string, userId?: string): Promise<Da
   return getStoredSleepLog(date, targetId);
 }
 
+/**
+ * Persists a batch of fetched remote logs (e.g. from fetchSleepHistory) into localStorage so
+ * that synchronous readers like getStoredSleepLog/getNightSleepDuration see multi-day history.
+ */
+export function cacheSleepHistoryLocally(logs: DailySleepLog[], userId?: string): void {
+  if (typeof window === "undefined") return;
+  const targetId = getEffectiveUserId(userId);
+  for (const log of logs) {
+    try {
+      localStorage.setItem(`${SLEEP_STORAGE_PREFIX}${targetId}_${log.date}`, JSON.stringify(log));
+    } catch (err) {
+      console.warn("cacheSleepHistoryLocally error:", err);
+    }
+  }
+}
+
 export function getStoredSleepLog(date: string, userId?: string): DailySleepLog {
   const targetId = getEffectiveUserId(userId);
   const key = `${SLEEP_STORAGE_PREFIX}${targetId}_${date}`;
@@ -174,6 +262,7 @@ export function getStoredSleepLog(date: string, userId?: string): DailySleepLog 
       bedtimeOffsets: DEFAULT_BEDTIME_OFFSETS,
       bedtimeReminders: ["22:00", "22:30", "22:45"],
       enableBedtimeReminders: true,
+      naps: [],
       notes: "",
       gratitude: "",
       manifestation: "",
@@ -187,6 +276,7 @@ export function getStoredSleepLog(date: string, userId?: string): DailySleepLog 
       return {
         ...parsed,
         bedtimeOffsets: parsed.bedtimeOffsets || DEFAULT_BEDTIME_OFFSETS,
+        naps: parsed.naps || [],
         gratitude: parsed.gratitude || "",
         manifestation: parsed.manifestation || "",
       };
@@ -206,6 +296,7 @@ export function getStoredSleepLog(date: string, userId?: string): DailySleepLog 
     bedtimeOffsets: DEFAULT_BEDTIME_OFFSETS,
     bedtimeReminders: computeDefaultBedtimeReminders(defaultBedtime),
     enableBedtimeReminders: true,
+    naps: [],
     notes: "",
     gratitude: "",
     manifestation: "",
@@ -295,6 +386,11 @@ export async function saveStoredSleepLog(
     const utcReminders = (updatedLog.bedtimeReminders || []).map((r) =>
       convertLocalTimeToUtc(r, updatedLog.date)
     );
+    const utcNaps = (updatedLog.naps || []).map((n) => ({
+      id: n.id,
+      startTime: convertLocalTimeToUtc(n.startTime, updatedLog.date),
+      endTime: n.endTime ? convertLocalTimeToUtc(n.endTime, updatedLog.date) : null,
+    }));
 
     // Primary payload attempting direct column writes
     const payload: any = {
@@ -307,6 +403,7 @@ export async function saveStoredSleepLog(
       bedtime_offsets: updatedLog.bedtimeOffsets || DEFAULT_BEDTIME_OFFSETS,
       bedtime_reminders: utcReminders,
       enable_bedtime_reminders: updatedLog.enableBedtimeReminders !== false,
+      naps: utcNaps,
       notes: updatedLog.notes || null,
       gratitude: updatedLog.gratitude || null,
       manifestation: updatedLog.manifestation || null,
@@ -322,6 +419,7 @@ export async function saveStoredSleepLog(
         notes: updatedLog.notes || "",
         gratitude: updatedLog.gratitude || "",
         manifestation: updatedLog.manifestation || "",
+        naps: utcNaps,
       });
 
       const fallbackPayload: any = {
@@ -428,7 +526,9 @@ export async function fetchSleepHistory(
       .limit(days);
 
     if (!error && data) {
-      return data.map(mapDbSleepLogToModel);
+      const mapped = data.map(mapDbSleepLogToModel);
+      cacheSleepHistoryLocally(mapped, targetId);
+      return mapped;
     }
   } catch (err) {
     console.warn("Supabase fetchSleepHistory error:", err);

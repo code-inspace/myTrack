@@ -8,6 +8,9 @@ import {
   saveStoredSleepLog,
   computeDefaultBedtimeReminders,
   computeBedtimeRemindersFromOffsets,
+  computeSleepDuration,
+  applySleepStartNow,
+  applySleepEndNow,
   BEDTIME_OFFSET_OPTIONS,
   DEFAULT_BEDTIME_OFFSETS,
   getNightSleepDuration,
@@ -20,6 +23,8 @@ import {
   Sparkles,
   Clock,
   Info,
+  Zap,
+  Timer,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -85,16 +90,14 @@ export const SleepJournalView: React.FC<SleepJournalViewProps> = ({ selectedDate
     triggerSave(updated);
   };
 
-  const handleSetBedtimeNow = () => {
-    const now = new Date();
-    const currentStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-    handleBedtimeChange(currentStr, true);
+  // "Je me couche / réveille maintenant": usable at any time of day. Near the usual night
+  // window it sets tonight's bedtime/wake time; at any other time it opens/closes a nap.
+  const handleSleepNow = () => {
+    triggerSave(applySleepStartNow(log));
   };
 
-  const handleSetWakeTimeNow = () => {
-    const now = new Date();
-    const currentStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-    handleWakeTimeChange(currentStr, true);
+  const handleWakeNow = () => {
+    triggerSave(applySleepEndNow(log));
   };
 
   const handleToggleReminders = (enabled: boolean) => {
@@ -151,6 +154,10 @@ export const SleepJournalView: React.FC<SleepJournalViewProps> = ({ selectedDate
     ? log.bedtimeOffsets
     : DEFAULT_BEDTIME_OFFSETS;
 
+  const naps = log.naps || [];
+  const openNap = naps.find((n) => n.endTime === null) || null;
+  const completedNaps = naps.filter((n) => n.endTime !== null);
+
   return (
     <div className="flex-1 overflow-y-auto px-4 pt-3 pb-28 space-y-4 max-w-md mx-auto w-full">
       {/* Header with Save Confirmation */}
@@ -164,6 +171,67 @@ export const SleepJournalView: React.FC<SleepJournalViewProps> = ({ selectedDate
           <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#D4F63D]/15 border border-[#D4F63D]/40 text-[#D4F63D] text-xs font-bold animate-in fade-in duration-200">
             <Check className="w-3.5 h-3.5 stroke-[3]" />
             <span>Enregistré</span>
+          </div>
+        )}
+      </div>
+
+      {/* ========================================================================= */}
+      {/* 0. ENCART ACTIONS RAPIDES — utilisables à tout moment, comptabilisent les  */}
+      {/*    siestes en dehors de la fenêtre de nuit (20h-6h)                        */}
+      {/* ========================================================================= */}
+      <div className="bg-[#1C1D22] border border-[#282A30] rounded-3xl p-5 shadow-lg space-y-3.5">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-[#252830] border border-[#343740] flex items-center justify-center text-[#D4F63D] shadow-sm">
+            <Zap className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-white">Actions rapides</h3>
+            <p className="text-[11px] text-[#8E929E]">À tout moment — la nuit ou en sieste</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2.5">
+          <button
+            type="button"
+            onClick={handleSleepNow}
+            className="py-2.5 px-3 rounded-2xl bg-[#252830] hover:bg-[#2F333E] border border-[#343740] text-[#D4F63D] font-bold text-xs flex items-center justify-center gap-2 transition-all active:scale-[0.98] cursor-pointer"
+          >
+            <Moon className="w-4 h-4" />
+            <span>Je me couche maintenant</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleWakeNow}
+            className="py-2.5 px-3 rounded-2xl bg-[#252830] hover:bg-[#2F333E] border border-[#343740] text-[#FBBF24] font-bold text-xs flex items-center justify-center gap-2 transition-all active:scale-[0.98] cursor-pointer"
+          >
+            <Sun className="w-4 h-4" />
+            <span>Je me réveille maintenant</span>
+          </button>
+        </div>
+
+        {openNap && (
+          <div className="p-2.5 rounded-2xl bg-[#818CF8]/10 border border-[#818CF8]/30 flex items-center gap-2 text-[11px] animate-in fade-in duration-150">
+            <Timer className="w-3.5 h-3.5 text-[#818CF8] flex-shrink-0" />
+            <span className="text-[#8E929E]">
+              Sieste en cours depuis <strong className="text-[#818CF8] font-mono">{openNap.startTime}</strong>
+            </span>
+          </div>
+        )}
+
+        {completedNaps.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {completedNaps.map((nap) => {
+              const dur = computeSleepDuration(nap.startTime, nap.endTime);
+              return (
+                <span
+                  key={nap.id}
+                  className="px-2.5 py-1 rounded-lg bg-[#17181D] border border-[#282A30] text-[10px] font-mono text-[#8E929E]"
+                >
+                  Sieste {nap.startTime}–{nap.endTime}
+                  {dur ? ` (${dur.text})` : ""}
+                </span>
+              );
+            })}
           </div>
         )}
       </div>
@@ -199,16 +267,6 @@ export const SleepJournalView: React.FC<SleepJournalViewProps> = ({ selectedDate
             />
           </div>
         </div>
-
-        {/* Quick action: Je me couche maintenant */}
-        <button
-          type="button"
-          onClick={handleSetBedtimeNow}
-          className="w-full py-2.5 px-3 rounded-2xl bg-[#252830] hover:bg-[#2F333E] border border-[#343740] text-[#D4F63D] font-bold text-xs flex items-center justify-center gap-2 transition-all active:scale-[0.98] cursor-pointer"
-        >
-          <Moon className="w-4 h-4" />
-          <span>Je me couche maintenant</span>
-        </button>
 
         {/* Rappels de coucher configurables par boutons rapides */}
         <div className="pt-3 border-t border-[#282A30] space-y-3">
@@ -301,16 +359,6 @@ export const SleepJournalView: React.FC<SleepJournalViewProps> = ({ selectedDate
             className="h-10 px-3 rounded-xl bg-[#252830] border border-[#343740] text-white font-mono font-bold text-sm focus:border-[#D4F63D] outline-none text-center cursor-pointer shadow-inner"
           />
         </div>
-
-        {/* Quick action: Je me réveille maintenant */}
-        <button
-          type="button"
-          onClick={handleSetWakeTimeNow}
-          className="w-full py-2.5 px-3 rounded-2xl bg-[#252830] hover:bg-[#2F333E] border border-[#343740] text-[#FBBF24] font-bold text-xs flex items-center justify-center gap-2 transition-all active:scale-[0.98] cursor-pointer"
-        >
-          <Sun className="w-4 h-4" />
-          <span>Je me réveille maintenant</span>
-        </button>
 
         {/* Conditional Sleep Duration Badge: Only shown if yesterday bedtime & today wakeTime are validated */}
         {nightSleep ? (

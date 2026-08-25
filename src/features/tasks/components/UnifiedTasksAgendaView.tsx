@@ -138,6 +138,12 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
     setIsTaskModalOpen(true);
   };
 
+  const handleNewTask = () => {
+    setEditingTask(null);
+    setTaskPrefill(null);
+    setIsTaskModalOpen(true);
+  };
+
   const handleInteractiveResponse = (action: "YES" | "NO" | "QUANTITY", value?: number) => {
     if (tasks.length > 0) {
       const targetId = tasks[0].id;
@@ -269,6 +275,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
             setIsTaskModalOpen(true);
           }}
           onAddTaskToColumn={handleAddTaskToColumn}
+          onNewTask={handleNewTask}
         />
       ) : activeTab === "habits" ? (
         /* HABIT LIST TAB */

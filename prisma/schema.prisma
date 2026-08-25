@@ -192,6 +192,7 @@ model SleepLog {
   bedtimeOffsets         Int[]     @default([60, 30, 15])
   bedtimeReminders       String[]  @default([])
   enableBedtimeReminders Boolean   @default(true)
+  naps                   Json      @default("[]")
   notes                  String?
   gratitude              String?
   manifestation          String?
