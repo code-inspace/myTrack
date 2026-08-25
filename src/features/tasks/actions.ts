@@ -779,13 +779,66 @@ export async function closeTaskAsCompleted(
     notes: null,
   });
 
-  // A completed task that belongs to a project also moves onto that project's Kanban board's
-  // "done" column, regardless of which screen (habit list, agenda, voice) it was completed from.
-  if (target?.projectId) {
+  await syncProjectStatusToDoneColumn(taskId, targetId);
+}
+
+/**
+ * A completed task that belongs to a project also moves onto that project's Kanban board's
+ * "done" column, regardless of which screen (habit list, agenda, voice) it was completed from.
+ */
+export async function syncProjectStatusToDoneColumn(taskId: string, userId: string): Promise<void> {
+  const target = getStoredTasks(userId).find((t) => t.id === taskId);
+  if (!target?.projectId) return;
+
+  const project = getStoredProjects(userId).find((p) => p.id === target.projectId);
+  const doneColumn = project ? getProjectColumns(project).find((c) => c.isDone) : undefined;
+  if (doneColumn && target.projectStatus !== doneColumn.id) {
+    await updateDbTask(taskId, { projectStatus: doneColumn.id }, userId);
+  }
+}
+
+/**
+ * Un-completes a task (e.g. re-opening it from the habit list or agenda). A project task also
+ * moves back to that board's first column, mirroring how closing it moves it to "done".
+ */
+export async function reopenTaskAsIncomplete(
+  taskId: string,
+  date: string,
+  userId?: string,
+  options?: { value?: number | null; duration?: number | null; skipProjectStatusReset?: boolean }
+): Promise<void> {
+  const supabase = createClient();
+  const session = !userId ? (await supabase.auth.getSession()).data.session : null;
+  const targetId: string = userId || session?.user?.id || getEffectiveUserId();
+
+  const tasks = getStoredTasks(targetId);
+  const target = tasks.find((t) => t.id === taskId);
+  const completions = getStoredCompletions(targetId);
+  const existing = completions.find((c) => c.taskId === taskId && c.date === date);
+
+  // Re-opening clears the recorded execution hours (actual start/end + duration) — they
+  // reflected a run that's no longer considered done. The quantity value, if any, is kept.
+  await upsertDbCompletion({
+    taskId,
+    userId: targetId,
+    date,
+    completed: false,
+    value: options?.value !== undefined ? options.value : existing?.value || null,
+    duration: options?.duration !== undefined ? options.duration : null,
+    scheduledStartTime: target?.startTime || existing?.scheduledStartTime || null,
+    scheduledEndTime: target?.endTime || existing?.scheduledEndTime || null,
+    actualStartTime: null,
+    actualEndTime: null,
+    notes: null,
+  });
+
+  // Dragging a Kanban card out of "done" already sets its new column explicitly — only the
+  // habit-list/agenda reopen flow should jump the task back to the board's first column.
+  if (!options?.skipProjectStatusReset && target?.projectId) {
     const project = getStoredProjects(targetId).find((p) => p.id === target.projectId);
-    const doneColumn = project ? getProjectColumns(project).find((c) => c.isDone) : undefined;
-    if (doneColumn && target.projectStatus !== doneColumn.id) {
-      await updateDbTask(taskId, { projectStatus: doneColumn.id }, targetId);
+    const firstColumn = project ? getProjectColumns(project)[0] : undefined;
+    if (firstColumn && target.projectStatus !== firstColumn.id) {
+      await updateDbTask(taskId, { projectStatus: firstColumn.id }, targetId);
     }
   }
 }

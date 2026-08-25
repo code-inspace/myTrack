@@ -19,8 +19,7 @@ interface AllProjectsBoardViewProps {
   tasks: Task[];
   onBack: () => void;
   onEditTask: (task: Task) => void;
-  onChangeStatus: (taskId: string, status: string, isDoneColumn: boolean) => void;
-  onAddTask: (status: string) => void;
+  onChangeStatus: (taskId: string, status: string, isDoneColumn: boolean, wasDoneColumn: boolean) => void;
 }
 
 const NO_PROJECT_FILTER = "__none__";
@@ -31,7 +30,6 @@ export const AllProjectsBoardView: React.FC<AllProjectsBoardViewProps> = ({
   onBack,
   onEditTask,
   onChangeStatus,
-  onAddTask,
 }) => {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
   const [categoryFilter, setCategoryFilter] = useState("");
@@ -61,7 +59,8 @@ export const AllProjectsBoardView: React.FC<AllProjectsBoardViewProps> = ({
     const task = filteredTasks.find((t) => t.id === active.id);
     if (task && task.projectStatus !== newStatus) {
       const targetColumn = columns.find((c) => c.id === newStatus);
-      onChangeStatus(String(active.id), newStatus, Boolean(targetColumn?.isDone));
+      const previousColumn = columns.find((c) => c.id === task.projectStatus);
+      onChangeStatus(String(active.id), newStatus, Boolean(targetColumn?.isDone), Boolean(previousColumn?.isDone));
     }
   };
 
@@ -115,7 +114,6 @@ export const AllProjectsBoardView: React.FC<AllProjectsBoardViewProps> = ({
                 column={col}
                 tasks={tasksByColumn.get(col.id) || []}
                 onEditTask={onEditTask}
-                onAddTask={(status) => onAddTask(status)}
                 getBadge={(t) => {
                   const p = t.projectId ? projectById.get(t.projectId) : null;
                   return p ? { name: p.name, color: p.color } : null;

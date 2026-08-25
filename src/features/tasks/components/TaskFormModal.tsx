@@ -43,8 +43,6 @@ import { Flame } from "lucide-react";
 interface TaskFormModalProps {
   isOpen: boolean;
   initialTask?: Task | TaskWithCompletion | null;
-  /** Pre-fills a brand-new task's project assignment (e.g. from a Kanban column's "+" button) */
-  prefill?: { projectId?: string | null; projectStatus?: string | null } | null;
   onClose: () => void;
   onSubmit: (values: TaskFormValues, taskId?: string) => void;
 }
@@ -87,7 +85,6 @@ const OFFSET_OPTIONS = [
 export const TaskFormModal: React.FC<TaskFormModalProps> = ({
   isOpen,
   initialTask,
-  prefill,
   onClose,
   onSubmit,
 }) => {
@@ -231,17 +228,15 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
         setEnableReminders(false);
         setReminderOffsetMinutes(10);
         setReminderTimes(["11:00", "18:00"]);
-        setProjectId(prefill?.projectId || null);
-        setProjectStatus(
-          prefill?.projectStatus || DEFAULT_PROJECT_COLUMNS[0].id,
-        );
+        setProjectId(null);
+        setProjectStatus(DEFAULT_PROJECT_COLUMNS[0].id);
         setDeadline("");
         setPriority("NORMAL");
       }
     }
     prevIsOpenRef.current = isOpen;
     prevTaskIdRef.current = initialTask?.id;
-  }, [isOpen, initialTask, prefill]);
+  }, [isOpen, initialTask]);
 
   const buildFormValues = (): TaskFormValues => ({
     title: title.trim(),

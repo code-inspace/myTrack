@@ -143,6 +143,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
     const handlePointerUp = (upEvent: PointerEvent) => {
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
 
       const deltaY = upEvent.clientY - startY;
       const rawHeight = initialHeight + deltaY;
@@ -160,12 +161,30 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
 
     window.addEventListener("pointermove", handlePointerMove);
     window.addEventListener("pointerup", handlePointerUp);
+    // A touch/pen drag interrupted (e.g. by a scroll gesture taking over) fires pointercancel
+    // instead of pointerup, which previously left the resize stuck open indefinitely.
+    window.addEventListener("pointercancel", handlePointerUp);
+  };
+
+  // Fallback: clicking anywhere outside the resize handle while a resize is in progress commits
+  // the size shown right now instead of leaving it stuck (also clears the plain task selection).
+  const handleBackgroundClick = () => {
+    if (resizingState) {
+      const finalEndMins = resizingState.startMins + resizingState.currentHeight;
+      onMoveTaskToTime(
+        resizingState.taskId,
+        formatMinutesToTime(resizingState.startMins),
+        formatMinutesToTime(finalEndMins)
+      );
+      setResizingState(null);
+    }
+    setSelectedTaskId(null);
   };
 
   return (
     <div
       ref={scrollContainerRef}
-      onClick={() => setSelectedTaskId(null)}
+      onClick={handleBackgroundClick}
       className="flex-1 overflow-y-auto relative bg-[#0E0F12] select-none scroll-smooth pb-28"
     >
       {/* 24-Hour Grid Container */}
@@ -232,7 +251,10 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
             interface TimedLayoutItem {
               task: TaskWithCompletion;
               startMins: number;
-              endMins: number;
+              /** Stable end time used for clustering/columns — ignores the live resize preview,
+                  so dragging one task's handle never reshuffles its siblings' widths. */
+              layoutEndMins: number;
+              /** Live visual height (reflects an in-progress resize for this task only). */
               height: number;
               column: number;
               totalColumns: number;
@@ -258,10 +280,9 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
                   20,
                   isRunningNow ? currentTimeMinutes - startMins : endMins - startMins
                 );
+                const stableHeight = Math.max(24, defaultDuration);
                 const isCurrentlyResizing = resizingState?.taskId === task.id;
-                const activeHeight = isCurrentlyResizing
-                  ? resizingState.currentHeight
-                  : Math.max(24, defaultDuration);
+                const activeHeight = isCurrentlyResizing ? resizingState.currentHeight : stableHeight;
 
                 const displayTask: TaskWithCompletion = isRunningNow
                   ? {
@@ -273,7 +294,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
                 return {
                   task: displayTask,
                   startMins,
-                  endMins: startMins + activeHeight,
+                  layoutEndMins: startMins + stableHeight,
                   height: activeHeight,
                   column: 0,
                   totalColumns: 1,
@@ -286,7 +307,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
             // 1. Sort by start time ascending, then by duration descending
             items.sort((a, b) => {
               if (a.startMins !== b.startMins) return a.startMins - b.startMins;
-              return (b.endMins - b.startMins) - (a.endMins - a.startMins);
+              return (b.layoutEndMins - b.startMins) - (a.layoutEndMins - a.startMins);
             });
 
             // 2. Group overlapping tasks into clusters
@@ -297,15 +318,15 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
             for (const item of items) {
               if (currentCluster.length === 0) {
                 currentCluster.push(item);
-                clusterEnd = item.endMins;
+                clusterEnd = item.layoutEndMins;
               } else if (item.startMins < clusterEnd) {
                 // Overlaps with current cluster
                 currentCluster.push(item);
-                clusterEnd = Math.max(clusterEnd, item.endMins);
+                clusterEnd = Math.max(clusterEnd, item.layoutEndMins);
               } else {
                 clusters.push(currentCluster);
                 currentCluster = [item];
-                clusterEnd = item.endMins;
+                clusterEnd = item.layoutEndMins;
               }
             }
             if (currentCluster.length > 0) {
@@ -320,7 +341,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
                 let placed = false;
                 for (let c = 0; c < columns.length; c++) {
                   const lastInCol = columns[c][columns[c].length - 1];
-                  if (lastInCol.endMins <= item.startMins) {
+                  if (lastInCol.layoutEndMins <= item.startMins) {
                     columns[c].push(item);
                     item.column = c;
                     placed = true;

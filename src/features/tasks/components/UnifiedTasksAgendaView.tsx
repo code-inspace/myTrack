@@ -26,6 +26,8 @@ import {
   useSensor,
   useSensors,
   closestCenter,
+  pointerWithin,
+  CollisionDetection,
 } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
 import { DAY_DROP_ID_PREFIX } from "@/features/tasks/components/HorizontalDatePicker";
@@ -43,7 +45,6 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
 
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskWithCompletion | Task | null>(null);
-  const [taskPrefill, setTaskPrefill] = useState<{ projectId?: string | null; projectStatus?: string | null } | null>(null);
   const [selectedLoggingTask, setSelectedLoggingTask] = useState<TaskWithCompletion | null>(null);
   const [quickTitle, setQuickTitle] = useState("");
   const [isTestNotificationOpen, setIsTestNotificationOpen] = useState(false);
@@ -128,19 +129,11 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
       createTask.mutate(values);
     }
     setEditingTask(null);
-    setTaskPrefill(null);
     setIsTaskModalOpen(false);
-  };
-
-  const handleAddTaskToColumn = (projectId: string | null, projectStatus: string) => {
-    setEditingTask(null);
-    setTaskPrefill({ projectId, projectStatus });
-    setIsTaskModalOpen(true);
   };
 
   const handleNewTask = () => {
     setEditingTask(null);
-    setTaskPrefill(null);
     setIsTaskModalOpen(true);
   };
 
@@ -191,6 +184,15 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
     });
   };
 
+  // Resolve the day the pointer is literally over first (accurate for the narrow day-strip
+  // cells); only fall back to nearest-center matching when the pointer isn't over anything —
+  // pure closestCenter could otherwise match a day cell several days away.
+  const collisionDetectionStrategy: CollisionDetection = (args) => {
+    const pointerCollisions = pointerWithin(args);
+    if (pointerCollisions.length > 0) return pointerCollisions;
+    return closestCenter(args);
+  };
+
   const handleTabChange = (tab: TasksTab) => {
     setActiveTab(tab);
     if (typeof window !== "undefined") {
@@ -213,7 +215,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
   return (
     <DndContext
       sensors={dndSensors}
-      collisionDetection={closestCenter}
+      collisionDetection={collisionDetectionStrategy}
       onDragStart={handleHabitDragStart}
       onDragEnd={handleHabitDragEnd}
     >
@@ -274,7 +276,6 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
             setEditingTask(t);
             setIsTaskModalOpen(true);
           }}
-          onAddTaskToColumn={handleAddTaskToColumn}
         />
       ) : activeTab === "habits" ? (
         /* HABIT LIST TAB */
@@ -333,7 +334,6 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
                   type="button"
                   onClick={() => {
                     setEditingTask(null);
-                    setTaskPrefill(null);
                     setIsTaskModalOpen(true);
                   }}
                   className="px-4 py-2 rounded-full bg-[#D4F63D] text-black font-bold text-xs cursor-pointer"
@@ -393,11 +393,9 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
       <TaskFormModal
         isOpen={isTaskModalOpen || Boolean(editingTask)}
         initialTask={editingTask}
-        prefill={taskPrefill}
         onClose={() => {
           setIsTaskModalOpen(false);
           setEditingTask(null);
-          setTaskPrefill(null);
         }}
         onSubmit={handleCreateOrUpdateTask}
       />

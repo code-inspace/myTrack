@@ -3,7 +3,7 @@
 import React from "react";
 import { Task } from "@/features/tasks/types";
 import { Project, getProjectColumns } from "../types";
-import { ArrowLeft, Plus } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { BoardColumn, groupTasksByColumn } from "./KanbanBoard";
 import {
   DndContext,
@@ -18,8 +18,7 @@ interface ProjectBoardViewProps {
   tasks: Task[];
   onBack: () => void;
   onEditTask: (task: Task) => void;
-  onChangeStatus: (taskId: string, status: string, isDoneColumn: boolean) => void;
-  onAddTask: (projectId: string, status: string) => void;
+  onChangeStatus: (taskId: string, status: string, isDoneColumn: boolean, wasDoneColumn: boolean) => void;
 }
 
 export const ProjectBoardView: React.FC<ProjectBoardViewProps> = ({
@@ -28,7 +27,6 @@ export const ProjectBoardView: React.FC<ProjectBoardViewProps> = ({
   onBack,
   onEditTask,
   onChangeStatus,
-  onAddTask,
 }) => {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
   const columns = getProjectColumns(project);
@@ -41,7 +39,8 @@ export const ProjectBoardView: React.FC<ProjectBoardViewProps> = ({
     const task = tasks.find((t) => t.id === active.id);
     if (task && task.projectStatus !== newStatus) {
       const targetColumn = columns.find((c) => c.id === newStatus);
-      onChangeStatus(String(active.id), newStatus, Boolean(targetColumn?.isDone));
+      const previousColumn = columns.find((c) => c.id === task.projectStatus);
+      onChangeStatus(String(active.id), newStatus, Boolean(targetColumn?.isDone), Boolean(previousColumn?.isDone));
     }
   };
 
@@ -56,15 +55,7 @@ export const ProjectBoardView: React.FC<ProjectBoardViewProps> = ({
           <ArrowLeft className="w-4 h-4" />
         </button>
         <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: project.color }} />
-        <h2 className="text-lg font-bold text-white truncate flex-1 min-w-0">{project.name}</h2>
-        <button
-          type="button"
-          onClick={() => onAddTask(project.id, columns[0]?.id)}
-          title="Nouvelle tâche"
-          className="p-2 rounded-full bg-[#D4F63D] hover:bg-[#c2e42f] text-black transition-all cursor-pointer flex-shrink-0"
-        >
-          <Plus className="w-4 h-4" />
-        </button>
+        <h2 className="text-lg font-bold text-white truncate">{project.name}</h2>
       </div>
 
       <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
@@ -76,7 +67,6 @@ export const ProjectBoardView: React.FC<ProjectBoardViewProps> = ({
                 column={col}
                 tasks={tasksByColumn.get(col.id) || []}
                 onEditTask={onEditTask}
-                onAddTask={(status) => onAddTask(project.id, status)}
               />
             ))}
           </div>

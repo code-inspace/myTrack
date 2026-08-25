@@ -80,12 +80,14 @@ export const TasksHeaderWithNav: React.FC<TasksHeaderWithNavProps> = ({
         }
       />
 
-      {/* 2. 7-Day Horizontal Week Calendar */}
-      <HorizontalDatePicker
-        selectedDate={selectedDate}
-        onSelectDate={onSelectDate}
-        isDragActive={isDragActive}
-      />
+      {/* 2. 7-Day Horizontal Week Calendar — the Projects board isn't date-scoped, so it doesn't need it */}
+      {currentTab !== "projects" && (
+        <HorizontalDatePicker
+          selectedDate={selectedDate}
+          onSelectDate={onSelectDate}
+          isDragActive={isDragActive}
+        />
+      )}
 
       {/* 3. Cohesive Segmented View Switcher (Habitudes / Agenda / Sommeil / Bilan / Projets) —
           only in "classic" display mode; in "modern" mode these tabs live in the bottom nav. */}

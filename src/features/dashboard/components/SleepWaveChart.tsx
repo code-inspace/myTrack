@@ -28,7 +28,9 @@ const RANGE_PADDING_MINUTES = 60;
 const PX_PER_MINUTE = 0.4;
 const MIN_TRACK_HEIGHT_PX = 160;
 const MAX_TRACK_HEIGHT_PX = 420;
-const AXIS_LABEL_COUNT = 5;
+// Candidate spacings (minutes) for gridlines, tried in order until the range fits in ~6 lines —
+// keeps labels on round clock marks (18:00 is itself a round hour) instead of arbitrary offsets.
+const AXIS_STEP_CANDIDATES_MIN = [30, 60, 120, 180, 240];
 
 function offsetFromWindowStart(timeStr: string): number {
   const [h, m] = timeStr.split(":").map((v) => parseInt(v, 10) || 0);
@@ -180,10 +182,20 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
       Math.max(MIN_TRACK_HEIGHT_PX, Math.round(windowSpan * PX_PER_MINUTE))
     );
 
-    const axisLabels = Array.from({ length: AXIS_LABEL_COUNT }, (_, i) => {
-      const offset = windowStart + (windowSpan * i) / (AXIS_LABEL_COUNT - 1);
-      return { offsetPct: ((offset - windowStart) / windowSpan) * 100, label: formatAxisLabel(offset) };
-    });
+    // Snap gridlines to round clock marks within the (possibly cropped) window, rather than
+    // evenly slicing the range into arbitrary, ugly offsets like "02:48".
+    const step =
+      AXIS_STEP_CANDIDATES_MIN.find((s) => windowSpan / s <= 6) ??
+      AXIS_STEP_CANDIDATES_MIN[AXIS_STEP_CANDIDATES_MIN.length - 1];
+    const windowEnd = windowStart + windowSpan;
+    const axisLabels: Array<{ offsetPct: number; label: string }> = [];
+    for (
+      let offset = Math.ceil(windowStart / step) * step;
+      offset <= windowEnd;
+      offset += step
+    ) {
+      axisLabels.push({ offsetPct: ((offset - windowStart) / windowSpan) * 100, label: formatAxisLabel(offset) });
+    }
 
     const averageText =
       nights > 0

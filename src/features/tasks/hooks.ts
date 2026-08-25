@@ -15,6 +15,8 @@ import {
   moveTaskOccurrence,
   upsertDbCompletion,
   closeTaskAsCompleted,
+  reopenTaskAsIncomplete,
+  syncProjectStatusToDoneColumn,
   deleteDbTask,
   getStoredTasks,
   getStoredCompletions,
@@ -88,9 +90,20 @@ export function useTasks(selectedDateStr: string) {
 
       // Uncompleted one-shot tasks carry over to the next day(s) instead of disappearing
       if (task.recurrence === "ONCE") {
+        // Completed specifically on the viewed day — always show it here (as done), even though
+        // completion normally stops carry-over onto *later* days.
+        const completedOnThisDate = allCompletions.some(
+          (c) => c.taskId === task.id && c.date === selectedDateStr && c.completed
+        );
+        if (completedOnThisDate) return true;
+
         const originalDate = task.createdAt ? task.createdAt.split("T")[0] : null;
-        const hasBeenCompleted = allCompletions.some((c) => c.taskId === task.id && c.completed);
-        return isOnceTaskCarriedOver(originalDate, selectedDateStr, todayStr, hasBeenCompleted);
+        const completedBeforeThisDate = allCompletions.some(
+          (c) => c.taskId === task.id && c.completed && c.date < selectedDateStr
+        );
+        if (completedBeforeThisDate) return false;
+
+        return isOnceTaskCarriedOver(originalDate, selectedDateStr, todayStr, false);
       }
 
       return false;
@@ -266,22 +279,8 @@ export function useTaskMutations() {
         return;
       }
 
-      const tasks = getStoredTasks(userId);
-      const targetTask = tasks.find((t) => t.id === taskId);
-
-      await upsertDbCompletion({
-        taskId,
-        userId,
-        date,
-        completed: false,
-        value: value !== undefined ? value : existing?.value || null,
-        duration: duration !== undefined ? duration : existing?.duration || null,
-        scheduledStartTime: targetTask?.startTime || existing?.scheduledStartTime || null,
-        scheduledEndTime: targetTask?.endTime || existing?.scheduledEndTime || null,
-        actualStartTime: existing?.actualStartTime || null,
-        actualEndTime: null,
-        notes: null,
-      });
+      // Re-opening a project task also moves it back to that board's first column.
+      await reopenTaskAsIncomplete(taskId, date, userId, { value, duration });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["completions"] });
@@ -294,6 +293,18 @@ export function useTaskMutations() {
   const closeTask = useMutation({
     mutationFn: async ({ taskId, date }: { taskId: string; date: string }) => {
       await closeTaskAsCompleted(taskId, date, userId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["completions"] });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    },
+  });
+
+  // Un-completes a task (idempotent) — used when dragging a Kanban card out of the "done"
+  // column. The card's new column is already set by that same drag, so it isn't reset here.
+  const reopenTask = useMutation({
+    mutationFn: async ({ taskId, date }: { taskId: string; date: string }) => {
+      await reopenTaskAsIncomplete(taskId, date, userId, { skipProjectStatusReset: true });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["completions"] });
@@ -395,6 +406,9 @@ export function useTaskMutations() {
 
       // 3. Deactivate task
       await updateDbTaskActive(taskId, false, userId);
+
+      // 4. A completed project task also moves to that board's "done" column
+      await syncProjectStatusToDoneColumn(taskId, userId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
@@ -549,6 +563,7 @@ export function useTaskMutations() {
     moveOccurrence,
     toggleCompletion,
     closeTask,
+    reopenTask,
     startTaskExecution,
     finishTaskExecution,
     updateCompletionValue,

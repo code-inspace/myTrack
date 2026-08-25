@@ -14,13 +14,12 @@ import { ProjectFormModal } from "./ProjectFormModal";
 interface ProjectsViewProps {
   allTasks: Task[];
   onEditTask: (task: Task) => void;
-  onAddTaskToColumn: (projectId: string | null, projectStatus: string) => void;
 }
 
-export const ProjectsView: React.FC<ProjectsViewProps> = ({ allTasks, onEditTask, onAddTaskToColumn }) => {
+export const ProjectsView: React.FC<ProjectsViewProps> = ({ allTasks, onEditTask }) => {
   const { projects } = useProjects();
   const { createProject, updateProject } = useProjectMutations();
-  const { updateTask, closeTask } = useTaskMutations();
+  const { updateTask, closeTask, reopenTask } = useTaskMutations();
 
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [showAllProjectsBoard, setShowAllProjectsBoard] = useState(false);
@@ -34,10 +33,12 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ allTasks, onEditTask
     setEditingProject(null);
   };
 
-  const handleChangeStatus = (taskId: string, status: string, isDoneColumn: boolean) => {
+  const handleChangeStatus = (taskId: string, status: string, isDoneColumn: boolean, wasDoneColumn: boolean) => {
     updateTask.mutate({ taskId, values: { projectStatus: status } });
     if (isDoneColumn) {
       closeTask.mutate({ taskId, date: getTodayDateString() });
+    } else if (wasDoneColumn) {
+      reopenTask.mutate({ taskId, date: getTodayDateString() });
     }
   };
 
@@ -49,7 +50,6 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ allTasks, onEditTask
         onBack={() => setShowAllProjectsBoard(false)}
         onEditTask={onEditTask}
         onChangeStatus={handleChangeStatus}
-        onAddTask={(status) => onAddTaskToColumn(null, status)}
       />
     );
   }
@@ -62,7 +62,6 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ allTasks, onEditTask
         onBack={() => setSelectedProjectId(null)}
         onEditTask={onEditTask}
         onChangeStatus={handleChangeStatus}
-        onAddTask={onAddTaskToColumn}
       />
     );
   }

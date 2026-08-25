@@ -3,7 +3,7 @@
 import React from "react";
 import { Task } from "@/features/tasks/types";
 import { ProjectColumn } from "../types";
-import { GripVertical, Plus, Flame, CheckCircle2, Pencil } from "lucide-react";
+import { GripVertical, Flame, CheckCircle2, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getPriorityCardClass, getPriorityTitleClass, getPriorityIconColorClass } from "@/features/tasks/priority";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
@@ -75,9 +75,8 @@ export const BoardColumn: React.FC<{
   column: ProjectColumn;
   tasks: Task[];
   onEditTask: (task: Task) => void;
-  onAddTask?: (status: string) => void;
   getBadge?: (task: Task) => ProjectBadge | null;
-}> = ({ column, tasks, onEditTask, onAddTask, getBadge }) => {
+}> = ({ column, tasks, onEditTask, getBadge }) => {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
 
   return (
@@ -93,21 +92,9 @@ export const BoardColumn: React.FC<{
           {column.isDone && <CheckCircle2 className="w-3.5 h-3.5 text-[#D4F63D] flex-shrink-0" />}
           {column.label}
         </span>
-        <div className="flex items-center gap-1 flex-shrink-0">
-          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#22242B] text-[#8E929E]">
-            {tasks.length}
-          </span>
-          {onAddTask && (
-            <button
-              type="button"
-              onClick={() => onAddTask(column.id)}
-              title="Ajouter une tâche dans cette colonne"
-              className="p-1 rounded-lg text-[#8E929E] hover:text-[#D4F63D] hover:bg-[#22242B] transition-colors cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
+        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#22242B] text-[#8E929E] flex-shrink-0">
+          {tasks.length}
+        </span>
       </div>
       {tasks.length > 0 && (
         <div className="min-h-0 overflow-y-auto overscroll-contain space-y-2 p-0.5 -m-0.5">
