@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo, useState, useEffect } from "react";
-import { Moon, Sparkles } from "lucide-react";
+import { Moon, Sparkles, Sun } from "lucide-react";
 import { format, subDays } from "date-fns";
 import { fr } from "date-fns/locale";
 import {
@@ -19,17 +19,13 @@ interface SleepWaveChartProps {
   referenceDate: Date;
 }
 
-// Vertical scale anchor: 18:00 (top) to 18:00 the next day (bottom) — the full window is only
-// used as a fallback when there's no data; otherwise it's cropped to the actual data ± 1h so the
-// card isn't mostly empty scroll space.
+// Vertical scale anchor: 18:00 (top) to 18:00 the next day (bottom)
 const WINDOW_START_MINUTES = 18 * 60;
 const WINDOW_SPAN_MINUTES = 24 * 60;
 const RANGE_PADDING_MINUTES = 60;
-const PX_PER_MINUTE = 0.4;
-const MIN_TRACK_HEIGHT_PX = 160;
+const PX_PER_MINUTE = 0.42;
+const MIN_TRACK_HEIGHT_PX = 180;
 const MAX_TRACK_HEIGHT_PX = 420;
-// Candidate spacings (minutes) for gridlines, tried in order until the range fits in ~6 lines —
-// keeps labels on round clock marks (18:00 is itself a round hour) instead of arbitrary offsets.
 const AXIS_STEP_CANDIDATES_MIN = [30, 60, 120, 180, 240];
 
 function offsetFromWindowStart(timeStr: string): number {
@@ -66,8 +62,16 @@ interface Segment {
 interface DayPoint {
   dateStr: string;
   label: string;
+  fullDateLabel: string;
   night: Segment | null;
   naps: Segment[];
+  yesterdayBedtime: string | null;
+  todayWakeTime: string | null;
+  nightDurationText: string | null;
+  totalNapMinutes: number;
+  totalNapText: string;
+  napsCount: number;
+  totalDaySleepText: string;
 }
 
 export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
@@ -76,6 +80,7 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
 }) => {
   const FRENCH_DAYS_SHORT = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
   const [syncVersion, setSyncVersion] = useState(0);
+  const [selectedDateStr, setSelectedDateStr] = useState<string | null>(null);
   const todayStr = getTodayDateString();
 
   // Sync historical sleep logs (bedtime/wakeTime/naps) from Supabase into the local cache
@@ -90,7 +95,20 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
 
   const { points, validNights, averageText, trackHeightPx, axisLabels } = useMemo(() => {
     const daysCount = period === "week" ? 7 : period === "month" ? 14 : 30;
-    const rawPts: Array<{ dateStr: string; label: string; night: RawSegment | null; naps: RawSegment[] }> = [];
+    const rawPts: Array<{
+      dateStr: string;
+      label: string;
+      fullDateLabel: string;
+      night: RawSegment | null;
+      naps: RawSegment[];
+      yesterdayBedtime: string | null;
+      todayWakeTime: string | null;
+      nightDurationText: string | null;
+      totalNapMinutes: number;
+      totalNapText: string;
+      napsCount: number;
+      totalDaySleepMinutes: number;
+    }> = [];
 
     let totalMinutes = 0;
     let nights = 0;
@@ -109,10 +127,22 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
           ? `${FRENCH_DAYS_SHORT[dayIndex]} ${format(d, "d")}`
           : format(d, "d MMM", { locale: fr });
 
+      const fullDateLabel = format(d, "EEEE d MMMM", { locale: fr });
+
       let night: RawSegment | null = null;
+      let yesterdayBedtime: string | null = null;
+      let todayWakeTime: string | null = null;
+      let nightDurationText: string | null = null;
+      let nightMinutes = 0;
+
       if (nightData) {
-        totalMinutes += nightData.duration.hours * 60 + nightData.duration.minutes;
+        nightMinutes = nightData.duration.hours * 60 + nightData.duration.minutes;
+        totalMinutes += nightMinutes;
         nights++;
+        yesterdayBedtime = nightData.yesterdayBedtime;
+        todayWakeTime = nightData.todayWakeTime;
+        nightDurationText = nightData.duration.text;
+
         const startOffset = offsetFromWindowStart(nightData.yesterdayBedtime);
         const endOffset = offsetFromWindowStart(nightData.todayWakeTime);
         night = {
@@ -127,14 +157,25 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
       }
 
       const isToday = dateStr === todayStr;
+      let dayNapMinutes = 0;
+
       const naps: RawSegment[] = (dayLog.naps || [])
-        .filter((n) => n.endTime || isToday) // only show an ongoing (open) nap on today's column
+        .filter((n) => n.endTime || isToday)
         .map((n) => {
           const isOpen = !n.endTime;
-          const effectiveEnd = n.endTime || `${String(new Date().getHours()).padStart(2, "0")}:${String(new Date().getMinutes()).padStart(2, "0")}`;
+          const effectiveEnd =
+            n.endTime ||
+            `${String(new Date().getHours()).padStart(2, "0")}:${String(
+              new Date().getMinutes(),
+            ).padStart(2, "0")}`;
           const startOffset = offsetFromWindowStart(n.startTime);
           const endOffset = offsetFromWindowStart(effectiveEnd);
           const dur = computeSleepDuration(n.startTime, effectiveEnd);
+
+          if (dur) {
+            dayNapMinutes += dur.hours * 60 + dur.minutes;
+          }
+
           rangeMin = Math.min(rangeMin, startOffset);
           rangeMax = Math.max(rangeMax, endOffset);
           return {
@@ -147,11 +188,30 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
           };
         });
 
-      rawPts.push({ dateStr, label, night, naps });
+      const totalNapText =
+        dayNapMinutes >= 60
+          ? `${Math.floor(dayNapMinutes / 60)}h ${String(dayNapMinutes % 60).padStart(2, "0")}m`
+          : `${dayNapMinutes} min`;
+
+      const totalDaySleepMinutes = nightMinutes + dayNapMinutes;
+
+      rawPts.push({
+        dateStr,
+        label,
+        fullDateLabel,
+        night,
+        naps,
+        yesterdayBedtime,
+        todayWakeTime,
+        nightDurationText,
+        totalNapMinutes: dayNapMinutes,
+        totalNapText,
+        napsCount: naps.length,
+        totalDaySleepMinutes,
+      });
     }
 
-    // Crop the vertical scale to the actual data ± 1h instead of the full 18h-18h window, so
-    // the card doesn't scroll through mostly-empty hours.
+    // Crop vertical scale to actual data ± 1h
     let windowStart = 0;
     let windowSpan = WINDOW_SPAN_MINUTES;
     if (rangeMin !== Infinity) {
@@ -170,20 +230,35 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
       isOpen: raw.isOpen,
     });
 
-    const points: DayPoint[] = rawPts.map((pt) => ({
-      dateStr: pt.dateStr,
-      label: pt.label,
-      night: pt.night ? toSegment(pt.night) : null,
-      naps: pt.naps.map(toSegment),
-    }));
+    const points: DayPoint[] = rawPts.map((pt) => {
+      const totalH = Math.floor(pt.totalDaySleepMinutes / 60);
+      const totalM = pt.totalDaySleepMinutes % 60;
+      const totalDaySleepText =
+        pt.totalDaySleepMinutes > 0
+          ? `${totalH}h ${String(totalM).padStart(2, "0")}m`
+          : "0 min";
+
+      return {
+        dateStr: pt.dateStr,
+        label: pt.label,
+        fullDateLabel: pt.fullDateLabel,
+        night: pt.night ? toSegment(pt.night) : null,
+        naps: pt.naps.map(toSegment),
+        yesterdayBedtime: pt.yesterdayBedtime,
+        todayWakeTime: pt.todayWakeTime,
+        nightDurationText: pt.nightDurationText,
+        totalNapMinutes: pt.totalNapMinutes,
+        totalNapText: pt.totalNapText,
+        napsCount: pt.napsCount,
+        totalDaySleepText,
+      };
+    });
 
     const trackHeightPx = Math.min(
       MAX_TRACK_HEIGHT_PX,
-      Math.max(MIN_TRACK_HEIGHT_PX, Math.round(windowSpan * PX_PER_MINUTE))
+      Math.max(MIN_TRACK_HEIGHT_PX, Math.round(windowSpan * PX_PER_MINUTE)),
     );
 
-    // Snap gridlines to round clock marks within the (possibly cropped) window, rather than
-    // evenly slicing the range into arbitrary, ugly offsets like "02:48".
     const step =
       AXIS_STEP_CANDIDATES_MIN.find((s) => windowSpan / s <= 6) ??
       AXIS_STEP_CANDIDATES_MIN[AXIS_STEP_CANDIDATES_MIN.length - 1];
@@ -194,18 +269,36 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
       offset <= windowEnd;
       offset += step
     ) {
-      axisLabels.push({ offsetPct: ((offset - windowStart) / windowSpan) * 100, label: formatAxisLabel(offset) });
+      axisLabels.push({
+        offsetPct: ((offset - windowStart) / windowSpan) * 100,
+        label: formatAxisLabel(offset),
+      });
     }
 
     const averageText =
       nights > 0
         ? `${Math.floor(totalMinutes / nights / 60)}h ${String(
-            Math.round((totalMinutes / nights) % 60)
+            Math.round((totalMinutes / nights) % 60),
           ).padStart(2, "0")}m`
         : "N/A";
 
     return { points, validNights: nights, averageText, trackHeightPx, axisLabels };
   }, [period, referenceDate, syncVersion, todayStr]);
+
+  // Find currently selected point (or fallback to latest point with data)
+  const activeSelectedPoint = useMemo(() => {
+    if (selectedDateStr) {
+      const found = points.find((p) => p.dateStr === selectedDateStr);
+      if (found) return found;
+    }
+    // Default to the most recent night with data, or the last point
+    for (let i = points.length - 1; i >= 0; i--) {
+      if (points[i].night || points[i].naps.length > 0) {
+        return points[i];
+      }
+    }
+    return points[points.length - 1] || null;
+  }, [points, selectedDateStr]);
 
   return (
     <div className="bg-[#1C1D22] border border-[#282A30] rounded-3xl p-5 shadow-sm space-y-4">
@@ -232,62 +325,145 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
         </div>
       </div>
 
-      {/* Vertical Timeline: cropped to the actual sleep/nap data ± 1h, sleep/nap segments
-          placed by time of day at a legible scale. */}
-      <div className="pt-2">
-        <div className="rounded-xl">
+      {/* Selected Day Detail Card: Bedtime, Wake Time & Nap Duration */}
+      {activeSelectedPoint && (
+        <div className="bg-[#17181D] border border-[#2A2D37] rounded-2xl p-3.5 space-y-2.5 transition-all animate-in fade-in duration-200">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-[#818CF8]" />
+              <span className="text-xs font-bold text-white capitalize">
+                {activeSelectedPoint.fullDateLabel}
+              </span>
+            </div>
+            {activeSelectedPoint.nightDurationText ? (
+              <span className="text-xs font-bold text-[#D4F63D] bg-[#D4F63D]/10 px-2.5 py-0.5 rounded-full border border-[#D4F63D]/25">
+                Nuit : {activeSelectedPoint.nightDurationText}
+              </span>
+            ) : (
+              <span className="text-[11px] text-[#8E929E]">
+                Pas de nuit enregistrée
+              </span>
+            )}
+          </div>
+
+          <div className="grid grid-cols-3 gap-2">
+            {/* Coucher */}
+            <div className="bg-[#202229] border border-[#2D303C] rounded-xl p-2 flex flex-col">
+              <span className="text-[10px] font-medium text-[#8E929E] flex items-center gap-1">
+                <Moon className="w-3 h-3 text-[#818CF8]" /> Coucher
+              </span>
+              <span className="text-xs font-mono font-bold text-white mt-0.5">
+                {activeSelectedPoint.yesterdayBedtime || "--:--"}
+              </span>
+            </div>
+
+            {/* Réveil */}
+            <div className="bg-[#202229] border border-[#2D303C] rounded-xl p-2 flex flex-col">
+              <span className="text-[10px] font-medium text-[#8E929E] flex items-center gap-1">
+                <Sun className="w-3 h-3 text-[#FBBF24]" /> Réveil
+              </span>
+              <span className="text-xs font-mono font-bold text-white mt-0.5">
+                {activeSelectedPoint.todayWakeTime || "--:--"}
+              </span>
+            </div>
+
+            {/* Siestes */}
+            <div className="bg-[#202229] border border-[#2D303C] rounded-xl p-2 flex flex-col">
+              <span className="text-[10px] font-medium text-[#8E929E] flex items-center gap-1">
+                <Sparkles className="w-3 h-3 text-[#A5B4FC]" /> Sieste{activeSelectedPoint.napsCount > 1 ? "s" : ""}
+              </span>
+              <span className="text-xs font-mono font-bold text-white mt-0.5">
+                {activeSelectedPoint.totalNapMinutes > 0
+                  ? activeSelectedPoint.totalNapText
+                  : "0 min"}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Vertical Timeline Chart Frame with Internal Hour Marks */}
+      <div className="pt-1">
+        <div className="relative w-full rounded-2xl bg-[#141519] border border-[#282A30] p-3 overflow-hidden select-none">
+          {/* Day columns */}
+          <div className="flex items-stretch gap-1.5 w-full relative z-10">
+            {points.map((pt, idx) => {
+              const isSelected = activeSelectedPoint?.dateStr === pt.dateStr;
+
+              return (
+                <div
+                  key={idx}
+                  onClick={() => setSelectedDateStr(pt.dateStr)}
+                  className="flex-1 flex flex-col items-center min-w-0 group relative cursor-pointer"
+                >
+                  {/* Track Bar area */}
+                  <div
+                    className={cn(
+                      "relative w-full rounded-xl transition-all overflow-hidden",
+                      isSelected
+                        ? "bg-[#1C1D24] border-2 border-[#818CF8] shadow-lg ring-2 ring-[#818CF8]/20"
+                        : "bg-[#17181D]/60 border border-[#282A30] hover:border-[#4B5563]",
+                    )}
+                    style={{ height: `${trackHeightPx}px` }}
+                  >
+                    {pt.night && (
+                      <div
+                        className={cn(
+                          "absolute inset-x-[15%] rounded-md transition-colors",
+                          isSelected
+                            ? "bg-gradient-to-b from-[#818CF8] to-[#6366F1] ring-1 ring-white/30"
+                            : "bg-gradient-to-b from-[#818CF8] to-[#6366F1] group-hover:from-[#D4F63D] group-hover:to-[#a9d61f]",
+                        )}
+                        style={{
+                          top: `${pt.night.topPct}%`,
+                          height: `${Math.max(pt.night.heightPct, 1.5)}%`,
+                        }}
+                      />
+                    )}
+                    {pt.naps.map((nap, nIdx) => (
+                      <div
+                        key={nIdx}
+                        className={cn(
+                          "absolute inset-x-[25%] rounded-md bg-[#A5B4FC]/80 border border-[#A5B4FC]/50",
+                          nap.isOpen && "animate-pulse",
+                        )}
+                        style={{
+                          top: `${nap.topPct}%`,
+                          height: `${Math.max(nap.heightPct, 1.5)}%`,
+                        }}
+                      />
+                    ))}
+                  </div>
+
+                  {/* Date Label under each column */}
+                  <span
+                    className={cn(
+                      "text-[10px] mt-2 truncate max-w-full transition-colors",
+                      isSelected
+                        ? "font-bold text-[#818CF8]"
+                        : "font-medium text-[#8E929E] group-hover:text-white",
+                    )}
+                  >
+                    {pt.label}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Horizontal time-of-day gridlines with labels INSIDE the chart frame */}
           <div
-            className="flex items-stretch gap-1.5 pl-1 pr-9 relative"
+            className="absolute inset-x-3 top-3 pointer-events-none z-0"
             style={{ height: `${trackHeightPx}px` }}
           >
-            {/* Horizontal time-of-day gridlines */}
             {axisLabels.map((axis, i) => (
               <div
                 key={i}
-                className="absolute inset-x-0 border-b border-dashed border-[#282A30] pointer-events-none flex items-center justify-end"
+                className="absolute inset-x-0 border-b border-dashed border-[#242732] flex items-center justify-end"
                 style={{ top: `${axis.offsetPct}%` }}
               >
-                <span className="text-[9px] font-mono text-[#6B7280] -mt-1.5 absolute -right-9">
+                <span className="text-[9px] font-mono font-semibold text-[#8E929E] bg-[#141519]/90 px-1 py-0.5 rounded border border-[#282A30] shadow-sm -mr-0.5">
                   {axis.label}
-                </span>
-              </div>
-            ))}
-
-            {points.map((pt, idx) => (
-              <div key={idx} className="flex-1 flex flex-col items-center h-full min-w-0 group relative">
-                <div className="relative w-full h-full rounded-xl bg-[#17181D]/60 border border-[#282A30] overflow-hidden">
-                  {pt.night && (
-                    <div
-                      className="absolute inset-x-[15%] rounded-md bg-gradient-to-b from-[#818CF8] to-[#6366F1] group-hover:from-[#D4F63D] group-hover:to-[#a9d61f] transition-colors"
-                      style={{ top: `${pt.night.topPct}%`, height: `${Math.max(pt.night.heightPct, 0.8)}%` }}
-                      title={`${pt.night.startTime} → ${pt.night.endTime} (${pt.night.durationText})`}
-                    />
-                  )}
-                  {pt.naps.map((nap, nIdx) => (
-                    <div
-                      key={nIdx}
-                      className={cn(
-                        "absolute inset-x-[25%] rounded-md bg-[#A5B4FC]/70 border border-[#A5B4FC]/50",
-                        nap.isOpen && "animate-pulse"
-                      )}
-                      style={{ top: `${nap.topPct}%`, height: `${Math.max(nap.heightPct, 0.8)}%` }}
-                      title={
-                        nap.isOpen
-                          ? `Sieste en cours depuis ${nap.startTime}`
-                          : `Sieste ${nap.startTime} → ${nap.endTime} (${nap.durationText})`
-                      }
-                    />
-                  ))}
-                </div>
-
-                {/* Tooltip on hover/touch — kept outside the clipped track so it isn't cut off */}
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-full bg-[#252830] text-white text-[10px] font-mono py-0.5 px-2 rounded-lg border border-[#343740] opacity-0 group-hover:opacity-100 transition-all pointer-events-none whitespace-nowrap shadow-xl z-30">
-                  {pt.night ? `${pt.night.durationText} (${pt.night.startTime} → ${pt.night.endTime})` : "N/A"}
-                </div>
-
-                {/* Label */}
-                <span className="text-[10px] font-medium text-[#8E929E] mt-2 truncate max-w-full">
-                  {pt.label}
                 </span>
               </div>
             ))}
