@@ -5,17 +5,18 @@ import Link from "next/link";
 import { Mic, Plus, MessageSquare } from "lucide-react";
 import { VoiceActionModal } from "./VoiceActionModal";
 import { useTaskMutations } from "@/features/tasks/hooks";
-import { TaskFormValues } from "@/features/tasks/types";
+import { TaskFormValues, Task } from "@/features/tasks/types";
 import { useDisplayMode } from "@/providers/DisplayModeProvider";
 
 interface VoiceFabProps {
   selectedDate: string;
+  allTasks: Task[];
   onNewTask?: () => void;
 }
 
-export const VoiceFab: React.FC<VoiceFabProps> = ({ selectedDate, onNewTask }) => {
+export const VoiceFab: React.FC<VoiceFabProps> = ({ selectedDate, allTasks, onNewTask }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const { createTask } = useTaskMutations();
+  const { createTask, closeTask } = useTaskMutations();
   const { displayMode } = useDisplayMode();
 
   const handleAddTasks = (tasks: (TaskFormValues & { targetDate?: string })[]) => {
@@ -31,7 +32,16 @@ export const VoiceFab: React.FC<VoiceFabProps> = ({ selectedDate, onNewTask }) =
         endTime: task.endTime,
         targetValue: task.targetValue,
         unit: task.unit,
+        enableReminders: task.enableReminders,
+        reminderOffsetMinutes: task.reminderOffsetMinutes,
+        date: task.targetDate,
       });
+    }
+  };
+
+  const handleCompleteTasks = (taskIds: string[]) => {
+    for (const taskId of taskIds) {
+      closeTask.mutate({ taskId, date: selectedDate });
     }
   };
 
@@ -80,8 +90,10 @@ export const VoiceFab: React.FC<VoiceFabProps> = ({ selectedDate, onNewTask }) =
       <VoiceActionModal
         isOpen={isModalOpen}
         selectedDate={selectedDate}
+        allTasks={allTasks}
         onClose={() => setIsModalOpen(false)}
         onAddTasks={handleAddTasks}
+        onCompleteTasks={handleCompleteTasks}
       />
     </>
   );

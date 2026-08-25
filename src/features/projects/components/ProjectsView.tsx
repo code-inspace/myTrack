@@ -14,11 +14,10 @@ import { ProjectFormModal } from "./ProjectFormModal";
 interface ProjectsViewProps {
   allTasks: Task[];
   onEditTask: (task: Task) => void;
-  onAddTaskToColumn: (projectId: string, projectStatus: string) => void;
-  onNewTask: () => void;
+  onAddTaskToColumn: (projectId: string | null, projectStatus: string) => void;
 }
 
-export const ProjectsView: React.FC<ProjectsViewProps> = ({ allTasks, onEditTask, onAddTaskToColumn, onNewTask }) => {
+export const ProjectsView: React.FC<ProjectsViewProps> = ({ allTasks, onEditTask, onAddTaskToColumn }) => {
   const { projects } = useProjects();
   const { createProject, updateProject } = useProjectMutations();
   const { updateTask, closeTask } = useTaskMutations();
@@ -50,7 +49,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ allTasks, onEditTask
         onBack={() => setShowAllProjectsBoard(false)}
         onEditTask={onEditTask}
         onChangeStatus={handleChangeStatus}
-        onAddTask={onNewTask}
+        onAddTask={(status) => onAddTaskToColumn(null, status)}
       />
     );
   }

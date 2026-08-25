@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { Mic, MicOff, Sparkles, X, Check, Clock, Repeat, Calendar, Trash2, ArrowRight, AlertCircle, Lock, Volume2 } from "lucide-react";
-import { TaskFormValues } from "@/features/tasks/types";
-import { parseVoiceTranscriptToTasks } from "../parser";
+import { Mic, MicOff, Sparkles, X, Check, Clock, Repeat, Calendar, Trash2, ArrowRight, AlertCircle, Lock, Volume2, CheckCircle2, HelpCircle } from "lucide-react";
+import { TaskFormValues, Task } from "@/features/tasks/types";
+import { parseVoiceTranscriptToActions, findBestMatchingTask } from "../parser";
 import { cn } from "@/lib/utils";
 import confetti from "canvas-confetti";
 
@@ -11,11 +11,19 @@ interface ParsedVoiceTask extends TaskFormValues {
   targetDate?: string;
 }
 
+type ResolvedAction =
+  | { kind: "create"; task: ParsedVoiceTask }
+  | { kind: "complete"; query: string; matchedTask: Task | null };
+
 interface VoiceActionModalProps {
   isOpen: boolean;
   selectedDate: string;
+  /** Existing tasks, used to resolve "ferme/termine la tâche X" voice commands. */
+  allTasks: Task[];
   onClose: () => void;
   onAddTasks: (tasks: ParsedVoiceTask[]) => void;
+  /** Marks each of these existing tasks as done (from a "close task" voice command). */
+  onCompleteTasks: (taskIds: string[]) => void;
 }
 
 const RECURRENCE_LABEL_MAP: Record<string, string> = {
@@ -37,12 +45,14 @@ const CATEGORY_COLORS: Record<string, string> = {
 export const VoiceActionModal: React.FC<VoiceActionModalProps> = ({
   isOpen,
   selectedDate,
+  allTasks,
   onClose,
   onAddTasks,
+  onCompleteTasks,
 }) => {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState("");
-  const [parsedTasks, setParsedTasks] = useState<ParsedVoiceTask[]>([]);
+  const [resolvedActions, setResolvedActions] = useState<ResolvedAction[]>([]);
   const [permissionStatus, setPermissionStatus] = useState<"prompt" | "granted" | "denied" | "unsupported">("prompt");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const recognitionRef = useRef<any>(null);
@@ -52,7 +62,7 @@ export const VoiceActionModal: React.FC<VoiceActionModalProps> = ({
     if (!isOpen) {
       stopListening();
       setTranscript("");
-      setParsedTasks([]);
+      setResolvedActions([]);
       setErrorMessage(null);
       return;
     }
@@ -67,15 +77,20 @@ export const VoiceActionModal: React.FC<VoiceActionModalProps> = ({
     }
   }, [isOpen]);
 
-  // Update parsed tasks automatically as transcript evolves
+  // Update parsed/resolved actions automatically as transcript evolves
   useEffect(() => {
     if (transcript.trim()) {
-      const localParsed = parseVoiceTranscriptToTasks(transcript, selectedDate);
-      setParsedTasks(localParsed);
+      const actions = parseVoiceTranscriptToActions(transcript, selectedDate);
+      const resolved: ResolvedAction[] = actions.map((action) =>
+        action.kind === "create"
+          ? { kind: "create", task: action.task }
+          : { kind: "complete", query: action.query, matchedTask: findBestMatchingTask(action.query, allTasks) }
+      );
+      setResolvedActions(resolved);
     } else {
-      setParsedTasks([]);
+      setResolvedActions([]);
     }
-  }, [transcript, selectedDate]);
+  }, [transcript, selectedDate, allTasks]);
 
   const startListening = async () => {
     setErrorMessage(null);
@@ -185,11 +200,23 @@ export const VoiceActionModal: React.FC<VoiceActionModalProps> = ({
   };
 
   const handleRemoveTask = (index: number) => {
-    setParsedTasks((prev) => prev.filter((_, i) => i !== index));
+    setResolvedActions((prev) => prev.filter((_, i) => i !== index));
   };
 
+  // "Complete" actions with no matching task can't be confirmed
+  const confirmableActions = resolvedActions.filter(
+    (a) => a.kind === "create" || a.matchedTask !== null
+  );
+
   const handleConfirmAdd = () => {
-    if (parsedTasks.length === 0) return;
+    if (confirmableActions.length === 0) return;
+
+    const newTasks = confirmableActions
+      .filter((a): a is { kind: "create"; task: ParsedVoiceTask } => a.kind === "create")
+      .map((a) => a.task);
+    const completeTaskIds = confirmableActions
+      .filter((a): a is { kind: "complete"; query: string; matchedTask: Task } => a.kind === "complete" && a.matchedTask !== null)
+      .map((a) => a.matchedTask.id);
 
     confetti({
       particleCount: 40,
@@ -198,7 +225,8 @@ export const VoiceActionModal: React.FC<VoiceActionModalProps> = ({
       colors: ["#D4F63D", "#34D399", "#FFFFFF"],
     });
 
-    onAddTasks(parsedTasks);
+    if (newTasks.length > 0) onAddTasks(newTasks);
+    if (completeTaskIds.length > 0) onCompleteTasks(completeTaskIds);
     onClose();
   };
 
@@ -342,73 +370,118 @@ export const VoiceActionModal: React.FC<VoiceActionModalProps> = ({
           </div>
         )}
 
-        {/* Parsed Tasks List */}
-        {parsedTasks.length > 0 && (
+        {/* Parsed Actions List */}
+        {resolvedActions.length > 0 && (
           <div className="flex-1 overflow-y-auto space-y-2 max-h-56 pr-1">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-white">
-                {parsedTasks.length} action{parsedTasks.length > 1 ? "s" : ""} détectée{parsedTasks.length > 1 ? "s" : ""} :
+                {resolvedActions.length} action{resolvedActions.length > 1 ? "s" : ""} détectée{resolvedActions.length > 1 ? "s" : ""} :
               </span>
               <span className="text-[10px] text-[#D4F63D] font-mono font-bold">
-                ✓ Prêtes à être ajoutées
+                {confirmableActions.length === resolvedActions.length
+                  ? "✓ Prêtes à être ajoutées"
+                  : `${confirmableActions.length}/${resolvedActions.length} prêtes`}
               </span>
             </div>
 
-            {parsedTasks.map((task, idx) => (
-              <div
-                key={idx}
-                className="p-3 bg-[#1C1E24] border border-[#2B2E38] rounded-2xl flex items-start justify-between gap-2 shadow-sm"
-              >
-                <div className="space-y-1.5 flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-white truncate">
-                      {task.title}
-                    </span>
-                    <span
-                      className={cn(
-                        "text-[10px] px-2 py-0.2 rounded-md font-semibold border flex-shrink-0",
-                        CATEGORY_COLORS[task.category] || CATEGORY_COLORS.General
-                      )}
-                    >
-                      {task.category}
-                    </span>
-                  </div>
-
-                  {/* Metadata Tags */}
-                  <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-[#9CA3AF]">
-                    <span className="inline-flex items-center gap-1 bg-[#141518] px-2 py-0.5 rounded-lg border border-[#252830]">
-                      <Repeat className="w-3 h-3 text-[#6B7280]" />
-                      <span>{RECURRENCE_LABEL_MAP[task.recurrence] || "1 fois"}</span>
-                    </span>
-
-                    {task.targetDate && (
-                      <span className="inline-flex items-center gap-1 bg-[#141518] px-2 py-0.5 rounded-lg border border-[#252830] text-[#D4F63D]">
-                        <Calendar className="w-3 h-3" />
-                        <span>{task.targetDate}</span>
-                      </span>
-                    )}
-
-                    {task.startTime && (
-                      <span className="inline-flex items-center gap-1 bg-[#141518] px-2 py-0.5 rounded-lg border border-[#252830]">
-                        <Clock className="w-3 h-3 text-[#60A5FA]" />
-                        <span>
-                          {task.startTime}
-                          {task.endTime ? ` - ${task.endTime}` : ""}
-                        </span>
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => handleRemoveTask(idx)}
-                  className="p-1 text-[#6B7280] hover:text-red-400 transition-colors rounded-lg hover:bg-[#252830] cursor-pointer"
+            {resolvedActions.map((action, idx) =>
+              action.kind === "complete" ? (
+                <div
+                  key={idx}
+                  className={cn(
+                    "p-3 rounded-2xl flex items-start justify-between gap-2 shadow-sm border",
+                    action.matchedTask
+                      ? "bg-[#1C1E24] border-[#2B2E38]"
+                      : "bg-amber-500/10 border-amber-500/30"
+                  )}
                 >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            ))}
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    {action.matchedTask ? (
+                      <CheckCircle2 className="w-4 h-4 text-[#34D399] flex-shrink-0" />
+                    ) : (
+                      <HelpCircle className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                    )}
+                    <div className="min-w-0">
+                      <span className="text-xs font-bold text-white truncate block">
+                        {action.matchedTask
+                          ? `Terminer : ${action.matchedTask.title}`
+                          : `Aucune tâche trouvée pour « ${action.query} »`}
+                      </span>
+                      <span className="text-[10px] text-[#8E929E]">Marquer comme terminée</span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveTask(idx)}
+                    className="p-1 text-[#6B7280] hover:text-red-400 transition-colors rounded-lg hover:bg-[#252830] cursor-pointer"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <div
+                  key={idx}
+                  className="p-3 bg-[#1C1E24] border border-[#2B2E38] rounded-2xl flex items-start justify-between gap-2 shadow-sm"
+                >
+                  <div className="space-y-1.5 flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-white truncate">
+                        {action.task.title}
+                      </span>
+                      <span
+                        className={cn(
+                          "text-[10px] px-2 py-0.2 rounded-md font-semibold border flex-shrink-0",
+                          CATEGORY_COLORS[action.task.category] || CATEGORY_COLORS.General
+                        )}
+                      >
+                        {action.task.category}
+                      </span>
+                    </div>
+
+                    {/* Metadata Tags */}
+                    <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-[#9CA3AF]">
+                      <span className="inline-flex items-center gap-1 bg-[#141518] px-2 py-0.5 rounded-lg border border-[#252830]">
+                        <Repeat className="w-3 h-3 text-[#6B7280]" />
+                        <span>{RECURRENCE_LABEL_MAP[action.task.recurrence] || "1 fois"}</span>
+                      </span>
+
+                      {action.task.targetDate && (
+                        <span className="inline-flex items-center gap-1 bg-[#141518] px-2 py-0.5 rounded-lg border border-[#252830] text-[#D4F63D]">
+                          <Calendar className="w-3 h-3" />
+                          <span>{action.task.targetDate}</span>
+                        </span>
+                      )}
+
+                      {action.task.startTime && (
+                        <span className="inline-flex items-center gap-1 bg-[#141518] px-2 py-0.5 rounded-lg border border-[#252830]">
+                          <Clock className="w-3 h-3 text-[#60A5FA]" />
+                          <span>
+                            {action.task.startTime}
+                            {action.task.endTime ? ` - ${action.task.endTime}` : ""}
+                          </span>
+                        </span>
+                      )}
+
+                      {action.task.enableReminders && (
+                        <span className="inline-flex items-center gap-1 bg-[#141518] px-2 py-0.5 rounded-lg border border-[#252830] text-[#D4F63D]">
+                          <Volume2 className="w-3 h-3" />
+                          <span>Rappel</span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveTask(idx)}
+                    className="p-1 text-[#6B7280] hover:text-red-400 transition-colors rounded-lg hover:bg-[#252830] cursor-pointer"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              )
+            )}
           </div>
         )}
 
@@ -416,21 +489,21 @@ export const VoiceActionModal: React.FC<VoiceActionModalProps> = ({
         <div className="pt-2 border-t border-[#252832]">
           <button
             type="button"
-            disabled={parsedTasks.length === 0}
+            disabled={confirmableActions.length === 0}
             onClick={handleConfirmAdd}
             className={cn(
               "w-full py-3.5 rounded-2xl font-extrabold text-sm shadow-xl flex items-center justify-center gap-2 transition-all cursor-pointer",
-              parsedTasks.length > 0
+              confirmableActions.length > 0
                 ? "bg-[#D4F63D] hover:bg-[#c2e432] text-black active:scale-98"
                 : "bg-[#252830] text-[#6B7280] cursor-not-allowed"
             )}
           >
             <Check className="w-4 h-4 stroke-[3]" />
             <span>
-              {parsedTasks.length > 1
-                ? `Ajouter les ${parsedTasks.length} actions (1 clic)`
-                : parsedTasks.length === 1
-                ? "Ajouter l'action"
+              {confirmableActions.length > 1
+                ? `Valider les ${confirmableActions.length} actions (1 clic)`
+                : confirmableActions.length === 1
+                ? "Valider l'action"
                 : "Parle pour détecter des actions"}
             </span>
           </button>

@@ -68,7 +68,7 @@ export const ProjectBoardView: React.FC<ProjectBoardViewProps> = ({
       </div>
 
       <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-        <div className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden px-4 pb-6">
+        <div className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden px-4 pb-28">
           <div className="flex items-start gap-3 h-full">
             {columns.map((col) => (
               <BoardColumn

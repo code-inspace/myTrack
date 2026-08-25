@@ -134,7 +134,13 @@ export function useTaskMutations() {
         isArchived: false,
         projectId: values.projectId || null,
         projectStatus: values.projectStatus || null,
-      });
+        enableReminders: values.enableReminders,
+        reminderOffsetMinutes: values.reminderOffsetMinutes,
+        reminderTimes: values.reminderTimes,
+        // `date` isn't part of the Task model (recurring tasks have no fixed date) — createDbTask
+        // reads it off as an untyped override to seed a ONCE task's initial scheduled date.
+        ...(values.date ? { date: values.date } : {}),
+      } as Omit<Task, "id" | "createdAt" | "updatedAt"> & { date?: string });
     },
     onSuccess: (newTask) => {
       queryClient.setQueryData<Task[]>(["tasks", userId], (old = []) => [

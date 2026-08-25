@@ -19,13 +19,16 @@ interface SleepWaveChartProps {
   referenceDate: Date;
 }
 
-// Vertical scale: 18:00 (top) to 18:00 the next day (bottom).
+// Vertical scale anchor: 18:00 (top) to 18:00 the next day (bottom) — the full window is only
+// used as a fallback when there's no data; otherwise it's cropped to the actual data ± 1h so the
+// card isn't mostly empty scroll space.
 const WINDOW_START_MINUTES = 18 * 60;
 const WINDOW_SPAN_MINUTES = 24 * 60;
-const AXIS_LABEL_OFFSETS = [0, 240, 480, 720, 960, 1200]; // every 4h from 18:00
-// Full day rendered at a legible scale (~0.5px/min); the card below caps the visible
-// height and scrolls vertically through it.
-const TRACK_HEIGHT_PX = 720;
+const RANGE_PADDING_MINUTES = 60;
+const PX_PER_MINUTE = 0.6;
+const MIN_TRACK_HEIGHT_PX = 180;
+const MAX_TRACK_HEIGHT_PX = 900;
+const AXIS_LABEL_COUNT = 5;
 
 function offsetFromWindowStart(timeStr: string): number {
   const [h, m] = timeStr.split(":").map((v) => parseInt(v, 10) || 0);
@@ -38,6 +41,15 @@ function formatAxisLabel(offsetMinutes: number): string {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+interface RawSegment {
+  startOffset: number;
+  endOffset: number;
+  startTime: string;
+  endTime: string;
+  durationText: string;
+  isOpen?: boolean;
 }
 
 interface Segment {
@@ -74,12 +86,14 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
     });
   }, [period, referenceDate]);
 
-  const { points, validNights, averageText } = useMemo(() => {
+  const { points, validNights, averageText, trackHeightPx, axisLabels } = useMemo(() => {
     const daysCount = period === "week" ? 7 : period === "month" ? 14 : 30;
-    const pts: DayPoint[] = [];
+    const rawPts: Array<{ dateStr: string; label: string; night: RawSegment | null; naps: RawSegment[] }> = [];
 
     let totalMinutes = 0;
     let nights = 0;
+    let rangeMin = Infinity;
+    let rangeMax = -Infinity;
 
     for (let i = daysCount - 1; i >= 0; i--) {
       const d = subDays(referenceDate, i);
@@ -93,33 +107,37 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
           ? `${FRENCH_DAYS_SHORT[dayIndex]} ${format(d, "d")}`
           : format(d, "d MMM", { locale: fr });
 
-      let night: Segment | null = null;
+      let night: RawSegment | null = null;
       if (nightData) {
         totalMinutes += nightData.duration.hours * 60 + nightData.duration.minutes;
         nights++;
-        const top = offsetFromWindowStart(nightData.yesterdayBedtime);
-        const end = offsetFromWindowStart(nightData.todayWakeTime);
+        const startOffset = offsetFromWindowStart(nightData.yesterdayBedtime);
+        const endOffset = offsetFromWindowStart(nightData.todayWakeTime);
         night = {
-          topPct: (top / WINDOW_SPAN_MINUTES) * 100,
-          heightPct: (Math.max(end - top, 0) / WINDOW_SPAN_MINUTES) * 100,
+          startOffset,
+          endOffset,
           startTime: nightData.yesterdayBedtime,
           endTime: nightData.todayWakeTime,
           durationText: nightData.duration.text,
         };
+        rangeMin = Math.min(rangeMin, startOffset);
+        rangeMax = Math.max(rangeMax, endOffset);
       }
 
       const isToday = dateStr === todayStr;
-      const naps: Segment[] = (dayLog.naps || [])
+      const naps: RawSegment[] = (dayLog.naps || [])
         .filter((n) => n.endTime || isToday) // only show an ongoing (open) nap on today's column
         .map((n) => {
           const isOpen = !n.endTime;
           const effectiveEnd = n.endTime || `${String(new Date().getHours()).padStart(2, "0")}:${String(new Date().getMinutes()).padStart(2, "0")}`;
-          const top = offsetFromWindowStart(n.startTime);
-          const end = offsetFromWindowStart(effectiveEnd);
+          const startOffset = offsetFromWindowStart(n.startTime);
+          const endOffset = offsetFromWindowStart(effectiveEnd);
           const dur = computeSleepDuration(n.startTime, effectiveEnd);
+          rangeMin = Math.min(rangeMin, startOffset);
+          rangeMax = Math.max(rangeMax, endOffset);
           return {
-            topPct: (top / WINDOW_SPAN_MINUTES) * 100,
-            heightPct: (Math.max(end - top, 0) / WINDOW_SPAN_MINUTES) * 100,
+            startOffset,
+            endOffset,
             startTime: n.startTime,
             endTime: effectiveEnd,
             durationText: dur?.text || "",
@@ -127,8 +145,45 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
           };
         });
 
-      pts.push({ dateStr, label, night, naps });
+      rawPts.push({ dateStr, label, night, naps });
     }
+
+    // Crop the vertical scale to the actual data ± 1h instead of the full 18h-18h window, so
+    // the card doesn't scroll through mostly-empty hours.
+    let windowStart = 0;
+    let windowSpan = WINDOW_SPAN_MINUTES;
+    if (rangeMin !== Infinity) {
+      const paddedStart = Math.max(0, rangeMin - RANGE_PADDING_MINUTES);
+      const paddedEnd = Math.min(WINDOW_SPAN_MINUTES, rangeMax + RANGE_PADDING_MINUTES);
+      windowStart = paddedStart;
+      windowSpan = Math.max(paddedEnd - paddedStart, RANGE_PADDING_MINUTES * 2);
+    }
+
+    const toSegment = (raw: RawSegment): Segment => ({
+      topPct: ((raw.startOffset - windowStart) / windowSpan) * 100,
+      heightPct: (Math.max(raw.endOffset - raw.startOffset, 0) / windowSpan) * 100,
+      startTime: raw.startTime,
+      endTime: raw.endTime,
+      durationText: raw.durationText,
+      isOpen: raw.isOpen,
+    });
+
+    const points: DayPoint[] = rawPts.map((pt) => ({
+      dateStr: pt.dateStr,
+      label: pt.label,
+      night: pt.night ? toSegment(pt.night) : null,
+      naps: pt.naps.map(toSegment),
+    }));
+
+    const trackHeightPx = Math.min(
+      MAX_TRACK_HEIGHT_PX,
+      Math.max(MIN_TRACK_HEIGHT_PX, Math.round(windowSpan * PX_PER_MINUTE))
+    );
+
+    const axisLabels = Array.from({ length: AXIS_LABEL_COUNT }, (_, i) => {
+      const offset = windowStart + (windowSpan * i) / (AXIS_LABEL_COUNT - 1);
+      return { offsetPct: ((offset - windowStart) / windowSpan) * 100, label: formatAxisLabel(offset) };
+    });
 
     const averageText =
       nights > 0
@@ -137,7 +192,7 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
           ).padStart(2, "0")}m`
         : "N/A";
 
-    return { points: pts, validNights: nights, averageText };
+    return { points, validNights: nights, averageText, trackHeightPx, axisLabels };
   }, [period, referenceDate, syncVersion, todayStr]);
 
   return (
@@ -172,17 +227,17 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
         <div className="max-h-72 overflow-y-auto overscroll-contain rounded-xl">
           <div
             className="flex items-stretch gap-1.5 pl-1 pr-9 relative"
-            style={{ height: `${TRACK_HEIGHT_PX}px` }}
+            style={{ height: `${trackHeightPx}px` }}
           >
             {/* Horizontal time-of-day gridlines */}
-            {AXIS_LABEL_OFFSETS.map((offset) => (
+            {axisLabels.map((axis, i) => (
               <div
-                key={offset}
+                key={i}
                 className="absolute inset-x-0 border-b border-dashed border-[#282A30] pointer-events-none flex items-center justify-end"
-                style={{ top: `${(offset / WINDOW_SPAN_MINUTES) * 100}%` }}
+                style={{ top: `${axis.offsetPct}%` }}
               >
                 <span className="text-[9px] font-mono text-[#6B7280] -mt-1.5 absolute -right-9">
-                  {formatAxisLabel(offset)}
+                  {axis.label}
                 </span>
               </div>
             ))}

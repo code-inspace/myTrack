@@ -12,6 +12,58 @@ const FRENCH_DAY_MAP: Record<string, number> = {
 };
 
 /**
+ * Detects a "rappelle-moi dans N minutes/heures de X" reminder phrase, in either word order
+ * ("rappelle-moi dans 10 min d'acheter du pain" or "rappelle-moi d'acheter du pain dans 10 min").
+ * Returns the action title and the absolute local time it resolves to relative to `now`.
+ */
+function parseReminderIntent(
+  text: string,
+  now: Date
+): { title: string; startTime: string; targetDate: string } | null {
+  const trimmed = text.trim();
+  const durationUnit = "(heures?|h\\b|minutes?|mins?|min\\b)";
+
+  const durationFirst = trimmed.match(
+    new RegExp(`^rappelle[\\s-]*(?:moi|toi)?\\s*(?:de\\s+|d['’]\\s*)?dans\\s+(\\d+)\\s*${durationUnit}\\s*(?:de\\s+|d['’]\\s*)?(.+)$`, "i")
+  );
+  const actionFirst = !durationFirst
+    ? trimmed.match(
+        new RegExp(`^rappelle[\\s-]*(?:moi|toi)?\\s+(?:de\\s+|d['’]\\s*)?(.+?)\\s+dans\\s+(\\d+)\\s*${durationUnit}\\s*$`, "i")
+      )
+    : null;
+
+  let amountStr: string | undefined;
+  let unit: string | undefined;
+  let actionPhrase: string | undefined;
+
+  if (durationFirst) {
+    [, amountStr, unit, actionPhrase] = durationFirst;
+  } else if (actionFirst) {
+    [, actionPhrase, amountStr, unit] = actionFirst;
+  } else {
+    return null;
+  }
+
+  const amount = parseInt(amountStr || "", 10);
+  if (!amount || !actionPhrase) return null;
+
+  const isHours = /^h/i.test(unit || "");
+  const minutesFromNow = isHours ? amount * 60 : amount;
+
+  const target = new Date(now.getTime() + minutesFromNow * 60000);
+  const startTime = `${String(target.getHours()).padStart(2, "0")}:${String(target.getMinutes()).padStart(2, "0")}`;
+  const targetDate = format(target, "yyyy-MM-dd");
+
+  let title = actionPhrase
+    .replace(/^[:,\-\s]+|[:,\-\s]+$/g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+  title = title.length > 0 ? title.charAt(0).toUpperCase() + title.slice(1) : "Rappel";
+
+  return { title, startTime, targetDate };
+}
+
+/**
  * Intelligent French Voice Speech-to-Tasks Parser
  * Detects multiple tasks, dates, times, categories, and recurrences from voice transcripts.
  */
@@ -23,6 +75,24 @@ export function parseVoiceTranscriptToTasks(
 
   const rawText = transcript.trim();
   const refDate = parseISO(referenceDateStr);
+
+  // 0. "Rappelle-moi dans N minutes/heures de X" — handled up front since "heures" here would
+  // otherwise collide with the absolute clock-time heuristics below (e.g. "dans 2 heures").
+  const reminder = parseReminderIntent(rawText, new Date());
+  if (reminder) {
+    return [
+      {
+        title: reminder.title,
+        category: inferCategoryFromTitle(reminder.title),
+        trackingType: "BOOLEAN",
+        recurrence: "ONCE",
+        startTime: reminder.startTime,
+        targetDate: reminder.targetDate,
+        enableReminders: true,
+        reminderOffsetMinutes: 0,
+      },
+    ];
+  }
 
   // 1. Split into distinct task segments by common voice separators
   const taskSeparators = /(?:nouvelle\s+t[aâ]che|nouvelle\s+action|ajoute\s+la\s+t[aâ]che|ajoute\s+une\s+t[aâ]che|ajouter\s+une\s+t[aâ]che|cr[eé]er\s+la\s+t[aâ]che|cr[eé]er\s+une\s+t[aâ]che|deuxi[eè]me\s+t[aâ]che|troisi[eè]me\s+t[aâ]che|\bet\s+aussi\b|\bet\s+puis\b)/gi;
@@ -192,4 +262,89 @@ function inferCategoryFromTitle(title: string): string {
     return "Apprentissage";
   }
   return "General";
+}
+
+// ---------------------------------------------------------------------------
+// Voice actions beyond "create a task": closing/completing an existing one.
+// ---------------------------------------------------------------------------
+
+// Requires the literal word "tâche" so an ordinary new-task phrase like "Termine le rapport"
+// isn't mistaken for a close command — the same verbs are common in task titles on their own.
+const CLOSE_TASK_REGEX =
+  /^(?:ferme|fermer|termine|terminer|marque|coche|cocher)\s+(?:cette\s+|la\s+)?t[aâ]che\s+(.+?)(?:\s+comme\s+(?:fait[e]?|termin[eé]e?|compl[eè]t[eé]e?))?\s*$/i;
+
+export interface CreateTaskAction {
+  kind: "create";
+  task: TaskFormValues & { targetDate?: string };
+}
+
+export interface CompleteTaskAction {
+  kind: "complete";
+  /** Raw spoken task title to fuzzy-match against the user's existing tasks. */
+  query: string;
+}
+
+export type VoiceAction = CreateTaskAction | CompleteTaskAction;
+
+/**
+ * Entry point covering both intents: creating new tasks (the original behavior) and closing an
+ * existing one ("ferme/termine la tâche X"). Falls back to task creation when nothing matches.
+ */
+export function parseVoiceTranscriptToActions(
+  transcript: string,
+  referenceDateStr: string = format(new Date(), "yyyy-MM-dd")
+): VoiceAction[] {
+  if (!transcript || !transcript.trim()) return [];
+
+  const closeMatch = transcript.trim().match(CLOSE_TASK_REGEX);
+  if (closeMatch?.[1] && closeMatch[1].trim().length > 1) {
+    return [{ kind: "complete", query: closeMatch[1].trim() }];
+  }
+
+  return parseVoiceTranscriptToTasks(transcript, referenceDateStr).map((task) => ({
+    kind: "create" as const,
+    task,
+  }));
+}
+
+/**
+ * Fuzzy-matches a spoken task title against the user's existing tasks: exact match first, then
+ * substring containment, then best word-overlap.
+ */
+export function findBestMatchingTask<T extends { id: string; title: string }>(
+  query: string,
+  tasks: T[]
+): T | null {
+  const normalize = (s: string) =>
+    s
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9\s]/g, "")
+      .trim();
+
+  const normQuery = normalize(query);
+  if (!normQuery) return null;
+
+  const exact = tasks.find((t) => normalize(t.title) === normQuery);
+  if (exact) return exact;
+
+  const contains = tasks.find((t) => {
+    const nt = normalize(t.title);
+    return nt.length > 0 && (nt.includes(normQuery) || normQuery.includes(nt));
+  });
+  if (contains) return contains;
+
+  const queryWords = new Set(normQuery.split(/\s+/).filter(Boolean));
+  let best: T | null = null;
+  let bestScore = 0;
+  for (const t of tasks) {
+    const words = normalize(t.title).split(/\s+/).filter(Boolean);
+    const overlap = words.filter((w) => queryWords.has(w)).length;
+    if (overlap > bestScore) {
+      bestScore = overlap;
+      best = t;
+    }
+  }
+  return best;
 }

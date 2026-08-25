@@ -132,7 +132,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
     setIsTaskModalOpen(false);
   };
 
-  const handleAddTaskToColumn = (projectId: string, projectStatus: string) => {
+  const handleAddTaskToColumn = (projectId: string | null, projectStatus: string) => {
     setEditingTask(null);
     setTaskPrefill({ projectId, projectStatus });
     setIsTaskModalOpen(true);
@@ -275,7 +275,6 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
             setIsTaskModalOpen(true);
           }}
           onAddTaskToColumn={handleAddTaskToColumn}
-          onNewTask={handleNewTask}
         />
       ) : activeTab === "habits" ? (
         /* HABIT LIST TAB */
@@ -425,10 +424,8 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
       {/* Dual Floating Action Buttons: New Task (+) and Voice AI (Mic) */}
       <VoiceFab
         selectedDate={selectedDate}
-        onNewTask={() => {
-          setEditingTask(null);
-          setIsTaskModalOpen(true);
-        }}
+        allTasks={allTasks}
+        onNewTask={handleNewTask}
       />
     </div>
     </DndContext>

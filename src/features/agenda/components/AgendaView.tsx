@@ -166,7 +166,7 @@ export const AgendaView: React.FC = () => {
       />
 
       {/* Floating Microphone Voice Action Button */}
-      <VoiceFab selectedDate={selectedDate} />
+      <VoiceFab selectedDate={selectedDate} allTasks={allTasks} />
     </div>
   );
 };
