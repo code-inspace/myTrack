@@ -81,6 +81,46 @@ export function useTasks(selectedDateStr: string) {
   const filteredTasks: TaskWithCompletion[] = allTasks
     .filter((task) => !task.isArchived)
     .filter((task) => {
+      // 1. One-shot tasks (ONCE)
+      if (task.recurrence === "ONCE") {
+        const originalDate = task.createdAt
+          ? task.createdAt.split("T")[0]
+          : todayStr;
+
+        // Was it completed on this exact viewed date?
+        const isCompletedOnThisDate = allCompletions.some(
+          (c) =>
+            c.taskId === task.id &&
+            c.date === selectedDateStr &&
+            c.completed,
+        );
+        if (isCompletedOnThisDate) return true;
+
+        // Was it completed on any other date?
+        const isCompletedOnOtherDate = allCompletions.some(
+          (c) =>
+            c.taskId === task.id &&
+            c.completed &&
+            c.date !== selectedDateStr,
+        );
+        if (isCompletedOnOtherDate) return false;
+
+        // Task is NOT completed:
+        // If viewing a past day (day is finished), it is removed from that past day
+        if (selectedDateStr < todayStr) {
+          return false;
+        }
+
+        // If viewing today: it carries over to today if originally scheduled on or before today
+        if (selectedDateStr === todayStr) {
+          return originalDate <= todayStr;
+        }
+
+        // If viewing a future date: only show if originally scheduled for that future date
+        return originalDate === selectedDateStr;
+      }
+
+      // 2. Recurring tasks (DAILY, WEEKDAYS, WEEKLY, CUSTOM)
       const scheduled = isTaskScheduledForDate(
         task.recurrence,
         task.recurrenceConfig,
@@ -90,42 +130,19 @@ export function useTasks(selectedDateStr: string) {
       );
       if (scheduled) return true;
 
-      // Uncompleted one-shot tasks carry over to the next day(s) instead of disappearing
-      if (task.recurrence === "ONCE") {
-        // Completed specifically on the viewed day — always show it here (as done), even though
-        // completion normally stops carry-over onto *later* days.
-        const completedOnThisDate = allCompletions.some(
-          (c) =>
-            c.taskId === task.id &&
-            c.date === selectedDateStr &&
-            c.completed,
-        );
-        if (completedOnThisDate) return true;
-
-        const originalDate = task.createdAt
-          ? task.createdAt.split("T")[0]
-          : null;
-        const completedBeforeThisDate = allCompletions.some(
-          (c) =>
-            c.taskId === task.id &&
-            c.completed &&
-            c.date < selectedDateStr,
-        );
-        if (completedBeforeThisDate) return false;
-
-        return isOnceTaskCarriedOver(
-          originalDate,
-          selectedDateStr,
-          todayStr,
-          false,
-        );
-      }
-
-      return false;
+      // Always show if completed on this date
+      const isCompletedOnThisDate = allCompletions.some(
+        (c) =>
+          c.taskId === task.id &&
+          c.date === selectedDateStr &&
+          c.completed,
+      );
+      return isCompletedOnThisDate;
     })
     .map((task) =>
       mapTaskWithCompletion(task, allCompletions, selectedDateStr),
     );
+
 
   const sortedTasks = sortTasksByPriority(filteredTasks);
   const activeTask = allTasks.find((t) => t.isActive && !t.isArchived);

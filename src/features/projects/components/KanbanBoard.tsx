@@ -114,13 +114,22 @@ export const BoardColumn: React.FC<{
  */
 export function groupTasksByColumn(tasks: Task[], columns: ProjectColumn[]): Map<string, Task[]> {
   const columnIds = new Set(columns.map((c) => c.id));
+  const doneColumn = columns.find((c) => c.isDone) || columns[columns.length - 1];
+  const firstColumn = columns[0];
   const groups = new Map<string, Task[]>(columns.map((c) => [c.id, []]));
 
   tasks.forEach((task) => {
-    const status = task.projectStatus;
-    const bucket = status && columnIds.has(status) ? status : columns[0]?.id;
-    if (bucket) groups.get(bucket)!.push(task);
+    let status = task.projectStatus;
+    // If task has status "DONE" but the board uses a custom done column id (like "TERMINE")
+    if (status === "DONE" && doneColumn && !columnIds.has("DONE")) {
+      status = doneColumn.id;
+    }
+    const bucket = status && columnIds.has(status) ? status : firstColumn?.id;
+    if (bucket && groups.has(bucket)) {
+      groups.get(bucket)!.push(task);
+    }
   });
 
   return groups;
 }
+
