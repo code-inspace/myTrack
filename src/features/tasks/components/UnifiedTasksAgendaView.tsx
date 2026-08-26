@@ -34,6 +34,7 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
 import { DAY_DROP_ID_PREFIX } from "@/features/tasks/components/HorizontalDatePicker";
+import { MiniAgendaWidget } from "@/features/agenda/components/MiniAgendaWidget";
 
 interface UnifiedTasksAgendaViewProps {
   initialTab?: TasksTab;
@@ -53,7 +54,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
   const [isTestNotificationOpen, setIsTestNotificationOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
-  const { tasks, allTasks } = useTasks(selectedDate);
+  const { tasks, allTasks, allCompletions } = useTasks(selectedDate);
 
   const {
     createTask,
@@ -170,13 +171,14 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
     e.dataTransfer.setData("taskId", task.id);
   };
 
-  const handleMoveTaskToTime = (taskId: string, startTime: string, endTime: string) => {
+  const handleMoveTaskToTime = (taskId: string, startTime: string, endTime: string, targetDate?: string) => {
+    const effectiveDate = targetDate || selectedDate;
     const task = allTasks.find((t) => t.id === taskId) || tasks.find((t) => t.id === taskId);
     const isRecurring = task?.recurrence && task.recurrence !== "ONCE";
 
     updateSchedule.mutate({
       taskId,
-      date: selectedDate,
+      date: effectiveDate,
       startTime,
       endTime,
       applyToAll: !isRecurring,
@@ -290,6 +292,9 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
               <AgendaTimeline
                 selectedDate={selectedDate}
                 tasks={timedTasks}
+                allTasks={allTasks}
+                allCompletions={allCompletions}
+                onSelectDate={setSelectedDate}
                 onToggleComplete={(taskId) => toggleCompletion.mutate({ taskId, date: selectedDate })}
                 onToggleReminder={(taskId) => {
                   const target = tasks.find((t) => t.id === taskId) || allTasks.find((t) => t.id === taskId);
@@ -390,7 +395,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
               style={{ WebkitOverflowScrolling: "touch" }}
             >
               <div className="flex items-center justify-between px-1">
-                <h2 className="text-xl font-bold text-white tracking-tight">Aujourd'hui</h2>
+                <h2 className="text-xl font-bold text-white tracking-tight">Aujourd&apos;hui</h2>
               </div>
 
               {/* Quick Task Input Bar */}
@@ -408,6 +413,17 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
                   />
                 </div>
               </form>
+
+              {/* Mini Agenda preview of today's timed tasks */}
+              <MiniAgendaWidget
+                tasks={tasks}
+                onOpenAgenda={() => handleTabChange("agenda")}
+                onToggleComplete={(id) => toggleCompletion.mutate({ taskId: id, date: selectedDate })}
+                onSelectTask={(t) => {
+                  setEditingTask(t);
+                  setIsTaskModalOpen(true);
+                }}
+              />
 
               {/* Active Running Task Banners */}
               {activeTasksMapped.length > 0 && (
@@ -434,7 +450,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
                     <Inbox className="w-10 h-10 text-[#6B7280] mx-auto mb-2" />
                     <h4 className="text-base font-bold text-white">Aucune tâche programmée</h4>
                     <p className="text-xs text-[#8E929E] mt-1 mb-4">
-                      Tu n'as aucune tâche active pour cette date.
+                      Tu n&apos;as aucune tâche active pour cette date.
                     </p>
                     <button
                       type="button"
@@ -479,6 +495,9 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
               <AgendaTimeline
                 selectedDate={selectedDate}
                 tasks={timedTasks}
+                allTasks={allTasks}
+                allCompletions={allCompletions}
+                onSelectDate={setSelectedDate}
                 onToggleComplete={(taskId) => toggleCompletion.mutate({ taskId, date: selectedDate })}
                 onToggleReminder={(taskId) => {
                   const target = tasks.find((t) => t.id === taskId) || allTasks.find((t) => t.id === taskId);
@@ -494,6 +513,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
               />
             </div>
           )}
+
         </div>
       </DndContext>
 

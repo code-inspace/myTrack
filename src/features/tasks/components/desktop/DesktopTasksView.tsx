@@ -4,6 +4,7 @@ import React, { useState, useMemo } from "react";
 import { Task, TaskWithCompletion } from "@/features/tasks/types";
 import { TaskCard } from "../TaskCard";
 import { ActiveTaskBanner } from "../ActiveTaskBanner";
+import { MiniAgendaWidget } from "@/features/agenda/components/MiniAgendaWidget";
 import { DesktopWidgetsPane } from "./DesktopWidgetsPane";
 import {
   CheckCircle2,
@@ -319,6 +320,14 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
               </button>
             </div>
           </form>
+
+          {/* Mini Agenda preview if scheduled tasks exist */}
+          <MiniAgendaWidget
+            tasks={tasks}
+            onOpenAgenda={() => onSelectTab?.("agenda")}
+            onToggleComplete={onToggleComplete}
+            onSelectTask={onEditTask}
+          />
 
           {/* Active Running Task Banner if any */}
           {activeTask && (
