@@ -5,6 +5,7 @@ import { AuthProvider } from "@/providers/AuthProvider";
 import OneSignalProvider from "@/providers/OneSignalProvider";
 import NotificationWatcherProvider from "@/providers/NotificationWatcherProvider";
 import { BottomNav } from "@/components/shared/BottomNav";
+import { DesktopSidebar } from "@/components/desktop/DesktopSidebar";
 import { AuthGuard } from "@/components/shared/AuthGuard";
 import { DisplayModeProvider } from "@/providers/DisplayModeProvider";
 
@@ -87,19 +88,22 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
       </head>
-      <body className="bg-[#111214] text-[#F3F4F6] min-h-screen antialiased flex flex-col items-center">
+      <body className="bg-[#0E0F12] text-[#F3F4F6] min-h-screen antialiased flex flex-col md:flex-row items-stretch justify-center overflow-x-hidden">
         <QueryProvider>
           <AuthProvider>
             <OneSignalProvider>
               <NotificationWatcherProvider>
                 <DisplayModeProvider>
                   <AuthGuard>
-                    {/* Main App Container */}
-                    <main className="w-full max-w-md h-screen max-h-screen flex flex-col safe-top relative overflow-hidden">
+                    {/* Desktop Floating Left Sidebar */}
+                    <DesktopSidebar />
+
+                    {/* Main App Container: mobile max-w-md, desktop expands to fill remainder of screen */}
+                    <main className="w-full max-w-md md:max-w-none md:flex-1 h-screen max-h-screen flex flex-col safe-top relative overflow-hidden">
                       {children}
                     </main>
 
-                    {/* Fixed Thumb-friendly Navigation */}
+                    {/* Fixed Thumb-friendly Navigation on Mobile */}
                     <BottomNav />
                   </AuthGuard>
                 </DisplayModeProvider>
