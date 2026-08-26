@@ -14,7 +14,7 @@ import {
   subtractMinutesFromTime,
 } from "@/lib/dates";
 import { getStoredProjects } from "@/features/projects/actions";
-import { getProjectColumns } from "@/features/projects/types";
+import { getProjectColumns, DEFAULT_PROJECT_COLUMNS } from "@/features/projects/types";
 
 export async function fetchCompletions(
   userId?: string,
@@ -260,9 +260,12 @@ export async function syncProjectStatusToDoneColumn(
     }
   }
 
-  const doneColumn = project
-    ? getProjectColumns(project).find((c) => c.isDone)
-    : undefined;
+  const columns = project ? getProjectColumns(project) : DEFAULT_PROJECT_COLUMNS;
+  const doneColumn =
+    columns.find((c) => c.isDone) ||
+    columns[columns.length - 1] ||
+    DEFAULT_PROJECT_COLUMNS[DEFAULT_PROJECT_COLUMNS.length - 1];
+
   if (doneColumn && target.projectStatus !== doneColumn.id) {
     await updateDbTask(taskId, { projectStatus: doneColumn.id }, userId);
   }
@@ -345,7 +348,8 @@ export async function reopenTaskAsIncomplete(
         // ignore
       }
     }
-    const firstColumn = project ? getProjectColumns(project)[0] : undefined;
+    const columns = project ? getProjectColumns(project) : DEFAULT_PROJECT_COLUMNS;
+    const firstColumn = columns[0] || DEFAULT_PROJECT_COLUMNS[0];
     if (firstColumn && target.projectStatus !== firstColumn.id) {
       await updateDbTask(taskId, { projectStatus: firstColumn.id }, targetId);
     }
