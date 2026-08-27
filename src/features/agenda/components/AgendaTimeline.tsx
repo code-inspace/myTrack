@@ -6,7 +6,7 @@ import { fr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { isTaskScheduledForDate, getTodayDateString } from "@/lib/dates";
 import { mapTaskWithCompletion } from "@/features/tasks/mappers";
-import { CheckCircle2, Circle, Edit3, Bell, BellOff, Sparkles } from "lucide-react";
+import { CheckCircle2, Circle, Edit3, Bell, BellOff, Sparkles, ChevronDown } from "lucide-react";
 
 export type AgendaViewMode = "day" | "3days" | "week";
 
@@ -112,6 +112,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
   onSelectTask,
 }) => {
   const [viewMode, setViewMode] = useState<AgendaViewMode>("day");
+  const [isAllDayExpanded, setIsAllDayExpanded] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [dragHoverInfo, setDragHoverInfo] = useState<{ date: string; minute: number } | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
@@ -411,12 +412,22 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
 
           {/* Row 2: Multi-Day "Jour entier" Section directly below the Period Selector / Day Headers */}
           <div className="flex bg-[#141518]">
-            {/* Left "Jour entier" Label Column (Sticky Left) */}
-            <div className="w-14 md:w-16 flex-shrink-0 border-r border-[#202228] p-1.5 flex flex-col justify-center items-center text-center bg-[#111214] sticky left-0 z-35">
-              <span className="text-[9px] md:text-[10px] font-bold text-[#8E929E] uppercase tracking-tighter leading-tight">
+            {/* Left "Jour entier" Label Column (Sticky Left & Toggleable Accordion) */}
+            <button
+              type="button"
+              onClick={() => setIsAllDayExpanded(!isAllDayExpanded)}
+              className="w-14 md:w-16 flex-shrink-0 border-r border-[#202228] p-1 flex flex-col justify-center items-center text-center bg-[#111214] hover:bg-[#1C1D24] sticky left-0 z-35 transition-colors cursor-pointer group"
+            >
+              <span className="text-[9px] md:text-[10px] font-bold text-[#8E929E] group-hover:text-white uppercase tracking-tighter leading-tight">
                 Jour<br />entier
               </span>
-            </div>
+              <ChevronDown
+                className={cn(
+                  "w-3 h-3 text-[#D4F63D] mt-0.5 transition-transform duration-200",
+                  isAllDayExpanded ? "rotate-180" : ""
+                )}
+              />
+            </button>
 
             {/* Day All-Day Columns (1 column in day mode, 3 in 3days, 7 in week) */}
             {displayedDays.map((dayStr) => {
@@ -438,8 +449,11 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
                     }
                   }}
                   className={cn(
-                    "flex-1 p-1.5 flex flex-wrap items-center gap-1.5 border-r border-[#202228] transition-colors min-h-[46px] max-h-[90px] overflow-y-auto",
+                    "flex-1 p-1.5 flex flex-wrap items-center gap-1.5 border-r border-[#202228] transition-all duration-300",
                     viewMode !== "day" ? "min-w-[120px] md:min-w-[150px]" : "min-w-0",
+                    isAllDayExpanded
+                      ? "min-h-[46px] max-h-none overflow-visible"
+                      : "min-h-[46px] max-h-[50px] overflow-hidden",
                     isCurrentSelected ? "bg-[#161820]" : "bg-[#141518]"
                   )}
                 >

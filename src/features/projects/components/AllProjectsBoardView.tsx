@@ -74,7 +74,7 @@ export const AllProjectsBoardView: React.FC<AllProjectsBoardViewProps> = ({
         <button
           type="button"
           onClick={onBack}
-          className="p-2 rounded-full bg-[#1C1D22] hover:bg-[#22242B] border border-[#282A30] text-[#8E929E] hover:text-white transition-all cursor-pointer"
+          className="p-2 rounded-full bg-[#1C1D22] hover:bg-[#22242B] border border-[#282A30] text-[#8E929E] hover:text-white transition-all cursor-pointer md:hidden"
         >
           <ArrowLeft className="w-4 h-4" />
         </button>
