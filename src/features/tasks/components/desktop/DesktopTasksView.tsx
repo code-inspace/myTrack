@@ -4,20 +4,18 @@ import React, { useState, useMemo } from "react";
 import { Task, TaskWithCompletion } from "@/features/tasks/types";
 import { TaskCard } from "../TaskCard";
 import { ActiveTaskBanner } from "../ActiveTaskBanner";
-import { HorizontalDatePicker } from "../HorizontalDatePicker";
 import { DesktopWidgetsPane } from "./DesktopWidgetsPane";
 import {
   CheckCircle2,
   Plus,
-  Filter,
   Flame,
-  Calendar,
   Inbox,
-  Sparkles,
-  SlidersHorizontal,
-  ListTodo,
+  ChevronLeft,
+  ChevronRight,
+  RotateCcw,
+  Calendar,
 } from "lucide-react";
-import { format, parseISO, addDays, subDays } from "date-fns";
+import { format, parseISO, addDays, subDays, isToday } from "date-fns";
 import { fr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import {
@@ -184,12 +182,50 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
         </button>
       </div>
 
-      {/* 2. 7-Day Horizontal Week Calendar — exactly like on mobile */}
-      <div className="pb-3 max-w-2xl">
-        <HorizontalDatePicker
-          selectedDate={selectedDate}
-          onSelectDate={onSelectDate}
-        />
+      {/* 2. Classic Date Selector — prev/next arrows + date input */}
+      <div className="flex items-center gap-3 pb-4 select-none">
+        <div className="flex items-center bg-[#17181F] border border-[#282B36] rounded-2xl overflow-hidden shadow-sm">
+          <button
+            type="button"
+            onClick={handlePrevDay}
+            title="Jour précédent"
+            className="px-3 py-2.5 text-[#8E929E] hover:text-white hover:bg-[#22242C] transition-all cursor-pointer border-r border-[#282B36]"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+
+          {/* Native date input styled as a text trigger */}
+          <div className="relative">
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => e.target.value && onSelectDate(e.target.value)}
+              className="h-9 pl-3 pr-2 bg-transparent text-white text-sm font-semibold outline-none cursor-pointer appearance-none"
+              style={{ colorScheme: "dark" }}
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={handleNextDay}
+            title="Jour suivant"
+            className="px-3 py-2.5 text-[#8E929E] hover:text-white hover:bg-[#22242C] transition-all cursor-pointer border-l border-[#282B36]"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Today shortcut */}
+        {!isToday(parseISO(selectedDate)) && (
+          <button
+            type="button"
+            onClick={() => onSelectDate(format(new Date(), "yyyy-MM-dd"))}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#D4F63D]/10 hover:bg-[#D4F63D]/20 text-[#D4F63D] border border-[#D4F63D]/30 text-xs font-bold transition-all cursor-pointer"
+          >
+            <RotateCcw className="w-3 h-3 stroke-[2.5]" />
+            <span>Aujourd&apos;hui</span>
+          </button>
+        )}
       </div>
 
       {/* 3. Filter Pills Bar (Inspired by the Reference screenshot's pill filters) */}

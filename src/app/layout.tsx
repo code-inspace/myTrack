@@ -90,7 +90,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
       </head>
-      <body className="bg-[#0E0F12] text-[#F3F4F6] min-h-screen antialiased flex flex-col md:flex-row items-stretch justify-center overflow-x-hidden">
+      <body className="bg-[#0E0F12] text-[#F3F4F6] min-h-screen antialiased flex flex-row items-stretch overflow-x-hidden">
         <QueryProvider>
           <AuthProvider>
             <OneSignalProvider>
@@ -99,11 +99,11 @@ export default function RootLayout({
                   <DisplayModeProvider>
                     <DateProvider>
                       <AuthGuard>
-                        {/* Desktop Floating Left Sidebar */}
+                        {/* Desktop Sticky Left Sidebar (hidden on mobile) */}
                         <DesktopSidebar />
 
-                        {/* Main App Container: mobile max-w-md, desktop expands to fill remainder of screen */}
-                        <main className="w-full max-w-md md:max-w-none md:flex-1 h-screen max-h-screen flex flex-col safe-top relative overflow-hidden">
+                        {/* Main App Container: full width on mobile, flex-1 on desktop */}
+                        <main className="flex-1 min-w-0 w-full max-w-md md:max-w-none h-screen max-h-screen flex flex-col safe-top relative overflow-hidden">
                           {children}
                         </main>
 
