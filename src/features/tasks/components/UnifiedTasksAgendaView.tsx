@@ -12,9 +12,6 @@ import { VoiceFab } from "@/features/voice/components/VoiceFab";
 import { AgendaTimeline } from "@/features/agenda/components/AgendaTimeline";
 import { SleepJournalView } from "@/features/sleep/components/SleepJournalView";
 import { DailyBilanView } from "@/features/sleep/components/DailyBilanView";
-import { DesktopHeader } from "@/components/desktop/DesktopHeader";
-import { DesktopTasksView } from "@/features/tasks/components/desktop/DesktopTasksView";
-import { getNightSleepDuration } from "@/features/sleep/actions";
 import { useTasks, useTaskMutations } from "@/features/tasks/hooks";
 import { Task, TaskWithCompletion, TaskFormValues } from "@/features/tasks/types";
 import { getTodayDateString } from "@/lib/dates";
@@ -66,14 +63,6 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
     updateTaskStartedAt,
     deleteTask,
   } = useTaskMutations();
-
-  // Desktop stats calculation
-  const totalCount = tasks.length;
-  const completedCount = tasks.filter((t) => t.isCompletedToday).length;
-  const activeCount = tasks.filter((t) => t.isActive).length;
-  const completionRate = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
-  const sleepDuration = useMemo(() => getNightSleepDuration(selectedDate), [selectedDate]);
-  const sleepDurationText = sleepDuration?.duration?.text;
 
   // dnd-kit: shared drag context for habit reordering + drag-onto-day rescheduling
   const dndSensors = useSensors(
@@ -228,112 +217,14 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
 
   return (
     <>
-      {/* ========================================================================= */}
-      {/* 1. DESKTOP VIEW LAYOUT (hidden on mobile, flex on md and above)          */}
-      {/* ========================================================================= */}
-      <div className="hidden md:flex flex-col flex-1 h-screen max-h-screen overflow-hidden bg-[#0E0F12]">
-        {/* Desktop Top Header Bar with KPIs and Search */}
-        <DesktopHeader
-          completedCount={completedCount}
-          totalCount={totalCount}
-          activeCount={activeCount}
-          completionRate={completionRate}
-          sleepDurationText={sleepDurationText}
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          onOpenNewTask={handleNewTask}
-        />
-
-        {/* Desktop Content Switcher */}
-        <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-          {activeTab === "habits" ? (
-            <DesktopTasksView
-              tasks={tasks}
-              allTasks={allTasks}
-              selectedDate={selectedDate}
-              onSelectDate={setSelectedDate}
-              searchQuery={searchQuery}
-              onNewTask={handleNewTask}
-              onEditTask={(t) => {
-                setEditingTask(t);
-                setIsTaskModalOpen(true);
-              }}
-              onToggleComplete={(id) => toggleCompletion.mutate({ taskId: id, date: selectedDate })}
-              onToggleActive={(id) => toggleTaskActive.mutate({ taskId: id, date: selectedDate })}
-              onToggleReminder={(id) => {
-                const target = tasks.find((t) => t.id === id);
-                const newEnable = target ? !(target.enableReminders !== false) : true;
-                updateTask.mutate({ taskId: id, values: { enableReminders: newEnable } });
-              }}
-              onOpenLogModal={(t) => setSelectedLoggingTask(t)}
-              onDeleteTask={(id) => deleteTask.mutate(id)}
-              onReorderTasks={(ids) => reorderTasks.mutate(ids)}
-              onUpdateTaskStartedAt={(taskId, newTime) =>
-                updateTaskStartedAt.mutate({ taskId, startedAtTime: newTime })
-              }
-              quickTitle={quickTitle}
-              onQuickTitleChange={setQuickTitle}
-              onQuickAdd={handleQuickAdd}
-              onSelectTab={handleTabChange}
-              sleepDurationText={sleepDurationText}
-            />
-          ) : activeTab === "projects" ? (
-            <div className="flex-1 min-h-0 flex flex-col px-6 py-4 overflow-hidden">
-              <ProjectsView
-                allTasks={allTasks}
-                completions={allCompletions}
-                onEditTask={(t) => {
-                  setEditingTask(t);
-                  setIsTaskModalOpen(true);
-                }}
-              />
-            </div>
-          ) : activeTab === "agenda" ? (
-            <div className="flex-1 min-h-0 flex flex-col px-6 py-4 overflow-hidden">
-              <AgendaTimeline
-                selectedDate={selectedDate}
-                tasks={tasks}
-                allTasks={allTasks}
-                allCompletions={allCompletions}
-                onSelectDate={setSelectedDate}
-                onToggleComplete={(taskId) => toggleCompletion.mutate({ taskId, date: selectedDate })}
-                onToggleReminder={(taskId) => {
-                  const target = tasks.find((t) => t.id === taskId) || allTasks.find((t) => t.id === taskId);
-                  const newEnable = target ? !(target.enableReminders !== false) : true;
-                  updateTask.mutate({ taskId, values: { enableReminders: newEnable } });
-                }}
-                onEditTask={(task) => {
-                  setEditingTask(task);
-                  setIsTaskModalOpen(true);
-                }}
-                onMoveTaskToTime={handleMoveTaskToTime}
-                onDropToAllDay={handleDropToAllDay}
-                onDragStartTask={handleDragStartTask}
-              />
-            </div>
-          ) : activeTab === "sleep" ? (
-            <div className="flex-1 min-h-0 flex flex-col px-6 py-4 overflow-y-auto max-w-4xl mx-auto w-full">
-              <SleepJournalView selectedDate={selectedDate} />
-            </div>
-          ) : (
-            <div className="flex-1 min-h-0 flex flex-col px-6 py-4 overflow-y-auto max-w-4xl mx-auto w-full">
-              <DailyBilanView selectedDate={selectedDate} />
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ========================================================================= */}
-      {/* 2. MOBILE VIEW LAYOUT (flex on mobile, hidden on md and above)            */}
-      {/* ========================================================================= */}
       <DndContext
         sensors={dndSensors}
         collisionDetection={collisionDetectionStrategy}
         onDragStart={handleHabitDragStart}
         onDragEnd={handleHabitDragEnd}
       >
-        <div className="md:hidden flex-1 flex flex-col h-[100dvh] max-h-[100dvh] bg-[#0E0F12] relative overflow-hidden">
-          {/* 1. Permanent Fixed Header Area: zero reload / zero unmount */}
+        <div className="flex-1 flex flex-col h-[100dvh] max-h-[100dvh] bg-[#0E0F12] relative overflow-hidden">
+          {/* 1. Permanent Fixed Header Area with Profile Icon Top Right & Adaptive Date Picker */}
           <div className="flex-shrink-0 z-30 shadow-md">
             <TasksHeaderWithNav
               title={
@@ -373,7 +264,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
               }}
             />
           ) : activeTab === "habits" ? (
-            /* HABIT LIST TAB */
+            /* HABIT LIST TAB — Centered with exact same max-width as date selector */
             <div
               className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-4 pt-3 pb-36 space-y-3.5 max-w-md mx-auto w-full touch-pan-y"
               style={{ WebkitOverflowScrolling: "touch" }}
@@ -463,8 +354,8 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
               </div>
             </div>
           ) : (
-            /* AGENDA TIMELINE TAB */
-            <div className="flex-1 flex flex-col min-h-0 relative overflow-hidden">
+            /* AGENDA TIMELINE TAB — Full Screen Width and Height */
+            <div className="flex-1 flex flex-col min-h-0 relative overflow-hidden w-full">
               <AgendaTimeline
                 selectedDate={selectedDate}
                 tasks={tasks}

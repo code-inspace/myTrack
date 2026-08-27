@@ -97,7 +97,9 @@ export const VoiceActionModal: React.FC<VoiceActionModalProps> = ({
     }
   }, [transcript, selectedDate, allTasks]);
 
-  const startListening = async () => {
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const startListening = async (isRetryOneShot = false) => {
     setErrorMessage(null);
     if (typeof window === "undefined") return;
 
@@ -135,7 +137,8 @@ export const VoiceActionModal: React.FC<VoiceActionModalProps> = ({
 
       const recognition = new SpeechRecognition();
       recognition.lang = "fr-FR";
-      recognition.continuous = true;
+      // If continuous mode failed previously with network error, try one-shot mode (single utterance)
+      recognition.continuous = !isRetryOneShot;
       recognition.interimResults = true;
       recognition.maxAlternatives = 1;
 
@@ -168,7 +171,20 @@ export const VoiceActionModal: React.FC<VoiceActionModalProps> = ({
           setPermissionStatus("denied");
           setErrorMessage("Microphone bloqué dans le navigateur.");
         } else if (event.error === "network") {
-          setErrorMessage("Erreur de connexion pour la reconnaissance vocale.");
+          if (!isRetryOneShot) {
+            // Attempt automatic fallback with single-utterance (non-continuous)
+            console.log("Retrying speech recognition in one-shot mode...");
+            setTimeout(() => {
+              startListening(true);
+            }, 300);
+            return;
+          }
+          setErrorMessage(
+            "Service vocal Google non joignable (bloqueur/VPN). Tu peux dicter avec la touche micro de ton clavier (Fn / Win+H) ou saisir directement ton texte ci-dessous."
+          );
+          setTimeout(() => textareaRef.current?.focus(), 100);
+        } else if (event.error !== "no-speech") {
+          setErrorMessage(`Erreur micro (${event.error}). Tu peux taper ton texte ci-dessous.`);
         }
         setIsListening(false);
       };
@@ -332,6 +348,7 @@ export const VoiceActionModal: React.FC<VoiceActionModalProps> = ({
           {/* Transcript input / editable preview */}
           <div className="w-full">
             <textarea
+              ref={textareaRef}
               rows={2}
               value={transcript}
               onChange={(e) => setTranscript(e.target.value)}
