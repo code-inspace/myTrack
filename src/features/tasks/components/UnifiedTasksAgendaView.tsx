@@ -12,6 +12,8 @@ import { VoiceFab } from "@/features/voice/components/VoiceFab";
 import { AgendaTimeline } from "@/features/agenda/components/AgendaTimeline";
 import { SleepJournalView } from "@/features/sleep/components/SleepJournalView";
 import { DailyBilanView } from "@/features/sleep/components/DailyBilanView";
+import { DesktopTasksView } from "@/features/tasks/components/desktop/DesktopTasksView";
+import { getNightSleepDuration } from "@/features/sleep/actions";
 import { useTasks, useTaskMutations } from "@/features/tasks/hooks";
 import { Task, TaskWithCompletion, TaskFormValues } from "@/features/tasks/types";
 import { getTodayDateString } from "@/lib/dates";
@@ -64,6 +66,9 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
     updateTaskStartedAt,
     deleteTask,
   } = useTaskMutations();
+
+  const sleepDuration = useMemo(() => getNightSleepDuration(selectedDate), [selectedDate]);
+  const sleepDurationText = sleepDuration?.duration?.text;
 
   // dnd-kit: shared drag context for habit reordering + drag-onto-day rescheduling
   const dndSensors = useSensors(
@@ -265,95 +270,131 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
               }}
             />
           ) : activeTab === "habits" ? (
-            /* HABIT LIST TAB — Centered with exact same max-width as date selector */
-            <div
-              className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-4 pt-3 pb-36 space-y-3.5 max-w-md mx-auto w-full touch-pan-y"
-              style={{ WebkitOverflowScrolling: "touch" }}
-            >
-              <div className="flex items-center justify-between px-1">
-                <h2 className="text-xl font-bold text-white tracking-tight">Aujourd&apos;hui</h2>
-              </div>
-
-              {/* Quick Task Input Bar */}
-              <form onSubmit={handleQuickAdd} className="w-full relative">
-                <div className="relative flex items-center">
-                  <div className="absolute left-4 text-[#D4F63D]">
-                    <CheckCircle2 className="w-4 h-4" />
-                  </div>
-                  <input
-                    type="text"
-                    placeholder="Nom de la tâche"
-                    value={quickTitle}
-                    onChange={(e) => setQuickTitle(e.target.value)}
-                    className="w-full pl-11 pr-4 py-3 rounded-2xl bg-[#1C1D22] border border-[#282A30] text-sm text-white focus:border-[#D4F63D] outline-none placeholder-[#6B7280] shadow-sm transition-all"
-                  />
+            <>
+              {/* MOBILE VERSION: Max-width 7-day strip style */}
+              <div
+                className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-4 pt-3 pb-36 space-y-3.5 max-w-md mx-auto w-full touch-pan-y md:hidden"
+                style={{ WebkitOverflowScrolling: "touch" }}
+              >
+                <div className="flex items-center justify-between px-1">
+                  <h2 className="text-xl font-bold text-white tracking-tight">Aujourd&apos;hui</h2>
                 </div>
-              </form>
 
-              {/* Active Running Task Banners */}
-              {activeTasksMapped.length > 0 && (
-                <div className="space-y-3">
-                  {activeTasksMapped.map((activeItem) => (
-                    <ActiveTaskBanner
-                      key={activeItem.id}
-                      task={activeItem}
-                      onStop={(taskId) => toggleTaskActive.mutate({ taskId, date: selectedDate })}
-                      onComplete={(taskId) => toggleCompletion.mutate({ taskId, date: selectedDate })}
-                      onOpenLogModal={(t) => setSelectedLoggingTask(t)}
-                      onUpdateStartTime={(taskId, newTime) =>
-                        updateTaskStartedAt.mutate({ taskId, startedAtTime: newTime })
-                      }
+                {/* Quick Task Input Bar */}
+                <form onSubmit={handleQuickAdd} className="w-full relative">
+                  <div className="relative flex items-center">
+                    <div className="absolute left-4 text-[#D4F63D]">
+                      <CheckCircle2 className="w-4 h-4" />
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="Nom de la tâche"
+                      value={quickTitle}
+                      onChange={(e) => setQuickTitle(e.target.value)}
+                      className="w-full pl-11 pr-4 py-3 rounded-2xl bg-[#1C1D22] border border-[#282A30] text-sm text-white focus:border-[#D4F63D] outline-none placeholder-[#6B7280] shadow-sm transition-all"
                     />
-                  ))}
-                </div>
-              )}
-
-              {/* Tasks List with Drag & Drop Reordering */}
-              <div className="space-y-2.5 pt-1">
-                {orderedTasks.length === 0 ? (
-                  <div className="p-8 text-center bg-[#1C1D22] border border-[#282A30] rounded-3xl my-4">
-                    <Inbox className="w-10 h-10 text-[#6B7280] mx-auto mb-2" />
-                    <h4 className="text-base font-bold text-white">Aucune tâche programmée</h4>
-                    <p className="text-xs text-[#8E929E] mt-1 mb-4">
-                      Tu n&apos;as aucune tâche active pour cette date.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingTask(null);
-                        setIsTaskModalOpen(true);
-                      }}
-                      className="px-4 py-2 rounded-full bg-[#D4F63D] text-black font-bold text-xs cursor-pointer"
-                    >
-                      Créer une tâche
-                    </button>
                   </div>
-                ) : (
-                  <SortableContext items={orderedTasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
-                    {orderedTasks.map((task) => (
-                      <TaskCard
-                        key={task.id}
-                        task={task}
-                        sortable
-                        onToggleActive={(id) => toggleTaskActive.mutate({ taskId: id, date: selectedDate })}
-                        onToggleComplete={(id) => toggleCompletion.mutate({ taskId: id, date: selectedDate })}
-                        onToggleReminder={(id) => {
-                          const target = tasks.find((t) => t.id === id);
-                          const newEnable = target ? !(target.enableReminders !== false) : true;
-                          updateTask.mutate({ taskId: id, values: { enableReminders: newEnable } });
-                        }}
+                </form>
+
+                {/* Active Running Task Banners */}
+                {activeTasksMapped.length > 0 && (
+                  <div className="space-y-3">
+                    {activeTasksMapped.map((activeItem) => (
+                      <ActiveTaskBanner
+                        key={activeItem.id}
+                        task={activeItem}
+                        onStop={(taskId) => toggleTaskActive.mutate({ taskId, date: selectedDate })}
+                        onComplete={(taskId) => toggleCompletion.mutate({ taskId, date: selectedDate })}
                         onOpenLogModal={(t) => setSelectedLoggingTask(t)}
-                        onEditTask={(t) => {
-                          setEditingTask(t);
-                          setIsTaskModalOpen(true);
-                        }}
-                        onDeleteTask={(id) => deleteTask.mutate(id)}
+                        onUpdateStartTime={(taskId, newTime) =>
+                          updateTaskStartedAt.mutate({ taskId, startedAtTime: newTime })
+                        }
                       />
                     ))}
-                  </SortableContext>
+                  </div>
                 )}
+
+                {/* Tasks List with Drag & Drop Reordering */}
+                <div className="space-y-2.5 pt-1">
+                  {orderedTasks.length === 0 ? (
+                    <div className="p-8 text-center bg-[#1C1D22] border border-[#282A30] rounded-3xl my-4">
+                      <Inbox className="w-10 h-10 text-[#6B7280] mx-auto mb-2" />
+                      <h4 className="text-base font-bold text-white">Aucune tâche programmée</h4>
+                      <p className="text-xs text-[#8E929E] mt-1 mb-4">
+                        Tu n&apos;as aucune tâche active pour cette date.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingTask(null);
+                          setIsTaskModalOpen(true);
+                        }}
+                        className="px-4 py-2 rounded-full bg-[#D4F63D] text-black font-bold text-xs cursor-pointer"
+                      >
+                        Créer une tâche
+                      </button>
+                    </div>
+                  ) : (
+                    <SortableContext items={orderedTasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+                      {orderedTasks.map((task) => (
+                        <TaskCard
+                          key={task.id}
+                          task={task}
+                          sortable
+                          onToggleActive={(id) => toggleTaskActive.mutate({ taskId: id, date: selectedDate })}
+                          onToggleComplete={(id) => toggleCompletion.mutate({ taskId: id, date: selectedDate })}
+                          onToggleReminder={(id) => {
+                            const target = tasks.find((t) => t.id === id);
+                            const newEnable = target ? !(target.enableReminders !== false) : true;
+                            updateTask.mutate({ taskId: id, values: { enableReminders: newEnable } });
+                          }}
+                          onOpenLogModal={(t) => setSelectedLoggingTask(t)}
+                          onEditTask={(t) => {
+                            setEditingTask(t);
+                            setIsTaskModalOpen(true);
+                          }}
+                          onDeleteTask={(id) => deleteTask.mutate(id)}
+                        />
+                      ))}
+                    </SortableContext>
+                  )}
+                </div>
               </div>
-            </div>
+
+              {/* DESKTOP VERSION: Fully responsive 2-column list & widgets view */}
+              <div className="hidden md:flex md:flex-1 md:min-h-0 w-full overflow-hidden bg-[#0E0F12]">
+                <DesktopTasksView
+                  tasks={tasks}
+                  allTasks={allTasks}
+                  selectedDate={selectedDate}
+                  onSelectDate={setSelectedDate}
+                  searchQuery={searchQuery}
+                  onNewTask={handleNewTask}
+                  onEditTask={(t) => {
+                    setEditingTask(t);
+                    setIsTaskModalOpen(true);
+                  }}
+                  onToggleComplete={(taskId) => toggleCompletion.mutate({ taskId, date: selectedDate })}
+                  onToggleActive={(taskId) => toggleTaskActive.mutate({ taskId, date: selectedDate })}
+                  onToggleReminder={(taskId) => {
+                    const target = tasks.find((t) => t.id === taskId);
+                    const newEnable = target ? !(target.enableReminders !== false) : true;
+                    updateTask.mutate({ taskId, values: { enableReminders: newEnable } });
+                  }}
+                  onOpenLogModal={(t) => setSelectedLoggingTask(t)}
+                  onDeleteTask={(taskId) => deleteTask.mutate(taskId)}
+                  onReorderTasks={(taskIds) => reorderTasks.mutate(taskIds)}
+                  onUpdateTaskStartedAt={(taskId, newTime) =>
+                    updateTaskStartedAt.mutate({ taskId, startedAtTime: newTime })
+                  }
+                  quickTitle={quickTitle}
+                  onQuickTitleChange={setQuickTitle}
+                  onQuickAdd={handleQuickAdd}
+                  onSelectTab={handleTabChange}
+                  sleepDurationText={sleepDurationText}
+                />
+              </div>
+            </>
           ) : (
             /* AGENDA TIMELINE TAB — Full Screen Width and Height */
             <div className="flex-1 flex flex-col min-h-0 relative overflow-hidden w-full">

@@ -10,66 +10,14 @@ import { ProjectsListView } from "./ProjectsListView";
 import { ProjectBoardView } from "./ProjectBoardView";
 import { AllProjectsBoardView } from "./AllProjectsBoardView";
 import { ProjectFormModal } from "./ProjectFormModal";
+import { ChevronRight, FolderKanban, Plus, Pencil, LayoutGrid } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface ProjectsViewProps {
   allTasks: Task[];
   completions?: TaskCompletion[];
   onEditTask: (task: Task) => void;
 }
-
-export const ProjectsView: React.FC<ProjectsViewProps> = ({
-  allTasks = [],
-  completions = [],
-  onEditTask,
-}) => {
-  const todayStr = getTodayDateString();
-
-  const { projects } = useProjects();
-  const { createProject, updateProject } = useProjectMutations();
-  const { updateTask, closeTask, reopenTask } = useTaskMutations();
-
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
-  const [showAllProjectsBoard, setShowAllProjectsBoard] = useState(false);
-  const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
-  const [editingProject, setEditingProject] = useState<Project | null>(null);
-
-  const selectedProject = projects.find((p) => p.id === selectedProjectId) || null;
-
-  const closeProjectModal = () => {
-    setIsProjectModalOpen(false);
-    setEditingProject(null);
-  };
-
-  const handleChangeStatus = (
-    taskId: string,
-    status: string,
-    isDoneColumn: boolean,
-    wasDoneColumn: boolean,
-  ) => {
-    if (isDoneColumn) {
-      // 1. Moved TO Done column: validate task
-      updateTask.mutate({ taskId, values: { projectStatus: status } });
-      closeTask.mutate({ taskId, date: todayStr });
-    } else if (wasDoneColumn) {
-      // 2. Moved OUT of Done column: de-validate task and reset date to TODAY
-      reopenTask.mutate({
-        taskId,
-        date: todayStr,
-        skipProjectStatusReset: true,
-        reopenAllDates: true,
-      });
-      updateTask.mutate({
-        taskId,
-        values: { projectStatus: status, date: todayStr },
-      });
-    } else {
-      // 3. Moved between non-done columns
-      updateTask.mutate({ taskId, values: { projectStatus: status } });
-    }
-  };
-
-import { ChevronRight, FolderKanban, Plus, Pencil, LayoutGrid } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 export const ProjectsView: React.FC<ProjectsViewProps> = ({
   allTasks = [],
@@ -119,8 +67,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
     }
   };
 
-  const tasksByProject = (projectId: string) => tasks.filter((t) => t.projectId === projectId && !t.isArchived);
-  const tasks = allTasks;
+  const tasksByProject = (projectId: string) => allTasks.filter((t) => t.projectId === projectId && !t.isArchived);
 
   return (
     <div className="flex-1 flex flex-col min-h-0 w-full relative">
