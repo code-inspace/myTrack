@@ -23,36 +23,41 @@ export function isTaskDoneInPeriod(
   period: DonePeriodFilter,
   todayStr: string = getTodayDateString(),
 ): boolean {
-  const today = parseISO(todayStr);
-  const cutoff7d = format(subDays(today, 6), "yyyy-MM-dd");
-  const cutoff30d = format(subDays(today, 29), "yyyy-MM-dd");
+  if (!task) return false;
+  try {
+    const today = parseISO(todayStr);
+    const cutoff7d = format(subDays(today, 6), "yyyy-MM-dd");
+    const cutoff30d = format(subDays(today, 29), "yyyy-MM-dd");
 
-  const completedEntries = completions?.filter(
-    (c) => c.taskId === task.id && c.completed,
-  );
+    const completedEntries = completions?.filter(
+      (c) => c && c.taskId === task.id && c.completed,
+    );
 
-  if (completedEntries && completedEntries.length > 0) {
+    if (completedEntries && completedEntries.length > 0) {
+      if (period === "1d") {
+        return completedEntries.some((c) => c.date === todayStr);
+      }
+      if (period === "7d") {
+        return completedEntries.some((c) => c.date && c.date >= cutoff7d && c.date <= todayStr);
+      }
+      if (period === "30d") {
+        return completedEntries.some((c) => c.date && c.date >= cutoff30d && c.date <= todayStr);
+      }
+    }
+
+    // Fallback for tasks marked done directly without completion rows or legacy records
+    const dateStr = (task.updatedAt || task.createdAt || todayStr).split("T")[0];
     if (period === "1d") {
-      return completedEntries.some((c) => c.date === todayStr);
+      return dateStr === todayStr;
     }
     if (period === "7d") {
-      return completedEntries.some((c) => c.date >= cutoff7d && c.date <= todayStr);
+      return dateStr >= cutoff7d && dateStr <= todayStr;
     }
     if (period === "30d") {
-      return completedEntries.some((c) => c.date >= cutoff30d && c.date <= todayStr);
+      return dateStr >= cutoff30d && dateStr <= todayStr;
     }
-  }
-
-  // Fallback for tasks marked done directly without completion rows or legacy records
-  const dateStr = (task.updatedAt || task.createdAt || todayStr).split("T")[0];
-  if (period === "1d") {
-    return dateStr === todayStr;
-  }
-  if (period === "7d") {
-    return dateStr >= cutoff7d && dateStr <= todayStr;
-  }
-  if (period === "30d") {
-    return dateStr >= cutoff30d && dateStr <= todayStr;
+  } catch {
+    return true;
   }
   return true;
 }

@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { Task, TaskCompletion } from "@/features/tasks/types";
-import { useTaskMutations, useTasks } from "@/features/tasks/hooks";
+import { useTaskMutations } from "@/features/tasks/hooks";
 import { getTodayDateString } from "@/lib/dates";
 import { useProjects, useProjectMutations } from "../hooks";
 import { Project } from "../types";
@@ -18,13 +18,11 @@ interface ProjectsViewProps {
 }
 
 export const ProjectsView: React.FC<ProjectsViewProps> = ({
-  allTasks,
-  completions: propCompletions,
+  allTasks = [],
+  completions = [],
   onEditTask,
 }) => {
   const todayStr = getTodayDateString();
-  const { allCompletions } = useTasks(todayStr);
-  const completions = propCompletions || allCompletions;
 
   const { projects } = useProjects();
   const { createProject, updateProject } = useProjectMutations();
