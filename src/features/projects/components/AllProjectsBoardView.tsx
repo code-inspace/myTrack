@@ -24,8 +24,6 @@ interface AllProjectsBoardViewProps {
   onChangeStatus: (taskId: string, status: string, isDoneColumn: boolean, wasDoneColumn: boolean) => void;
 }
 
-const NO_PROJECT_FILTER = "__none__";
-
 export const AllProjectsBoardView: React.FC<AllProjectsBoardViewProps> = ({
   projects,
   tasks,
@@ -47,11 +45,7 @@ export const AllProjectsBoardView: React.FC<AllProjectsBoardViewProps> = ({
     return tasks
       .filter((t) => !t.isArchived)
       .filter((t) => (categoryFilter ? t.category === categoryFilter : true))
-      .filter((t) => {
-        if (!projectFilter) return true;
-        if (projectFilter === NO_PROJECT_FILTER) return !t.projectId;
-        return t.projectId === projectFilter;
-      });
+      .filter((t) => (projectFilter ? t.projectId === projectFilter : true));
   }, [tasks, categoryFilter, projectFilter]);
 
   const tasksByColumn = groupTasksByColumn(filteredTasks, columns, completions);
@@ -78,7 +72,7 @@ export const AllProjectsBoardView: React.FC<AllProjectsBoardViewProps> = ({
         >
           <ArrowLeft className="w-4 h-4" />
         </button>
-        <h2 className="text-lg font-bold text-white truncate">Tous les projets</h2>
+        <h2 className="text-lg font-bold text-white truncate">Toutes les tâches</h2>
       </div>
 
       <div className="flex items-center gap-2 px-4 pb-3">
@@ -100,7 +94,6 @@ export const AllProjectsBoardView: React.FC<AllProjectsBoardViewProps> = ({
           className="flex-1 h-9 px-2.5 rounded-xl bg-[#1C1D22] border border-[#282A30] text-white text-xs outline-none focus:border-[#D4F63D] cursor-pointer"
         >
           <option value="">Tous les projets</option>
-          <option value={NO_PROJECT_FILTER}>Sans projet</option>
           {projects.map((p) => (
             <option key={p.id} value={p.id}>
               {p.name}

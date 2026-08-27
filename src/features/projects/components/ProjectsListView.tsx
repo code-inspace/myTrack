@@ -1,11 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import { Task } from "@/features/tasks/types";
 import { Project } from "../types";
-import { ChevronRight, FolderKanban, Plus, Inbox, Pencil, Flame, LayoutGrid } from "lucide-react";
+import { ChevronRight, FolderKanban, Plus, Pencil, LayoutGrid } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getPriorityCardClass, getPriorityTitleClass, getPriorityIconColorClass } from "@/features/tasks/priority";
 
 interface ProjectsListViewProps {
   projects: Project[];
@@ -26,10 +25,7 @@ export const ProjectsListView: React.FC<ProjectsListViewProps> = ({
   onEditProject,
   onEditTask,
 }) => {
-  const [expandedUnassigned, setExpandedUnassigned] = useState(false);
-
   const tasksByProject = (projectId: string) => tasks.filter((t) => t.projectId === projectId && !t.isArchived);
-  const unassignedTasks = tasks.filter((t) => !t.projectId && !t.isArchived);
 
   return (
     <div className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-4 pt-3 pb-36 space-y-3 max-w-md mx-auto w-full">
@@ -114,49 +110,6 @@ export const ProjectsListView: React.FC<ProjectsListViewProps> = ({
           })}
         </div>
       )}
-
-      {/* Unassigned tasks */}
-      <div className="rounded-2xl bg-[#22242B] border border-[#2F323E] overflow-hidden transition-all mt-4">
-        <button
-          type="button"
-          onClick={() => setExpandedUnassigned((v) => !v)}
-          className="w-full p-3.5 flex items-center justify-between hover:bg-[#282B35] transition-colors cursor-pointer"
-        >
-          <div className="flex items-center gap-2.5">
-            <Inbox className="w-4 h-4 text-[#8E929E]" />
-            <span className="text-xs font-bold text-white">Sans projet</span>
-          </div>
-          <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-[#17181D] text-[#8E929E] border border-[#2E323E]">
-            {unassignedTasks.length}
-          </span>
-        </button>
-
-        {expandedUnassigned && (
-          <div className="p-3 pt-0 space-y-2 animate-in fade-in duration-150">
-            {unassignedTasks.length === 0 ? (
-              <p className="text-xs text-[#6B7280] px-1 py-2">Aucune tâche sans projet.</p>
-            ) : (
-              unassignedTasks.map((task) => (
-                <button
-                  type="button"
-                  key={task.id}
-                  onClick={() => onEditTask(task)}
-                  className={cn(
-                    "w-full text-left px-3 py-2.5 rounded-xl bg-[#1C1D22] hover:bg-[#282A30] border border-[#282A30] text-xs font-semibold text-white transition-all cursor-pointer truncate flex items-center gap-1.5",
-                    getPriorityCardClass(task.priority),
-                    getPriorityTitleClass(task.priority)
-                  )}
-                >
-                  {task.priority && task.priority !== "NORMAL" && (
-                    <Flame className={cn("w-3 h-3 flex-shrink-0", getPriorityIconColorClass(task.priority))} />
-                  )}
-                  <span className="truncate">{task.title}</span>
-                </button>
-              ))
-            )}
-          </div>
-        )}
-      </div>
     </div>
   );
 };
