@@ -80,15 +80,13 @@ export const TasksHeaderWithNav: React.FC<TasksHeaderWithNavProps> = ({
         }}
       />
 
-      {/* 2. 7-Day Horizontal Week Calendar — constrained to match task width on list tab, full width on agenda */}
+      {/* 2. 7-Day Horizontal Week Calendar — the Projects board isn't date-scoped, so it doesn't need it */}
       {currentTab !== "projects" && (
-        <div className={cn("w-full transition-all", currentTab === "habits" ? "max-w-md mx-auto px-2 sm:px-4" : "w-full px-2 sm:px-4")}>
-          <HorizontalDatePicker
-            selectedDate={selectedDate}
-            onSelectDate={onSelectDate}
-            isDragActive={isDragActive}
-          />
-        </div>
+        <HorizontalDatePicker
+          selectedDate={selectedDate}
+          onSelectDate={onSelectDate}
+          isDragActive={isDragActive}
+        />
       )}
 
       {/* 3. Cohesive Segmented View Switcher (Habitudes / Agenda / Sommeil / Bilan / Projets) —
