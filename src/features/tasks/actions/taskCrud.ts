@@ -1,8 +1,9 @@
 import { Task, TaskFormValues } from "../types";
 import { getEffectiveUserId } from "./user";
-import { mapDbTaskToModel, TASKS_STORAGE_PREFIX } from "./mappers";
+import { mapDbTaskToModel, mapDbTaskToModelAsync, TASKS_STORAGE_PREFIX } from "./mappers";
 import { getStoredTasks, saveStoredTasks } from "./storage";
 import { createClient } from "@/utils/supabase/client";
+import { encryptText, decryptText, isEncrypted } from "@/lib/crypto/encryption";
 import {
   getTodayDateString,
   convertLocalTimeToUtc,
@@ -34,7 +35,7 @@ export async function fetchTasks(userId?: string): Promise<Task[]> {
       .order("created_at", { ascending: false });
 
     if (!error && data) {
-      const mapped = data.map(mapDbTaskToModel);
+      const mapped = await Promise.all(data.map(mapDbTaskToModelAsync));
       if (typeof window !== "undefined") {
         localStorage.setItem(key, JSON.stringify(mapped));
       }
@@ -86,10 +87,13 @@ export async function createDbTask(
     ? convertLocalTimeToUtc(task.endTime, taskDate)
     : null;
 
+  const encryptedTitle = await encryptText(task.title);
+  const encryptedDescription = task.description ? await encryptText(task.description) : null;
+
   const insertPayload: any = {
     user_id: targetId,
-    title: task.title,
-    description: task.description || null,
+    title: encryptedTitle,
+    description: encryptedDescription,
     tag: taskTag,
     category: taskTag,
     start_time: utcStartTime,
@@ -119,7 +123,7 @@ export async function createDbTask(
       .single();
 
     if (!error && data) {
-      const created = mapDbTaskToModel(data);
+      const created = await mapDbTaskToModelAsync(data);
       const current = getStoredTasks(targetId);
       const updated = [created, ...current.filter((t) => t.id !== created.id)];
       saveStoredTasks(updated, targetId);
@@ -252,9 +256,12 @@ export async function updateDbTask(
     date_overrides: newOverrides,
   };
 
-  if (updates.title !== undefined) dbUpdates.title = updates.title;
-  if (updates.description !== undefined)
-    dbUpdates.description = updates.description || null;
+  if (updates.title !== undefined) {
+    dbUpdates.title = await encryptText(updates.title);
+  }
+  if (updates.description !== undefined) {
+    dbUpdates.description = updates.description ? await encryptText(updates.description) : null;
+  }
   if (updates.tag !== undefined) {
     dbUpdates.tag = updates.tag;
     dbUpdates.category = updates.tag;
@@ -317,7 +324,7 @@ export async function updateDbTask(
       .single();
 
     if (!error && data) {
-      const updated = mapDbTaskToModel(data);
+      const updated = await mapDbTaskToModelAsync(data);
       const nextList = tasks.map((t) => (t.id === taskId ? updated : t));
       saveStoredTasks(nextList, targetId);
 

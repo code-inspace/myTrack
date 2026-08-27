@@ -1,5 +1,6 @@
 import { Task, TaskCompletion } from "../types";
 import { convertUtcTimeToLocal } from "@/lib/dates";
+import { isEncrypted, decryptText } from "@/lib/crypto/encryption";
 
 export const TASKS_STORAGE_PREFIX = "mytrack_tasks_";
 export const COMPLETIONS_STORAGE_PREFIX = "mytrack_completions_";
@@ -58,6 +59,31 @@ export function mapDbTaskToModel(row: any): Task {
     projectCategory: row.project_category || rawOverrides._projectCategory || null,
     createdAt: row.created_at || new Date().toISOString(),
     updatedAt: row.updated_at || new Date().toISOString(),
+  };
+}
+
+// Convert Supabase task row to camelCase Task with asynchronous decryption of sensitive fields
+export async function mapDbTaskToModelAsync(row: any): Promise<Task> {
+  const task = mapDbTaskToModel(row);
+  return decryptTaskModel(task);
+}
+
+// Transparently decrypts title, description, and notes of a Task model
+export async function decryptTaskModel(task: Task): Promise<Task> {
+  let title = task.title;
+  let description = task.description;
+
+  if (title && isEncrypted(title)) {
+    title = await decryptText(title);
+  }
+  if (description && isEncrypted(description)) {
+    description = await decryptText(description);
+  }
+
+  return {
+    ...task,
+    title,
+    description,
   };
 }
 

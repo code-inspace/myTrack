@@ -209,3 +209,37 @@ model SleepLog {
   @@index([userId, date])
   @@map("sleep_logs")
 }
+
+model Project {
+  id          String          @id @default(uuid())
+  userId      String
+  name        String
+  description String?
+  color       String?         @default("#3B82F6")
+  columns     Json?
+  categories  String[]        @default([])
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  members     ProjectMember[]
+
+  @@index([userId])
+  @@map("projects")
+}
+
+model ProjectMember {
+  id           String    @id @default(uuid())
+  projectId    String
+  userId       String
+  role         String    @default("member") // "owner" | "member" | "viewer"
+  encryptedKey String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  project      Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@index([userId])
+  @@index([projectId])
+  @@map("project_members")
+}

@@ -11,6 +11,7 @@ import { createDbReminder } from "@/features/notifications/reminderActions";
 import { createClient } from "@/utils/supabase/client";
 import { subDays, parseISO, format } from "date-fns";
 import { generateDemoSleepLog } from "./demoSeed";
+import { encryptText, decryptText, isEncrypted } from "@/lib/crypto/encryption";
 
 const SLEEP_STORAGE_PREFIX = "mytrack_sleeplog_";
 
@@ -197,6 +198,29 @@ function mapDbSleepLogToModel(row: any): DailySleepLog {
   };
 }
 
+export async function mapDbSleepLogToModelAsync(row: any): Promise<DailySleepLog> {
+  let rawNotes = row.notes || "";
+  let gratitude = row.gratitude || "";
+  let manifestation = row.manifestation || "";
+
+  if (rawNotes && isEncrypted(rawNotes)) {
+    rawNotes = await decryptText(rawNotes);
+  }
+  if (gratitude && isEncrypted(gratitude)) {
+    gratitude = await decryptText(gratitude);
+  }
+  if (manifestation && isEncrypted(manifestation)) {
+    manifestation = await decryptText(manifestation);
+  }
+
+  return mapDbSleepLogToModel({
+    ...row,
+    notes: rawNotes,
+    gratitude,
+    manifestation,
+  });
+}
+
 /**
  * Fetches sleep log from Supabase database with local storage synchronization
  */
@@ -220,7 +244,7 @@ export async function fetchDbSleepLog(date: string, userId?: string): Promise<Da
       .maybeSingle();
 
     if (!error && data) {
-      const mapped = mapDbSleepLogToModel(data);
+      const mapped = await mapDbSleepLogToModelAsync(data);
       if (typeof window !== "undefined") {
         localStorage.setItem(key, JSON.stringify(mapped));
       }
@@ -401,6 +425,10 @@ export async function saveStoredSleepLog(
       endTime: n.endTime ? convertLocalTimeToUtc(n.endTime, updatedLog.date) : null,
     }));
 
+    const encryptedNotes = updatedLog.notes ? await encryptText(updatedLog.notes) : null;
+    const encryptedGratitude = updatedLog.gratitude ? await encryptText(updatedLog.gratitude) : null;
+    const encryptedManifestation = updatedLog.manifestation ? await encryptText(updatedLog.manifestation) : null;
+
     // Primary payload attempting direct column writes
     const payload: any = {
       user_id: targetId,
@@ -413,9 +441,9 @@ export async function saveStoredSleepLog(
       bedtime_reminders: utcReminders,
       enable_bedtime_reminders: updatedLog.enableBedtimeReminders !== false,
       naps: utcNaps,
-      notes: updatedLog.notes || null,
-      gratitude: updatedLog.gratitude || null,
-      manifestation: updatedLog.manifestation || null,
+      notes: encryptedNotes,
+      gratitude: encryptedGratitude,
+      manifestation: encryptedManifestation,
       updated_at: nowIso,
     };
 
@@ -430,6 +458,7 @@ export async function saveStoredSleepLog(
         manifestation: updatedLog.manifestation || "",
         naps: utcNaps,
       });
+      const encryptedPackedNotes = await encryptText(packedNotes);
 
       const fallbackPayload: any = {
         user_id: targetId,
@@ -441,7 +470,7 @@ export async function saveStoredSleepLog(
         bedtime_offsets: updatedLog.bedtimeOffsets || DEFAULT_BEDTIME_OFFSETS,
         bedtime_reminders: utcReminders,
         enable_bedtime_reminders: updatedLog.enableBedtimeReminders !== false,
-        notes: packedNotes,
+        notes: encryptedPackedNotes,
         updated_at: nowIso,
       };
 
