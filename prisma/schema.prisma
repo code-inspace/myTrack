@@ -71,6 +71,7 @@ model Task {
   user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   completions      TaskCompletion[]
   schedules        NotificationSchedule[]
+  reminders        Reminder[]
 
   @@index([userId])
   @@index([userId, isArchived])

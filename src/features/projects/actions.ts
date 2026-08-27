@@ -3,10 +3,11 @@ import { getEffectiveUserId } from "@/features/tasks/actions";
 import { createClient } from "@/utils/supabase/client";
 import { DEMO_USER } from "@/features/auth/actions";
 import { generateDemoSeedProjects } from "./demoSeed";
+import { encryptText, decryptText, isEncrypted } from "@/lib/crypto/encryption";
 
 const PROJECTS_STORAGE_PREFIX = "mytrack_projects_";
 
-function mapDbProjectToModel(row: any): Project {
+export function mapDbProjectToModel(row: any): Project {
   return {
     id: row.id,
     userId: row.user_id,
@@ -16,6 +17,17 @@ function mapDbProjectToModel(row: any): Project {
     categories: Array.isArray(row.categories) ? row.categories : [],
     createdAt: row.created_at || new Date().toISOString(),
     updatedAt: row.updated_at || new Date().toISOString(),
+  };
+}
+
+export async function mapDbProjectToModelAsync(row: any): Promise<Project> {
+  let name = row.name;
+  if (name && isEncrypted(name)) {
+    name = await decryptText(name);
+  }
+  return {
+    ...mapDbProjectToModel(row),
+    name,
   };
 }
 
@@ -72,7 +84,7 @@ export async function fetchProjects(userId?: string): Promise<Project[]> {
       .order("created_at", { ascending: false });
 
     if (!error && data) {
-      const mapped = data.map(mapDbProjectToModel);
+      const mapped = await Promise.all(data.map(mapDbProjectToModelAsync));
       saveStoredProjects(mapped, targetId);
       return mapped;
     }
@@ -98,16 +110,17 @@ export async function createDbProject(
   }
 
   const projectCategories = categories || [];
+  const encryptedName = await encryptText(name);
 
   try {
     const { data, error } = await supabase
       .from("projects")
-      .insert([{ user_id: targetId, name, color, columns, categories: projectCategories }])
+      .insert([{ user_id: targetId, name: encryptedName, color, columns, categories: projectCategories }])
       .select()
       .single();
 
     if (!error && data) {
-      const created = mapDbProjectToModel(data);
+      const created = await mapDbProjectToModelAsync(data);
       const current = getStoredProjects(targetId);
       saveStoredProjects([created, ...current], targetId);
       return created;
@@ -145,11 +158,15 @@ export async function updateDbProject(
   }
 
   const nowIso = new Date().toISOString();
+  const dbUpdates: any = { ...updates, updated_at: nowIso };
+  if (updates.name !== undefined) {
+    dbUpdates.name = await encryptText(updates.name);
+  }
 
   try {
     await supabase
       .from("projects")
-      .update({ ...updates, updated_at: nowIso })
+      .update(dbUpdates)
       .eq("id", projectId);
   } catch (err) {
     console.warn("Supabase updateDbProject error:", err);
