@@ -4,7 +4,7 @@ import React, { useState, useMemo } from "react";
 import { Task, TaskWithCompletion } from "@/features/tasks/types";
 import { TaskCard } from "../TaskCard";
 import { ActiveTaskBanner } from "../ActiveTaskBanner";
-import { MiniAgendaWidget } from "@/features/agenda/components/MiniAgendaWidget";
+import { HorizontalDatePicker } from "../HorizontalDatePicker";
 import { DesktopWidgetsPane } from "./DesktopWidgetsPane";
 import {
   CheckCircle2,
@@ -15,8 +15,6 @@ import {
   Inbox,
   Sparkles,
   SlidersHorizontal,
-  ChevronLeft,
-  ChevronRight,
   ListTodo,
 } from "lucide-react";
 import { format, parseISO, addDays, subDays } from "date-fns";
@@ -163,8 +161,8 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
 
   return (
     <div className="flex-1 min-h-0 flex flex-col px-6 pt-2 pb-6 overflow-hidden">
-      {/* 1. Header Section: Title, Subtitle, Date Selector, & Actions */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 select-none">
+      {/* 1. Header Section: Title, Subtitle, & Actions */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 select-none">
         <div>
           <h1 className="text-2xl lg:text-3xl font-extrabold text-white tracking-tight flex items-center gap-2.5">
             <span>Ma Journée</span>
@@ -175,41 +173,26 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
           <p className="text-xs text-[#8E929E] mt-0.5 capitalize">{formattedDate}</p>
         </div>
 
-        {/* Date Navigator & New Task button */}
-        <div className="flex items-center gap-2.5">
-          {/* Day Stepper */}
-          <div className="flex items-center bg-[#17181F] border border-[#282B36] rounded-2xl p-1 shadow-sm">
-            <button
-              type="button"
-              onClick={handlePrevDay}
-              className="p-1.5 rounded-xl hover:bg-[#252834] text-[#8E929E] hover:text-white transition-all cursor-pointer"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <span className="px-3 text-xs font-bold text-white font-mono">
-              {selectedDate}
-            </span>
-            <button
-              type="button"
-              onClick={handleNextDay}
-              className="p-1.5 rounded-xl hover:bg-[#252834] text-[#8E929E] hover:text-white transition-all cursor-pointer"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-
-          <button
-            type="button"
-            onClick={onNewTask}
-            className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-[#D4F63D] hover:bg-[#c2e42f] text-black font-bold text-xs shadow-lg shadow-[#D4F63D]/15 transition-all hover:scale-105 active:scale-95 cursor-pointer"
-          >
-            <Plus className="w-4 h-4 stroke-[2.5]" />
-            <span>Nouvelle tâche</span>
-          </button>
-        </div>
+        {/* New Task button */}
+        <button
+          type="button"
+          onClick={onNewTask}
+          className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-[#D4F63D] hover:bg-[#c2e42f] text-black font-bold text-xs shadow-lg shadow-[#D4F63D]/15 transition-all hover:scale-105 active:scale-95 cursor-pointer"
+        >
+          <Plus className="w-4 h-4 stroke-[2.5]" />
+          <span>Nouvelle tâche</span>
+        </button>
       </div>
 
-      {/* 2. Filter Pills Bar (Inspired by the Reference screenshot's pill filters) */}
+      {/* 2. 7-Day Horizontal Week Calendar — exactly like on mobile */}
+      <div className="pb-3 max-w-2xl">
+        <HorizontalDatePicker
+          selectedDate={selectedDate}
+          onSelectDate={onSelectDate}
+        />
+      </div>
+
+      {/* 3. Filter Pills Bar (Inspired by the Reference screenshot's pill filters) */}
       <div className="flex items-center gap-2 pb-4 overflow-x-auto scrollbar-none select-none">
         <button
           type="button"
@@ -320,14 +303,6 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
               </button>
             </div>
           </form>
-
-          {/* Mini Agenda preview if scheduled tasks exist */}
-          <MiniAgendaWidget
-            tasks={tasks}
-            onOpenAgenda={() => onSelectTab?.("agenda")}
-            onToggleComplete={onToggleComplete}
-            onSelectTask={onEditTask}
-          />
 
           {/* Active Running Task Banner if any */}
           {activeTask && (

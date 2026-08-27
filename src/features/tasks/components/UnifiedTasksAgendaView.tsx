@@ -34,7 +34,6 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
 import { DAY_DROP_ID_PREFIX } from "@/features/tasks/components/HorizontalDatePicker";
-import { MiniAgendaWidget } from "@/features/agenda/components/MiniAgendaWidget";
 
 interface UnifiedTasksAgendaViewProps {
   initialTab?: TasksTab;
@@ -413,17 +412,6 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
                   />
                 </div>
               </form>
-
-              {/* Mini Agenda preview of today's timed tasks */}
-              <MiniAgendaWidget
-                tasks={tasks}
-                onOpenAgenda={() => handleTabChange("agenda")}
-                onToggleComplete={(id) => toggleCompletion.mutate({ taskId: id, date: selectedDate })}
-                onSelectTask={(t) => {
-                  setEditingTask(t);
-                  setIsTaskModalOpen(true);
-                }}
-              />
 
               {/* Active Running Task Banners */}
               {activeTasksMapped.length > 0 && (
