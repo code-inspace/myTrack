@@ -110,7 +110,6 @@ export const NightModeOverlay: React.FC<NightModeOverlayProps> = ({
   const remainingSeconds = Math.max(1, Math.ceil(((100 - holdProgress) / 100) * 5));
 
   return (
-  return (
     <div className="fixed inset-0 z-[9999] overflow-hidden flex flex-col items-center justify-between px-6 pt-14 pb-10 sm:pt-16 sm:pb-12 select-none touch-none bg-[#090A13]">
       {/* 1. Deep Space Night Gradient & Ambient Glows */}
       <div className="absolute inset-0 pointer-events-none">
