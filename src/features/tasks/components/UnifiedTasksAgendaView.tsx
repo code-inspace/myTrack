@@ -9,7 +9,6 @@ import { TaskFormModal } from "@/features/tasks/components/TaskFormModal";
 import { QuantityLoggingModal } from "@/features/tasks/components/QuantityLoggingModal";
 import { InteractiveNotificationSheet } from "@/features/notifications/components/InteractiveNotificationSheet";
 import { VoiceFab } from "@/features/voice/components/VoiceFab";
-import { AllDaySection } from "@/features/agenda/components/AllDaySection";
 import { AgendaTimeline } from "@/features/agenda/components/AgendaTimeline";
 import { SleepJournalView } from "@/features/sleep/components/SleepJournalView";
 import { DailyBilanView } from "@/features/sleep/components/DailyBilanView";
@@ -185,13 +184,14 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
     });
   };
 
-  const handleDropToAllDay = (taskId: string) => {
+  const handleDropToAllDay = (taskId: string, targetDate?: string) => {
+    const effectiveDate = targetDate || selectedDate;
     const task = allTasks.find((t) => t.id === taskId) || tasks.find((t) => t.id === taskId);
     const isRecurring = task?.recurrence && task.recurrence !== "ONCE";
 
     updateSchedule.mutate({
       taskId,
-      date: selectedDate,
+      date: effectiveDate,
       startTime: null,
       endTime: null,
       applyToAll: !isRecurring,
@@ -331,7 +331,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
         onDragStart={handleHabitDragStart}
         onDragEnd={handleHabitDragEnd}
       >
-        <div className="md:hidden flex-1 flex flex-col h-screen max-h-screen bg-[#0E0F12] relative overflow-hidden">
+        <div className="md:hidden flex-1 flex flex-col h-[100dvh] max-h-[100dvh] bg-[#0E0F12] relative overflow-hidden">
           {/* 1. Permanent Fixed Header Area: zero reload / zero unmount */}
           <div className="flex-shrink-0 z-30 shadow-md">
             <TasksHeaderWithNav
@@ -352,25 +352,6 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
               onChangeTab={handleTabChange}
               isDragActive={Boolean(activeDragTaskId)}
             />
-
-            {/* Fixed "Jour entier" Section when in Agenda mode */}
-            {activeTab === "agenda" && (
-              <AllDaySection
-                tasks={allDayTasks}
-                onToggleComplete={(taskId) => toggleCompletion.mutate({ taskId, date: selectedDate })}
-                onToggleReminder={(taskId) => {
-                  const target = tasks.find((t) => t.id === taskId) || allTasks.find((t) => t.id === taskId);
-                  const newEnable = target ? !(target.enableReminders !== false) : true;
-                  updateTask.mutate({ taskId, values: { enableReminders: newEnable } });
-                }}
-                onEditTask={(task) => {
-                  setEditingTask(task);
-                  setIsTaskModalOpen(true);
-                }}
-                onDropToAllDay={handleDropToAllDay}
-                onDragStartTask={handleDragStartTask}
-              />
-            )}
           </div>
 
           {/* 2. Seamless View Body */}
@@ -485,7 +466,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
             <div className="flex-1 flex flex-col min-h-0 relative overflow-hidden">
               <AgendaTimeline
                 selectedDate={selectedDate}
-                tasks={timedTasks}
+                tasks={tasks}
                 allTasks={allTasks}
                 allCompletions={allCompletions}
                 onSelectDate={setSelectedDate}
@@ -500,6 +481,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
                   setIsTaskModalOpen(true);
                 }}
                 onMoveTaskToTime={handleMoveTaskToTime}
+                onDropToAllDay={handleDropToAllDay}
                 onDragStartTask={handleDragStartTask}
               />
             </div>

@@ -1,5 +1,3 @@
-"use client";
-
 import React, { useRef, useEffect, useState, useMemo } from "react";
 import { Task, TaskWithCompletion, TaskCompletion } from "@/features/tasks/types";
 import { AgendaTaskBlock } from "./AgendaTaskBlock";
@@ -8,6 +6,7 @@ import { fr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { isTaskScheduledForDate, getTodayDateString } from "@/lib/dates";
 import { mapTaskWithCompletion } from "@/features/tasks/mappers";
+import { CheckCircle2, Circle, Edit3, Bell, BellOff, Sparkles } from "lucide-react";
 
 export type AgendaViewMode = "day" | "3days" | "week";
 
@@ -21,9 +20,19 @@ interface AgendaTimelineProps {
   onToggleReminder?: (taskId: string) => void;
   onEditTask?: (task: TaskWithCompletion) => void;
   onMoveTaskToTime: (taskId: string, startTime: string, endTime: string, date?: string) => void;
+  onDropToAllDay?: (taskId: string, date?: string) => void;
   onDragStartTask: (e: React.DragEvent, task: TaskWithCompletion) => void;
   onSelectTask?: (task: TaskWithCompletion) => void;
 }
+
+const TAG_COLORS: Record<string, { bg: string; text: string; border: string }> = {
+  Fitness: { bg: "bg-[#1E3A2B]", text: "text-[#4ADE80]", border: "border-[#22C55E]/30" },
+  Sport: { bg: "bg-[#1E3A2B]", text: "text-[#4ADE80]", border: "border-[#22C55E]/30" },
+  Santé: { bg: "bg-[#2E1A47]", text: "text-[#C084FC]", border: "border-[#A855F7]/30" },
+  Travail: { bg: "bg-[#1E293B]", text: "text-[#60A5FA]", border: "border-[#3B82F6]/30" },
+  Apprentissage: { bg: "bg-[#3B2818]", text: "text-[#FB923C]", border: "border-[#F97316]/30" },
+  General: { bg: "bg-[#252830]", text: "text-[#E2E8F0]", border: "border-[#475569]/40" },
+};
 
 const HOUR_ROW_HEIGHT = 60; // 60px per hour -> 1px per minute
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
@@ -98,6 +107,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
   onToggleReminder,
   onEditTask,
   onMoveTaskToTime,
+  onDropToAllDay,
   onDragStartTask,
   onSelectTask,
 }) => {
@@ -137,15 +147,37 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
     return Array.from({ length: 7 }, (_, i) => format(addDays(startMon, i), "yyyy-MM-dd"));
   }, [viewMode, selectedDate, parsedSelectedDate]);
 
-  // Compute tasks for each displayed day
-  const tasksByDay = useMemo(() => {
+  // Helper to distinguish all-day vs timed tasks
+  const isTaskAllDay = (t: TaskWithCompletion) => {
+    const time = t.effectiveStartTime !== undefined ? t.effectiveStartTime : t.startTime;
+    return !time;
+  };
+
+  // Timed tasks for each displayed day
+  const timedTasksByDay = useMemo(() => {
     const map = new Map<string, TaskWithCompletion[]>();
     for (const d of displayedDays) {
-      if (d === selectedDate && tasks.length > 0) {
-        map.set(d, tasks.filter((t) => t.effectiveStartTime || t.startTime));
-      } else if (allTasks.length > 0) {
+      if (allTasks.length > 0) {
         const computed = computeTasksForDate(d, allTasks, allCompletions);
-        map.set(d, computed.filter((t) => t.effectiveStartTime || t.startTime));
+        map.set(d, computed.filter((t) => !isTaskAllDay(t)));
+      } else if (d === selectedDate && tasks.length > 0) {
+        map.set(d, tasks.filter((t) => !isTaskAllDay(t)));
+      } else {
+        map.set(d, []);
+      }
+    }
+    return map;
+  }, [displayedDays, selectedDate, tasks, allTasks, allCompletions]);
+
+  // All-day tasks for each displayed day
+  const allDayTasksByDay = useMemo(() => {
+    const map = new Map<string, TaskWithCompletion[]>();
+    for (const d of displayedDays) {
+      if (allTasks.length > 0) {
+        const computed = computeTasksForDate(d, allTasks, allCompletions);
+        map.set(d, computed.filter(isTaskAllDay));
+      } else if (d === selectedDate && tasks.length > 0) {
+        map.set(d, tasks.filter(isTaskAllDay));
       } else {
         map.set(d, []);
       }
@@ -196,7 +228,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
     const taskId = e.dataTransfer.getData("text/plain") || e.dataTransfer.getData("taskId");
     if (!taskId) return;
 
-    const dayTasks = tasksByDay.get(dayDate) || [];
+    const dayTasks = timedTasksByDay.get(dayDate) || [];
     const timedTask = dayTasks.find((t) => t.id === taskId);
     const rawTask = allTasks.find((t) => t.id === taskId);
     const startTimeStr = timedTask?.effectiveStartTime || timedTask?.startTime || rawTask?.startTime;
@@ -278,13 +310,13 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-[#0E0F12] relative overflow-hidden select-none">
       {/* 1. Top Controls Bar: View Mode Switcher (1J | 3J | 7J Semaine) */}
-      <div className="flex-shrink-0 px-4 py-2 bg-[#121318] border-b border-[#202228] flex items-center justify-between z-30">
-        <div className="flex items-center gap-1 bg-[#1A1C23] p-1 rounded-xl border border-[#2B2D38]">
+      <div className="flex-shrink-0 px-3 sm:px-4 py-2 bg-[#121318] border-b border-[#202228] flex items-center justify-between z-30">
+        <div className="flex items-center gap-1 bg-[#1A1C23] p-0.5 sm:p-1 rounded-xl border border-[#2B2D38]">
           <button
             type="button"
             onClick={() => setViewMode("day")}
             className={cn(
-              "px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer",
+              "px-2.5 sm:px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer",
               viewMode === "day"
                 ? "bg-[#D4F63D] text-black shadow-sm font-bold"
                 : "text-[#8E929E] hover:text-white hover:bg-[#252834]"
@@ -296,7 +328,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
             type="button"
             onClick={() => setViewMode("3days")}
             className={cn(
-              "px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer",
+              "px-2.5 sm:px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer",
               viewMode === "3days"
                 ? "bg-[#D4F63D] text-black shadow-sm font-bold"
                 : "text-[#8E929E] hover:text-white hover:bg-[#252834]"
@@ -308,7 +340,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
             type="button"
             onClick={() => setViewMode("week")}
             className={cn(
-              "px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer",
+              "px-2.5 sm:px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer",
               viewMode === "week"
                 ? "bg-[#D4F63D] text-black shadow-sm font-bold"
                 : "text-[#8E929E] hover:text-white hover:bg-[#252834]"
@@ -318,14 +350,14 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
           </button>
         </div>
 
-        <span className="text-xs font-mono text-[#8E929E]">
+        <span className="text-[11px] sm:text-xs font-mono text-[#8E929E] truncate ml-2">
           {viewMode === "day"
             ? format(parsedSelectedDate, "d MMMM yyyy", { locale: fr })
-            : `${displayedDays[0]} → ${displayedDays[displayedDays.length - 1]}`}
+            : `${format(parseISO(displayedDays[0]), "d MMM", { locale: fr })} → ${format(parseISO(displayedDays[displayedDays.length - 1]), "d MMM", { locale: fr })}`}
         </span>
       </div>
 
-      {/* 2. Scrollable Timeline Area */}
+      {/* 2. Scrollable Timeline Area (Unified horizontal + vertical scroll container) */}
       <div
         ref={scrollContainerRef}
         onClick={handleBackgroundClick}
@@ -334,9 +366,9 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
         {/* Multi-Day Column Headers (Sticky Top) */}
         {viewMode !== "day" && (
           <div className="sticky top-0 z-30 flex bg-[#13141A] border-b border-[#23252E] shadow-sm">
-            {/* Hours column offset */}
-            <div className="w-14 md:w-16 flex-shrink-0 border-r border-[#202228] bg-[#111214]" />
-            
+            {/* Hours column offset (Sticky Left) */}
+            <div className="w-14 md:w-16 flex-shrink-0 border-r border-[#202228] bg-[#111214] sticky left-0 z-40" />
+
             {/* Day columns headers */}
             {displayedDays.map((dayStr) => {
               const dayDate = parseISO(dayStr);
@@ -348,7 +380,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
                   key={dayStr}
                   onClick={() => onSelectDate?.(dayStr)}
                   className={cn(
-                    "flex-1 min-w-[120px] md:min-w-[150px] py-2 px-2 text-center border-r border-[#202228] transition-colors cursor-pointer",
+                    "flex-1 min-w-[120px] md:min-w-[150px] py-1.5 px-2 text-center border-r border-[#202228] transition-colors cursor-pointer",
                     isCurrentSelected
                       ? "bg-[#1C1E28]"
                       : "hover:bg-[#181920]"
@@ -375,10 +407,145 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
           </div>
         )}
 
-        {/* 24-Hour Grid Container */}
+        {/* 3. Sticky "Jour entier" Section directly below period selector / day headers */}
+        <div
+          className={cn(
+            "sticky z-25 flex bg-[#141518] border-b border-[#23252E] shadow-sm",
+            viewMode !== "day" ? "top-[41px]" : "top-0"
+          )}
+        >
+          {/* Left "Jour entier" Label Column (Sticky Left) */}
+          <div className="w-14 md:w-16 flex-shrink-0 border-r border-[#202228] p-1.5 flex flex-col justify-center items-center text-center bg-[#111214] sticky left-0 z-35">
+            <span className="text-[9px] md:text-[10px] font-bold text-[#8E929E] uppercase tracking-tighter leading-tight">
+              Jour<br />entier
+            </span>
+          </div>
+
+          {/* Day All-Day Columns */}
+          {displayedDays.map((dayStr) => {
+            const dayAllDayTasks = allDayTasksByDay.get(dayStr) || [];
+            const isCurrentSelected = dayStr === selectedDate;
+
+            return (
+              <div
+                key={`allday-${dayStr}`}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = "move";
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const taskId = e.dataTransfer.getData("taskId") || e.dataTransfer.getData("text/plain");
+                  if (taskId && onDropToAllDay) {
+                    onDropToAllDay(taskId, dayStr);
+                  }
+                }}
+                className={cn(
+                  "flex-1 p-1.5 flex flex-wrap items-center gap-1.5 border-r border-[#202228] transition-colors min-h-[46px] max-h-[90px] overflow-y-auto",
+                  viewMode !== "day" ? "min-w-[120px] md:min-w-[150px]" : "",
+                  isCurrentSelected ? "bg-[#161820]" : "bg-[#141518]"
+                )}
+              >
+                {dayAllDayTasks.length === 0 ? (
+                  <div className="text-[10px] text-[#555866] italic px-1 flex items-center gap-1">
+                    {viewMode === "day" ? (
+                      <>
+                        <Sparkles className="w-3 h-3 text-[#D4F63D]" />
+                        <span>Glisse une tâche ici pour la journée entière</span>
+                      </>
+                    ) : (
+                      <span>—</span>
+                    )}
+                  </div>
+                ) : (
+                  dayAllDayTasks.map((task) => {
+                    const tagKey = task.tag || task.category || "General";
+                    const style = TAG_COLORS[tagKey] || TAG_COLORS.General;
+                    const isRemindersEnabled = task.enableReminders !== false;
+
+                    return (
+                      <div
+                        key={task.id}
+                        draggable
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData("text/plain", task.id);
+                          e.dataTransfer.setData("taskId", task.id);
+                          onDragStartTask(e, task);
+                        }}
+                        onClick={() => {
+                          setSelectedTaskId(task.id);
+                          onSelectTask?.(task);
+                        }}
+                        className={cn(
+                          "flex items-center gap-1 px-2.5 py-1 rounded-full border text-[11px] font-semibold shadow-sm transition-all duration-150 cursor-grab active:cursor-grabbing hover:scale-[1.02]",
+                          style.bg,
+                          style.text,
+                          style.border,
+                          task.isCompletedToday ? "opacity-60 line-through" : ""
+                        )}
+                        title={task.title}
+                      >
+                        <button
+                          type="button"
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onToggleComplete(task.id);
+                          }}
+                          className="hover:scale-110 transition-transform cursor-pointer"
+                        >
+                          {task.isCompletedToday ? (
+                            <CheckCircle2 className="w-3 h-3 text-[#D4F63D] fill-[#D4F63D]/20" />
+                          ) : (
+                            <Circle className="w-3 h-3 opacity-60" />
+                          )}
+                        </button>
+                        <span className="truncate max-w-[90px] md:max-w-[120px]">{task.title}</span>
+
+                        {onToggleReminder && (
+                          <button
+                            type="button"
+                            onPointerDown={(e) => e.stopPropagation()}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onToggleReminder(task.id);
+                            }}
+                            className="hover:scale-115 transition-transform cursor-pointer opacity-70 hover:opacity-100 p-0.5"
+                          >
+                            {isRemindersEnabled ? (
+                              <Bell className="w-2.5 h-2.5 text-[#D4F63D]" />
+                            ) : (
+                              <BellOff className="w-2.5 h-2.5 opacity-50" />
+                            )}
+                          </button>
+                        )}
+
+                        {onEditTask && (
+                          <button
+                            type="button"
+                            onPointerDown={(e) => e.stopPropagation()}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onEditTask(task);
+                            }}
+                            className="hover:scale-115 transition-transform cursor-pointer opacity-70 hover:opacity-100 p-0.5"
+                          >
+                            <Edit3 className="w-2.5 h-2.5" />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* 4. 24-Hour Grid Container */}
         <div className="relative min-h-[1440px] flex">
           {/* Left Hours Column (00:00 -> 23:00) */}
-          <div className="w-14 md:w-16 flex-shrink-0 border-r border-[#202228] bg-[#111214]/80 z-20 sticky left-0">
+          <div className="w-14 md:w-16 flex-shrink-0 border-r border-[#202228] bg-[#111214]/90 z-20 sticky left-0">
             {HOURS.map((hour) => (
               <div
                 key={hour}
@@ -394,7 +561,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
           {displayedDays.map((dayStr) => {
             const dayDate = parseISO(dayStr);
             const isDayToday = isSameDay(dayDate, new Date());
-            const dayTasks = tasksByDay.get(dayStr) || [];
+            const dayTasks = timedTasksByDay.get(dayStr) || [];
 
             return (
               <DayGridColumn

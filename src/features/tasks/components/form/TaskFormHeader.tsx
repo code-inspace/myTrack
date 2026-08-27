@@ -13,9 +13,9 @@ export const TaskFormHeader: React.FC<TaskFormHeaderProps> = ({
   onClose,
 }) => {
   return (
-    <div className="flex items-center justify-between pb-3 border-b border-[#282A30]">
+    <div className="flex items-center justify-between">
       <div>
-        <h2 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
+        <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
           {isEditing ? (
             <>
               <Edit3 className="w-5 h-5 text-[#D4F63D]" />

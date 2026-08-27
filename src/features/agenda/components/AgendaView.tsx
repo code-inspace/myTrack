@@ -2,7 +2,6 @@
 
 import React, { useState } from "react";
 import { TasksHeaderWithNav } from "@/components/shared/TasksHeaderWithNav";
-import { AllDaySection } from "./AllDaySection";
 import { AgendaTimeline } from "./AgendaTimeline";
 import { TaskFormModal } from "@/features/tasks/components/TaskFormModal";
 import { QuantityLoggingModal } from "@/features/tasks/components/QuantityLoggingModal";
@@ -20,7 +19,7 @@ export const AgendaView: React.FC = () => {
   const [editingTask, setEditingTask] = useState<TaskWithCompletion | null>(null);
   const [selectedLoggingTask, setSelectedLoggingTask] = useState<TaskWithCompletion | null>(null);
 
-  const { tasks, allTasks, isLoading } = useTasks(selectedDate);
+  const { tasks, allTasks, allCompletions, isLoading } = useTasks(selectedDate);
   const {
     createTask,
     updateTask,
@@ -29,39 +28,33 @@ export const AgendaView: React.FC = () => {
     updateCompletionValue,
   } = useTaskMutations();
 
-  // Separate all-day tasks vs timed tasks
-  const isTaskAllDay = (t: TaskWithCompletion) => {
-    const time = t.effectiveStartTime !== undefined ? t.effectiveStartTime : t.startTime;
-    return !time;
-  };
-  const allDayTasks = tasks.filter(isTaskAllDay);
-  const timedTasks = tasks.filter((t) => !isTaskAllDay(t));
-
   const handleDragStartTask = (e: React.DragEvent, task: TaskWithCompletion) => {
     e.dataTransfer.setData("text/plain", task.id);
     e.dataTransfer.setData("taskId", task.id);
   };
 
-  const handleMoveTaskToTime = (taskId: string, startTime: string, endTime: string) => {
+  const handleMoveTaskToTime = (taskId: string, startTime: string, endTime: string, date?: string) => {
+    const targetDate = date || selectedDate;
     const task = allTasks.find((t) => t.id === taskId) || tasks.find((t) => t.id === taskId);
     const isRecurring = task?.recurrence && task.recurrence !== "ONCE";
 
     updateSchedule.mutate({
       taskId,
-      date: selectedDate,
+      date: targetDate,
       startTime,
       endTime,
       applyToAll: !isRecurring,
     });
   };
 
-  const handleDropToAllDay = (taskId: string) => {
+  const handleDropToAllDay = (taskId: string, date?: string) => {
+    const targetDate = date || selectedDate;
     const task = allTasks.find((t) => t.id === taskId) || tasks.find((t) => t.id === taskId);
     const isRecurring = task?.recurrence && task.recurrence !== "ONCE";
 
     updateSchedule.mutate({
       taskId,
-      date: selectedDate,
+      date: targetDate,
       startTime: null,
       endTime: null,
       applyToAll: !isRecurring,
@@ -78,7 +71,7 @@ export const AgendaView: React.FC = () => {
   };
 
   return (
-    <div className="flex-1 flex flex-col h-screen max-h-screen bg-[#0E0F12] relative overflow-hidden">
+    <div className="flex-1 flex flex-col h-[100dvh] max-h-[100dvh] bg-[#0E0F12] relative overflow-hidden">
       {/* 1. Fixed Header Area: TasksHeaderWithNav */}
       <div className="flex-shrink-0 z-30 shadow-md">
         <TasksHeaderWithNav
@@ -86,30 +79,16 @@ export const AgendaView: React.FC = () => {
           selectedDate={selectedDate}
           onSelectDate={setSelectedDate}
         />
-
-        {/* 2. Fixed "Jour entier" Section directly below header */}
-        <AllDaySection
-          tasks={allDayTasks}
-          onToggleComplete={(taskId) => toggleCompletion.mutate({ taskId, date: selectedDate })}
-          onToggleReminder={(taskId) => {
-            const target = tasks.find((t) => t.id === taskId) || allTasks.find((t) => t.id === taskId);
-            const newEnable = target ? !(target.enableReminders !== false) : true;
-            updateTask.mutate({ taskId, values: { enableReminders: newEnable } });
-          }}
-          onEditTask={(task) => {
-            setEditingTask(task);
-            setIsTaskModalOpen(true);
-          }}
-          onDropToAllDay={handleDropToAllDay}
-          onDragStartTask={handleDragStartTask}
-        />
       </div>
 
-      {/* 3. Scrollable Hourly Timeline Area */}
+      {/* 2. Scrollable Hourly Timeline Area with Integrated Multi-Day & All-Day Filter */}
       <div className="flex-1 flex flex-col min-h-0 relative overflow-hidden">
         <AgendaTimeline
           selectedDate={selectedDate}
-          tasks={timedTasks}
+          tasks={tasks}
+          allTasks={allTasks}
+          allCompletions={allCompletions}
+          onSelectDate={setSelectedDate}
           onToggleComplete={(taskId) => toggleCompletion.mutate({ taskId, date: selectedDate })}
           onToggleReminder={(taskId) => {
             const target = tasks.find((t) => t.id === taskId) || allTasks.find((t) => t.id === taskId);
@@ -121,6 +100,7 @@ export const AgendaView: React.FC = () => {
             setIsTaskModalOpen(true);
           }}
           onMoveTaskToTime={handleMoveTaskToTime}
+          onDropToAllDay={handleDropToAllDay}
           onDragStartTask={handleDragStartTask}
         />
       </div>
