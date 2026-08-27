@@ -110,36 +110,37 @@ export const NightModeOverlay: React.FC<NightModeOverlayProps> = ({
   const remainingSeconds = Math.max(1, Math.ceil(((100 - holdProgress) / 100) * 5));
 
   return (
-    <div className="fixed inset-0 z-[9999] overflow-hidden flex flex-col items-center justify-between px-6 py-8 select-none touch-none bg-[#0B0C15]">
+  return (
+    <div className="fixed inset-0 z-[9999] overflow-hidden flex flex-col items-center justify-between px-6 pt-14 pb-10 sm:pt-16 sm:pb-12 select-none touch-none bg-[#090A13]">
       {/* 1. Deep Space Night Gradient & Ambient Glows */}
       <div className="absolute inset-0 pointer-events-none">
         <div
           className="absolute inset-0"
           style={{
             background:
-              "radial-gradient(ellipse 90% 70% at 50% 10%, #221652 0%, #110E29 45%, #080912 100%)",
+              "radial-gradient(ellipse 90% 70% at 50% 15%, #1E1346 0%, #100D28 50%, #06070E 100%)",
           }}
         />
         {/* Soft floating glow aura */}
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[340px] h-[340px] rounded-full bg-[#7C3AED]/15 blur-[90px] animate-pulse" />
-        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[220px] h-[220px] rounded-full bg-[#4F46E5]/20 blur-[60px]" />
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[320px] h-[320px] rounded-full bg-[#7C3AED]/20 blur-[100px] animate-pulse" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[240px] h-[240px] rounded-full bg-[#4F46E5]/15 blur-[80px]" />
       </div>
 
       {/* 2. Twinkling Stars Canvas Effect */}
       <div className="absolute inset-0 pointer-events-none opacity-80">
         {[
-          { top: "8%", left: "15%", size: 3, delay: "0s" },
-          { top: "14%", left: "82%", size: 2, delay: "1.2s" },
-          { top: "22%", left: "30%", size: 2.5, delay: "0.5s" },
-          { top: "28%", left: "70%", size: 3.5, delay: "2.1s" },
-          { top: "40%", left: "12%", size: 2, delay: "1.7s" },
-          { top: "45%", left: "88%", size: 3, delay: "0.8s" },
-          { top: "58%", left: "20%", size: 2.5, delay: "2.5s" },
-          { top: "62%", left: "78%", size: 2, delay: "1.1s" },
-          { top: "75%", left: "35%", size: 3, delay: "0.3s" },
-          { top: "82%", left: "85%", size: 2.5, delay: "1.9s" },
-          { top: "18%", left: "50%", size: 1.5, delay: "0.7s" },
-          { top: "35%", left: "92%", size: 2, delay: "2.8s" },
+          { top: "10%", left: "15%", size: 3, delay: "0s" },
+          { top: "15%", left: "82%", size: 2, delay: "1.2s" },
+          { top: "24%", left: "28%", size: 2.5, delay: "0.5s" },
+          { top: "30%", left: "72%", size: 3.5, delay: "2.1s" },
+          { top: "42%", left: "12%", size: 2, delay: "1.7s" },
+          { top: "48%", left: "88%", size: 3, delay: "0.8s" },
+          { top: "60%", left: "20%", size: 2.5, delay: "2.5s" },
+          { top: "66%", left: "80%", size: 2, delay: "1.1s" },
+          { top: "78%", left: "32%", size: 3, delay: "0.3s" },
+          { top: "84%", left: "85%", size: 2.5, delay: "1.9s" },
+          { top: "20%", left: "50%", size: 1.5, delay: "0.7s" },
+          { top: "38%", left: "92%", size: 2, delay: "2.8s" },
         ].map((star, i) => (
           <div
             key={i}
@@ -157,23 +158,23 @@ export const NightModeOverlay: React.FC<NightModeOverlayProps> = ({
         ))}
       </div>
 
-      {/* 3. Header Section: Title & Alarm / Bedtime indicator */}
-      <div className="relative z-10 w-full max-w-sm flex flex-col items-center text-center pt-3 animate-fade-in">
+      {/* 3. Header Section: Title & Alarm / Bedtime indicator (Cleanly padded below status bar) */}
+      <div className="relative z-10 w-full max-w-sm flex flex-col items-center text-center animate-fade-in pt-1">
         {isTestMode && onCloseTest && (
           <button
             type="button"
             onClick={onCloseTest}
-            className="self-end mb-2 px-3 py-1 text-[11px] rounded-full bg-[#1F202B] text-[#A5A8B6] hover:text-white border border-[#2F3140] transition-colors"
+            className="self-end mb-2 px-3 py-1 text-[11px] rounded-full bg-[#1F202B] text-[#A5A8B6] hover:text-white border border-[#2F3140] transition-colors cursor-pointer"
           >
             Fermer l&apos;aperçu
           </button>
         )}
 
-        <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white drop-shadow-[0_4px_24px_rgba(255,255,255,0.25)]">
+        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white drop-shadow-[0_4px_20px_rgba(255,255,255,0.2)]">
           {isSleeping ? "Bonne nuit" : "Il est temps de dormir"}
         </h1>
 
-        <div className="mt-2.5 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#18162E]/80 border border-[#302B5C] text-[#C4B8F5] text-xs font-medium backdrop-blur-md shadow-inner">
+        <div className="mt-2.5 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#18162E]/85 border border-[#302B5C] text-[#C4B8F5] text-xs font-medium backdrop-blur-md shadow-inner">
           <Clock className="w-3.5 h-3.5 text-[#A78BFA]" />
           <span>
             {isSleeping ? `Réveil prévu : ${wakeTime}` : `Heure de coucher : ${bedtime} • Réveil : ${wakeTime}`}
@@ -181,59 +182,41 @@ export const NightModeOverlay: React.FC<NightModeOverlayProps> = ({
         </div>
       </div>
 
-      {/* 4. Center Celestial Moon & Cloud Animation */}
-      <div className="relative z-10 flex flex-col items-center justify-center my-auto py-2">
+      {/* 4. Center Harmonious Glowing Moon & Live Time Display */}
+      <div className="relative z-10 flex flex-col items-center justify-center my-auto py-4">
         <div className="relative w-64 h-64 sm:w-72 sm:h-72 flex items-center justify-center">
           {/* Orbital Concentric Arc Rings */}
-          <div className="absolute inset-2 rounded-full border border-[#8B5CF6]/20 animate-[spin_40s_linear_infinite]" />
-          <div className="absolute inset-8 rounded-full border border-[#A78BFA]/15 border-dashed animate-[spin_30s_linear_infinite_reverse]" />
-          <div className="absolute inset-14 rounded-full border border-[#C4B8F5]/10" />
+          <div className="absolute inset-0 rounded-full border border-[#8B5CF6]/20 animate-[spin_40s_linear_infinite]" />
+          <div className="absolute inset-6 rounded-full border border-[#A78BFA]/15 border-dashed animate-[spin_30s_linear_infinite_reverse]" />
+          <div className="absolute inset-12 rounded-full border border-[#C4B8F5]/10" />
 
-          {/* Crescent Moon Graphic with Glowing Aura */}
-          <div className="relative flex items-center justify-center drop-shadow-[0_0_35px_rgba(196,184,245,0.35)]">
-            <svg
-              className="w-48 h-48 sm:w-56 sm:h-56 text-[#F3F0FF] transition-transform duration-1000 ease-out"
-              viewBox="0 0 100 100"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <defs>
-                <linearGradient id="moonGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#FFFFFF" />
-                  <stop offset="60%" stopColor="#E9D5FF" />
-                  <stop offset="100%" stopColor="#C084FC" />
-                </linearGradient>
-                <filter id="moonGlow" x="-20%" y="-20%" width="140%" height="140%">
-                  <feGaussianBlur stdDeviation="3" result="blur" />
-                  <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                </filter>
-              </defs>
-              <path
-                d="M 50 10 C 65 10 78 18 84 30 C 60 30 42 50 42 74 C 42 80 44 86 47 90 C 26 86 10 68 10 47 C 10 26 28 10 50 10 Z"
-                fill="url(#moonGrad)"
-                filter="url(#moonGlow)"
-              />
-            </svg>
+          {/* Central Glowing Moon Disk */}
+          <div className="relative w-44 h-44 sm:w-48 sm:h-48 rounded-full flex flex-col items-center justify-center text-center shadow-[0_0_60px_rgba(167,139,250,0.35)] transition-transform duration-700">
+            {/* Luminous Moon Background Glow with radial gradient */}
+            <div
+              className="absolute inset-0 rounded-full"
+              style={{
+                background: "radial-gradient(circle at 35% 30%, #FFFFFF 0%, #EDE9FE 45%, #C4B5FD 75%, #8B5CF6 100%)",
+                boxShadow: "inset -6px -6px 16px rgba(109, 40, 217, 0.4), 0 0 35px rgba(237, 233, 254, 0.5)",
+              }}
+            />
 
-            {/* Live Clock Embedded in the Arc */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center text-center pl-6">
-              <span className="text-3xl sm:text-4xl font-bold tracking-tight text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)]">
+            {/* Subtle Moon Crater Accents */}
+            <div className="absolute top-6 left-9 w-5 h-5 rounded-full bg-[#A78BFA]/15 blur-[0.5px]" />
+            <div className="absolute top-14 left-6 w-7 h-7 rounded-full bg-[#8B5CF6]/12 blur-[1px]" />
+            <div className="absolute bottom-8 right-10 w-6 h-6 rounded-full bg-[#A78BFA]/15 blur-[0.5px]" />
+            <div className="absolute bottom-12 left-14 w-4 h-4 rounded-full bg-[#8B5CF6]/10" />
+
+            {/* Live Clock & Badge Centered Directly Inside the Moon */}
+            <div className="relative z-10 flex flex-col items-center justify-center text-center px-2">
+              <span className="text-3xl sm:text-4xl font-black tracking-tight text-[#16122C] drop-shadow-[0_1px_4px_rgba(255,255,255,0.6)]">
                 {currentTime || bedtime}
               </span>
-              <span className="text-[11px] font-semibold text-[#A78BFA] tracking-wider uppercase mt-0.5">
+              <span className="text-[10px] sm:text-[11px] font-extrabold text-[#5B21B6] tracking-wider uppercase mt-0.5 px-2 py-0.5 rounded-full bg-[#EDE9FE]/80 shadow-xs">
                 {isSleeping ? "En sommeil" : "Mode Nuit"}
               </span>
             </div>
           </div>
-
-          {/* Floating Soft Clouds */}
-          <div className="absolute -bottom-2 -left-2 w-32 h-14 bg-gradient-to-r from-[#241D4C]/90 to-[#372A6E]/90 rounded-full blur-[1px] border border-[#523E99]/40 flex items-center justify-center shadow-lg animate-[bounce_6s_ease-in-out_infinite]">
-            <div className="w-10 h-10 -mt-6 bg-[#372A6E] rounded-full" />
-          </div>
-          <div className="absolute -bottom-4 right-2 w-40 h-16 bg-gradient-to-r from-[#2E245E]/90 to-[#433284]/90 rounded-full blur-[1px] border border-[#5E47AE]/40 shadow-xl animate-[bounce_8s_ease-in-out_infinite_reverse]">
-            <div className="w-12 h-12 -mt-7 ml-4 bg-[#433284] rounded-full" />
-          </div>
-          <div className="absolute top-12 right-2 w-24 h-10 bg-[#282052]/60 rounded-full blur-[1px] border border-[#483786]/20 animate-[pulse_5s_ease-in-out_infinite]" />
         </div>
 
         {/* Sleep Duration Tracker Info when in sleeping state */}
@@ -247,8 +230,8 @@ export const NightModeOverlay: React.FC<NightModeOverlayProps> = ({
         )}
       </div>
 
-      {/* 5. Actions Section: 3 Buttons */}
-      <div className="relative z-20 w-full max-w-sm space-y-3 pb-2">
+      {/* 5. Actions Section: 3 Buttons (Well spaced above iPhone home indicator) */}
+      <div className="relative z-20 w-full max-w-sm space-y-3 pb-1">
         {/* Button 1: "Je me couche maintenant" */}
         <button
           type="button"
