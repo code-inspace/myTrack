@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { Task, TaskCompletion } from "@/features/tasks/types";
 import { ProjectColumn } from "../types";
-import { GripVertical, Flame, CheckCircle2, Pencil } from "lucide-react";
+import { GripVertical, Flame, CheckCircle2, Pencil, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getPriorityCardClass, getPriorityTitleClass, getPriorityIconColorClass } from "@/features/tasks/priority";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
@@ -124,9 +124,10 @@ export const BoardColumn: React.FC<{
   column: ProjectColumn;
   tasks: Task[];
   onEditTask: (task: Task) => void;
+  onAddTask?: (columnId: string) => void;
   getBadge?: (task: Task) => ProjectBadge | null;
   completions?: TaskCompletion[];
-}> = ({ column, tasks, onEditTask, getBadge, completions }) => {
+}> = ({ column, tasks, onEditTask, onAddTask, getBadge, completions }) => {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
   const [donePeriod, setDonePeriod] = useState<DonePeriodFilter>("1d");
 
@@ -147,9 +148,21 @@ export const BoardColumn: React.FC<{
           {column.isDone && <CheckCircle2 className="w-3.5 h-3.5 text-[#D4F63D] flex-shrink-0" />}
           {column.label}
         </span>
-        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#22242B] text-[#8E929E] flex-shrink-0">
-          {displayedTasks.length}
-        </span>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#22242B] text-[#8E929E]">
+            {displayedTasks.length}
+          </span>
+          {onAddTask && (
+            <button
+              type="button"
+              onClick={() => onAddTask(column.id)}
+              title={`Ajouter une tâche dans ${column.label}`}
+              className="p-1 rounded-lg bg-[#22242B] hover:bg-[#D4F63D] text-[#8E929E] hover:text-black transition-all cursor-pointer flex items-center justify-center"
+            >
+              <Plus className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
       </div>
 
       {column.isDone && (

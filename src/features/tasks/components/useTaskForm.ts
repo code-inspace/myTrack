@@ -20,7 +20,7 @@ export function useTaskForm({
   onSubmit,
   onClose,
 }: UseTaskFormProps) {
-  const isEditing = Boolean(initialTask);
+  const isEditing = Boolean(initialTask && initialTask.id);
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");

@@ -20,6 +20,7 @@ interface AllProjectsBoardViewProps {
   completions?: TaskCompletion[];
   onBack: () => void;
   onEditTask: (task: Task) => void;
+  onAddTask?: (columnId: string) => void;
   onChangeStatus: (taskId: string, status: string, isDoneColumn: boolean, wasDoneColumn: boolean) => void;
 }
 
@@ -31,6 +32,7 @@ export const AllProjectsBoardView: React.FC<AllProjectsBoardViewProps> = ({
   completions,
   onBack,
   onEditTask,
+  onAddTask,
   onChangeStatus,
 }) => {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
@@ -116,6 +118,7 @@ export const AllProjectsBoardView: React.FC<AllProjectsBoardViewProps> = ({
                 column={col}
                 tasks={tasksByColumn.get(col.id) || []}
                 onEditTask={onEditTask}
+                onAddTask={onAddTask}
                 completions={completions}
                 getBadge={(t) => {
                   const p = t.projectId ? projectById.get(t.projectId) : null;

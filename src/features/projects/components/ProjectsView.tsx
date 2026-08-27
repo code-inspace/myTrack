@@ -76,6 +76,9 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
         completions={completions}
         onBack={() => setShowAllProjectsBoard(false)}
         onEditTask={onEditTask}
+        onAddTask={(columnId) =>
+          onEditTask({ projectStatus: columnId, date: todayStr } as any)
+        }
         onChangeStatus={handleChangeStatus}
       />
     );
@@ -89,6 +92,13 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
         completions={completions}
         onBack={() => setSelectedProjectId(null)}
         onEditTask={onEditTask}
+        onAddTask={(columnId) =>
+          onEditTask({
+            projectId: selectedProject.id,
+            projectStatus: columnId,
+            date: todayStr,
+          } as any)
+        }
         onChangeStatus={handleChangeStatus}
       />
     );
