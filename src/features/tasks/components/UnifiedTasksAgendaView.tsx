@@ -31,6 +31,8 @@ import {
 import { SortableContext, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
 import { DAY_DROP_ID_PREFIX } from "@/features/tasks/components/HorizontalDatePicker";
 
+import { useSelectedDate } from "@/providers/DateProvider";
+
 interface UnifiedTasksAgendaViewProps {
   initialTab?: TasksTab;
 }
@@ -38,8 +40,7 @@ interface UnifiedTasksAgendaViewProps {
 export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
   initialTab = "habits",
 }) => {
-  const todayStr = getTodayDateString();
-  const [selectedDate, setSelectedDate] = useState<string>(todayStr);
+  const { selectedDate, setSelectedDate } = useSelectedDate();
   const [activeTab, setActiveTab] = useState<TasksTab>(initialTab);
 
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);

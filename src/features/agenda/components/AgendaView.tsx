@@ -12,9 +12,11 @@ import { getTodayDateString } from "@/lib/dates";
 import { CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+import { useSelectedDate } from "@/providers/DateProvider";
+
 export const AgendaView: React.FC = () => {
+  const { selectedDate, setSelectedDate } = useSelectedDate();
   const todayStr = getTodayDateString();
-  const [selectedDate, setSelectedDate] = useState<string>(todayStr);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskWithCompletion | null>(null);
   const [selectedLoggingTask, setSelectedLoggingTask] = useState<TaskWithCompletion | null>(null);

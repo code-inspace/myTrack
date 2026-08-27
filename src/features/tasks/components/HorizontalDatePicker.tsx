@@ -149,13 +149,16 @@ export const HorizontalDatePicker: React.FC<HorizontalDatePickerProps> = ({
     });
   }, [todayStr, currentDate]);
 
-  // Smooth scroll selected day into center of horizontal strip
+  // Smooth scroll selected day into center of horizontal strip without viewport jitter
   useEffect(() => {
-    if (selectedButtonRef.current) {
-      selectedButtonRef.current.scrollIntoView({
+    if (scrollContainerRef.current && selectedButtonRef.current) {
+      const container = scrollContainerRef.current;
+      const target = selectedButtonRef.current;
+      const scrollPos = target.offsetLeft - (container.clientWidth / 2) + (target.offsetWidth / 2);
+
+      container.scrollTo({
+        left: Math.max(0, scrollPos),
         behavior: isFirstRender.current ? "auto" : "smooth",
-        inline: "center",
-        block: "nearest",
       });
       isFirstRender.current = false;
     }
@@ -385,9 +388,9 @@ export const HorizontalDatePicker: React.FC<HorizontalDatePickerProps> = ({
                 type="button"
                 onClick={() => onSelectDate(day.dateStr)}
                 className={cn(
-                  "min-w-[50px] w-[50px] flex flex-col items-center justify-center py-2 px-1 rounded-2xl transition-all duration-200 cursor-pointer text-center select-none",
+                  "min-w-[50px] w-[50px] flex flex-col items-center justify-center py-2 px-1 rounded-2xl transition-colors cursor-pointer text-center select-none",
                   isSelected
-                    ? "bg-[#252830] ring-1 ring-[#3a3e4c] shadow-lg scale-[1.04]"
+                    ? "bg-[#252830] ring-1 ring-[#3a3e4c] shadow-md"
                     : "hover:bg-[#1c1d22]/80 opacity-70 hover:opacity-100 bg-[#16171C]/50"
                 )}
               >
