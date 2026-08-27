@@ -44,7 +44,7 @@ const DayDropTarget: React.FC<{ dateStr: string; isDragActive?: boolean; childre
     <div
       ref={setNodeRef}
       className={cnClass(
-        "flex-shrink-0 rounded-2xl transition-all",
+        "flex-shrink-0 md:flex-1 md:min-w-0 rounded-2xl transition-all",
         isOver ? "ring-2 ring-[#D4F63D] scale-105" : isDragActive ? "ring-1 ring-[#D4F63D]/30" : ""
       )}
     >
@@ -385,7 +385,7 @@ export const HorizontalDatePicker: React.FC<HorizontalDatePickerProps> = ({
                 type="button"
                 onClick={() => onSelectDate(day.dateStr)}
                 className={cn(
-                  "min-w-[50px] w-[50px] flex flex-col items-center justify-center py-2 px-1 rounded-2xl transition-all duration-200 cursor-pointer text-center select-none",
+                  "min-w-[50px] w-[50px] md:min-w-0 md:w-full flex flex-col items-center justify-center py-2 px-1 rounded-2xl transition-all duration-200 cursor-pointer text-center select-none",
                   isSelected
                     ? "bg-[#252830] ring-1 ring-[#3a3e4c] shadow-lg scale-[1.04]"
                     : "hover:bg-[#1c1d22]/80 opacity-70 hover:opacity-100 bg-[#16171C]/50"
