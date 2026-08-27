@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { Task, TaskCompletion } from "@/features/tasks/types";
 import { ProjectColumn } from "../types";
-import { GripVertical, Flame, CheckCircle2, Pencil, Plus } from "lucide-react";
+import { GripVertical, Flame, CheckCircle2, Pencil, Plus, Tag } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getPriorityCardClass, getPriorityTitleClass, getPriorityIconColorClass } from "@/features/tasks/priority";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
@@ -45,7 +45,6 @@ export function isTaskDoneInPeriod(
       }
     }
 
-    // Fallback for tasks marked done directly without completion rows or legacy records
     const dateStr = (task.updatedAt || task.createdAt || todayStr).split("T")[0];
     if (period === "1d") {
       return dateStr === todayStr;
@@ -98,15 +97,23 @@ export const BoardCard: React.FC<{
         >
           {task.title}
         </button>
-        {projectBadge && (
-          <span className="mt-1 flex items-center gap-1 text-[10px] text-[#8E929E] truncate">
-            <span
-              className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-              style={{ backgroundColor: projectBadge.color }}
-            />
-            <span className="truncate">{projectBadge.name}</span>
-          </span>
-        )}
+        <div className="flex items-center gap-1.5 flex-wrap mt-1">
+          {projectBadge && (
+            <span className="flex items-center gap-1 text-[10px] text-[#8E929E] truncate">
+              <span
+                className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                style={{ backgroundColor: projectBadge.color }}
+              />
+              <span className="truncate">{projectBadge.name}</span>
+            </span>
+          )}
+          {task.projectCategory && (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-semibold bg-[#818CF8]/15 border border-[#818CF8]/30 text-[#A5B4FC]">
+              <Tag className="w-2.5 h-2.5 flex-shrink-0" />
+              <span className="truncate">{task.projectCategory}</span>
+            </span>
+          )}
+        </div>
       </div>
       <button
         type="button"

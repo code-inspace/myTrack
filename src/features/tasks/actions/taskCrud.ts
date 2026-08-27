@@ -69,6 +69,7 @@ export async function createDbTask(
         ? task.reminderOffsetMinutes
         : 10,
     _reminderTimes: task.reminderTimes || ["11:00", "18:00"],
+    _projectCategory: task.projectCategory || null,
   };
 
   const taskDate = (task as any).date || getTodayDateString();
@@ -103,6 +104,7 @@ export async function createDbTask(
     is_archived: false,
     project_id: task.projectId || null,
     project_status: task.projectId ? task.projectStatus || "TODO" : null,
+    project_category: task.projectId ? task.projectCategory || null : null,
     created_at: createdIso,
   };
 
@@ -176,6 +178,7 @@ export async function createDbTask(
     sortOrder: null,
     projectId: task.projectId || null,
     projectStatus: task.projectId ? task.projectStatus || "TODO" : null,
+    projectCategory: task.projectId ? task.projectCategory || null : null,
     createdAt: createdIso,
     updatedAt: new Date().toISOString(),
   };
@@ -275,8 +278,18 @@ export async function updateDbTask(
     dbUpdates.project_status = updates.projectId
       ? updates.projectStatus || target?.projectStatus || "TODO"
       : null;
-  } else if (updates.projectStatus !== undefined) {
-    dbUpdates.project_status = updates.projectStatus || null;
+    dbUpdates.project_category = updates.projectId
+      ? updates.projectCategory !== undefined
+        ? updates.projectCategory
+        : target?.projectCategory || null
+      : null;
+  } else {
+    if (updates.projectStatus !== undefined) {
+      dbUpdates.project_status = updates.projectStatus || null;
+    }
+    if (updates.projectCategory !== undefined) {
+      dbUpdates.project_category = updates.projectCategory || null;
+    }
   }
   if (
     updates.date !== undefined &&
@@ -409,6 +422,19 @@ export async function updateDbTask(
         : updates.projectStatus !== undefined
         ? updates.projectStatus || null
         : baseTask.projectStatus,
+    projectCategory:
+      updates.projectCategory !== undefined
+        ? updates.projectCategory || null
+        : baseTask.projectCategory || null,
+    isActive: baseTask.isActive,
+    startedAt: baseTask.startedAt,
+    isArchived: baseTask.isArchived,
+    sortOrder: baseTask.sortOrder,
+    createdAt:
+      updates.date !== undefined &&
+      (updates.recurrence === "ONCE" || baseTask.recurrence === "ONCE")
+        ? `${updates.date}T12:00:00.000Z`
+        : baseTask.createdAt,
     updatedAt: nowIso,
   };
   const nextList = target

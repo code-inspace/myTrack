@@ -1,10 +1,11 @@
 "use client";
 
-import React from "react";
+import React, { useState, useMemo } from "react";
 import { Task, TaskCompletion } from "@/features/tasks/types";
 import { Project, getProjectColumns } from "../types";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Tag } from "lucide-react";
 import { BoardColumn, groupTasksByColumn } from "./KanbanBoard";
+import { cn } from "@/lib/utils";
 import {
   DndContext,
   DragEndEvent,
@@ -33,8 +34,23 @@ export const ProjectBoardView: React.FC<ProjectBoardViewProps> = ({
   onChangeStatus,
 }) => {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+  const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
+
+  const projectCategories = useMemo(() => {
+    const cats = new Set<string>(project.categories || []);
+    tasks.forEach((t) => {
+      if (t.projectCategory) cats.add(t.projectCategory);
+    });
+    return Array.from(cats);
+  }, [project, tasks]);
+
+  const filteredTasks = useMemo(() => {
+    if (selectedCategory === "ALL") return tasks;
+    return tasks.filter((t) => t.projectCategory === selectedCategory);
+  }, [tasks, selectedCategory]);
+
   const columns = getProjectColumns(project);
-  const tasksByColumn = groupTasksByColumn(tasks, columns, completions);
+  const tasksByColumn = groupTasksByColumn(filteredTasks, columns, completions);
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -61,6 +77,45 @@ export const ProjectBoardView: React.FC<ProjectBoardViewProps> = ({
         <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: project.color }} />
         <h2 className="text-lg font-bold text-white truncate">{project.name}</h2>
       </div>
+
+      {/* Project Categories Filter Bar */}
+      {projectCategories.length > 0 && (
+        <div className="flex items-center gap-1.5 px-4 pb-2.5 overflow-x-auto scrollbar-none">
+          <button
+            type="button"
+            onClick={() => setSelectedCategory("ALL")}
+            className={cn(
+              "px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-all cursor-pointer",
+              selectedCategory === "ALL"
+                ? "bg-[#D4F63D] text-black font-bold shadow-sm"
+                : "bg-[#1C1D22] border border-[#282A30] text-[#8E929E] hover:text-white hover:border-[#4B5563]"
+            )}
+          >
+            Toutes ({tasks.length})
+          </button>
+          {projectCategories.map((cat) => {
+            const count = tasks.filter((t) => t.projectCategory === cat).length;
+            const isSelected = selectedCategory === cat;
+            return (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => setSelectedCategory(cat)}
+                className={cn(
+                  "px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5",
+                  isSelected
+                    ? "bg-[#818CF8] text-black font-bold shadow-sm"
+                    : "bg-[#1C1D22] border border-[#282A30] text-[#8E929E] hover:text-white hover:border-[#4B5563]"
+                )}
+              >
+                <Tag className="w-3 h-3" />
+                <span>{cat}</span>
+                <span className="text-[10px] opacity-75">({count})</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
         <div className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden px-4 pb-28">

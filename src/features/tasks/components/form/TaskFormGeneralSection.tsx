@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useMemo } from "react";
 import {
   CalendarDays,
   Flag,
@@ -18,7 +18,7 @@ import {
   getPriorityIconColorClass,
 } from "@/features/tasks/priority";
 import { TASK_CATEGORIES, TRACKING_TYPE_OPTIONS } from "@/features/tasks/options";
-import { useProjects } from "@/features/projects/hooks";
+import { useProjects, useProjectMutations } from "@/features/projects/hooks";
 import { getProjectColumns } from "@/features/projects/types";
 
 interface TaskFormGeneralSectionProps {
@@ -29,6 +29,32 @@ export const TaskFormGeneralSection: React.FC<TaskFormGeneralSectionProps> = ({
   form,
 }) => {
   const { projects } = useProjects();
+  const { updateProject } = useProjectMutations();
+  const [newCategoryInput, setNewCategoryInput] = useState("");
+
+  const selectedProject = projects.find((p) => p.id === form.projectId) || null;
+
+  const projectCategoriesList = useMemo(() => {
+    const set = new Set<string>(selectedProject?.categories || []);
+    if (form.projectCategory) set.add(form.projectCategory);
+    return Array.from(set);
+  }, [selectedProject, form.projectCategory]);
+
+  const handleAddNewProjectCategory = () => {
+    const trimmed = newCategoryInput.trim();
+    if (!trimmed || !selectedProject) return;
+    form.setProjectCategory(trimmed);
+    const currentCats = selectedProject.categories || [];
+    if (!currentCats.includes(trimmed)) {
+      const nextCats = [...currentCats, trimmed];
+      updateProject.mutate({
+        projectId: selectedProject.id,
+        updates: { categories: nextCats },
+      });
+    }
+    setNewCategoryInput("");
+  };
+
   const currentCategoryObj =
     TASK_CATEGORIES.find((c) => c.id === form.category) || TASK_CATEGORIES[0];
   const currentTrackingObj =
@@ -379,32 +405,115 @@ export const TaskFormGeneralSection: React.FC<TaskFormGeneralSectionProps> = ({
             </div>
 
             {form.projectId && (
-              <div className="pt-2 border-t border-[#343740] space-y-2">
-                <span className="block text-[11px] font-semibold text-[#8E929E]">
-                  Colonne
-                </span>
-                <div className="grid grid-cols-2 gap-2">
-                  {getProjectColumns(
-                    projects.find((p) => p.id === form.projectId) || {
-                      columns: [],
-                    },
-                  ).map((col) => (
+              <>
+                {/* Colonne */}
+                <div className="pt-2 border-t border-[#343740] space-y-2">
+                  <span className="block text-[11px] font-semibold text-[#8E929E]">
+                    Colonne
+                  </span>
+                  <div className="grid grid-cols-2 gap-2">
+                    {getProjectColumns(
+                      projects.find((p) => p.id === form.projectId) || {
+                        columns: [],
+                      },
+                    ).map((col) => (
+                      <button
+                        type="button"
+                        key={col.id}
+                        onClick={() => form.setProjectStatus(col.id)}
+                        className={cn(
+                          "px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer",
+                          form.projectStatus === col.id
+                            ? "bg-[#D4F63D] text-black border-[#D4F63D] font-bold shadow-sm"
+                            : "bg-[#1C1D22] border-[#343740] text-[#D1D5DB] hover:border-[#4B5563]",
+                        )}
+                      >
+                        {col.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Catégorie de projet (spécifique à ce projet) */}
+                <div className="pt-2.5 border-t border-[#343740] space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="block text-[11px] font-semibold text-[#8E929E]">
+                        Catégorie du projet
+                      </span>
+                      <span className="text-[10px] text-[#6B7280]">
+                        Propre à ce projet
+                      </span>
+                    </div>
+                    {form.projectCategory && (
+                      <button
+                        type="button"
+                        onClick={() => form.setProjectCategory("")}
+                        className="text-[10px] font-semibold text-[#8E929E] hover:text-[#EF4444] transition-colors cursor-pointer"
+                      >
+                        Effacer
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap gap-1.5">
                     <button
                       type="button"
-                      key={col.id}
-                      onClick={() => form.setProjectStatus(col.id)}
+                      onClick={() => form.setProjectCategory("")}
                       className={cn(
-                        "px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer",
-                        form.projectStatus === col.id
-                          ? "bg-[#D4F63D] text-black border-[#D4F63D] font-bold shadow-sm"
-                          : "bg-[#1C1D22] border-[#343740] text-[#D1D5DB] hover:border-[#4B5563]",
+                        "px-2.5 py-1 rounded-xl text-xs font-medium border transition-all cursor-pointer",
+                        !form.projectCategory
+                          ? "bg-[#D4F63D]/15 border-[#D4F63D] text-[#D4F63D] font-bold"
+                          : "bg-[#1C1D22] border-[#343740] text-[#9CA3AF] hover:border-[#4B5563]"
                       )}
                     >
-                      {col.label}
+                      Aucune
                     </button>
-                  ))}
+
+                    {projectCategoriesList.map((cat) => (
+                      <button
+                        type="button"
+                        key={cat}
+                        onClick={() => form.setProjectCategory(cat)}
+                        className={cn(
+                          "px-2.5 py-1 rounded-xl text-xs font-medium border transition-all cursor-pointer flex items-center gap-1.5",
+                          form.projectCategory === cat
+                            ? "bg-[#818CF8]/25 border-[#818CF8] text-[#C7D2FE] font-bold shadow-sm"
+                            : "bg-[#1C1D22] border-[#343740] text-[#9CA3AF] hover:border-[#4B5563]"
+                        )}
+                      >
+                        <Tag className="w-3 h-3 text-[#818CF8]" />
+                        <span>{cat}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Add new project category */}
+                  <div className="flex items-center gap-2 pt-1">
+                    <input
+                      type="text"
+                      placeholder="Nouvelle catégorie de projet..."
+                      value={newCategoryInput}
+                      onChange={(e) => setNewCategoryInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleAddNewProjectCategory();
+                        }
+                      }}
+                      className="flex-1 px-3 py-1.5 rounded-xl bg-[#1C1D22] border border-[#343740] focus:border-[#818CF8] text-xs text-white outline-none placeholder-[#6B7280]"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddNewProjectCategory}
+                      disabled={!newCategoryInput.trim()}
+                      className="px-3 py-1.5 rounded-xl bg-[#818CF8]/20 hover:bg-[#818CF8]/30 text-[#818CF8] border border-[#818CF8]/40 text-xs font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex-shrink-0"
+                    >
+                      + Créer
+                    </button>
+                  </div>
                 </div>
-              </div>
+              </>
             )}
           </div>
         )}

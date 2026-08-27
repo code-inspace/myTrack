@@ -25,8 +25,17 @@ export function useProjectMutations() {
   const userId = user?.id || "00000000-0000-0000-0000-000000000001";
 
   const createProject = useMutation({
-    mutationFn: async ({ name, color, columns }: { name: string; color: string; columns: ProjectColumn[] }) =>
-      createDbProject(name, color, columns, userId),
+    mutationFn: async ({
+      name,
+      color,
+      columns,
+      categories,
+    }: {
+      name: string;
+      color: string;
+      columns: ProjectColumn[];
+      categories?: string[];
+    }) => createDbProject(name, color, columns, userId, categories),
     onSuccess: (newProject) => {
       queryClient.setQueryData<Project[]>(["projects", userId], (old = []) => [newProject, ...old]);
       queryClient.invalidateQueries({ queryKey: ["projects"] });
@@ -39,7 +48,7 @@ export function useProjectMutations() {
       updates,
     }: {
       projectId: string;
-      updates: { name?: string; color?: string; columns?: ProjectColumn[] };
+      updates: { name?: string; color?: string; columns?: ProjectColumn[]; categories?: string[] };
     }) => updateDbProject(projectId, updates, userId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["projects"] });

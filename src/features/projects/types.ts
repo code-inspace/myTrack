@@ -18,6 +18,7 @@ export interface Project {
   name: string;
   color: string;
   columns: ProjectColumn[];
+  categories?: string[];
   createdAt: string;
   updatedAt: string;
 }

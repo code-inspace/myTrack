@@ -38,6 +38,8 @@ export interface Task {
   projectId?: string | null;
   /** References a column id from the assigned project's own custom columns */
   projectStatus?: string | null;
+  /** Project-specific category, distinct from the global category */
+  projectCategory?: string | null;
   createdAt: string;
   updatedAt: string;
 }

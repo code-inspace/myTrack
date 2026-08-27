@@ -25,6 +25,7 @@ export const TaskFormSchema = z.object({
   reminderTimes: z.array(z.string()).optional().nullable(),
   projectId: z.string().optional().nullable(),
   projectStatus: z.string().optional().nullable(),
+  projectCategory: z.string().optional().nullable(),
 });
 
 export type TaskFormValues = z.infer<typeof TaskFormSchema>;

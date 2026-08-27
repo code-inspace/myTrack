@@ -54,6 +54,7 @@ export function mapDbTaskToModel(row: any): Task {
     sortOrder: row.sort_order !== undefined && row.sort_order !== null ? row.sort_order : null,
     projectId: row.project_id || null,
     projectStatus: row.project_status || null,
+    projectCategory: row.project_category || rawOverrides._projectCategory || null,
     createdAt: row.created_at || new Date().toISOString(),
     updatedAt: row.updated_at || new Date().toISOString(),
   };

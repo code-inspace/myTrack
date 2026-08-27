@@ -13,6 +13,7 @@ function mapDbProjectToModel(row: any): Project {
     name: row.name,
     color: row.color || "#D4F63D",
     columns: Array.isArray(row.columns) ? row.columns : [],
+    categories: Array.isArray(row.categories) ? row.categories : [],
     createdAt: row.created_at || new Date().toISOString(),
     updatedAt: row.updated_at || new Date().toISOString(),
   };
@@ -86,7 +87,8 @@ export async function createDbProject(
   name: string,
   color: string,
   columns: ProjectColumn[],
-  userId?: string
+  userId?: string,
+  categories?: string[]
 ): Promise<Project> {
   const supabase = createClient();
   let targetId = userId;
@@ -95,10 +97,12 @@ export async function createDbProject(
     targetId = session?.user?.id || getEffectiveUserId();
   }
 
+  const projectCategories = categories || [];
+
   try {
     const { data, error } = await supabase
       .from("projects")
-      .insert([{ user_id: targetId, name, color, columns }])
+      .insert([{ user_id: targetId, name, color, columns, categories: projectCategories }])
       .select()
       .single();
 
@@ -119,6 +123,7 @@ export async function createDbProject(
     name,
     color,
     columns,
+    categories: projectCategories,
     createdAt: nowIso,
     updatedAt: nowIso,
   };
@@ -129,7 +134,7 @@ export async function createDbProject(
 
 export async function updateDbProject(
   projectId: string,
-  updates: { name?: string; color?: string; columns?: ProjectColumn[] },
+  updates: { name?: string; color?: string; columns?: ProjectColumn[]; categories?: string[] },
   userId?: string
 ): Promise<void> {
   const supabase = createClient();

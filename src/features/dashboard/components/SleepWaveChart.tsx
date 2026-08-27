@@ -83,9 +83,11 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
   const [selectedDateStr, setSelectedDateStr] = useState<string | null>(null);
   const todayStr = getTodayDateString();
 
+  const scrollContainerRef = React.useRef<HTMLDivElement | null>(null);
+
   // Sync historical sleep logs (bedtime/wakeTime/naps) from Supabase into the local cache
   useEffect(() => {
-    const daysCount = period === "week" ? 7 : period === "month" ? 14 : 30;
+    const daysCount = period === "week" ? 7 : period === "month" ? 30 : 60;
     fetchSleepHistory(daysCount + 5).then((logs) => {
       if (logs && logs.length > 0) {
         setSyncVersion((v) => v + 1);
@@ -94,7 +96,7 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
   }, [period, referenceDate]);
 
   const { points, validNights, averageText, trackHeightPx, axisLabels } = useMemo(() => {
-    const daysCount = period === "week" ? 7 : period === "month" ? 14 : 30;
+    const daysCount = period === "week" ? 7 : period === "month" ? 30 : 60;
     const rawPts: Array<{
       dateStr: string;
       label: string;
@@ -124,7 +126,7 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
       const dayIndex = d.getDay();
       const label =
         period === "week"
-          ? `${FRENCH_DAYS_SHORT[dayIndex]} ${format(d, "d")}`
+          ? FRENCH_DAYS_SHORT[dayIndex]
           : format(d, "d MMM", { locale: fr });
 
       const fullDateLabel = format(d, "EEEE d MMMM", { locale: fr });
@@ -300,6 +302,13 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
     return points[points.length - 1] || null;
   }, [points, selectedDateStr]);
 
+  // Autoscroll to the latest days (right side) when period is month or all
+  useEffect(() => {
+    if (period !== "week" && scrollContainerRef.current) {
+      scrollContainerRef.current.scrollLeft = scrollContainerRef.current.scrollWidth;
+    }
+  }, [period, points]);
+
   return (
     <div className="bg-[#1C1D22] border border-[#282A30] rounded-3xl p-5 shadow-sm space-y-4">
       {/* Header with Average Sleep */}
@@ -384,9 +393,24 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
 
       {/* Vertical Timeline Chart Frame with Internal Hour Marks */}
       <div className="pt-1">
-        <div className="relative w-full rounded-2xl bg-[#141519] border border-[#282A30] p-3 overflow-hidden select-none">
+        <div
+          ref={scrollContainerRef}
+          className={cn(
+            "relative w-full rounded-2xl bg-[#141519] border border-[#282A30] p-3 select-none",
+            period === "week"
+              ? "overflow-hidden"
+              : "overflow-x-auto overflow-y-hidden scrollbar-thin scrollbar-thumb-[#282A30]"
+          )}
+        >
           {/* Day columns */}
-          <div className="flex items-stretch gap-1.5 w-full relative z-10">
+          <div
+            className={cn(
+              "flex items-stretch relative z-10",
+              period === "week"
+                ? "w-full gap-1.5"
+                : "min-w-max gap-2 pr-2"
+            )}
+          >
             {points.map((pt, idx) => {
               const isSelected = activeSelectedPoint?.dateStr === pt.dateStr;
 
@@ -394,7 +418,12 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
                 <div
                   key={idx}
                   onClick={() => setSelectedDateStr(pt.dateStr)}
-                  className="flex-1 flex flex-col items-center min-w-0 group relative cursor-pointer"
+                  className={cn(
+                    "flex flex-col items-center group relative cursor-pointer",
+                    period === "week"
+                      ? "flex-1 min-w-0"
+                      : "w-9 sm:w-11 flex-shrink-0"
+                  )}
                 >
                   {/* Track Bar area */}
                   <div
@@ -438,7 +467,7 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
                   {/* Date Label under each column */}
                   <span
                     className={cn(
-                      "text-[10px] mt-2 truncate max-w-full transition-colors",
+                      "text-[10px] mt-2 truncate max-w-full transition-colors text-center",
                       isSelected
                         ? "font-bold text-[#818CF8]"
                         : "font-medium text-[#8E929E] group-hover:text-white",

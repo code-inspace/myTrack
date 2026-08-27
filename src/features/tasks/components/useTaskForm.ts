@@ -56,6 +56,7 @@ export function useTaskForm({
   // Project assignment
   const [projectId, setProjectId] = useState<string | null>(null);
   const [projectStatus, setProjectStatus] = useState<string>(DEFAULT_PROJECT_COLUMNS[0].id);
+  const [projectCategory, setProjectCategory] = useState<string>("");
   const [isNewProjectOpen, setIsNewProjectOpen] = useState(false);
 
   const { updateTask } = useTaskMutations();
@@ -132,6 +133,7 @@ export function useTaskForm({
         setProjectStatus(
           initialTask.projectStatus || DEFAULT_PROJECT_COLUMNS[0].id,
         );
+        setProjectCategory(initialTask.projectCategory || "");
         setDeadline(initialTask.deadline || "");
         setPriority((initialTask.priority as TaskPriority) || "NORMAL");
         skipNextAutoSaveRef.current = true;
@@ -153,6 +155,7 @@ export function useTaskForm({
         setReminderTimes(["11:00", "18:00"]);
         setProjectId(null);
         setProjectStatus(DEFAULT_PROJECT_COLUMNS[0].id);
+        setProjectCategory("");
         setDeadline("");
         setPriority("NORMAL");
       }
@@ -181,6 +184,7 @@ export function useTaskForm({
     reminderTimes: !hasScheduledTime ? reminderTimes : undefined,
     projectId: projectId || null,
     projectStatus: projectId ? projectStatus : null,
+    projectCategory: projectId && projectCategory.trim() ? projectCategory.trim() : null,
   });
 
   const flushAutoSave = () => {
@@ -340,6 +344,8 @@ export function useTaskForm({
     setProjectId,
     projectStatus,
     setProjectStatus,
+    projectCategory,
+    setProjectCategory,
     isNewProjectOpen,
     setIsNewProjectOpen,
     // Accordion

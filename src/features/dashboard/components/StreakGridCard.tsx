@@ -14,57 +14,16 @@ export const StreakGridCard: React.FC<StreakGridCardProps> = ({
   habitStreaks = [],
   dailyStatus = [],
 }) => {
-  // If no custom habits, provide mock demonstration habits matching user's aesthetic
-  const displayHabits: HabitStreakStat[] =
-    habitStreaks.length > 0
-      ? habitStreaks
-      : [
-          {
-            taskId: "demo-1",
-            taskTitle: "Séance Musculation",
-            category: "Sport",
-            currentStreak: 5,
-            bestStreak: 8,
-            completionRate7Days: 85,
-            rolling7Days: [
-              { date: "1", dayName: "Lun", isScheduled: true, isCompleted: true },
-              { date: "2", dayName: "Mar", isScheduled: true, isCompleted: true },
-              { date: "3", dayName: "Mer", isScheduled: true, isCompleted: false },
-              { date: "4", dayName: "Jeu", isScheduled: true, isCompleted: true },
-              { date: "5", dayName: "Ven", isScheduled: true, isCompleted: true },
-              { date: "6", dayName: "Sam", isScheduled: true, isCompleted: true },
-              { date: "7", dayName: "Dim", isScheduled: true, isCompleted: true },
-            ],
-          },
-          {
-            taskId: "demo-2",
-            taskTitle: "Méditation 10 min",
-            category: "Santé",
-            currentStreak: 3,
-            bestStreak: 6,
-            completionRate7Days: 71,
-            rolling7Days: [
-              { date: "1", dayName: "Lun", isScheduled: true, isCompleted: true },
-              { date: "2", dayName: "Mar", isScheduled: true, isCompleted: false },
-              { date: "3", dayName: "Mer", isScheduled: true, isCompleted: true },
-              { date: "4", dayName: "Jeu", isScheduled: true, isCompleted: false },
-              { date: "5", dayName: "Ven", isScheduled: true, isCompleted: true },
-              { date: "6", dayName: "Sam", isScheduled: true, isCompleted: true },
-              { date: "7", dayName: "Dim", isScheduled: true, isCompleted: true },
-            ],
-          },
-        ];
-
   return (
     <div className="w-full bg-[#1C1D22] border border-[#282A30] rounded-3xl p-5 shadow-sm space-y-5">
       {/* 1. Card Top Bar: Daily % Performance Summary (sans streak global) */}
       <div>
         <div className="flex items-center justify-between mb-2.5">
           <h3 className="text-base font-bold text-white tracking-tight">
-            Suivi par habitude (Semaine glissante)
+            Suivi par habitude
           </h3>
           <span className="text-xs font-semibold text-[#8E929E]">
-            {displayHabits.length} habitude{displayHabits.length > 1 ? "s" : ""}
+            {habitStreaks.length} habitude{habitStreaks.length > 1 ? "s" : ""}
           </span>
         </div>
 
@@ -82,8 +41,8 @@ export const StreakGridCard: React.FC<StreakGridCardProps> = ({
                     d.completionPercentage >= 100
                       ? "bg-[#D4F63D] text-black shadow-sm"
                       : d.completionPercentage > 0
-                      ? "bg-[#D4F63D]/20 text-[#D4F63D] border border-[#D4F63D]/30"
-                      : "bg-[#202228] text-[#6B7280]"
+                        ? "bg-[#D4F63D]/20 text-[#D4F63D] border border-[#D4F63D]/30"
+                        : "bg-[#202228] text-[#6B7280]"
                   )}
                 >
                   {d.completionPercentage}%
@@ -94,9 +53,20 @@ export const StreakGridCard: React.FC<StreakGridCardProps> = ({
         )}
       </div>
 
-      {/* 2. Habit Rows: Same UI as Série Actuelle with multi-rows */}
-      <div className="space-y-4 pt-1">
-        {displayHabits.map((habit) => (
+      {/* 2. Habit Rows or Empty State */}
+      {habitStreaks.length === 0 ? (
+        <div className="p-6 text-center bg-[#141518] rounded-2xl border border-[#252830] space-y-2">
+          <Sparkles className="w-6 h-6 text-[#D4F63D] mx-auto opacity-80" />
+          <p className="text-xs font-semibold text-white">
+            Ajouter des tâches récurrentes pour pouvoir les suivre
+          </p>
+          <p className="text-[11px] text-[#8E929E]">
+            Créez une habitude quotidienne ou hebdomadaire pour suivre votre progression ici.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-4 pt-1">
+          {habitStreaks.map((habit) => (
           <div
             key={habit.taskId}
             className="p-3.5 bg-[#141518]/90 rounded-2xl border border-[#262932] space-y-3 shadow-sm hover:border-[#353945] transition-colors"
@@ -135,8 +105,8 @@ export const StreakGridCard: React.FC<StreakGridCardProps> = ({
                         isDone
                           ? "bg-[#D4F63D] text-black shadow-sm scale-105"
                           : isScheduled
-                          ? "bg-[#282A30] text-[#6B7280]"
-                          : "bg-[#18191E] border border-[#282A30] text-[#4B5563]"
+                            ? "bg-[#282A30] text-[#6B7280]"
+                            : "bg-[#18191E] border border-[#282A30] text-[#4B5563]"
                       )}
                       title={`${d.dayName}: ${isDone ? "Accomplie" : isScheduled ? "Non faite" : "Non planifiée"}`}
                     >
@@ -159,6 +129,7 @@ export const StreakGridCard: React.FC<StreakGridCardProps> = ({
           </div>
         ))}
       </div>
+      )}
     </div>
   );
 };
