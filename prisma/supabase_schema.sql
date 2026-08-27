@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS public.projects (
     name TEXT NOT NULL,
     color TEXT DEFAULT '#D4F63D',
     columns JSONB,
+    categories JSONB DEFAULT '[]'::jsonb,
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
@@ -46,7 +47,9 @@ CREATE TABLE IF NOT EXISTS public.tasks (
     user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
     description TEXT,
-    category TEXT DEFAULT 'General' NOT NULL,
+    tag TEXT DEFAULT 'General' NOT NULL,
+    category TEXT DEFAULT 'General',
+    project_category TEXT,
     start_time TEXT,
     end_time TEXT,
     deadline TEXT,

@@ -60,6 +60,7 @@ export async function createDbTask(
     targetId = session?.user?.id || getEffectiveUserId();
   }
 
+  const taskTag = task.tag || task.category || "General";
   const taskOverrides = {
     ...(task.dateOverrides || {}),
     _enableReminders:
@@ -70,6 +71,7 @@ export async function createDbTask(
         : 10,
     _reminderTimes: task.reminderTimes || ["11:00", "18:00"],
     _projectCategory: task.projectCategory || null,
+    _tag: taskTag,
   };
 
   const taskDate = (task as any).date || getTodayDateString();
@@ -88,7 +90,8 @@ export async function createDbTask(
     user_id: targetId,
     title: task.title,
     description: task.description || null,
-    category: task.category || "General",
+    tag: taskTag,
+    category: taskTag,
     start_time: utcStartTime,
     end_time: utcEndTime,
     deadline: task.deadline || null,
@@ -154,7 +157,8 @@ export async function createDbTask(
     userId: targetId,
     title: task.title,
     description: task.description || null,
-    category: task.category || "General",
+    tag: taskTag,
+    category: taskTag,
     startTime: task.startTime || null,
     endTime: task.endTime || null,
     deadline: task.deadline || null,
@@ -251,7 +255,13 @@ export async function updateDbTask(
   if (updates.title !== undefined) dbUpdates.title = updates.title;
   if (updates.description !== undefined)
     dbUpdates.description = updates.description || null;
-  if (updates.category !== undefined) dbUpdates.category = updates.category;
+  if (updates.tag !== undefined) {
+    dbUpdates.tag = updates.tag;
+    dbUpdates.category = updates.tag;
+  } else if (updates.category !== undefined) {
+    dbUpdates.tag = updates.category;
+    dbUpdates.category = updates.category;
+  }
   if (updates.startTime !== undefined)
     dbUpdates.start_time = updates.startTime
       ? convertLocalTimeToUtc(updates.startTime, updates.date)
@@ -364,8 +374,18 @@ export async function updateDbTask(
       updates.description !== undefined
         ? updates.description || null
         : baseTask.description,
+    tag:
+      updates.tag !== undefined
+        ? updates.tag
+        : updates.category !== undefined
+        ? updates.category
+        : baseTask.tag || baseTask.category || "General",
     category:
-      updates.category !== undefined ? updates.category : baseTask.category,
+      updates.tag !== undefined
+        ? updates.tag
+        : updates.category !== undefined
+        ? updates.category
+        : baseTask.tag || baseTask.category || "General",
     startTime:
       updates.startTime !== undefined
         ? updates.startTime || null

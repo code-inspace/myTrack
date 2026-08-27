@@ -17,6 +17,9 @@ export interface Task {
   userId: string;
   title: string;
   description?: string | null;
+  /** Global tag (historical category) */
+  tag?: string;
+  /** Compatibility alias for tag */
   category: string;
   startTime?: string | null; // "07:00"
   endTime?: string | null;   // "08:00"

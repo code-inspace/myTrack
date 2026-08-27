@@ -5,6 +5,7 @@ import { isTaskScheduledForDate } from "@/lib/dates";
 export interface TaskRecord {
   id: string;
   title: string;
+  tag?: string;
   category: string;
   recurrence: "ONCE" | "DAILY" | "WEEKDAYS" | "WEEKLY" | "CUSTOM";
   recurrenceConfig?: { days?: number[] } | null;
@@ -186,7 +187,7 @@ export function calculateHabitStreakStats(
     return {
       taskId: task.id,
       taskTitle: task.title,
-      category: task.category || "General",
+      category: (task as any).tag || task.category || "General",
       currentStreak,
       bestStreak: Math.max(currentStreak, 1),
       rolling7Days,

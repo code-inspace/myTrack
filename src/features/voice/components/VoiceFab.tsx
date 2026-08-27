@@ -24,7 +24,8 @@ export const VoiceFab: React.FC<VoiceFabProps> = ({ selectedDate, allTasks, onNe
       createTask.mutate({
         title: task.title,
         description: task.description,
-        category: task.category || "General",
+        tag: task.tag || task.category || "General",
+        category: task.tag || task.category || "General",
         trackingType: task.trackingType || "BOOLEAN",
         recurrence: task.recurrence || "ONCE",
         recurrenceConfig: task.recurrenceConfig,

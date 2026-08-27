@@ -126,6 +126,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
 
     createTask.mutate({
       title: quickTitle.trim(),
+      tag: "General",
       category: "General",
       trackingType: "BOOLEAN",
       recurrence: "ONCE",

@@ -24,7 +24,9 @@ export function useTaskForm({
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [category, setCategory] = useState("General");
+  const [tag, setTag] = useState("General");
+  const category = tag;
+  const setCategory = setTag;
   const [trackingType, setTrackingType] = useState<
     "BOOLEAN" | "NUMBER" | "DURATION" | "QUANTITY"
   >("BOOLEAN");
@@ -167,7 +169,8 @@ export function useTaskForm({
   const buildFormValues = (): TaskFormValues => ({
     title: title.trim(),
     description: description.trim() || undefined,
-    category,
+    tag,
+    category: tag,
     trackingType,
     targetValue: trackingType !== "BOOLEAN" ? targetValue : undefined,
     unit: trackingType !== "BOOLEAN" ? unit || "reps" : undefined,
@@ -305,6 +308,8 @@ export function useTaskForm({
     setTitle,
     description,
     setDescription,
+    tag,
+    setTag,
     category,
     setCategory,
     trackingType,

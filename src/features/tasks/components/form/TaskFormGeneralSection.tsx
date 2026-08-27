@@ -17,7 +17,7 @@ import {
   PRIORITY_OPTIONS,
   getPriorityIconColorClass,
 } from "@/features/tasks/priority";
-import { TASK_CATEGORIES, TRACKING_TYPE_OPTIONS } from "@/features/tasks/options";
+import { TASK_TAGS, TRACKING_TYPE_OPTIONS } from "@/features/tasks/options";
 import { useProjects, useProjectMutations } from "@/features/projects/hooks";
 import { getProjectColumns } from "@/features/projects/types";
 
@@ -55,8 +55,8 @@ export const TaskFormGeneralSection: React.FC<TaskFormGeneralSectionProps> = ({
     setNewCategoryInput("");
   };
 
-  const currentCategoryObj =
-    TASK_CATEGORIES.find((c) => c.id === form.category) || TASK_CATEGORIES[0];
+  const currentTagObj =
+    TASK_TAGS.find((c) => c.id === form.category) || TASK_TAGS[0];
   const currentTrackingObj =
     TRACKING_TYPE_OPTIONS.find((t) => t.id === form.trackingType) ||
     TRACKING_TYPE_OPTIONS[0];
@@ -196,7 +196,7 @@ export const TaskFormGeneralSection: React.FC<TaskFormGeneralSectionProps> = ({
         )}
       </div>
 
-      {/* Accordion: Catégorie */}
+      {/* Accordion: Tags */}
       <div className="rounded-2xl bg-[#22242B] border border-[#2F323E] overflow-hidden transition-all">
         <button
           type="button"
@@ -205,11 +205,11 @@ export const TaskFormGeneralSection: React.FC<TaskFormGeneralSectionProps> = ({
         >
           <div className="flex items-center gap-2.5">
             <Tag className="w-4 h-4 text-[#D4F63D]" />
-            <span className="text-xs font-bold text-white">Catégorie</span>
+            <span className="text-xs font-bold text-white">Tags</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-[#17181D] text-[#D4F63D] border border-[#2E323E]">
-              {currentCategoryObj.label.split(" ")[0]}
+              {currentTagObj.label.split(" ")[0]}
             </span>
             <ChevronDown
               className={cn(
@@ -222,22 +222,22 @@ export const TaskFormGeneralSection: React.FC<TaskFormGeneralSectionProps> = ({
 
         {form.expandedSections.category && (
           <div className="p-2.5 pt-1 border-t border-[#2B2E39] grid grid-cols-3 gap-2 animate-in fade-in duration-150">
-            {TASK_CATEGORIES.map((cat) => (
+            {TASK_TAGS.map((tagItem) => (
               <button
                 type="button"
-                key={cat.id}
+                key={tagItem.id}
                 onClick={() => {
-                  form.setCategory(cat.id);
+                  form.setCategory(tagItem.id);
                   form.toggleSection("category");
                 }}
                 className={cn(
                   "px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all text-center truncate cursor-pointer",
-                  form.category === cat.id
+                  form.category === tagItem.id
                     ? "bg-[#D4F63D]/15 border-[#D4F63D] text-[#D4F63D]"
                     : "bg-[#1C1D22] border-[#343740] text-[#9CA3AF] hover:border-[#4B5563]",
                 )}
               >
-                {cat.label.split(" ")[0]}
+                {tagItem.label.split(" ")[0]}
               </button>
             ))}
           </div>

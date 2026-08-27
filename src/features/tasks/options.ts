@@ -1,4 +1,4 @@
-export const TASK_CATEGORIES = [
+export const TASK_TAGS = [
   { id: "General", label: "Général", icon: "CheckCircle", color: "#9CA3AF" },
   { id: "Fitness", label: "Fitness & Sport", icon: "Dumbbell", color: "#D4F63D" },
   { id: "Health", label: "Santé & Nutrition", icon: "Heart", color: "#34D399" },
@@ -6,6 +6,8 @@ export const TASK_CATEGORIES = [
   { id: "Learning", label: "Apprentissage & Lecture", icon: "BookOpen", color: "#F472B6" },
   { id: "Mindfulness", label: "Méditation & Sommeil", icon: "Sparkles", color: "#A78BFA" },
 ] as const;
+
+export const TASK_CATEGORIES = TASK_TAGS;
 
 export const TRACKING_TYPE_OPTIONS = [
   { id: "BOOLEAN", label: "Validation simple", description: "Fait ou non fait", defaultUnit: null },

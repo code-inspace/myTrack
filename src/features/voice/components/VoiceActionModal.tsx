@@ -34,11 +34,16 @@ const RECURRENCE_LABEL_MAP: Record<string, string> = {
   ONCE: "1 fois",
 };
 
-const CATEGORY_COLORS: Record<string, string> = {
+const TAG_COLORS: Record<string, string> = {
+  Fitness: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
   Sport: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+  Health: "bg-purple-500/15 text-purple-400 border-purple-500/30",
   Santé: "bg-purple-500/15 text-purple-400 border-purple-500/30",
+  Productivity: "bg-blue-500/15 text-blue-400 border-blue-500/30",
   Travail: "bg-blue-500/15 text-blue-400 border-blue-500/30",
+  Learning: "bg-orange-500/15 text-orange-400 border-orange-500/30",
   Apprentissage: "bg-orange-500/15 text-orange-400 border-orange-500/30",
+  Mindfulness: "bg-purple-500/15 text-purple-400 border-purple-500/30",
   General: "bg-gray-500/15 text-gray-300 border-gray-500/30",
 };
 
@@ -432,10 +437,10 @@ export const VoiceActionModal: React.FC<VoiceActionModalProps> = ({
                       <span
                         className={cn(
                           "text-[10px] px-2 py-0.2 rounded-md font-semibold border flex-shrink-0",
-                          CATEGORY_COLORS[action.task.category] || CATEGORY_COLORS.General
+                          TAG_COLORS[action.task.tag || action.task.category] || TAG_COLORS.General
                         )}
                       >
-                        {action.task.category}
+                        {action.task.tag || action.task.category}
                       </span>
                     </div>
 

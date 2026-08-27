@@ -103,11 +103,11 @@ export const MonthlyHabitCalendar: React.FC<MonthlyHabitCalendarProps> = ({
             <option value="ALL">📊 Toutes les habitudes</option>
             {tasks.map((task) => (
               <option key={task.id} value={task.id}>
-                {task.category === "Sport"
+                {(task.tag === "Sport" || task.tag === "Fitness" || task.category === "Sport" || task.category === "Fitness")
                   ? "🏋️"
-                  : task.category === "Santé"
+                  : (task.tag === "Santé" || task.tag === "Health" || task.category === "Santé" || task.category === "Health")
                   ? "🧘"
-                  : task.category === "Apprentissage"
+                  : (task.tag === "Apprentissage" || task.tag === "Learning" || task.category === "Apprentissage" || task.category === "Learning")
                   ? "📚"
                   : "🎯"}{" "}
                 {task.title}

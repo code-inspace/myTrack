@@ -28,6 +28,7 @@ export interface HabitRollingDay {
 export interface HabitStreakStat {
   taskId: string;
   taskTitle: string;
+  tag?: string;
   category: string;
   currentStreak: number;
   bestStreak: number;

@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import { Task, TaskCompletion } from "@/features/tasks/types";
-import { TASK_CATEGORIES } from "@/features/tasks/options";
+import { TASK_TAGS } from "@/features/tasks/options";
 import { Project, DEFAULT_PROJECT_COLUMNS } from "../types";
 import { BoardColumn, groupTasksByColumn } from "./KanbanBoard";
 import { ArrowLeft } from "lucide-react";
@@ -34,7 +34,7 @@ export const AllProjectsBoardView: React.FC<AllProjectsBoardViewProps> = ({
   onChangeStatus,
 }) => {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
-  const [categoryFilter, setCategoryFilter] = useState("");
+  const [tagFilter, setTagFilter] = useState("");
   const [projectFilter, setProjectFilter] = useState("");
 
   const columns = DEFAULT_PROJECT_COLUMNS;
@@ -44,9 +44,9 @@ export const AllProjectsBoardView: React.FC<AllProjectsBoardViewProps> = ({
   const filteredTasks = useMemo(() => {
     return tasks
       .filter((t) => !t.isArchived)
-      .filter((t) => (categoryFilter ? t.category === categoryFilter : true))
+      .filter((t) => (tagFilter ? (t.tag === tagFilter || t.category === tagFilter) : true))
       .filter((t) => (projectFilter ? t.projectId === projectFilter : true));
-  }, [tasks, categoryFilter, projectFilter]);
+  }, [tasks, tagFilter, projectFilter]);
 
   const tasksByColumn = groupTasksByColumn(filteredTasks, columns, completions);
 
@@ -77,12 +77,12 @@ export const AllProjectsBoardView: React.FC<AllProjectsBoardViewProps> = ({
 
       <div className="flex items-center gap-2 px-4 pb-3">
         <select
-          value={categoryFilter}
-          onChange={(e) => setCategoryFilter(e.target.value)}
+          value={tagFilter}
+          onChange={(e) => setTagFilter(e.target.value)}
           className="flex-1 h-9 px-2.5 rounded-xl bg-[#1C1D22] border border-[#282A30] text-white text-xs outline-none focus:border-[#D4F63D] cursor-pointer"
         >
-          <option value="">Toutes catégories</option>
-          {TASK_CATEGORIES.map((c) => (
+          <option value="">Tous les tags</option>
+          {TASK_TAGS.map((c) => (
             <option key={c.id} value={c.id}>
               {c.label}
             </option>

@@ -54,7 +54,7 @@ export const HistoryTaskCard: React.FC<HistoryTaskCardProps> = ({
         >
           <div className="flex items-center gap-2">
             <span className="text-xs px-2 py-0.5 rounded-md bg-[#252830] text-[#A0A4B0] font-semibold">
-              {task.category || "Général"}
+              {task.tag || task.category || "Général"}
             </span>
             <span className="text-xs text-[#8E929E] font-medium">
               {task.recurrence === "DAILY"

@@ -78,7 +78,7 @@ export const StreakGridCard: React.FC<StreakGridCardProps> = ({
                   {habit.taskTitle}
                 </span>
                 <span className="text-[10px] px-2 py-0.5 rounded-md bg-[#252830] text-[#8E929E] font-semibold flex-shrink-0">
-                  {habit.category}
+                  {habit.tag || habit.category}
                 </span>
               </div>
 

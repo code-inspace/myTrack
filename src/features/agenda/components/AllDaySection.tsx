@@ -16,7 +16,7 @@ interface AllDaySectionProps {
   onSelectTask?: (task: TaskWithCompletion) => void;
 }
 
-const CATEGORY_COLORS: Record<string, { bg: string; text: string; border: string }> = {
+const TAG_COLORS: Record<string, { bg: string; text: string; border: string }> = {
   Fitness: { bg: "bg-[#1E3A2B]", text: "text-[#4ADE80]", border: "border-[#22C55E]/30" },
   Sport: { bg: "bg-[#1E3A2B]", text: "text-[#4ADE80]", border: "border-[#22C55E]/30" },
   Santé: { bg: "bg-[#2E1A47]", text: "text-[#C084FC]", border: "border-[#A855F7]/30" },
@@ -119,7 +119,8 @@ export const AllDaySection: React.FC<AllDaySectionProps> = ({
           </div>
         ) : (
           tasks.map((task) => {
-            const style = CATEGORY_COLORS[task.category] || CATEGORY_COLORS.General;
+            const tagKey = task.tag || task.category || "General";
+            const style = TAG_COLORS[tagKey] || TAG_COLORS.General;
             const isRemindersEnabled = task.enableReminders !== false;
 
             return (

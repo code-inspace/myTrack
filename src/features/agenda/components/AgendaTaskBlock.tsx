@@ -21,7 +21,7 @@ interface AgendaTaskBlockProps {
   onStartResize?: (e: React.PointerEvent, task: TaskWithCompletion) => void;
 }
 
-const CATEGORY_STYLES: Record<string, { bg: string; border: string; bar: string; text: string }> = {
+const TAG_STYLES: Record<string, { bg: string; border: string; bar: string; text: string }> = {
   Fitness: {
     bg: "bg-[#162A20]",
     border: "border-[#22C55E]/40",
@@ -74,7 +74,8 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
   onClick,
   onStartResize,
 }) => {
-  const style = CATEGORY_STYLES[task.category] || CATEGORY_STYLES.General;
+  const tagKey = task.tag || task.category || "General";
+  const style = TAG_STYLES[tagKey] || TAG_STYLES.General;
   const isRecurring = task.recurrence && task.recurrence !== "ONCE";
   const startTime = (task.effectiveStartTime !== undefined ? task.effectiveStartTime : task.startTime) || "09:00";
   const endTime = task.effectiveEndTime !== undefined ? task.effectiveEndTime : task.endTime;
@@ -173,9 +174,9 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
                 ""
               )}
             </span>
-            {task.category && !isNarrow && (
+            {(task.tag || task.category) && !isNarrow && (
               <span className={cn("px-1.5 py-0.2 rounded font-semibold text-[9px]", style.text)}>
-                {task.category}
+                {task.tag || task.category}
               </span>
             )}
           </div>

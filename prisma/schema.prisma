@@ -51,7 +51,11 @@ model Task {
   userId           String
   title            String
   description      String?
-  category         String           @default("General")
+  tag              String           @default("General")
+  category         String?          @default("General")
+  projectCategory  String?
+  projectId        String?
+  projectStatus    String?
   startTime        String?          // e.g. "07:00"
   endTime          String?          // e.g. "08:00"
   recurrence       RecurrenceType   @default(DAILY)

@@ -3,7 +3,8 @@ import { z } from "zod";
 export const TaskFormSchema = z.object({
   title: z.string().min(1, "Task name is required").max(100),
   description: z.string().max(500).optional(),
-  category: z.string().default("General"),
+  tag: z.string().optional().default("General"),
+  category: z.string().optional().default("General"),
   startTime: z.string().optional(),
   endTime: z.string().optional(),
   date: z.string().optional(),

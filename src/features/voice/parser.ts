@@ -80,10 +80,12 @@ export function parseVoiceTranscriptToTasks(
   // otherwise collide with the absolute clock-time heuristics below (e.g. "dans 2 heures").
   const reminder = parseReminderIntent(rawText, new Date());
   if (reminder) {
+    const inferredTag = inferCategoryFromTitle(reminder.title);
     return [
       {
         title: reminder.title,
-        category: inferCategoryFromTitle(reminder.title),
+        tag: inferredTag,
+        category: inferredTag,
         trackingType: "BOOLEAN",
         recurrence: "ONCE",
         startTime: reminder.startTime,
@@ -215,6 +217,7 @@ function parseSingleTaskSegment(
 
   return {
     title,
+    tag: category,
     category,
     trackingType: "BOOLEAN",
     recurrence,
