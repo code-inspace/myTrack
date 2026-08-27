@@ -27,6 +27,7 @@ import {
   Timer,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useNightMode } from "../providers/NightModeProvider";
 
 interface SleepJournalViewProps {
   selectedDate: string;
@@ -387,6 +388,45 @@ export const SleepJournalView: React.FC<SleepJournalViewProps> = ({ selectedDate
           </div>
         )}
       </div>
+
+      {/* ========================================================================= */}
+      {/* 3. ENCART MODE NUIT & APERÇU ÉCRAN SOMMEIL                                */}
+      {/* ========================================================================= */}
+      <div className="bg-gradient-to-br from-[#1B1833] to-[#14151D] border border-[#352F5B] rounded-3xl p-5 shadow-lg space-y-3.5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-[#2A2352] border border-[#483C85] flex items-center justify-center text-[#A78BFA] shadow-sm">
+              <Moon className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-white">Écran Mode Nuit</h3>
+              <p className="text-[11px] text-[#C4B8F5]/80">
+                S&apos;active automatiquement à partir de <strong>{log.bedtime || "23:00"}</strong>
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <p className="text-[11px] text-[#8E929E] leading-relaxed">
+          Dès l&apos;heure de sommeil programmée atteinte, l&apos;écran nuit s&apos;affiche avec l&apos;animation céleste, le suivi du coucher, le réveil et le déverrouillage sécurisé des tâches (maintien de 5 secondes).
+        </p>
+
+        <NightModePreviewButton />
+      </div>
     </div>
+  );
+};
+
+const NightModePreviewButton: React.FC = () => {
+  const { openTestNightMode } = useNightMode();
+  return (
+    <button
+      type="button"
+      onClick={openTestNightMode}
+      className="w-full py-2.5 px-4 rounded-2xl bg-[#2C235A] hover:bg-[#382D72] border border-[#524199] text-[#E9D5FF] font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md active:scale-[0.98]"
+    >
+      <Sparkles className="w-4 h-4 text-[#C084FC]" />
+      <span>Aperçu de l&apos;écran Mode Nuit</span>
+    </button>
   );
 };

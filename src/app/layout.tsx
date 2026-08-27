@@ -70,6 +70,8 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
+import { NightModeProvider } from "@/features/sleep/providers/NightModeProvider";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -93,20 +95,22 @@ export default function RootLayout({
           <AuthProvider>
             <OneSignalProvider>
               <NotificationWatcherProvider>
-                <DisplayModeProvider>
-                  <AuthGuard>
-                    {/* Desktop Floating Left Sidebar */}
-                    <DesktopSidebar />
+                <NightModeProvider>
+                  <DisplayModeProvider>
+                    <AuthGuard>
+                      {/* Desktop Floating Left Sidebar */}
+                      <DesktopSidebar />
 
-                    {/* Main App Container: mobile max-w-md, desktop expands to fill remainder of screen */}
-                    <main className="w-full max-w-md md:max-w-none md:flex-1 h-screen max-h-screen flex flex-col safe-top relative overflow-hidden">
-                      {children}
-                    </main>
+                      {/* Main App Container: mobile max-w-md, desktop expands to fill remainder of screen */}
+                      <main className="w-full max-w-md md:max-w-none md:flex-1 h-screen max-h-screen flex flex-col safe-top relative overflow-hidden">
+                        {children}
+                      </main>
 
-                    {/* Fixed Thumb-friendly Navigation on Mobile */}
-                    <BottomNav />
-                  </AuthGuard>
-                </DisplayModeProvider>
+                      {/* Fixed Thumb-friendly Navigation on Mobile */}
+                      <BottomNav />
+                    </AuthGuard>
+                  </DisplayModeProvider>
+                </NightModeProvider>
               </NotificationWatcherProvider>
             </OneSignalProvider>
           </AuthProvider>
