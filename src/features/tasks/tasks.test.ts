@@ -177,4 +177,113 @@ describe("Tasks Feature Logic", () => {
     expect(positions[3].leftPercent).toBe(75);
     expect(positions.every((p) => p.widthPercent === 25)).toBe(true);
   });
+
+  describe("Kanban Done Column and Period Filter Logic", () => {
+    const columns = [
+      { id: "TODO", label: "À faire" },
+      { id: "IN_PROGRESS", label: "En cours" },
+      { id: "DONE", label: "Fait", isDone: true },
+    ];
+
+    it("places completed tasks strictly into Done column", async () => {
+      const { groupTasksByColumn } = await import("@/features/projects/components/KanbanBoard");
+      const task1: Task = {
+        id: "t1",
+        userId: "u1",
+        title: "Completed Task",
+        category: "General",
+        projectStatus: "TODO",
+        recurrence: "ONCE",
+        trackingType: "BOOLEAN",
+        isActive: false,
+        isArchived: false,
+        createdAt: "2026-08-27T12:00:00.000Z",
+        updatedAt: "2026-08-27T12:00:00.000Z",
+      };
+
+      const completions: TaskCompletion[] = [
+        {
+          id: "c1",
+          taskId: "t1",
+          userId: "u1",
+          date: "2026-08-27",
+          completed: true,
+          createdAt: "2026-08-27T12:00:00.000Z",
+          updatedAt: "2026-08-27T12:00:00.000Z",
+        },
+      ];
+
+      const groups = groupTasksByColumn([task1], columns, completions);
+      expect(groups.get("DONE")?.length).toBe(1);
+      expect(groups.get("TODO")?.length).toBe(0);
+    });
+
+    it("filters done tasks by rolling period (1d, 7d, 30d)", async () => {
+      const { isTaskDoneInPeriod } = await import("@/features/projects/components/KanbanBoard");
+      const baseTask: Task = {
+        id: "t1",
+        userId: "u1",
+        title: "Test Task",
+        category: "General",
+        projectStatus: "DONE",
+        recurrence: "ONCE",
+        trackingType: "BOOLEAN",
+        isActive: false,
+        isArchived: false,
+        createdAt: "2026-08-27T12:00:00.000Z",
+        updatedAt: "2026-08-27T12:00:00.000Z",
+      };
+
+      // Completed today (2026-08-27)
+      const completionsToday: TaskCompletion[] = [
+        {
+          id: "c1",
+          taskId: "t1",
+          userId: "u1",
+          date: "2026-08-27",
+          completed: true,
+          createdAt: "2026-08-27T12:00:00.000Z",
+          updatedAt: "2026-08-27T12:00:00.000Z",
+        },
+      ];
+
+      expect(isTaskDoneInPeriod(baseTask, completionsToday, "1d", "2026-08-27")).toBe(true);
+      expect(isTaskDoneInPeriod(baseTask, completionsToday, "7d", "2026-08-27")).toBe(true);
+      expect(isTaskDoneInPeriod(baseTask, completionsToday, "30d", "2026-08-27")).toBe(true);
+
+      // Completed 4 days ago (2026-08-23)
+      const completions4DaysAgo: TaskCompletion[] = [
+        {
+          id: "c2",
+          taskId: "t1",
+          userId: "u1",
+          date: "2026-08-23",
+          completed: true,
+          createdAt: "2026-08-23T12:00:00.000Z",
+          updatedAt: "2026-08-23T12:00:00.000Z",
+        },
+      ];
+
+      expect(isTaskDoneInPeriod(baseTask, completions4DaysAgo, "1d", "2026-08-27")).toBe(false);
+      expect(isTaskDoneInPeriod(baseTask, completions4DaysAgo, "7d", "2026-08-27")).toBe(true);
+      expect(isTaskDoneInPeriod(baseTask, completions4DaysAgo, "30d", "2026-08-27")).toBe(true);
+
+      // Completed 15 days ago (2026-08-12)
+      const completions15DaysAgo: TaskCompletion[] = [
+        {
+          id: "c3",
+          taskId: "t1",
+          userId: "u1",
+          date: "2026-08-12",
+          completed: true,
+          createdAt: "2026-08-12T12:00:00.000Z",
+          updatedAt: "2026-08-12T12:00:00.000Z",
+        },
+      ];
+
+      expect(isTaskDoneInPeriod(baseTask, completions15DaysAgo, "1d", "2026-08-27")).toBe(false);
+      expect(isTaskDoneInPeriod(baseTask, completions15DaysAgo, "7d", "2026-08-27")).toBe(false);
+      expect(isTaskDoneInPeriod(baseTask, completions15DaysAgo, "30d", "2026-08-27")).toBe(true);
+    });
+  });
 });

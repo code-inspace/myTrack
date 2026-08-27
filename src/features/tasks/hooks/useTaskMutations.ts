@@ -86,6 +86,7 @@ export function useTaskMutations() {
           return {
             ...t,
             ...values,
+            ...(values.date ? { createdAt: `${values.date}T12:00:00.000Z` } : {}),
             dateOverrides: {
               ...(t.dateOverrides || {}),
               ...(values.enableReminders !== undefined
@@ -313,25 +314,34 @@ export function useTaskMutations() {
       );
       const newStatus = existing ? !existing.completed : true;
 
-      // Optimistically update tasks: if task belongs to a project, update projectStatus
+      // Optimistically update tasks: update projectStatus
       const targetTask = prevTasks?.find((t) => t.id === taskId);
-      if (targetTask?.projectId) {
-        const projects = getStoredProjects(userId);
-        const project = projects.find((p) => p.id === targetTask.projectId);
-        const columns = project ? getProjectColumns(project) : DEFAULT_PROJECT_COLUMNS;
-        const doneColumn =
-          columns.find((c) => c.isDone) ||
-          columns[columns.length - 1] ||
-          DEFAULT_PROJECT_COLUMNS[DEFAULT_PROJECT_COLUMNS.length - 1];
-        const firstColumn = columns[0] || DEFAULT_PROJECT_COLUMNS[0];
+      if (targetTask) {
+        if (targetTask.projectId) {
+          const projects = getStoredProjects(userId);
+          const project = projects.find((p) => p.id === targetTask.projectId);
+          const columns = project ? getProjectColumns(project) : DEFAULT_PROJECT_COLUMNS;
+          const doneColumn =
+            columns.find((c) => c.isDone) ||
+            columns[columns.length - 1] ||
+            DEFAULT_PROJECT_COLUMNS[DEFAULT_PROJECT_COLUMNS.length - 1];
+          const firstColumn = columns[0] || DEFAULT_PROJECT_COLUMNS[0];
 
-        const targetStatus = newStatus ? doneColumn.id : firstColumn.id;
+          const targetStatus = newStatus ? doneColumn.id : firstColumn.id;
 
-        queryClient.setQueryData<Task[]>(["tasks", userId], (old = []) =>
-          old.map((t) =>
-            t.id === taskId ? { ...t, projectStatus: targetStatus } : t,
-          ),
-        );
+          queryClient.setQueryData<Task[]>(["tasks", userId], (old = []) =>
+            old.map((t) =>
+              t.id === taskId ? { ...t, projectStatus: targetStatus } : t,
+            ),
+          );
+        } else {
+          const targetStatus = newStatus ? "DONE" : "TODO";
+          queryClient.setQueryData<Task[]>(["tasks", userId], (old = []) =>
+            old.map((t) =>
+              t.id === taskId ? { ...t, projectStatus: targetStatus } : t,
+            ),
+          );
+        }
       }
 
       // Optimistically update completions
@@ -395,11 +405,17 @@ export function useTaskMutations() {
     mutationFn: async ({ taskId, date }: { taskId: string; date: string }) => {
       await closeTaskAsCompleted(taskId, date, userId);
     },
-    onMutate: async ({ taskId }) => {
+    onMutate: async ({ taskId, date }) => {
       await queryClient.cancelQueries({ queryKey: ["tasks", userId] });
+      await queryClient.cancelQueries({ queryKey: ["completions", userId] });
       const prevTasks = queryClient.getQueryData<Task[]>(["tasks", userId]);
+      const prevCompletions = queryClient.getQueryData<TaskCompletion[]>([
+        "completions",
+        userId,
+      ]);
 
       const targetTask = prevTasks?.find((t) => t.id === taskId);
+      let targetDoneStatus = "DONE";
       if (targetTask?.projectId) {
         const projects = getStoredProjects(userId);
         const project = projects.find((p) => p.id === targetTask.projectId);
@@ -408,19 +424,54 @@ export function useTaskMutations() {
           columns.find((c) => c.isDone) ||
           columns[columns.length - 1] ||
           DEFAULT_PROJECT_COLUMNS[DEFAULT_PROJECT_COLUMNS.length - 1];
-
-        queryClient.setQueryData<Task[]>(["tasks", userId], (old = []) =>
-          old.map((t) =>
-            t.id === taskId ? { ...t, projectStatus: doneColumn.id } : t,
-          ),
-        );
+        targetDoneStatus = doneColumn.id;
       }
 
-      return { prevTasks };
+      queryClient.setQueryData<Task[]>(["tasks", userId], (old = []) =>
+        old.map((t) =>
+          t.id === taskId ? { ...t, projectStatus: targetDoneStatus } : t,
+        ),
+      );
+
+      queryClient.setQueryData<TaskCompletion[]>(
+        ["completions", userId],
+        (old = []) => {
+          const exists = old.some((c) => c.taskId === taskId && c.date === date);
+          if (exists) {
+            return old.map((c) =>
+              c.taskId === taskId && c.date === date ? { ...c, completed: true } : c,
+            );
+          }
+          return [
+            {
+              id: "comp-" + Date.now(),
+              taskId,
+              userId,
+              date,
+              completed: true,
+              value: null,
+              duration: null,
+              notes: null,
+              scheduledStartTime: null,
+              scheduledEndTime: null,
+              actualStartTime: null,
+              actualEndTime: null,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            },
+            ...old,
+          ];
+        },
+      );
+
+      return { prevTasks, prevCompletions };
     },
     onError: (_err, _vars, context) => {
       if (context?.prevTasks) {
         queryClient.setQueryData(["tasks", userId], context.prevTasks);
+      }
+      if (context?.prevCompletions) {
+        queryClient.setQueryData(["completions", userId], context.prevCompletions);
       }
     },
     onSettled: () => {
@@ -434,40 +485,65 @@ export function useTaskMutations() {
       taskId,
       date,
       skipProjectStatusReset,
+      reopenAllDates,
     }: {
       taskId: string;
       date: string;
       skipProjectStatusReset?: boolean;
+      reopenAllDates?: boolean;
     }) => {
       await reopenTaskAsIncomplete(taskId, date, userId, {
         skipProjectStatusReset,
+        reopenAllDates,
       });
     },
-    onMutate: async ({ taskId, skipProjectStatusReset }) => {
-      if (skipProjectStatusReset) return;
-
+    onMutate: async ({ taskId, skipProjectStatusReset, reopenAllDates, date }) => {
       await queryClient.cancelQueries({ queryKey: ["tasks", userId] });
+      await queryClient.cancelQueries({ queryKey: ["completions", userId] });
       const prevTasks = queryClient.getQueryData<Task[]>(["tasks", userId]);
+      const prevCompletions = queryClient.getQueryData<TaskCompletion[]>([
+        "completions",
+        userId,
+      ]);
 
-      const targetTask = prevTasks?.find((t) => t.id === taskId);
-      if (targetTask?.projectId) {
-        const projects = getStoredProjects(userId);
-        const project = projects.find((p) => p.id === targetTask.projectId);
-        const columns = project ? getProjectColumns(project) : DEFAULT_PROJECT_COLUMNS;
-        const firstColumn = columns[0] || DEFAULT_PROJECT_COLUMNS[0];
+      if (!skipProjectStatusReset) {
+        const targetTask = prevTasks?.find((t) => t.id === taskId);
+        let firstColumnId = "TODO";
+        if (targetTask?.projectId) {
+          const projects = getStoredProjects(userId);
+          const project = projects.find((p) => p.id === targetTask.projectId);
+          const columns = project ? getProjectColumns(project) : DEFAULT_PROJECT_COLUMNS;
+          const firstColumn = columns[0] || DEFAULT_PROJECT_COLUMNS[0];
+          firstColumnId = firstColumn.id;
+        }
 
         queryClient.setQueryData<Task[]>(["tasks", userId], (old = []) =>
           old.map((t) =>
-            t.id === taskId ? { ...t, projectStatus: firstColumn.id } : t,
+            t.id === taskId ? { ...t, projectStatus: firstColumnId } : t,
           ),
         );
       }
 
-      return { prevTasks };
+      // Optimistically uncomplete records in cache
+      queryClient.setQueryData<TaskCompletion[]>(
+        ["completions", userId],
+        (old = []) =>
+          old.map((c) => {
+            if (c.taskId === taskId && (reopenAllDates || c.date === date)) {
+              return { ...c, completed: false, actualStartTime: null, actualEndTime: null };
+            }
+            return c;
+          }),
+      );
+
+      return { prevTasks, prevCompletions };
     },
     onError: (_err, _vars, context) => {
       if (context?.prevTasks) {
         queryClient.setQueryData(["tasks", userId], context.prevTasks);
+      }
+      if (context?.prevCompletions) {
+        queryClient.setQueryData(["completions", userId], context.prevCompletions);
       }
     },
     onSettled: () => {
@@ -475,7 +551,6 @@ export function useTaskMutations() {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
     },
   });
-
 
   const updateCompletionValue = useMutation({
     mutationFn: async ({
@@ -496,9 +571,11 @@ export function useTaskMutations() {
         duration: null,
         notes: null,
       });
+      await syncProjectStatusToDoneColumn(taskId, userId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["completions"] });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
     },
   });
 

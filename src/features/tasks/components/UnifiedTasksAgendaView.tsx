@@ -280,6 +280,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
             <div className="flex-1 min-h-0 flex flex-col px-6 py-4 overflow-hidden">
               <ProjectsView
                 allTasks={allTasks}
+                completions={allCompletions}
                 onEditTask={(t) => {
                   setEditingTask(t);
                   setIsTaskModalOpen(true);
@@ -382,6 +383,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
             /* PROJETS TAB */
             <ProjectsView
               allTasks={allTasks}
+              completions={allCompletions}
               onEditTask={(t) => {
                 setEditingTask(t);
                 setIsTaskModalOpen(true);

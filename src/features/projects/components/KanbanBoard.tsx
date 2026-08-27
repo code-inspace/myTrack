@@ -1,16 +1,60 @@
 "use client";
 
-import React from "react";
-import { Task } from "@/features/tasks/types";
+import React, { useState } from "react";
+import { Task, TaskCompletion } from "@/features/tasks/types";
 import { ProjectColumn } from "../types";
 import { GripVertical, Flame, CheckCircle2, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getPriorityCardClass, getPriorityTitleClass, getPriorityIconColorClass } from "@/features/tasks/priority";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
+import { getTodayDateString } from "@/lib/dates";
+import { format, parseISO, subDays } from "date-fns";
 
 export interface ProjectBadge {
   name: string;
   color: string;
+}
+
+export type DonePeriodFilter = "1d" | "7d" | "30d";
+
+export function isTaskDoneInPeriod(
+  task: Task,
+  completions: TaskCompletion[] | undefined,
+  period: DonePeriodFilter,
+  todayStr: string = getTodayDateString(),
+): boolean {
+  const today = parseISO(todayStr);
+  const cutoff7d = format(subDays(today, 6), "yyyy-MM-dd");
+  const cutoff30d = format(subDays(today, 29), "yyyy-MM-dd");
+
+  const completedEntries = completions?.filter(
+    (c) => c.taskId === task.id && c.completed,
+  );
+
+  if (completedEntries && completedEntries.length > 0) {
+    if (period === "1d") {
+      return completedEntries.some((c) => c.date === todayStr);
+    }
+    if (period === "7d") {
+      return completedEntries.some((c) => c.date >= cutoff7d && c.date <= todayStr);
+    }
+    if (period === "30d") {
+      return completedEntries.some((c) => c.date >= cutoff30d && c.date <= todayStr);
+    }
+  }
+
+  // Fallback for tasks marked done directly without completion rows or legacy records
+  const dateStr = (task.updatedAt || task.createdAt || todayStr).split("T")[0];
+  if (period === "1d") {
+    return dateStr === todayStr;
+  }
+  if (period === "7d") {
+    return dateStr >= cutoff7d && dateStr <= todayStr;
+  }
+  if (period === "30d") {
+    return dateStr >= cutoff30d && dateStr <= todayStr;
+  }
+  return true;
 }
 
 export const BoardCard: React.FC<{
@@ -76,8 +120,14 @@ export const BoardColumn: React.FC<{
   tasks: Task[];
   onEditTask: (task: Task) => void;
   getBadge?: (task: Task) => ProjectBadge | null;
-}> = ({ column, tasks, onEditTask, getBadge }) => {
+  completions?: TaskCompletion[];
+}> = ({ column, tasks, onEditTask, getBadge, completions }) => {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
+  const [donePeriod, setDonePeriod] = useState<DonePeriodFilter>("1d");
+
+  const displayedTasks = column.isDone
+    ? tasks.filter((t) => isTaskDoneInPeriod(t, completions, donePeriod))
+    : tasks;
 
   return (
     <div
@@ -87,44 +137,108 @@ export const BoardColumn: React.FC<{
         isOver ? "border-[#D4F63D]" : "border-[#23242A]"
       )}
     >
-      <div className="flex items-center justify-between px-1 pb-1 flex-shrink-0">
-        <span className="text-xs font-bold text-white truncate flex items-center gap-1">
+      <div className="flex items-center justify-between px-1 pb-1.5 flex-shrink-0">
+        <span className="text-xs font-bold text-white truncate flex items-center gap-1.5">
           {column.isDone && <CheckCircle2 className="w-3.5 h-3.5 text-[#D4F63D] flex-shrink-0" />}
           {column.label}
         </span>
         <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#22242B] text-[#8E929E] flex-shrink-0">
-          {tasks.length}
+          {displayedTasks.length}
         </span>
       </div>
-      {tasks.length > 0 && (
+
+      {column.isDone && (
+        <div className="flex items-center gap-1 p-0.5 mb-2 bg-[#101114] rounded-lg border border-[#23242A] flex-shrink-0">
+          <button
+            type="button"
+            onClick={() => setDonePeriod("1d")}
+            className={cn(
+              "flex-1 py-1 text-[10px] font-medium rounded-md transition-all text-center cursor-pointer",
+              donePeriod === "1d"
+                ? "bg-[#22242B] text-[#D4F63D] font-bold shadow-sm"
+                : "text-[#8E929E] hover:text-white"
+            )}
+          >
+            Jour
+          </button>
+          <button
+            type="button"
+            onClick={() => setDonePeriod("7d")}
+            className={cn(
+              "flex-1 py-1 text-[10px] font-medium rounded-md transition-all text-center cursor-pointer",
+              donePeriod === "7d"
+                ? "bg-[#22242B] text-[#D4F63D] font-bold shadow-sm"
+                : "text-[#8E929E] hover:text-white"
+            )}
+          >
+            7 jours
+          </button>
+          <button
+            type="button"
+            onClick={() => setDonePeriod("30d")}
+            className={cn(
+              "flex-1 py-1 text-[10px] font-medium rounded-md transition-all text-center cursor-pointer",
+              donePeriod === "30d"
+                ? "bg-[#22242B] text-[#D4F63D] font-bold shadow-sm"
+                : "text-[#8E929E] hover:text-white"
+            )}
+          >
+            30 jours
+          </button>
+        </div>
+      )}
+
+      {displayedTasks.length > 0 ? (
         <div className="min-h-0 overflow-y-auto overscroll-contain space-y-2 p-0.5 -m-0.5">
-          {tasks.map((task) => (
+          {displayedTasks.map((task) => (
             <BoardCard key={task.id} task={task} onEditTask={onEditTask} projectBadge={getBadge?.(task) ?? null} />
           ))}
         </div>
+      ) : (
+        column.isDone && (
+          <div className="text-[11px] text-[#6B7280] text-center py-6 italic">
+            Aucune tâche terminée
+          </div>
+        )
       )}
     </div>
   );
 };
 
 /**
- * Groups tasks by column id: the first column also absorbs tasks whose stored status doesn't
- * match any of the given columns (e.g. an orphaned status after a column was renamed/removed,
- * or — on an aggregated board — a task assigned to a project with a different custom scheme).
+ * Groups tasks by column id:
+ * - Completed tasks are strictly placed in the done column.
+ * - Tasks whose stored status doesn't match any given column fall into the first column.
  */
-export function groupTasksByColumn(tasks: Task[], columns: ProjectColumn[]): Map<string, Task[]> {
+export function groupTasksByColumn(
+  tasks: Task[],
+  columns: ProjectColumn[],
+  completions?: TaskCompletion[],
+): Map<string, Task[]> {
   const columnIds = new Set(columns.map((c) => c.id));
   const doneColumn = columns.find((c) => c.isDone) || columns[columns.length - 1];
   const firstColumn = columns[0];
   const groups = new Map<string, Task[]>(columns.map((c) => [c.id, []]));
 
   tasks.forEach((task) => {
-    let status = task.projectStatus;
-    // If task has status "DONE" but the board uses a custom done column id (like "TERMINE")
-    if (status === "DONE" && doneColumn && !columnIds.has("DONE")) {
-      status = doneColumn.id;
+    const isCompleted = Boolean(
+      completions?.some((c) => c.taskId === task.id && c.completed) ||
+      task.projectStatus === "DONE" ||
+      (doneColumn && task.projectStatus === doneColumn.id),
+    );
+
+    let bucket: string | undefined;
+
+    if (isCompleted && doneColumn) {
+      bucket = doneColumn.id;
+    } else {
+      let status = task.projectStatus;
+      if (status === "DONE" && doneColumn && !columnIds.has("DONE")) {
+        status = doneColumn.id;
+      }
+      bucket = status && columnIds.has(status) ? status : firstColumn?.id;
     }
-    const bucket = status && columnIds.has(status) ? status : firstColumn?.id;
+
     if (bucket && groups.has(bucket)) {
       groups.get(bucket)!.push(task);
     }

@@ -222,7 +222,11 @@ export async function updateDbTask(
   const target = tasks.find((t) => t.id === taskId);
   const nowIso = new Date().toISOString();
 
-  const currentOverrides = target?.dateOverrides || {};
+  const currentOverrides = { ...(target?.dateOverrides || {}) };
+  if (updates.date && currentOverrides[updates.date]?.skipped) {
+    delete currentOverrides[updates.date];
+  }
+
   const newOverrides = {
     ...currentOverrides,
     ...(updates.enableReminders !== undefined

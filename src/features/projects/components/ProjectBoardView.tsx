@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Task } from "@/features/tasks/types";
+import { Task, TaskCompletion } from "@/features/tasks/types";
 import { Project, getProjectColumns } from "../types";
 import { ArrowLeft } from "lucide-react";
 import { BoardColumn, groupTasksByColumn } from "./KanbanBoard";
@@ -16,6 +16,7 @@ import {
 interface ProjectBoardViewProps {
   project: Project;
   tasks: Task[];
+  completions?: TaskCompletion[];
   onBack: () => void;
   onEditTask: (task: Task) => void;
   onChangeStatus: (taskId: string, status: string, isDoneColumn: boolean, wasDoneColumn: boolean) => void;
@@ -24,13 +25,14 @@ interface ProjectBoardViewProps {
 export const ProjectBoardView: React.FC<ProjectBoardViewProps> = ({
   project,
   tasks,
+  completions,
   onBack,
   onEditTask,
   onChangeStatus,
 }) => {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
   const columns = getProjectColumns(project);
-  const tasksByColumn = groupTasksByColumn(tasks, columns);
+  const tasksByColumn = groupTasksByColumn(tasks, columns, completions);
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -67,6 +69,7 @@ export const ProjectBoardView: React.FC<ProjectBoardViewProps> = ({
                 column={col}
                 tasks={tasksByColumn.get(col.id) || []}
                 onEditTask={onEditTask}
+                completions={completions}
               />
             ))}
           </div>

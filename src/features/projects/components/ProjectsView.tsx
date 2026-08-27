@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { Task } from "@/features/tasks/types";
-import { useTaskMutations } from "@/features/tasks/hooks";
+import { Task, TaskCompletion } from "@/features/tasks/types";
+import { useTaskMutations, useTasks } from "@/features/tasks/hooks";
 import { getTodayDateString } from "@/lib/dates";
 import { useProjects, useProjectMutations } from "../hooks";
 import { Project } from "../types";
@@ -13,10 +13,19 @@ import { ProjectFormModal } from "./ProjectFormModal";
 
 interface ProjectsViewProps {
   allTasks: Task[];
+  completions?: TaskCompletion[];
   onEditTask: (task: Task) => void;
 }
 
-export const ProjectsView: React.FC<ProjectsViewProps> = ({ allTasks, onEditTask }) => {
+export const ProjectsView: React.FC<ProjectsViewProps> = ({
+  allTasks,
+  completions: propCompletions,
+  onEditTask,
+}) => {
+  const todayStr = getTodayDateString();
+  const { allCompletions } = useTasks(todayStr);
+  const completions = propCompletions || allCompletions;
+
   const { projects } = useProjects();
   const { createProject, updateProject } = useProjectMutations();
   const { updateTask, closeTask, reopenTask } = useTaskMutations();
@@ -33,12 +42,31 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ allTasks, onEditTask
     setEditingProject(null);
   };
 
-  const handleChangeStatus = (taskId: string, status: string, isDoneColumn: boolean, wasDoneColumn: boolean) => {
-    updateTask.mutate({ taskId, values: { projectStatus: status } });
+  const handleChangeStatus = (
+    taskId: string,
+    status: string,
+    isDoneColumn: boolean,
+    wasDoneColumn: boolean,
+  ) => {
     if (isDoneColumn) {
-      closeTask.mutate({ taskId, date: getTodayDateString() });
+      // 1. Moved TO Done column: validate task
+      updateTask.mutate({ taskId, values: { projectStatus: status } });
+      closeTask.mutate({ taskId, date: todayStr });
     } else if (wasDoneColumn) {
-      reopenTask.mutate({ taskId, date: getTodayDateString() });
+      // 2. Moved OUT of Done column: de-validate task and reset date to TODAY
+      reopenTask.mutate({
+        taskId,
+        date: todayStr,
+        skipProjectStatusReset: true,
+        reopenAllDates: true,
+      });
+      updateTask.mutate({
+        taskId,
+        values: { projectStatus: status, date: todayStr },
+      });
+    } else {
+      // 3. Moved between non-done columns
+      updateTask.mutate({ taskId, values: { projectStatus: status } });
     }
   };
 
@@ -47,6 +75,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ allTasks, onEditTask
       <AllProjectsBoardView
         projects={projects}
         tasks={allTasks}
+        completions={completions}
         onBack={() => setShowAllProjectsBoard(false)}
         onEditTask={onEditTask}
         onChangeStatus={handleChangeStatus}
@@ -59,6 +88,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ allTasks, onEditTask
       <ProjectBoardView
         project={selectedProject}
         tasks={allTasks.filter((t) => t.projectId === selectedProject.id && !t.isArchived)}
+        completions={completions}
         onBack={() => setSelectedProjectId(null)}
         onEditTask={onEditTask}
         onChangeStatus={handleChangeStatus}

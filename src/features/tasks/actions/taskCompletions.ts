@@ -238,42 +238,48 @@ export async function syncProjectStatusToDoneColumn(
       // ignore
     }
   }
-  if (!target?.projectId) return;
+  if (!target) return;
 
-  let project = getStoredProjects(userId).find((p) => p.id === target?.projectId);
-  if (!project) {
-    try {
-      const { data } = await supabase.from("projects").select("*").eq("id", target.projectId).single();
-      if (data) {
-        project = {
-          id: data.id,
-          userId: data.user_id,
-          name: data.name,
-          color: data.color || "#D4F63D",
-          columns: Array.isArray(data.columns) ? data.columns : [],
-          createdAt: data.created_at,
-          updatedAt: data.updated_at,
-        };
+  if (target.projectId) {
+    let project = getStoredProjects(userId).find((p) => p.id === target?.projectId);
+    if (!project) {
+      try {
+        const { data } = await supabase.from("projects").select("*").eq("id", target.projectId).single();
+        if (data) {
+          project = {
+            id: data.id,
+            userId: data.user_id,
+            name: data.name,
+            color: data.color || "#D4F63D",
+            columns: Array.isArray(data.columns) ? data.columns : [],
+            createdAt: data.created_at,
+            updatedAt: data.updated_at,
+          };
+        }
+      } catch {
+        // ignore
       }
-    } catch {
-      // ignore
     }
-  }
 
-  const columns = project ? getProjectColumns(project) : DEFAULT_PROJECT_COLUMNS;
-  const doneColumn =
-    columns.find((c) => c.isDone) ||
-    columns[columns.length - 1] ||
-    DEFAULT_PROJECT_COLUMNS[DEFAULT_PROJECT_COLUMNS.length - 1];
+    const columns = project ? getProjectColumns(project) : DEFAULT_PROJECT_COLUMNS;
+    const doneColumn =
+      columns.find((c) => c.isDone) ||
+      columns[columns.length - 1] ||
+      DEFAULT_PROJECT_COLUMNS[DEFAULT_PROJECT_COLUMNS.length - 1];
 
-  if (doneColumn && target.projectStatus !== doneColumn.id) {
-    await updateDbTask(taskId, { projectStatus: doneColumn.id }, userId);
+    if (doneColumn && target.projectStatus !== doneColumn.id) {
+      await updateDbTask(taskId, { projectStatus: doneColumn.id }, userId);
+    }
+  } else {
+    if (target.projectStatus !== "DONE") {
+      await updateDbTask(taskId, { projectStatus: "DONE" }, userId);
+    }
   }
 }
 
 /**
- * Un-completes a task (e.g. re-opening it from the habit list or agenda). A project task also
- * moves back to that board's first column, mirroring how closing it moves it to "done".
+ * Un-completes a task (e.g. re-opening it from the habit list or agenda or dragging it out of Done).
+ * When dragged out of Done or reopened, all completion records are cleared and project status is reset.
  */
 export async function reopenTaskAsIncomplete(
   taskId: string,
@@ -283,6 +289,7 @@ export async function reopenTaskAsIncomplete(
     value?: number | null;
     duration?: number | null;
     skipProjectStatusReset?: boolean;
+    reopenAllDates?: boolean;
   },
 ): Promise<void> {
   const supabase = createClient();
@@ -302,27 +309,59 @@ export async function reopenTaskAsIncomplete(
     }
   }
   const completions = getStoredCompletions(targetId);
-  const existing = completions.find(
-    (c) => c.taskId === taskId && c.date === date,
-  );
 
-  // Re-opening clears the recorded execution hours (actual start/end + duration) — they
-  // reflected a run that's no longer considered done. The quantity value, if any, is kept.
-  await upsertDbCompletion({
-    taskId,
-    userId: targetId,
-    date,
-    completed: false,
-    value:
-      options?.value !== undefined ? options.value : existing?.value || null,
-    duration: options?.duration !== undefined ? options.duration : null,
-    scheduledStartTime:
-      target?.startTime || existing?.scheduledStartTime || null,
-    scheduledEndTime: target?.endTime || existing?.scheduledEndTime || null,
-    actualStartTime: null,
-    actualEndTime: null,
-    notes: null,
-  });
+  // If reopenAllDates is true (e.g. dragged out of Done column), clear/uncomplete all records for this task
+  if (options?.reopenAllDates) {
+    const updated = completions.map((c) =>
+      c.taskId === taskId
+        ? {
+            ...c,
+            completed: false,
+            actualStartTime: null,
+            actualEndTime: null,
+            duration: null,
+            updatedAt: new Date().toISOString(),
+          }
+        : c,
+    );
+    saveStoredCompletions(updated, targetId);
+
+    try {
+      await supabase
+        .from("task_completions")
+        .update({
+          completed: false,
+          actual_start_time: null,
+          actual_end_time: null,
+          duration: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("task_id", taskId)
+        .eq("user_id", targetId);
+    } catch (err) {
+      console.warn("Supabase reopenTaskAsIncomplete all dates error:", err);
+    }
+  } else {
+    const existing = completions.find(
+      (c) => c.taskId === taskId && c.date === date,
+    );
+
+    await upsertDbCompletion({
+      taskId,
+      userId: targetId,
+      date,
+      completed: false,
+      value:
+        options?.value !== undefined ? options.value : existing?.value || null,
+      duration: options?.duration !== undefined ? options.duration : null,
+      scheduledStartTime:
+        target?.startTime || existing?.scheduledStartTime || null,
+      scheduledEndTime: target?.endTime || existing?.scheduledEndTime || null,
+      actualStartTime: null,
+      actualEndTime: null,
+      notes: null,
+    });
+  }
 
   // Dragging a Kanban card out of "done" already sets its new column explicitly — only the
   // habit-list/agenda reopen flow should jump the task back to the board's first column.
@@ -352,6 +391,10 @@ export async function reopenTaskAsIncomplete(
     const firstColumn = columns[0] || DEFAULT_PROJECT_COLUMNS[0];
     if (firstColumn && target.projectStatus !== firstColumn.id) {
       await updateDbTask(taskId, { projectStatus: firstColumn.id }, targetId);
+    }
+  } else if (!options?.skipProjectStatusReset && !target?.projectId) {
+    if (target && target.projectStatus === "DONE") {
+      await updateDbTask(taskId, { projectStatus: "TODO" }, targetId);
     }
   }
 }

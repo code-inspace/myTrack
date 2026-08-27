@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import { Task } from "@/features/tasks/types";
+import { Task, TaskCompletion } from "@/features/tasks/types";
 import { TASK_CATEGORIES } from "@/features/tasks/options";
 import { Project, DEFAULT_PROJECT_COLUMNS } from "../types";
 import { BoardColumn, groupTasksByColumn } from "./KanbanBoard";
@@ -17,6 +17,7 @@ import {
 interface AllProjectsBoardViewProps {
   projects: Project[];
   tasks: Task[];
+  completions?: TaskCompletion[];
   onBack: () => void;
   onEditTask: (task: Task) => void;
   onChangeStatus: (taskId: string, status: string, isDoneColumn: boolean, wasDoneColumn: boolean) => void;
@@ -27,6 +28,7 @@ const NO_PROJECT_FILTER = "__none__";
 export const AllProjectsBoardView: React.FC<AllProjectsBoardViewProps> = ({
   projects,
   tasks,
+  completions,
   onBack,
   onEditTask,
   onChangeStatus,
@@ -50,7 +52,7 @@ export const AllProjectsBoardView: React.FC<AllProjectsBoardViewProps> = ({
       });
   }, [tasks, categoryFilter, projectFilter]);
 
-  const tasksByColumn = groupTasksByColumn(filteredTasks, columns);
+  const tasksByColumn = groupTasksByColumn(filteredTasks, columns, completions);
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -114,6 +116,7 @@ export const AllProjectsBoardView: React.FC<AllProjectsBoardViewProps> = ({
                 column={col}
                 tasks={tasksByColumn.get(col.id) || []}
                 onEditTask={onEditTask}
+                completions={completions}
                 getBadge={(t) => {
                   const p = t.projectId ? projectById.get(t.projectId) : null;
                   return p ? { name: p.name, color: p.color } : null;
