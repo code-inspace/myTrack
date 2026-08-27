@@ -6,6 +6,86 @@ import { format, parseISO, addDays } from "date-fns";
 const NIGHT_MODE_DISMISSED_KEY = "mytrack_night_mode_dismissed_until";
 const NIGHT_MODE_SESSION_UNLOCKED_KEY = "mytrack_night_mode_session_unlocked";
 const NIGHT_MODE_SLEEPING_START_KEY = "mytrack_night_mode_sleeping_start";
+const NIGHT_MODE_ENABLED_KEY = "mytrack_night_mode_enabled";
+const NIGHT_MODE_INACTIVITY_AUTOLOCK_KEY = "mytrack_night_mode_inactivity_autolock";
+const NIGHT_MODE_INACTIVITY_DURATION_MS_KEY = "mytrack_night_mode_inactivity_duration_ms";
+
+export const DEFAULT_INACTIVITY_TIMEOUT_MS = 60_000; // 1 minute (60s)
+
+/**
+ * Checks if the Night Mode feature is enabled globally in settings.
+ * Defaults to true.
+ */
+export function isNightModeFeatureEnabled(): boolean {
+  if (typeof window === "undefined") return true;
+  try {
+    const raw = localStorage.getItem(NIGHT_MODE_ENABLED_KEY);
+    if (raw === null) return true;
+    return raw === "true";
+  } catch {
+    return true;
+  }
+}
+
+export function setNightModeFeatureEnabled(enabled: boolean): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(NIGHT_MODE_ENABLED_KEY, enabled ? "true" : "false");
+    window.dispatchEvent(new Event("mytrack:night-mode-prefs-changed"));
+  } catch (err) {
+    console.warn("setNightModeFeatureEnabled error:", err);
+  }
+}
+
+/**
+ * Checks if auto-locking back to Night Mode after 1 min of inactivity is enabled in settings.
+ * Defaults to true.
+ */
+export function isNightModeInactivityAutoLockEnabled(): boolean {
+  if (typeof window === "undefined") return true;
+  try {
+    const raw = localStorage.getItem(NIGHT_MODE_INACTIVITY_AUTOLOCK_KEY);
+    if (raw === null) return true;
+    return raw === "true";
+  } catch {
+    return true;
+  }
+}
+
+export function setNightModeInactivityAutoLockEnabled(enabled: boolean): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(NIGHT_MODE_INACTIVITY_AUTOLOCK_KEY, enabled ? "true" : "false");
+    window.dispatchEvent(new Event("mytrack:night-mode-prefs-changed"));
+  } catch (err) {
+    console.warn("setNightModeInactivityAutoLockEnabled error:", err);
+  }
+}
+
+/**
+ * Gets the configured inactivity timeout duration in ms (default 60000ms = 1min).
+ */
+export function getNightModeInactivityTimeoutMs(): number {
+  if (typeof window === "undefined") return DEFAULT_INACTIVITY_TIMEOUT_MS;
+  try {
+    const raw = localStorage.getItem(NIGHT_MODE_INACTIVITY_DURATION_MS_KEY);
+    if (!raw) return DEFAULT_INACTIVITY_TIMEOUT_MS;
+    const parsed = parseInt(raw, 10);
+    return isNaN(parsed) || parsed < 5000 ? DEFAULT_INACTIVITY_TIMEOUT_MS : parsed;
+  } catch {
+    return DEFAULT_INACTIVITY_TIMEOUT_MS;
+  }
+}
+
+export function setNightModeInactivityTimeoutMs(durationMs: number): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(NIGHT_MODE_INACTIVITY_DURATION_MS_KEY, String(durationMs));
+    window.dispatchEvent(new Event("mytrack:night-mode-prefs-changed"));
+  } catch (err) {
+    console.warn("setNightModeInactivityTimeoutMs error:", err);
+  }
+}
 
 /**
  * Checks if the current time falls inside the user's programmed sleep window.

@@ -16,10 +16,11 @@ import { useTasks } from "@/features/tasks/hooks";
 import { useDashboardStats } from "@/features/dashboard/hooks";
 import { useAuth } from "@/providers/AuthProvider";
 import { useDisplayMode, DisplayMode } from "@/providers/DisplayModeProvider";
+import { useNightMode } from "@/features/sleep/providers/NightModeProvider";
 import { getTodayDateString } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 import { CustomReminder } from "@/features/notifications/types";
-import { User, Flame, Trophy, Award, RotateCcw, ShieldCheck, LogOut, Sparkles, UserPlus, Bell, ChevronRight, LayoutPanelTop, PanelsTopLeft, Check } from "lucide-react";
+import { User, Flame, Trophy, Award, RotateCcw, ShieldCheck, LogOut, Sparkles, UserPlus, Bell, ChevronRight, LayoutPanelTop, PanelsTopLeft, Check, Moon } from "lucide-react";
 import Link from "next/link";
 
 const DISPLAY_MODE_OPTIONS: Array<{
@@ -48,6 +49,14 @@ export default function ProfilePage() {
   const router = useRouter();
   const { user, logout, switchToDemo } = useAuth();
   const { displayMode, setDisplayMode } = useDisplayMode();
+  const {
+    bedtime,
+    wakeTime,
+    isFeatureEnabled: isNightModeEnabled,
+    isAutoLockEnabled: isNightModeAutoLockEnabled,
+    toggleFeatureEnabled: toggleNightModeEnabled,
+    toggleAutoLockEnabled: toggleNightModeAutoLockEnabled,
+  } = useNightMode();
 
   const [preferences, setPreferences] = useState(getStoredPreferences());
   const [reminders, setReminders] = useState(getStoredReminders());
@@ -205,6 +214,86 @@ export default function ProfilePage() {
               </button>
             );
           })}
+        </div>
+      </div>
+
+      {/* Night Mode & Inactivity Auto-Lock Settings */}
+      <div className="bg-[#1C1D22] border border-[#282A30] rounded-3xl p-5 shadow-sm space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-[#2E1A47] text-[#C084FC] flex items-center justify-center">
+              <Moon className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-white">Mode Nuit & Sommeil</h3>
+              <p className="text-[11px] text-[#8E929E]">Protection du sommeil et réactivation nocturne</p>
+            </div>
+          </div>
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#252830] text-[#C084FC] font-mono font-bold">
+            {bedtime} - {wakeTime}
+          </span>
+        </div>
+
+        <div className="space-y-2.5 pt-1 border-t border-[#282A30]">
+          {/* Toggle 1: Enable Night Mode */}
+          <div className="flex items-center justify-between p-3 rounded-2xl bg-[#17181D] border border-[#282A30]">
+            <div className="space-y-0.5 pr-3">
+              <span className="text-xs font-bold text-white block">Mode Nuit automatique</span>
+              <p className="text-[10px] text-[#8E929E] leading-snug">
+                Affiche l'écran noir de repos pendant vos heures de sommeil
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => toggleNightModeEnabled(!isNightModeEnabled)}
+              className={cn(
+                "w-12 h-6.5 rounded-full transition-colors relative cursor-pointer flex-shrink-0",
+                isNightModeEnabled ? "bg-[#D4F63D]" : "bg-[#2A2D36]"
+              )}
+            >
+              <div
+                className={cn(
+                  "w-5 h-5 rounded-full bg-black transition-transform absolute top-0.5",
+                  isNightModeEnabled ? "left-6" : "left-1"
+                )}
+              />
+            </button>
+          </div>
+
+          {/* Toggle 2: Auto-Lock after 1 min inactivity */}
+          <div
+            className={cn(
+              "flex items-center justify-between p-3 rounded-2xl bg-[#17181D] border border-[#282A30] transition-opacity",
+              !isNightModeEnabled ? "opacity-40 pointer-events-none" : "opacity-100"
+            )}
+          >
+            <div className="space-y-0.5 pr-3">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-bold text-white block">Retour au Mode Nuit après 1 min</span>
+                <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-[#D4F63D]/20 text-[#D4F63D] font-mono font-bold">
+                  Inactivité
+                </span>
+              </div>
+              <p className="text-[10px] text-[#8E929E] leading-snug">
+                Si vous déverrouillez l'app la nuit puis restez inactif 1 minute, l'écran de sommeil se réactive
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => toggleNightModeAutoLockEnabled(!isNightModeAutoLockEnabled)}
+              className={cn(
+                "w-12 h-6.5 rounded-full transition-colors relative cursor-pointer flex-shrink-0",
+                isNightModeAutoLockEnabled ? "bg-[#D4F63D]" : "bg-[#2A2D36]"
+              )}
+            >
+              <div
+                className={cn(
+                  "w-5 h-5 rounded-full bg-black transition-transform absolute top-0.5",
+                  isNightModeAutoLockEnabled ? "left-6" : "left-1"
+                )}
+              />
+            </button>
+          </div>
         </div>
       </div>
 

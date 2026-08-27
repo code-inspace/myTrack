@@ -1,7 +1,14 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import {
   isCurrentlyInSleepWindow,
   getNextBedtimeIso,
+  isNightModeFeatureEnabled,
+  setNightModeFeatureEnabled,
+  isNightModeInactivityAutoLockEnabled,
+  setNightModeInactivityAutoLockEnabled,
+  isNightModeUnlockedForSession,
+  setNightModeUnlockedForSession,
+  clearNightModeSessionUnlock,
 } from "./nightModeUtils";
 
 describe("Night Mode Sleep Window & Logic", () => {
@@ -51,5 +58,40 @@ describe("Night Mode Sleep Window & Logic", () => {
 
     expect(nextBedtimeFromLateDate.getDate()).toBe(29);
     expect(nextBedtimeFromLateDate.getHours()).toBe(23);
+  });
+
+  it("handles settings toggles and session unlocking", () => {
+    const memoryStore: Record<string, string> = {};
+    const mockStorage = {
+      getItem: (k: string) => memoryStore[k] || null,
+      setItem: (k: string, v: string) => { memoryStore[k] = v; },
+      removeItem: (k: string) => { delete memoryStore[k]; },
+    };
+
+    (globalThis as any).window = {
+      localStorage: mockStorage,
+      sessionStorage: mockStorage,
+      dispatchEvent: () => true,
+    };
+    (globalThis as any).localStorage = mockStorage;
+    (globalThis as any).sessionStorage = mockStorage;
+
+    // Session unlock
+    setNightModeUnlockedForSession();
+    expect(isNightModeUnlockedForSession()).toBe(true);
+    clearNightModeSessionUnlock();
+    expect(isNightModeUnlockedForSession()).toBe(false);
+
+    // Feature enabled toggle
+    setNightModeFeatureEnabled(false);
+    expect(isNightModeFeatureEnabled()).toBe(false);
+    setNightModeFeatureEnabled(true);
+    expect(isNightModeFeatureEnabled()).toBe(true);
+
+    // Inactivity autolock toggle
+    setNightModeInactivityAutoLockEnabled(false);
+    expect(isNightModeInactivityAutoLockEnabled()).toBe(false);
+    setNightModeInactivityAutoLockEnabled(true);
+    expect(isNightModeInactivityAutoLockEnabled()).toBe(true);
   });
 });

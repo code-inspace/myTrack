@@ -292,7 +292,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
             <div className="flex-1 min-h-0 flex flex-col px-6 py-4 overflow-hidden">
               <AgendaTimeline
                 selectedDate={selectedDate}
-                tasks={timedTasks}
+                tasks={tasks}
                 allTasks={allTasks}
                 allCompletions={allCompletions}
                 onSelectDate={setSelectedDate}
@@ -307,6 +307,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
                   setIsTaskModalOpen(true);
                 }}
                 onMoveTaskToTime={handleMoveTaskToTime}
+                onDropToAllDay={handleDropToAllDay}
                 onDragStartTask={handleDragStartTask}
               />
             </div>

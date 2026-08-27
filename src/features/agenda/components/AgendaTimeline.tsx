@@ -363,183 +363,181 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
         onClick={handleBackgroundClick}
         className="flex-1 overflow-y-auto overflow-x-auto relative bg-[#0E0F12] select-none scroll-smooth pb-28"
       >
-        {/* Multi-Day Column Headers (Sticky Top) */}
-        {viewMode !== "day" && (
-          <div className="sticky top-0 z-30 flex bg-[#13141A] border-b border-[#23252E] shadow-sm">
-            {/* Hours column offset (Sticky Left) */}
-            <div className="w-14 md:w-16 flex-shrink-0 border-r border-[#202228] bg-[#111214] sticky left-0 z-40" />
+        {/* Sticky Top Block: Multi-Day Headers + Jour Entier Row (Always directly beneath Period Selector) */}
+        <div className="sticky top-0 z-30 flex flex-col bg-[#141518] border-b border-[#23252E] shadow-md">
+          {/* Row 1: Day Column Dates (only in 3-days and week modes) */}
+          {viewMode !== "day" && (
+            <div className="flex border-b border-[#202228] bg-[#13141A]">
+              {/* Hours column offset (Sticky Left) */}
+              <div className="w-14 md:w-16 flex-shrink-0 border-r border-[#202228] bg-[#111214] sticky left-0 z-40" />
 
-            {/* Day columns headers */}
+              {/* Day columns headers */}
+              {displayedDays.map((dayStr) => {
+                const dayDate = parseISO(dayStr);
+                const isDayToday = isSameDay(dayDate, new Date());
+                const isCurrentSelected = dayStr === selectedDate;
+
+                return (
+                  <div
+                    key={dayStr}
+                    onClick={() => onSelectDate?.(dayStr)}
+                    className={cn(
+                      "flex-1 min-w-[120px] md:min-w-[150px] py-1.5 px-2 text-center border-r border-[#202228] transition-colors cursor-pointer",
+                      isCurrentSelected
+                        ? "bg-[#1C1E28]"
+                        : "hover:bg-[#181920]"
+                    )}
+                  >
+                    <span className="text-[11px] uppercase tracking-wider block font-semibold text-[#8E929E]">
+                      {format(dayDate, "EEE", { locale: fr })}
+                    </span>
+                    <span
+                      className={cn(
+                        "text-xs font-bold font-mono px-2 py-0.5 rounded-full inline-block mt-0.5",
+                        isDayToday
+                          ? "bg-[#D4F63D] text-black"
+                          : isCurrentSelected
+                          ? "text-[#D4F63D]"
+                          : "text-white"
+                      )}
+                    >
+                      {format(dayDate, "d MMM", { locale: fr })}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Row 2: Multi-Day "Jour entier" Section directly below the Period Selector / Day Headers */}
+          <div className="flex bg-[#141518]">
+            {/* Left "Jour entier" Label Column (Sticky Left) */}
+            <div className="w-14 md:w-16 flex-shrink-0 border-r border-[#202228] p-1.5 flex flex-col justify-center items-center text-center bg-[#111214] sticky left-0 z-35">
+              <span className="text-[9px] md:text-[10px] font-bold text-[#8E929E] uppercase tracking-tighter leading-tight">
+                Jour<br />entier
+              </span>
+            </div>
+
+            {/* Day All-Day Columns (1 column in day mode, 3 in 3days, 7 in week) */}
             {displayedDays.map((dayStr) => {
-              const dayDate = parseISO(dayStr);
-              const isDayToday = isSameDay(dayDate, new Date());
+              const dayAllDayTasks = allDayTasksByDay.get(dayStr) || [];
               const isCurrentSelected = dayStr === selectedDate;
 
               return (
                 <div
-                  key={dayStr}
-                  onClick={() => onSelectDate?.(dayStr)}
+                  key={`allday-${dayStr}`}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = "move";
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const taskId = e.dataTransfer.getData("taskId") || e.dataTransfer.getData("text/plain");
+                    if (taskId && onDropToAllDay) {
+                      onDropToAllDay(taskId, dayStr);
+                    }
+                  }}
                   className={cn(
-                    "flex-1 min-w-[120px] md:min-w-[150px] py-1.5 px-2 text-center border-r border-[#202228] transition-colors cursor-pointer",
-                    isCurrentSelected
-                      ? "bg-[#1C1E28]"
-                      : "hover:bg-[#181920]"
+                    "flex-1 p-1.5 flex flex-wrap items-center gap-1.5 border-r border-[#202228] transition-colors min-h-[46px] max-h-[90px] overflow-y-auto",
+                    viewMode !== "day" ? "min-w-[120px] md:min-w-[150px]" : "min-w-0",
+                    isCurrentSelected ? "bg-[#161820]" : "bg-[#141518]"
                   )}
                 >
-                  <span className="text-[11px] uppercase tracking-wider block font-semibold text-[#8E929E]">
-                    {format(dayDate, "EEE", { locale: fr })}
-                  </span>
-                  <span
-                    className={cn(
-                      "text-xs font-bold font-mono px-2 py-0.5 rounded-full inline-block mt-0.5",
-                      isDayToday
-                        ? "bg-[#D4F63D] text-black"
-                        : isCurrentSelected
-                        ? "text-[#D4F63D]"
-                        : "text-white"
-                    )}
-                  >
-                    {format(dayDate, "d MMM", { locale: fr })}
-                  </span>
+                  {dayAllDayTasks.length === 0 ? (
+                    <div className="text-[10px] text-[#555866] italic px-1 flex items-center gap-1">
+                      {viewMode === "day" ? (
+                        <>
+                          <Sparkles className="w-3 h-3 text-[#D4F63D]" />
+                          <span>Glisse une tâche ici pour la journée entière</span>
+                        </>
+                      ) : (
+                        <span>—</span>
+                      )}
+                    </div>
+                  ) : (
+                    dayAllDayTasks.map((task) => {
+                      const tagKey = task.tag || task.category || "General";
+                      const style = TAG_COLORS[tagKey] || TAG_COLORS.General;
+                      const isRemindersEnabled = task.enableReminders !== false;
+
+                      return (
+                        <div
+                          key={task.id}
+                          draggable
+                          onDragStart={(e) => {
+                            e.dataTransfer.setData("text/plain", task.id);
+                            e.dataTransfer.setData("taskId", task.id);
+                            onDragStartTask(e, task);
+                          }}
+                          onClick={() => {
+                            setSelectedTaskId(task.id);
+                            onSelectTask?.(task);
+                          }}
+                          className={cn(
+                            "flex items-center gap-1 px-2.5 py-1 rounded-full border text-[11px] font-semibold shadow-sm transition-all duration-150 cursor-grab active:cursor-grabbing hover:scale-[1.02]",
+                            style.bg,
+                            style.text,
+                            style.border,
+                            task.isCompletedToday ? "opacity-60 line-through" : ""
+                          )}
+                          title={task.title}
+                        >
+                          <button
+                            type="button"
+                            onPointerDown={(e) => e.stopPropagation()}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onToggleComplete(task.id);
+                            }}
+                            className="hover:scale-110 transition-transform cursor-pointer"
+                          >
+                            {task.isCompletedToday ? (
+                              <CheckCircle2 className="w-3 h-3 text-[#D4F63D] fill-[#D4F63D]/20" />
+                            ) : (
+                              <Circle className="w-3 h-3 opacity-60" />
+                            )}
+                          </button>
+                          <span className="truncate max-w-[90px] md:max-w-[120px]">{task.title}</span>
+
+                          {onToggleReminder && (
+                            <button
+                              type="button"
+                              onPointerDown={(e) => e.stopPropagation()}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onToggleReminder(task.id);
+                              }}
+                              className="hover:scale-115 transition-transform cursor-pointer opacity-70 hover:opacity-100 p-0.5"
+                            >
+                              {isRemindersEnabled ? (
+                                <Bell className="w-2.5 h-2.5 text-[#D4F63D]" />
+                              ) : (
+                                <BellOff className="w-2.5 h-2.5 opacity-50" />
+                              )}
+                            </button>
+                          )}
+
+                          {onEditTask && (
+                            <button
+                              type="button"
+                              onPointerDown={(e) => e.stopPropagation()}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onEditTask(task);
+                              }}
+                              className="hover:scale-115 transition-transform cursor-pointer opacity-70 hover:opacity-100 p-0.5"
+                            >
+                              <Edit3 className="w-2.5 h-2.5" />
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               );
             })}
           </div>
-        )}
-
-        {/* 3. Sticky "Jour entier" Section directly below period selector / day headers */}
-        <div
-          className={cn(
-            "sticky z-25 flex bg-[#141518] border-b border-[#23252E] shadow-sm",
-            viewMode !== "day" ? "top-[41px]" : "top-0"
-          )}
-        >
-          {/* Left "Jour entier" Label Column (Sticky Left) */}
-          <div className="w-14 md:w-16 flex-shrink-0 border-r border-[#202228] p-1.5 flex flex-col justify-center items-center text-center bg-[#111214] sticky left-0 z-35">
-            <span className="text-[9px] md:text-[10px] font-bold text-[#8E929E] uppercase tracking-tighter leading-tight">
-              Jour<br />entier
-            </span>
-          </div>
-
-          {/* Day All-Day Columns */}
-          {displayedDays.map((dayStr) => {
-            const dayAllDayTasks = allDayTasksByDay.get(dayStr) || [];
-            const isCurrentSelected = dayStr === selectedDate;
-
-            return (
-              <div
-                key={`allday-${dayStr}`}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  e.dataTransfer.dropEffect = "move";
-                }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  const taskId = e.dataTransfer.getData("taskId") || e.dataTransfer.getData("text/plain");
-                  if (taskId && onDropToAllDay) {
-                    onDropToAllDay(taskId, dayStr);
-                  }
-                }}
-                className={cn(
-                  "flex-1 p-1.5 flex flex-wrap items-center gap-1.5 border-r border-[#202228] transition-colors min-h-[46px] max-h-[90px] overflow-y-auto",
-                  viewMode !== "day" ? "min-w-[120px] md:min-w-[150px]" : "",
-                  isCurrentSelected ? "bg-[#161820]" : "bg-[#141518]"
-                )}
-              >
-                {dayAllDayTasks.length === 0 ? (
-                  <div className="text-[10px] text-[#555866] italic px-1 flex items-center gap-1">
-                    {viewMode === "day" ? (
-                      <>
-                        <Sparkles className="w-3 h-3 text-[#D4F63D]" />
-                        <span>Glisse une tâche ici pour la journée entière</span>
-                      </>
-                    ) : (
-                      <span>—</span>
-                    )}
-                  </div>
-                ) : (
-                  dayAllDayTasks.map((task) => {
-                    const tagKey = task.tag || task.category || "General";
-                    const style = TAG_COLORS[tagKey] || TAG_COLORS.General;
-                    const isRemindersEnabled = task.enableReminders !== false;
-
-                    return (
-                      <div
-                        key={task.id}
-                        draggable
-                        onDragStart={(e) => {
-                          e.dataTransfer.setData("text/plain", task.id);
-                          e.dataTransfer.setData("taskId", task.id);
-                          onDragStartTask(e, task);
-                        }}
-                        onClick={() => {
-                          setSelectedTaskId(task.id);
-                          onSelectTask?.(task);
-                        }}
-                        className={cn(
-                          "flex items-center gap-1 px-2.5 py-1 rounded-full border text-[11px] font-semibold shadow-sm transition-all duration-150 cursor-grab active:cursor-grabbing hover:scale-[1.02]",
-                          style.bg,
-                          style.text,
-                          style.border,
-                          task.isCompletedToday ? "opacity-60 line-through" : ""
-                        )}
-                        title={task.title}
-                      >
-                        <button
-                          type="button"
-                          onPointerDown={(e) => e.stopPropagation()}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onToggleComplete(task.id);
-                          }}
-                          className="hover:scale-110 transition-transform cursor-pointer"
-                        >
-                          {task.isCompletedToday ? (
-                            <CheckCircle2 className="w-3 h-3 text-[#D4F63D] fill-[#D4F63D]/20" />
-                          ) : (
-                            <Circle className="w-3 h-3 opacity-60" />
-                          )}
-                        </button>
-                        <span className="truncate max-w-[90px] md:max-w-[120px]">{task.title}</span>
-
-                        {onToggleReminder && (
-                          <button
-                            type="button"
-                            onPointerDown={(e) => e.stopPropagation()}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onToggleReminder(task.id);
-                            }}
-                            className="hover:scale-115 transition-transform cursor-pointer opacity-70 hover:opacity-100 p-0.5"
-                          >
-                            {isRemindersEnabled ? (
-                              <Bell className="w-2.5 h-2.5 text-[#D4F63D]" />
-                            ) : (
-                              <BellOff className="w-2.5 h-2.5 opacity-50" />
-                            )}
-                          </button>
-                        )}
-
-                        {onEditTask && (
-                          <button
-                            type="button"
-                            onPointerDown={(e) => e.stopPropagation()}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onEditTask(task);
-                            }}
-                            className="hover:scale-115 transition-transform cursor-pointer opacity-70 hover:opacity-100 p-0.5"
-                          >
-                            <Edit3 className="w-2.5 h-2.5" />
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            );
-          })}
         </div>
 
         {/* 4. 24-Hour Grid Container */}
