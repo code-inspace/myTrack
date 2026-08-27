@@ -13,6 +13,7 @@ import { AgendaTimeline } from "@/features/agenda/components/AgendaTimeline";
 import { SleepJournalView } from "@/features/sleep/components/SleepJournalView";
 import { DailyBilanView } from "@/features/sleep/components/DailyBilanView";
 import { DesktopTasksView } from "@/features/tasks/components/desktop/DesktopTasksView";
+import { DesktopDatePicker } from "@/features/tasks/components/desktop/DesktopDatePicker";
 import { getNightSleepDuration } from "@/features/sleep/actions";
 import { useTasks, useTaskMutations } from "@/features/tasks/hooks";
 import { Task, TaskWithCompletion, TaskFormValues } from "@/features/tasks/types";
@@ -254,11 +255,51 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
 
           {/* 2. Seamless View Body */}
           {activeTab === "bilan" ? (
-            /* BILAN & GRATITUDE & MANIFESTATION TAB */
-            <DailyBilanView selectedDate={selectedDate} />
+            /* BILAN TAB */
+            <>
+              {/* Mobile */}
+              <div className="flex-1 min-h-0 overflow-y-auto md:hidden">
+                <DailyBilanView selectedDate={selectedDate} />
+              </div>
+              {/* Desktop */}
+              <div className="hidden md:flex md:flex-1 md:min-h-0 flex-col bg-[#0E0F12]">
+                <div className="flex items-center justify-between px-8 py-4 border-b border-[#17181F] flex-shrink-0">
+                  <div>
+                    <h1 className="text-xl font-extrabold text-white tracking-tight">Bilan du jour</h1>
+                    <p className="text-xs text-[#5C6070] mt-0.5">Gratitude &amp; Manifestation</p>
+                  </div>
+                  <DesktopDatePicker selectedDate={selectedDate} onSelectDate={setSelectedDate} />
+                </div>
+                <div className="flex-1 min-h-0 overflow-y-auto">
+                  <div className="max-w-2xl mx-auto px-6 py-4">
+                    <DailyBilanView selectedDate={selectedDate} />
+                  </div>
+                </div>
+              </div>
+            </>
           ) : activeTab === "sleep" ? (
             /* SOMMEIL TAB */
-            <SleepJournalView selectedDate={selectedDate} />
+            <>
+              {/* Mobile */}
+              <div className="flex-1 min-h-0 overflow-y-auto md:hidden">
+                <SleepJournalView selectedDate={selectedDate} />
+              </div>
+              {/* Desktop */}
+              <div className="hidden md:flex md:flex-1 md:min-h-0 flex-col bg-[#0E0F12]">
+                <div className="flex items-center justify-between px-8 py-4 border-b border-[#17181F] flex-shrink-0">
+                  <div>
+                    <h1 className="text-xl font-extrabold text-white tracking-tight">Sommeil</h1>
+                    <p className="text-xs text-[#5C6070] mt-0.5">Journal &amp; suivi du sommeil</p>
+                  </div>
+                  <DesktopDatePicker selectedDate={selectedDate} onSelectDate={setSelectedDate} />
+                </div>
+                <div className="flex-1 min-h-0 overflow-y-auto">
+                  <div className="max-w-2xl mx-auto px-6 py-4">
+                    <SleepJournalView selectedDate={selectedDate} />
+                  </div>
+                </div>
+              </div>
+            </>
           ) : activeTab === "projects" ? (
             /* PROJETS TAB */
             <ProjectsView
@@ -396,29 +437,32 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
               </div>
             </>
           ) : (
-            /* AGENDA TIMELINE TAB — Full Screen Width and Height */
-            <div className="flex-1 flex flex-col min-h-0 relative overflow-hidden w-full">
-              <AgendaTimeline
-                selectedDate={selectedDate}
-                tasks={tasks}
-                allTasks={allTasks}
-                allCompletions={allCompletions}
-                onSelectDate={setSelectedDate}
-                onToggleComplete={(taskId) => toggleCompletion.mutate({ taskId, date: selectedDate })}
-                onToggleReminder={(taskId) => {
-                  const target = tasks.find((t) => t.id === taskId) || allTasks.find((t) => t.id === taskId);
-                  const newEnable = target ? !(target.enableReminders !== false) : true;
-                  updateTask.mutate({ taskId, values: { enableReminders: newEnable } });
-                }}
-                onEditTask={(task) => {
-                  setEditingTask(task);
-                  setIsTaskModalOpen(true);
-                }}
-                onMoveTaskToTime={handleMoveTaskToTime}
-                onDropToAllDay={handleDropToAllDay}
-                onDragStartTask={handleDragStartTask}
-              />
-            </div>
+            /* AGENDA TIMELINE TAB */
+            <>
+              {/* Mobile/shared */}
+              <div className="flex-1 flex flex-col min-h-0 relative overflow-hidden w-full">
+                <AgendaTimeline
+                  selectedDate={selectedDate}
+                  tasks={tasks}
+                  allTasks={allTasks}
+                  allCompletions={allCompletions}
+                  onSelectDate={setSelectedDate}
+                  onToggleComplete={(taskId) => toggleCompletion.mutate({ taskId, date: selectedDate })}
+                  onToggleReminder={(taskId) => {
+                    const target = tasks.find((t) => t.id === taskId) || allTasks.find((t) => t.id === taskId);
+                    const newEnable = target ? !(target.enableReminders !== false) : true;
+                    updateTask.mutate({ taskId, values: { enableReminders: newEnable } });
+                  }}
+                  onEditTask={(task) => {
+                    setEditingTask(task);
+                    setIsTaskModalOpen(true);
+                  }}
+                  onMoveTaskToTime={handleMoveTaskToTime}
+                  onDropToAllDay={handleDropToAllDay}
+                  onDragStartTask={handleDragStartTask}
+                />
+              </div>
+            </>
           )}
 
         </div>

@@ -125,29 +125,20 @@ export const HorizontalDatePicker: React.FC<HorizontalDatePickerProps> = ({
   const dropdownMonthLabel = format(viewMonth, "MMMM yyyy", { locale: fr });
   const capitalizedDropdownMonthLabel = dropdownMonthLabel.charAt(0).toUpperCase() + dropdownMonthLabel.slice(1);
 
-  // Generate dynamic rolling window centered around selectedDate and today
+  // Fixed rolling window of ±90 days around TODAY only — never depends on selectedDate.
+  // This ensures the DOM list is never rebuilt when clicking a different date,
+  // so scrollIntoView always animates smoothly instead of jumping.
   const daysList = useMemo(() => {
-    const today = new Date();
-    const minDate = currentDate < today ? currentDate : today;
-    const maxDate = currentDate > today ? currentDate : today;
-    const start = subDays(minDate, 45);
-    const end = addDays(maxDate, 45);
-    const intervalDays = eachDayOfInterval({ start, end });
-
-    return intervalDays.map((d) => {
+    const today = parseISO(todayStr);
+    const start = subDays(today, 90);
+    const end = addDays(today, 90);
+    return eachDayOfInterval({ start, end }).map((d) => {
       const dateStr = format(d, "yyyy-MM-dd");
       const dayName = format(d, "EEE", { locale: fr }).toUpperCase().replace(".", "");
       const dayNumber = format(d, "d");
-      const isToday = dateStr === todayStr;
-
-      return {
-        dateStr,
-        dayName,
-        dayNumber,
-        isToday,
-      };
+      return { dateStr, dayName, dayNumber, isToday: dateStr === todayStr };
     });
-  }, [todayStr, currentDate]);
+  }, [todayStr]); // ONLY today — never recomputes on date change
 
   // Smooth scroll selected day into center of horizontal strip
   useEffect(() => {
