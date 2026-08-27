@@ -103,13 +103,18 @@ export default function ProfilePage() {
   const isDemoAccount = user?.isDemo || user?.email === "demo@de.mo";
 
   return (
-    <div className="flex-1 flex flex-col overflow-y-auto pb-28 space-y-4 max-w-md mx-auto w-full px-4 pt-2">
+    <div className="flex-1 flex flex-col overflow-y-auto pb-28 md:pb-10 space-y-4 max-w-md md:max-w-5xl mx-auto w-full px-4 md:px-8 pt-2 md:pt-6">
       {/* Profile Header */}
-      <header className="w-full text-center py-2">
-        <h1 className="text-xl font-extrabold text-white tracking-tight">
+      <header className="w-full text-center md:text-left py-2">
+        <h1 className="text-xl md:text-2xl font-extrabold text-white tracking-tight">
           Profil
         </h1>
       </header>
+
+      {/* Desktop: two balanced columns · Mobile: single stack */}
+      <div className="lg:grid lg:grid-cols-2 lg:gap-4 lg:items-start space-y-4 lg:space-y-0">
+        {/* ── Left column ── */}
+        <div className="space-y-4">
 
       {/* User Card */}
       <div className="bg-[#1C1D22] border border-[#282A30] rounded-3xl p-5 shadow-sm space-y-3.5">
@@ -216,6 +221,10 @@ export default function ProfilePage() {
           })}
         </div>
       </div>
+
+        </div>
+        {/* ── Right column ── */}
+        <div className="space-y-4">
 
       {/* Night Mode & Inactivity Auto-Lock Settings */}
       <div className="bg-[#1C1D22] border border-[#282A30] rounded-3xl p-5 shadow-sm space-y-4">
@@ -331,6 +340,9 @@ export default function ProfilePage() {
           <RotateCcw className="w-4 h-4" />
           Réinitialiser les données de ce compte
         </button>
+      </div>
+
+        </div>
       </div>
 
       {/* Custom Reminder Modal */}

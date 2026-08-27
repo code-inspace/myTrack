@@ -26,7 +26,7 @@ export default function DashboardPage() {
   const { displayMode } = useDisplayMode();
 
   return (
-    <div className="flex-1 flex flex-col overflow-y-auto pb-28 space-y-4 max-w-md mx-auto w-full px-4 pt-2">
+    <div className="flex-1 flex flex-col overflow-y-auto pb-28 md:pb-10 space-y-4 max-w-md md:max-w-6xl mx-auto w-full px-4 md:px-8 pt-2 md:pt-6">
       {/* Dashboard Title Header — keeps Profile reachable from here even though the bottom
           nav in "modern" mode no longer lists it directly */}
       <AppHeader
@@ -46,55 +46,61 @@ export default function DashboardPage() {
         onChangeReferenceDate={setReferenceDate}
       />
 
-      {/* Momentum Gauge & Wave Chart */}
-      <div className="bg-[#1C1D22] border border-[#282A30] rounded-3xl p-5 shadow-sm space-y-2">
-        <MomentumGauge
-          score={stats?.momentum ?? 68}
-          delta={stats?.momentumDelta ?? 10}
-        />
+      {/* Top band — desktop: momentum spans two thirds, metric cards stack in the last third */}
+      <div className="grid gap-4 lg:grid-cols-3 lg:items-start">
+        {/* Momentum Gauge & Wave Chart */}
+        <div className="lg:col-span-2 bg-[#1C1D22] border border-[#282A30] rounded-3xl p-5 shadow-sm space-y-2">
+          <MomentumGauge
+            score={stats?.momentum ?? 68}
+            delta={stats?.momentumDelta ?? 10}
+          />
 
-        {/* Wave Chart with Grid and Neon Lime Curve */}
-        <WaveChart data={stats?.momentumHistory || []} period={period} />
+          {/* Wave Chart with Grid and Neon Lime Curve */}
+          <WaveChart data={stats?.momentumHistory || []} period={period} />
+        </div>
+
+        {/* Two Metric Cards: side-by-side on mobile, stacked in the side column on desktop */}
+        <div className="grid grid-cols-2 lg:grid-cols-1 gap-3">
+          <CircularMetricCard
+            title="Complétion moyenne"
+            valueText={`${stats?.completionRate ?? 40}%`}
+            percentage={stats?.completionRate ?? 40}
+          />
+
+          <CircularMetricCard
+            title="Victoires totales"
+            valueText={`${stats?.totalWins ?? 15}`}
+            subText={`sur ${stats?.totalTargetWins ?? 20}`}
+            percentage={
+              stats && stats.totalTargetWins > 0
+                ? Math.round((stats.totalWins / stats.totalTargetWins) * 100)
+                : 75
+            }
+          />
+        </div>
       </div>
 
-      {/* Two Metric Cards Side-by-Side: Complétion moyenne & Victoires totales */}
-      <div className="flex gap-3 w-full">
-        <CircularMetricCard
-          title="Complétion moyenne"
-          valueText={`${stats?.completionRate ?? 40}%`}
-          percentage={stats?.completionRate ?? 40}
-        />
+      {/* Bottom band — sleep trend beside the period-specific habit view on desktop */}
+      <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+        {/* Nightly Sleep Tracking Wave Chart */}
+        <SleepWaveChart period={period} referenceDate={referenceDate} />
 
-        <CircularMetricCard
-          title="Victoires totales"
-          valueText={`${stats?.totalWins ?? 15}`}
-          subText={`sur ${stats?.totalTargetWins ?? 20}`}
-          percentage={
-            stats && stats.totalTargetWins > 0
-              ? Math.round((stats.totalWins / stats.totalTargetWins) * 100)
-              : 75
-          }
-        />
+        {/* View per selected period */}
+        {period === "month" ? (
+          /* Monthly Calendar with Habit Select Dropdown (Recurring Habits only) */
+          <MonthlyHabitCalendar
+            tasks={allTasks.filter((t) => t.recurrence && t.recurrence !== "ONCE")}
+            completions={allCompletions}
+            monthDate={referenceDate}
+          />
+        ) : (
+          /* Per-Habit Streaks with Rolling 7-Day Visual Matrix */
+          <StreakGridCard
+            habitStreaks={stats?.habitStreaks || []}
+            dailyStatus={stats?.last7DaysStatus || []}
+          />
+        )}
       </div>
-
-      {/* Nightly Sleep Tracking Wave Chart */}
-      <SleepWaveChart period={period} referenceDate={referenceDate} />
-
-      {/* View per selected period */}
-      {period === "month" ? (
-        /* Monthly Calendar with Habit Select Dropdown (Recurring Habits only) */
-        <MonthlyHabitCalendar
-          tasks={allTasks.filter((t) => t.recurrence && t.recurrence !== "ONCE")}
-          completions={allCompletions}
-          monthDate={referenceDate}
-        />
-      ) : (
-        /* Per-Habit Streaks with Rolling 7-Day Visual Matrix */
-        <StreakGridCard
-          habitStreaks={stats?.habitStreaks || []}
-          dailyStatus={stats?.last7DaysStatus || []}
-        />
-      )}
     </div>
   );
 }

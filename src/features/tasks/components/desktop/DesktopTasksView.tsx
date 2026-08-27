@@ -12,8 +12,6 @@ import {
   Flame,
   Inbox,
 } from "lucide-react";
-import { format, parseISO } from "date-fns";
-import { fr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import {
   DndContext,
@@ -129,15 +127,6 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
     const reordered = arrayMove(orderedTasks, oldIndex, newIndex);
     onReorderTasks(reordered.map((t) => t.id));
   };
-
-  const formattedDate = useMemo(() => {
-    try {
-      const d = parseISO(selectedDate);
-      return format(d, "EEEE d MMMM yyyy", { locale: fr });
-    } catch {
-      return selectedDate;
-    }
-  }, [selectedDate]);
 
   return (
     <div className="flex-1 min-h-0 flex flex-col px-6 pt-4 pb-6 overflow-hidden">

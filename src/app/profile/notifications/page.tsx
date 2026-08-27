@@ -133,7 +133,7 @@ export default function NotificationSettingsPage() {
       </div>
 
       {/* Scrollable Content */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 max-w-md mx-auto w-full pb-28">
+      <div className="flex-1 overflow-y-auto px-4 md:px-8 py-4 md:py-6 space-y-4 max-w-md md:max-w-4xl mx-auto w-full pb-28 md:pb-10">
         {/* ========================================================================= */}
         {/* 1. MASTER MUTE TOGGLE (Désactiver tout & Restaurer l'état précédent)       */}
         {/* ========================================================================= */}
@@ -186,6 +186,9 @@ export default function NotificationSettingsPage() {
         <div className="bg-[#1C1D22] border border-[#282A30] rounded-3xl p-4 shadow-sm">
           <NotificationPermissionButton />
         </div>
+
+        {/* Desktop: check-in config beside daily routines · Mobile: stacked */}
+        <div className="lg:grid lg:grid-cols-2 lg:gap-4 lg:items-start space-y-4 lg:space-y-0">
 
         {/* ========================================================================= */}
         {/* 2. CHECK-IN PÉRIODIQUE : Que fais-tu actuellement ? (NOUVELLE FEATURE)    */}
@@ -407,6 +410,8 @@ export default function NotificationSettingsPage() {
               </button>
             </div>
           </div>
+        </div>
+
         </div>
       </div>
     </div>

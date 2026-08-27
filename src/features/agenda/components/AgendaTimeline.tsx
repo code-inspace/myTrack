@@ -352,13 +352,13 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
           </button>
         </div>
 
-        {/* Mobile: static text date | Desktop: DesktopDatePicker */}
-        <span className="sm:hidden text-[11px] font-mono text-[#8E929E] truncate ml-2">
+        {/* Mobile: static text date | Desktop: interactive "Bilan du jour" date picker */}
+        <span className="md:hidden text-[11px] font-mono text-[#8E929E] truncate ml-2">
           {viewMode === "day"
             ? format(parsedSelectedDate, "d MMMM yyyy", { locale: fr })
             : `${format(parseISO(displayedDays[0]), "d MMM", { locale: fr })} → ${format(parseISO(displayedDays[displayedDays.length - 1]), "d MMM", { locale: fr })}`}
         </span>
-        <div className="hidden sm:block">
+        <div className="hidden md:block ml-2">
           <DesktopDatePicker
             selectedDate={selectedDate}
             onSelectDate={(d) => onSelectDate?.(d)}
