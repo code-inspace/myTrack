@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { isTaskScheduledForDate, getTodayDateString } from "@/lib/dates";
 import { mapTaskWithCompletion } from "@/features/tasks/mappers";
 import { CheckCircle2, Circle, Edit3, Bell, BellOff, Sparkles, ChevronDown } from "lucide-react";
+import { DesktopDatePicker } from "@/features/tasks/components/desktop/DesktopDatePicker";
 
 export type AgendaViewMode = "day" | "3days" | "week";
 
@@ -351,11 +352,18 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
           </button>
         </div>
 
-        <span className="text-[11px] sm:text-xs font-mono text-[#8E929E] truncate ml-2">
+        {/* Mobile: static text date | Desktop: DesktopDatePicker */}
+        <span className="sm:hidden text-[11px] font-mono text-[#8E929E] truncate ml-2">
           {viewMode === "day"
             ? format(parsedSelectedDate, "d MMMM yyyy", { locale: fr })
             : `${format(parseISO(displayedDays[0]), "d MMM", { locale: fr })} → ${format(parseISO(displayedDays[displayedDays.length - 1]), "d MMM", { locale: fr })}`}
         </span>
+        <div className="hidden sm:block">
+          <DesktopDatePicker
+            selectedDate={selectedDate}
+            onSelectDate={(d) => onSelectDate?.(d)}
+          />
+        </div>
       </div>
 
       {/* 2. Scrollable Timeline Area (Unified horizontal + vertical scroll container) */}

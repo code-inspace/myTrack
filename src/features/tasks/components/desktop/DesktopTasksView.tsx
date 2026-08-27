@@ -5,23 +5,19 @@ import { Task, TaskWithCompletion } from "@/features/tasks/types";
 import { TaskCard } from "../TaskCard";
 import { ActiveTaskBanner } from "../ActiveTaskBanner";
 import { DesktopWidgetsPane } from "./DesktopWidgetsPane";
+import { DesktopDatePicker } from "./DesktopDatePicker";
 import {
   CheckCircle2,
   Plus,
   Flame,
   Inbox,
-  ChevronLeft,
-  ChevronRight,
-  RotateCcw,
-  Calendar,
 } from "lucide-react";
-import { format, parseISO, addDays, subDays, isToday } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import {
   DndContext,
   DragEndEvent,
-  DragStartEvent,
   PointerSensor,
   useSensor,
   useSensors,
@@ -143,86 +139,27 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
     }
   }, [selectedDate]);
 
-  const handlePrevDay = () => {
-    try {
-      const d = subDays(parseISO(selectedDate), 1);
-      onSelectDate(format(d, "yyyy-MM-dd"));
-    } catch { }
-  };
-
-  const handleNextDay = () => {
-    try {
-      const d = addDays(parseISO(selectedDate), 1);
-      onSelectDate(format(d, "yyyy-MM-dd"));
-    } catch { }
-  };
-
   return (
-    <div className="flex-1 min-h-0 flex flex-col px-6 pt-2 pb-6 overflow-hidden">
-      {/* 1. Header Section: Title, Subtitle, & Actions */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 select-none">
-        <div>
-          <h1 className="text-2xl lg:text-3xl font-extrabold text-white tracking-tight flex items-center gap-2.5">
-            <span>Ma Journée</span>
-          </h1>
-          <p className="text-xs text-[#8E929E] mt-0.5 capitalize">{formattedDate}</p>
-        </div>
+    <div className="flex-1 min-h-0 flex flex-col px-6 pt-4 pb-6 overflow-hidden">
+      {/* 1. Header: Title + DatePicker + New Task */}
+      <div className="flex items-center justify-between gap-4 pb-4 select-none border-b border-[#17181F] mb-4">
+        <h1 className="text-xl font-extrabold text-white tracking-tight whitespace-nowrap">Ma Journée</h1>
+
+        {/* Center: Desktop Date Picker */}
+        <DesktopDatePicker
+          selectedDate={selectedDate}
+          onSelectDate={onSelectDate}
+        />
 
         {/* New Task button */}
         <button
           type="button"
           onClick={onNewTask}
-          className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-[#D4F63D] hover:bg-[#c2e42f] text-black font-bold text-xs shadow-lg shadow-[#D4F63D]/15 transition-all hover:scale-105 active:scale-95 cursor-pointer"
+          className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-[#D4F63D] hover:bg-[#c2e42f] text-black font-bold text-xs shadow-lg shadow-[#D4F63D]/15 transition-all hover:scale-105 active:scale-95 cursor-pointer whitespace-nowrap"
         >
           <Plus className="w-4 h-4 stroke-[2.5]" />
           <span>Nouvelle tâche</span>
         </button>
-      </div>
-
-      {/* 2. Classic Date Selector — prev/next arrows + date input */}
-      <div className="flex items-center gap-3 pb-4 select-none">
-        <div className="flex items-center bg-[#17181F] border border-[#282B36] rounded-2xl overflow-hidden shadow-sm">
-          <button
-            type="button"
-            onClick={handlePrevDay}
-            title="Jour précédent"
-            className="px-3 py-2.5 text-[#8E929E] hover:text-white hover:bg-[#22242C] transition-all cursor-pointer border-r border-[#282B36]"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-
-          {/* Native date input styled as a text trigger */}
-          <div className="relative">
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => e.target.value && onSelectDate(e.target.value)}
-              className="h-9 pl-3 pr-2 bg-transparent text-white text-sm font-semibold outline-none cursor-pointer appearance-none"
-              style={{ colorScheme: "dark" }}
-            />
-          </div>
-
-          <button
-            type="button"
-            onClick={handleNextDay}
-            title="Jour suivant"
-            className="px-3 py-2.5 text-[#8E929E] hover:text-white hover:bg-[#22242C] transition-all cursor-pointer border-l border-[#282B36]"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Today shortcut */}
-        {!isToday(parseISO(selectedDate)) && (
-          <button
-            type="button"
-            onClick={() => onSelectDate(format(new Date(), "yyyy-MM-dd"))}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#D4F63D]/10 hover:bg-[#D4F63D]/20 text-[#D4F63D] border border-[#D4F63D]/30 text-xs font-bold transition-all cursor-pointer"
-          >
-            <RotateCcw className="w-3 h-3 stroke-[2.5]" />
-            <span>Aujourd&apos;hui</span>
-          </button>
-        )}
       </div>
 
       {/* 3. Filter Pills Bar (Inspired by the Reference screenshot's pill filters) */}

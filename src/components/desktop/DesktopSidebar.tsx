@@ -68,11 +68,11 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
     <aside className="hidden md:flex flex-col w-[70px] xl:w-[220px] h-screen bg-[#0A0B0E] border-r border-[#17181F] flex-shrink-0 sticky top-0 z-40 select-none">
       {/* ── Brand ── */}
       <div className="flex items-center gap-3 h-16 px-4 border-b border-[#17181F] flex-shrink-0">
-        <div className="w-9 h-9 rounded-xl bg-[#D4F63D] flex items-center justify-center shadow-lg shadow-[#D4F63D]/20 flex-shrink-0">
-          <Zap className="w-4 h-4 text-black stroke-[3]" />
+        <div className="w-9 h-9 rounded-xl bg-[#D4F63D] flex items-center justify-center shadow-lg shadow-[#D4F63D]/20 flex-shrink-0 overflow-hidden">
+          <img src="/icon.svg" alt="MyTrack" className="w-6 h-6" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
         </div>
         <div className="hidden xl:block min-w-0">
-          <span className="text-white font-black text-base tracking-tight block leading-tight">myTrack</span>
+          <span className="text-white font-black text-base tracking-tight block leading-tight" style={{ fontVariant: 'small-caps', letterSpacing: '-0.02em' }}>MyTrack</span>
           <span className="text-[#555] text-[10px] font-medium block">Tracker personnel</span>
         </div>
       </div>
