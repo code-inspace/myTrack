@@ -46,6 +46,11 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
   const pathname = usePathname();
   const { user } = useAuth();
 
+  // Hide sidebar completely on auth pages (login, signup, verify-email, callback)
+  if (pathname.startsWith("/auth")) {
+    return null;
+  }
+
   const currentTab: TasksTab =
     activeTab ||
     (pathname.includes("/agenda")

@@ -70,43 +70,48 @@ export const AllProjectsBoardView: React.FC<AllProjectsBoardViewProps> = ({
 
   return (
     <div className="flex-1 min-h-0 flex flex-col">
-      <div className="flex items-center gap-2.5 px-4 pt-3 pb-2">
-        <button
-          type="button"
-          onClick={onBack}
-          className="p-2 rounded-full bg-[#1C1D22] hover:bg-[#22242B] border border-[#282A30] text-[#8E929E] hover:text-white transition-all cursor-pointer md:hidden"
-        >
-          <ArrowLeft className="w-4 h-4" />
-        </button>
-        <h2 className="text-lg font-bold text-white truncate">Toutes les tâches</h2>
-      </div>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-6 py-4 border-b border-[#17181F] flex-shrink-0 select-none">
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={onBack}
+            className="p-2 rounded-full bg-[#1C1D22] hover:bg-[#22242B] border border-[#282A30] text-[#8E929E] hover:text-white transition-all cursor-pointer md:hidden"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </button>
+          <div>
+            <h2 className="text-xl md:text-2xl font-extrabold text-white tracking-tight truncate">Toutes les tâches</h2>
+            <p className="text-xs text-[#8E929E] mt-0.5 hidden md:block">Vue Kanban consolidée de tous les projets</p>
+          </div>
+        </div>
 
-      <div className="flex items-center gap-2 px-4 pb-3">
-        <select
-          value={categoryFilter}
-          onChange={(e) => setCategoryFilter(e.target.value)}
-          className="flex-1 h-9 px-2.5 rounded-xl bg-[#1C1D22] border border-[#282A30] text-white text-xs outline-none focus:border-[#D4F63D] cursor-pointer"
-        >
-          <option value="">Toutes catégories</option>
-          {TASK_CATEGORIES.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.label}
-            </option>
-          ))}
-        </select>
-        <select
-          value={projectFilter}
-          onChange={(e) => setProjectFilter(e.target.value)}
-          className="flex-1 h-9 px-2.5 rounded-xl bg-[#1C1D22] border border-[#282A30] text-white text-xs outline-none focus:border-[#D4F63D] cursor-pointer"
-        >
-          <option value="">Tous les projets</option>
-          <option value={NO_PROJECT_FILTER}>Sans projet</option>
-          {projects.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
+        <div className="flex items-center gap-2">
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="h-9 px-3 rounded-xl bg-[#17181F] border border-[#282B36] text-white text-xs font-semibold outline-none focus:border-[#D4F63D] cursor-pointer"
+          >
+            <option value="">Toutes catégories</option>
+            {TASK_CATEGORIES.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+          <select
+            value={projectFilter}
+            onChange={(e) => setProjectFilter(e.target.value)}
+            className="h-9 px-3 rounded-xl bg-[#17181F] border border-[#282B36] text-white text-xs font-semibold outline-none focus:border-[#D4F63D] cursor-pointer"
+          >
+            <option value="">Tous les projets</option>
+            <option value={NO_PROJECT_FILTER}>Sans projet</option>
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <DndContext sensors={sensors} onDragEnd={handleDragEnd}>

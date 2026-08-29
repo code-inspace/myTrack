@@ -66,16 +66,22 @@ export const ProjectBoardView: React.FC<ProjectBoardViewProps> = ({
 
   return (
     <div className="flex-1 min-h-0 flex flex-col">
-      <div className="flex items-center gap-2.5 px-4 pt-3 pb-2">
-        <button
-          type="button"
-          onClick={onBack}
-          className="p-2 rounded-full bg-[#1C1D22] hover:bg-[#22242B] border border-[#282A30] text-[#8E929E] hover:text-white transition-all cursor-pointer md:hidden"
-        >
-          <ArrowLeft className="w-4 h-4" />
-        </button>
-        <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: project.color }} />
-        <h2 className="text-lg font-bold text-white truncate">{project.name}</h2>
+      {/* Header */}
+      <div className="flex items-center justify-between px-6 py-4 border-b border-[#17181F] flex-shrink-0 select-none">
+        <div className="flex items-center gap-3 min-w-0">
+          <button
+            type="button"
+            onClick={onBack}
+            className="p-2 rounded-full bg-[#1C1D22] hover:bg-[#22242B] border border-[#282A30] text-[#8E929E] hover:text-white transition-all cursor-pointer md:hidden"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </button>
+          <div className="w-3.5 h-3.5 rounded-full flex-shrink-0" style={{ backgroundColor: project.color }} />
+          <div>
+            <h2 className="text-xl md:text-2xl font-extrabold text-white tracking-tight truncate">{project.name}</h2>
+            <p className="text-xs text-[#8E929E] mt-0.5 hidden md:block">Tableau Kanban du projet</p>
+          </div>
+        </div>
       </div>
 
       {/* Project Categories Filter Bar */}

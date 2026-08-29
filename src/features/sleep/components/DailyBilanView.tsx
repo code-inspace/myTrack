@@ -83,9 +83,9 @@ export const DailyBilanView: React.FC<DailyBilanViewProps> = ({ selectedDate }) 
   };
 
   return (
-    <div className="flex-1 overflow-y-auto px-4 pt-3 pb-36 space-y-4 max-w-md mx-auto w-full">
-      {/* Header with Automatic Save Status & Formatted Date */}
-      <div className="flex items-center justify-between px-1">
+    <div className="flex-1 overflow-y-auto px-4 md:px-6 pt-3 md:pt-4 pb-36 md:pb-12 space-y-4 max-w-md md:max-w-5xl mx-auto w-full">
+      {/* Mobile-only Sub-Header (Desktop uses page header) */}
+      <div className="flex md:hidden items-center justify-between px-1">
         <div>
           <h2 className="text-xl font-bold text-white tracking-tight">Journal & Bilan</h2>
           <p className="text-xs text-[#8E929E] flex items-center gap-1.5 mt-0.5">
@@ -110,84 +110,115 @@ export const DailyBilanView: React.FC<DailyBilanViewProps> = ({ selectedDate }) 
         )}
       </div>
 
-      {/* ========================================================================= */}
-      {/* 1. ENCART GRATITUDE                                                       */}
-      {/* ========================================================================= */}
-      <div className="bg-[#1C1D22] border border-[#282A30] rounded-3xl p-5 shadow-lg space-y-3">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-[#EC4899]/15 border border-[#EC4899]/30 flex items-center justify-center text-[#F472B6] shadow-sm">
-            <Heart className="w-5 h-5 fill-[#EC4899]/20" />
+      {/* Desktop & Mobile Grid */}
+      <div className="lg:grid lg:grid-cols-2 lg:gap-5 space-y-4 lg:space-y-0 items-start">
+        {/* Left Column: Gratitude & Manifestation */}
+        <div className="space-y-4">
+          {/* ========================================================================= */}
+          {/* 1. ENCART GRATITUDE                                                       */}
+          {/* ========================================================================= */}
+          <div className="bg-[#1C1D22] border border-[#282A30] rounded-3xl p-5 shadow-lg space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-[#EC4899]/15 border border-[#EC4899]/30 flex items-center justify-center text-[#F472B6] shadow-sm">
+                <Heart className="w-5 h-5 fill-[#EC4899]/20" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+                  <span>Gratitude du jour</span>
+                </h3>
+                <p className="text-[11px] text-[#8E929E]">Ce pour quoi tu es reconnaissant(e)</p>
+              </div>
+            </div>
+
+            <div className="relative">
+              <textarea
+                rows={4}
+                value={log.gratitude || ""}
+                onChange={(e) => handleFieldChange("gratitude", e.target.value)}
+                placeholder="Ex : Je suis reconnaissant(e) pour le temps passé avec mes proches, cette séance d'entraînement réussie, cette opportunité..."
+                className="w-full p-4 rounded-2xl bg-[#252830] border border-[#343740] text-sm text-white focus:border-[#EC4899] focus:ring-1 focus:ring-[#EC4899] outline-none placeholder-[#6B7280] resize-none transition-all"
+              />
+            </div>
           </div>
-          <div>
-            <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
-              <span>Gratitude du jour</span>
-            </h3>
-            <p className="text-[11px] text-[#8E929E]">Ce pour quoi tu es reconnaissant(e)</p>
+
+          {/* ========================================================================= */}
+          {/* 2. ENCART MANIFESTATION & INTENTIONS                                      */}
+          {/* ========================================================================= */}
+          <div className="bg-[#1C1D22] border border-[#282A30] rounded-3xl p-5 shadow-lg space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-[#8B5CF6]/15 border border-[#8B5CF6]/30 flex items-center justify-center text-[#A78BFA] shadow-sm">
+                <Sparkles className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+                  <span>Manifestation & Intentions</span>
+                </h3>
+                <p className="text-[11px] text-[#8E929E]">Visualise ta réussite et affirme tes objectifs</p>
+              </div>
+            </div>
+
+            <div className="relative">
+              <textarea
+                rows={4}
+                value={log.manifestation || ""}
+                onChange={(e) => handleFieldChange("manifestation", e.target.value)}
+                placeholder="Ex : J'attire la clarté et l'énergie nécessaire pour accomplir mes projets. Je progresse chaque jour vers..."
+                className="w-full p-4 rounded-2xl bg-[#252830] border border-[#343740] text-sm text-white focus:border-[#8B5CF6] focus:ring-1 focus:ring-[#8B5CF6] outline-none placeholder-[#6B7280] resize-none transition-all"
+              />
+            </div>
           </div>
         </div>
 
-        <div className="relative">
-          <textarea
-            rows={3}
-            value={log.gratitude || ""}
-            onChange={(e) => handleFieldChange("gratitude", e.target.value)}
-            placeholder="Ex : Je suis reconnaissant(e) pour le temps passé avec mes proches, cette séance d'entraînement réussie, cette opportunité..."
-            className="w-full p-4 rounded-2xl bg-[#252830] border border-[#343740] text-sm text-white focus:border-[#EC4899] focus:ring-1 focus:ring-[#EC4899] outline-none placeholder-[#6B7280] resize-none transition-all"
-          />
-        </div>
-      </div>
+        {/* Right Column: Bilan & Victoires + Thought Starters */}
+        <div className="space-y-4">
+          {/* ========================================================================= */}
+          {/* 3. ENCART COMMENTAIRE DE LA JOURNÉE / BILAN                               */}
+          {/* ========================================================================= */}
+          <div className="bg-[#1C1D22] border border-[#282A30] rounded-3xl p-5 shadow-lg space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-[#3B82F6]/15 border border-[#3B82F6]/30 flex items-center justify-center text-[#60A5FA] shadow-sm">
+                <BookOpen className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+                  <span>Bilan & Victoires de la journée</span>
+                </h3>
+                <p className="text-[11px] text-[#8E929E]">Ressenti, apprentissages, victoires et ajustements</p>
+              </div>
+            </div>
 
-      {/* ========================================================================= */}
-      {/* 2. ENCART MANIFESTATION & INTENTIONS                                      */}
-      {/* ========================================================================= */}
-      <div className="bg-[#1C1D22] border border-[#282A30] rounded-3xl p-5 shadow-lg space-y-3">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-[#8B5CF6]/15 border border-[#8B5CF6]/30 flex items-center justify-center text-[#A78BFA] shadow-sm">
-            <Sparkles className="w-5 h-5" />
+            <div className="relative">
+              <textarea
+                rows={5}
+                value={log.notes || ""}
+                onChange={(e) => handleFieldChange("notes", e.target.value)}
+                placeholder="Comment s'est passée ta journée ? Qu'as-tu accompli, quelles leçons en tires-tu ?"
+                className="w-full p-4 rounded-2xl bg-[#252830] border border-[#343740] text-sm text-white focus:border-[#D4F63D] focus:ring-1 focus:ring-[#D4F63D] outline-none placeholder-[#6B7280] resize-none transition-all"
+              />
+            </div>
           </div>
-          <div>
-            <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
-              <span>Manifestation & Intentions</span>
-            </h3>
-            <p className="text-[11px] text-[#8E929E]">Visualise ta réussite et affirme tes objectifs</p>
-          </div>
-        </div>
 
-        <div className="relative">
-          <textarea
-            rows={3}
-            value={log.manifestation || ""}
-            onChange={(e) => handleFieldChange("manifestation", e.target.value)}
-            placeholder="Ex : J'attire la clarté et l'énergie nécessaire pour accomplir mes projets. Je progresse chaque jour vers..."
-            className="w-full p-4 rounded-2xl bg-[#252830] border border-[#343740] text-sm text-white focus:border-[#8B5CF6] focus:ring-1 focus:ring-[#8B5CF6] outline-none placeholder-[#6B7280] resize-none transition-all"
-          />
-        </div>
-      </div>
-
-      {/* ========================================================================= */}
-      {/* 3. ENCART COMMENTAIRE DE LA JOURNÉE / BILAN                               */}
-      {/* ========================================================================= */}
-      <div className="bg-[#1C1D22] border border-[#282A30] rounded-3xl p-5 shadow-lg space-y-3">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-[#3B82F6]/15 border border-[#3B82F6]/30 flex items-center justify-center text-[#60A5FA] shadow-sm">
-            <BookOpen className="w-5 h-5" />
+          {/* Inspiration Prompts Card */}
+          <div className="bg-[#17181D] border border-[#282A30] rounded-3xl p-5 shadow-sm space-y-2.5">
+            <div className="flex items-center gap-2 text-xs font-bold text-white">
+              <Sparkles className="w-4 h-4 text-[#D4F63D]" />
+              <span>Pistes de réflexion pour aujourd'hui</span>
+            </div>
+            <ul className="space-y-1.5 text-xs text-[#8E929E] leading-relaxed pl-1">
+              <li className="flex items-start gap-2">
+                <span className="text-[#D4F63D] font-bold">•</span>
+                <span>Quelle est la plus grande victoire que tu as remportée aujourd'hui ?</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-[#D4F63D] font-bold">•</span>
+                <span>Quel obstacle as-tu surmonté ou quelle habitude as-tu tenue malgré la fatigue ?</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-[#D4F63D] font-bold">•</span>
+                <span>Quelle action clé feras-tu dès demain matin pour maintenir ton momentum ?</span>
+              </li>
+            </ul>
           </div>
-          <div>
-            <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
-              <span>Bilan & Victoires de la journée</span>
-            </h3>
-            <p className="text-[11px] text-[#8E929E]">Ressenti, apprentissages, victoires et ajustements</p>
-          </div>
-        </div>
-
-        <div className="relative">
-          <textarea
-            rows={4}
-            value={log.notes || ""}
-            onChange={(e) => handleFieldChange("notes", e.target.value)}
-            placeholder="Comment s'est passée ta journée ? Qu'as-tu accompli, quelles leçons en tires-tu ?"
-            className="w-full p-4 rounded-2xl bg-[#252830] border border-[#343740] text-sm text-white focus:border-[#D4F63D] focus:ring-1 focus:ring-[#D4F63D] outline-none placeholder-[#6B7280] resize-none transition-all"
-          />
         </div>
       </div>
     </div>

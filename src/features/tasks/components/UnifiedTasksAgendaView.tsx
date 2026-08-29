@@ -262,16 +262,16 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
                 <DailyBilanView selectedDate={selectedDate} />
               </div>
               {/* Desktop */}
-              <div className="hidden md:flex md:flex-1 md:min-h-0 flex-col bg-[#0E0F12]">
-                <div className="flex items-center justify-between px-8 py-4 border-b border-[#17181F] flex-shrink-0">
+              <div className="hidden md:flex md:flex-1 md:min-h-0 flex-col bg-[#0E0F12] overflow-hidden">
+                <div className="flex items-center justify-between px-8 py-5 border-b border-[#17181F] flex-shrink-0 select-none">
                   <div>
-                    <h1 className="text-xl font-extrabold text-white tracking-tight">Bilan du jour</h1>
-                    <p className="text-xs text-[#5C6070] mt-0.5">Gratitude &amp; Manifestation</p>
+                    <h1 className="text-2xl font-extrabold text-white tracking-tight">Journal &amp; Bilan</h1>
+                    <p className="text-xs text-[#8E929E] mt-0.5">Gratitude, manifestation &amp; victoires du jour</p>
                   </div>
                   <DesktopDatePicker selectedDate={selectedDate} onSelectDate={setSelectedDate} />
                 </div>
                 <div className="flex-1 min-h-0 overflow-y-auto">
-                  <div className="max-w-2xl mx-auto px-6 py-4">
+                  <div className="max-w-5xl mx-auto px-6 py-6 w-full">
                     <DailyBilanView selectedDate={selectedDate} />
                   </div>
                 </div>
@@ -285,16 +285,16 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
                 <SleepJournalView selectedDate={selectedDate} />
               </div>
               {/* Desktop */}
-              <div className="hidden md:flex md:flex-1 md:min-h-0 flex-col bg-[#0E0F12]">
-                <div className="flex items-center justify-between px-8 py-4 border-b border-[#17181F] flex-shrink-0">
+              <div className="hidden md:flex md:flex-1 md:min-h-0 flex-col bg-[#0E0F12] overflow-hidden">
+                <div className="flex items-center justify-between px-8 py-5 border-b border-[#17181F] flex-shrink-0 select-none">
                   <div>
-                    <h1 className="text-xl font-extrabold text-white tracking-tight">Sommeil</h1>
-                    <p className="text-xs text-[#5C6070] mt-0.5">Journal &amp; suivi du sommeil</p>
+                    <h1 className="text-2xl font-extrabold text-white tracking-tight">Sommeil &amp; Récupération</h1>
+                    <p className="text-xs text-[#8E929E] mt-0.5">Horaires, rappels du coucher &amp; mode nuit</p>
                   </div>
                   <DesktopDatePicker selectedDate={selectedDate} onSelectDate={setSelectedDate} />
                 </div>
                 <div className="flex-1 min-h-0 overflow-y-auto">
-                  <div className="max-w-2xl mx-auto px-6 py-4">
+                  <div className="max-w-5xl mx-auto px-6 py-6 w-full">
                     <SleepJournalView selectedDate={selectedDate} />
                   </div>
                 </div>

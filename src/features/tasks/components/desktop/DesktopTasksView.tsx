@@ -6,12 +6,9 @@ import { TaskCard } from "../TaskCard";
 import { ActiveTaskBanner } from "../ActiveTaskBanner";
 import { DesktopWidgetsPane } from "./DesktopWidgetsPane";
 import { DesktopDatePicker } from "./DesktopDatePicker";
-import {
-  CheckCircle2,
-  Plus,
-  Flame,
-  Inbox,
-} from "lucide-react";
+import { CheckCircle2, Plus, Flame, Inbox } from "lucide-react";
+import { format, parseISO } from "date-fns";
+import { fr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import {
   DndContext,
@@ -128,27 +125,46 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
     onReorderTasks(reordered.map((t) => t.id));
   };
 
+  const formattedDate = useMemo(() => {
+    try {
+      const d = parseISO(selectedDate);
+      return format(d, "EEEE d MMMM yyyy", { locale: fr });
+    } catch {
+      return selectedDate;
+    }
+  }, [selectedDate]);
+
   return (
     <div className="flex-1 min-h-0 flex flex-col px-6 pt-4 pb-6 overflow-hidden">
-      {/* 1. Header: Title + DatePicker + New Task */}
-      <div className="flex items-center justify-between gap-4 pb-4 select-none border-b border-[#17181F] mb-4">
-        <h1 className="text-xl font-extrabold text-white tracking-tight whitespace-nowrap">Ma Journée</h1>
-
-        {/* Center: Desktop Date Picker */}
-        <DesktopDatePicker
-          selectedDate={selectedDate}
-          onSelectDate={onSelectDate}
-        />
+      {/* 1. Header Section: Title, Subtitle, & Actions */}
+      <div className="flex items-center justify-between gap-4 pb-3 select-none flex-shrink-0">
+        <div>
+          <h1 className="text-2xl lg:text-3xl font-extrabold text-white tracking-tight flex items-center gap-2.5">
+            <span>Ma Journée</span>
+            <span className="px-2.5 py-0.5 rounded-full bg-[#D4F63D]/15 text-[#D4F63D] border border-[#D4F63D]/30 text-xs font-mono font-bold">
+              Temps réel
+            </span>
+          </h1>
+          <p className="text-xs text-[#8E929E] mt-0.5 capitalize">{formattedDate}</p>
+        </div>
 
         {/* New Task button */}
         <button
           type="button"
           onClick={onNewTask}
-          className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-[#D4F63D] hover:bg-[#c2e42f] text-black font-bold text-xs shadow-lg shadow-[#D4F63D]/15 transition-all hover:scale-105 active:scale-95 cursor-pointer whitespace-nowrap"
+          className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#D4F63D] hover:bg-[#c2e42f] text-black font-bold text-xs shadow-lg shadow-[#D4F63D]/15 transition-all hover:scale-105 active:scale-95 cursor-pointer whitespace-nowrap"
         >
           <Plus className="w-4 h-4 stroke-[2.5]" />
           <span>Nouvelle tâche</span>
         </button>
+      </div>
+
+      {/* 2. Desktop Date Picker — restored in dedicated row */}
+      <div className="pb-3 flex-shrink-0">
+        <DesktopDatePicker
+          selectedDate={selectedDate}
+          onSelectDate={onSelectDate}
+        />
       </div>
 
       {/* 3. Filter Pills Bar (Inspired by the Reference screenshot's pill filters) */}

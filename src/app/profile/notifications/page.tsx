@@ -114,26 +114,26 @@ export default function NotificationSettingsPage() {
   return (
     <div className="flex-1 flex flex-col h-screen max-h-screen bg-[#0E0F12] text-white relative overflow-hidden">
       {/* Header */}
-      <div className="flex-shrink-0 px-4 py-4 border-b border-[#282A30] bg-[#141518]/90 backdrop-blur-md flex items-center justify-between z-30">
+      <div className="flex-shrink-0 px-4 md:px-8 py-4 md:py-5 border-b border-[#17181F] bg-[#0E0F12] flex items-center justify-between z-30 select-none">
         <div className="flex items-center gap-3">
           <Link
             href="/profile"
-            className="p-2 rounded-xl bg-[#22242B] hover:bg-[#2C2E38] text-[#8E929E] hover:text-white transition-colors cursor-pointer"
+            className="p-2.5 rounded-xl bg-[#17181F] hover:bg-[#22242C] border border-[#282B36] text-[#8E929E] hover:text-white transition-colors cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" />
           </Link>
           <div>
-            <h1 className="text-base font-bold text-white flex items-center gap-2">
-              <Bell className="w-4 h-4 text-[#D4F63D]" />
+            <h1 className="text-xl md:text-2xl font-extrabold text-white tracking-tight flex items-center gap-2">
+              <Bell className="w-5 h-5 text-[#D4F63D]" />
               <span>Gestion des Notifications</span>
             </h1>
-            <p className="text-[11px] text-[#8E929E]">Rappels, bilans & check-in en temps réel</p>
+            <p className="text-xs text-[#8E929E] mt-0.5">Rappels d'action, bilans &amp; check-in en temps réel</p>
           </div>
         </div>
       </div>
 
       {/* Scrollable Content */}
-      <div className="flex-1 overflow-y-auto px-4 md:px-8 py-4 md:py-6 space-y-4 max-w-md md:max-w-4xl mx-auto w-full pb-28 md:pb-10">
+      <div className="flex-1 overflow-y-auto px-4 md:px-8 py-4 md:py-6 space-y-4 max-w-md md:max-w-5xl mx-auto w-full pb-28 md:pb-12">
         {/* ========================================================================= */}
         {/* 1. MASTER MUTE TOGGLE (Désactiver tout & Restaurer l'état précédent)       */}
         {/* ========================================================================= */}

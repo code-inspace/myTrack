@@ -39,7 +39,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex-1 flex flex-col justify-center py-10 px-2 space-y-6">
+    <div className="flex-1 flex flex-col justify-center py-10 px-4 max-w-md mx-auto w-full space-y-6">
       {/* App Branding */}
       <div className="text-center space-y-2 flex flex-col items-center">
         <Logo size="xl" showText={false} />

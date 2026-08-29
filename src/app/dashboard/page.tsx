@@ -27,16 +27,27 @@ export default function DashboardPage() {
 
   return (
     <div className="flex-1 flex flex-col overflow-y-auto pb-28 md:pb-10 space-y-4 max-w-md md:max-w-6xl mx-auto w-full px-4 md:px-8 pt-2 md:pt-6">
-      {/* Dashboard Title Header — keeps Profile reachable from here even though the bottom
-          nav in "modern" mode no longer lists it directly */}
-      <AppHeader
-        title="Dashboard"
-        rightAction={
-          displayMode === "modern"
-            ? { href: "/profile", initial: (user?.name?.[0] || "?").toUpperCase(), label: "Profil" }
-            : undefined
-        }
-      />
+      {/* Desktop Header */}
+      <div className="hidden md:flex items-center justify-between pb-2 select-none flex-shrink-0">
+        <div>
+          <h1 className="text-2xl lg:text-3xl font-extrabold text-white tracking-tight flex items-center gap-2.5">
+            <span>Dashboard &amp; Statistiques</span>
+          </h1>
+          <p className="text-xs text-[#8E929E] mt-0.5">Analyse de ta progression, régularité et momentum</p>
+        </div>
+      </div>
+
+      {/* Mobile Title Header */}
+      <div className="md:hidden">
+        <AppHeader
+          title="Dashboard"
+          rightAction={
+            displayMode === "modern"
+              ? { href: "/profile", initial: (user?.name?.[0] || "?").toUpperCase(), label: "Profil" }
+              : undefined
+          }
+        />
+      </div>
 
       {/* Period Selector Tabs & Chevron Navigation: [Semaine] [Mois] [Tout le temps] */}
       <PeriodSelector

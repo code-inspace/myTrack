@@ -37,7 +37,7 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="flex-1 flex flex-col justify-center py-10 px-2 space-y-6">
+    <div className="flex-1 flex flex-col justify-center py-10 px-4 max-w-md mx-auto w-full space-y-6">
       <div className="text-center space-y-2 flex flex-col items-center">
         <Logo size="xl" showText={false} />
         <h1 className="text-2xl font-black text-white tracking-tight pt-1">

@@ -105,10 +105,11 @@ export default function ProfilePage() {
   return (
     <div className="flex-1 flex flex-col overflow-y-auto pb-28 md:pb-10 space-y-4 max-w-md md:max-w-5xl mx-auto w-full px-4 md:px-8 pt-2 md:pt-6">
       {/* Profile Header */}
-      <header className="w-full text-center md:text-left py-2">
-        <h1 className="text-xl md:text-2xl font-extrabold text-white tracking-tight">
-          Profil
+      <header className="w-full text-center md:text-left py-1 pb-3">
+        <h1 className="text-2xl lg:text-3xl font-extrabold text-white tracking-tight">
+          Mon Profil
         </h1>
+        <p className="text-xs text-[#8E929E] mt-0.5">Paramètres du compte, affichage &amp; préférences</p>
       </header>
 
       {/* Desktop: two balanced columns · Mobile: single stack */}

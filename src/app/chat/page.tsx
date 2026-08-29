@@ -13,23 +13,23 @@ export default function ChatPage() {
   const { data: stats } = useDashboardStats();
 
   return (
-    <div className="flex-1 flex flex-col xl:flex-row xl:gap-6 h-[calc(100vh-6rem)] max-h-[calc(100dvh-6rem)] md:h-screen md:max-h-screen pb-2 md:pb-4 w-full md:max-w-3xl xl:max-w-6xl md:mx-auto md:px-4 xl:px-6">
+    <div className="flex-1 flex flex-col xl:flex-row xl:gap-6 h-[calc(100vh-6rem)] max-h-[calc(100dvh-6rem)] md:h-screen md:max-h-screen pb-2 md:pb-6 w-full md:max-w-4xl xl:max-w-6xl md:mx-auto px-4 md:px-8 pt-2 md:pt-4">
       {/* Chat column */}
       <div className="flex-1 flex flex-col min-w-0 min-h-0">
         {/* AI Coach Header */}
-        <header className="flex items-center justify-between py-2 md:py-3 border-b border-[#282A30] px-1 flex-shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-[#D4F63D] text-[#111214] flex items-center justify-center font-bold lime-glow-sm">
-              <Bot className="w-4 h-4 stroke-[2.5]" />
+        <header className="flex items-center justify-between py-3 md:py-4 border-b border-[#17181F] px-1 flex-shrink-0 select-none">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-[#D4F63D] text-[#111214] flex items-center justify-center font-bold lime-glow-sm shadow-md">
+              <Bot className="w-5 h-5 stroke-[2.5]" />
             </div>
             <div>
-              <h1 className="text-sm font-bold text-white flex items-center gap-1.5">
-                Tracky • Coach IA
+              <h1 className="text-base md:text-lg font-extrabold text-white flex items-center gap-2">
+                <span>Tracky • Coach IA</span>
                 <span className="text-[10px] bg-[#D4F63D]/20 text-[#D4F63D] px-2 py-0.5 rounded-full font-bold">
                   En ligne
                 </span>
               </h1>
-              <p className="text-[11px] text-[#8E929E]">
+              <p className="text-xs text-[#8E929E]">
                 Connaît tes données • {stats?.currentStreak ?? 0}j streak • {stats?.momentum ?? 64} momentum
               </p>
             </div>
@@ -37,8 +37,8 @@ export default function ChatPage() {
 
           <button
             onClick={clearChat}
-            title="Clear chat"
-            className="p-2 rounded-xl bg-[#1C1D22] hover:bg-[#252830] text-[#8E929E] hover:text-[#F87171] transition-colors"
+            title="Effacer la discussion"
+            className="p-2.5 rounded-xl bg-[#17181F] hover:bg-[#22242C] border border-[#282B36] text-[#8E929E] hover:text-[#F87171] transition-colors cursor-pointer"
           >
             <Trash2 className="w-4 h-4" />
           </button>
