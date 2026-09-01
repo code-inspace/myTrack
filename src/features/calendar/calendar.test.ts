@@ -154,3 +154,39 @@ describe("External Calendar Event Status", () => {
     expect(getExternalEventStatus(pastEvent, "2020-01-01", false)).toBe("TODO");
   });
 });
+
+import { encryptText, isEncrypted } from "@/lib/crypto/encryption";
+import { mapDbSubscriptionToModel } from "./actions/calendarCrud";
+
+describe("Encrypted Calendar Subscriptions Database Mapping", () => {
+  it("encrypts and decrypts subscription url, username, password and name transparently", async () => {
+    const rawSecretUrl = "https://calendar.google.com/calendar/ical/user%40gmail.com/private-secret-token/basic.ics";
+    const rawSecretPass = "SuperSecretCalDAVPassword123!";
+
+    const encryptedUrl = await encryptText(rawSecretUrl);
+    const encryptedPass = await encryptText(rawSecretPass);
+
+    expect(isEncrypted(encryptedUrl)).toBe(true);
+    expect(isEncrypted(encryptedPass)).toBe(true);
+    expect(encryptedUrl).not.toContain("private-secret-token");
+
+    const row = {
+      id: "cal-test-1",
+      user_id: "user-123",
+      name: "Mon Google Pro",
+      url: encryptedUrl,
+      color: "#3B82F6",
+      enabled: true,
+      username: "user@example.com",
+      password: encryptedPass,
+      created_at: "2026-09-02T00:00:00.000Z",
+      updated_at: "2026-09-02T00:00:00.000Z",
+    };
+
+    const mapped = await mapDbSubscriptionToModel(row);
+    expect(mapped.url).toBe(rawSecretUrl);
+    expect(mapped.password).toBe(rawSecretPass);
+    expect(mapped.name).toBe("Mon Google Pro");
+    expect(mapped.enabled).toBe(true);
+  });
+});

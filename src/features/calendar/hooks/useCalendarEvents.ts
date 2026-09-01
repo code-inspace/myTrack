@@ -1,12 +1,17 @@
 "use client";
 
+import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/providers/AuthProvider";
 import { CalendarSubscription, ExternalCalendarEvent } from "../types";
+import { getStoredCalendarSubscriptions } from "../actions/storage";
 import {
-  getStoredCalendarSubscriptions,
-  saveStoredCalendarSubscriptions,
-} from "../actions/storage";
+  fetchCalendarSubscriptions,
+  createDbCalendarSubscription,
+  updateDbCalendarSubscription,
+  deleteDbCalendarSubscription,
+} from "../actions/calendarCrud";
+import { createClient } from "@/utils/supabase/client";
 import { subDays, addDays, parseISO, format } from "date-fns";
 
 export function useCalendarEvents(focusedDateStr?: string) {
@@ -14,12 +19,37 @@ export function useCalendarEvents(focusedDateStr?: string) {
   const { user } = useAuth();
   const userId = user?.id || "00000000-0000-0000-0000-000000000001";
 
-  // 1. Calendar Subscriptions Query
-  const { data: subscriptions = [] } = useQuery<CalendarSubscription[]>({
+  // Supabase Realtime Listener for instant multi-device sync (Phone <-> Desktop)
+  useEffect(() => {
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`realtime-calendars-${userId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "calendar_subscriptions",
+          filter: `user_id=eq.${userId}`,
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["calendar-subscriptions", userId] });
+          queryClient.invalidateQueries({ queryKey: ["external-calendar-events"] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userId, queryClient]);
+
+  // 1. Calendar Subscriptions Query (from Encrypted Supabase DB + Local Cache)
+  const { data: subscriptions = getStoredCalendarSubscriptions(userId) } = useQuery<CalendarSubscription[]>({
     queryKey: ["calendar-subscriptions", userId],
-    queryFn: () => getStoredCalendarSubscriptions(userId),
+    queryFn: async () => fetchCalendarSubscriptions(userId),
     initialData: () => getStoredCalendarSubscriptions(userId),
-    staleTime: Infinity,
+    staleTime: 1000 * 60 * 2, // 2 minutes
   });
 
   // Calculate range around the selected date (+/- 30 days)
@@ -70,40 +100,51 @@ export function useCalendarEvents(focusedDateStr?: string) {
   });
 
   // --- Subscriptions Mutations ---
-  const saveSubscriptions = (newSubs: CalendarSubscription[]) => {
-    saveStoredCalendarSubscriptions(newSubs, userId);
-    queryClient.setQueryData(["calendar-subscriptions", userId], newSubs);
-    queryClient.invalidateQueries({ queryKey: ["external-calendar-events"] });
-  };
+  const addSubscriptionMutation = useMutation({
+    mutationFn: async (sub: Omit<CalendarSubscription, "id" | "createdAt" | "updatedAt">) => {
+      return createDbCalendarSubscription(sub, userId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["calendar-subscriptions", userId] });
+      queryClient.invalidateQueries({ queryKey: ["external-calendar-events"] });
+    },
+  });
+
+  const updateSubscriptionMutation = useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: Partial<CalendarSubscription> }) => {
+      return updateDbCalendarSubscription(id, updates, userId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["calendar-subscriptions", userId] });
+      queryClient.invalidateQueries({ queryKey: ["external-calendar-events"] });
+    },
+  });
+
+  const deleteSubscriptionMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return deleteDbCalendarSubscription(id, userId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["calendar-subscriptions", userId] });
+      queryClient.invalidateQueries({ queryKey: ["external-calendar-events"] });
+    },
+  });
 
   const addSubscription = (
     sub: Omit<CalendarSubscription, "id" | "createdAt" | "updatedAt">
   ) => {
-    const nowIso = new Date().toISOString();
-    const newRecord: CalendarSubscription = {
-      ...sub,
-      id: "cal-" + Date.now(),
-      createdAt: nowIso,
-      updatedAt: nowIso,
-    };
-    const updated = [...subscriptions, newRecord];
-    saveSubscriptions(updated);
-    return newRecord;
+    return addSubscriptionMutation.mutate(sub);
   };
 
   const updateSubscription = (
     id: string,
     updates: Partial<CalendarSubscription>
   ) => {
-    const updated = subscriptions.map((s) =>
-      s.id === id ? { ...s, ...updates, updatedAt: new Date().toISOString() } : s
-    );
-    saveSubscriptions(updated);
+    updateSubscriptionMutation.mutate({ id, updates });
   };
 
   const deleteSubscription = (id: string) => {
-    const updated = subscriptions.filter((s) => s.id !== id);
-    saveSubscriptions(updated);
+    deleteSubscriptionMutation.mutate(id);
   };
 
   const toggleSubscription = (id: string) => {

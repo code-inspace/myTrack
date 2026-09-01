@@ -9,10 +9,11 @@ import { TaskCard } from "../TaskCard";
 import { ActiveTaskBanner } from "../ActiveTaskBanner";
 import { DesktopWidgetsPane } from "./DesktopWidgetsPane";
 import { DesktopDatePicker } from "./DesktopDatePicker";
-import { CheckCircle2, Plus, Flame, Inbox, Calendar } from "lucide-react";
+import { CheckCircle2, Plus, Flame, Inbox, Calendar, RefreshCw } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   DndContext,
   DragEndEvent,
@@ -72,6 +73,8 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
   onSelectTab,
   sleepDurationText,
 }) => {
+  const queryClient = useQueryClient();
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [statusFilter, setStatusFilter] = useState<FilterStatus>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("");
   const [manualCompletedEvents, setManualCompletedEvents] = useState<Record<string, boolean>>({});
@@ -81,6 +84,12 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
     }
     return true;
   });
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await queryClient.invalidateQueries();
+    setTimeout(() => setIsRefreshing(false), 600);
+  };
 
   const toggleCalendarVisibility = () => {
     setShowCalendar((prev) => {
@@ -228,15 +237,27 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
           <p className="text-xs text-[#8E929E] mt-0.5 capitalize">{formattedDate}</p>
         </div>
 
-        {/* New Task button */}
-        <button
-          type="button"
-          onClick={onNewTask}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#D4F63D] hover:bg-[#c2e42f] text-black font-bold text-xs shadow-lg shadow-[#D4F63D]/15 transition-all hover:scale-105 active:scale-95 cursor-pointer whitespace-nowrap"
-        >
-          <Plus className="w-4 h-4 stroke-[2.5]" />
-          <span>Nouvelle tâche</span>
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Force Sync button */}
+          <button
+            type="button"
+            onClick={handleRefresh}
+            title="Rafraîchir et synchroniser les données"
+            className="p-2.5 rounded-2xl bg-[#17181F] border border-[#282B36] hover:border-[#3D4252] text-[#8E929E] hover:text-white transition-all cursor-pointer shadow-sm active:scale-95"
+          >
+            <RefreshCw className={cn("w-4 h-4", isRefreshing && "animate-spin text-[#D4F63D]")} />
+          </button>
+
+          {/* New Task button */}
+          <button
+            type="button"
+            onClick={onNewTask}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#D4F63D] hover:bg-[#c2e42f] text-black font-bold text-xs shadow-lg shadow-[#D4F63D]/15 transition-all hover:scale-105 active:scale-95 cursor-pointer whitespace-nowrap"
+          >
+            <Plus className="w-4 h-4 stroke-[2.5]" />
+            <span>Nouvelle tâche</span>
+          </button>
+        </div>
       </div>
 
       {/* 2. Desktop Date Picker — restored in dedicated row */}
@@ -392,7 +413,7 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
 
           {/* Tasks & External Calendar Events Stream */}
           <div className="space-y-3 pb-16">
-            {orderedTasks.length === 0 && filteredExternalEvents.length === 0 ? (
+            {orderedTasks.length === 0 && filteredExternalEvents.length === 0 && !activeTask ? (
               <div className="p-12 text-center bg-[#15161B] border border-[#242630] rounded-3xl my-4 space-y-3">
                 <div className="w-12 h-12 rounded-2xl bg-[#20222B] border border-[#2E313D] flex items-center justify-center text-[#8E929E] mx-auto">
                   <Inbox className="w-6 h-6" />
