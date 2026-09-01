@@ -117,11 +117,35 @@ export function useTaskMutations() {
     mutationFn: async (taskId: string) => {
       await deleteDbTask(taskId, userId);
     },
-    onSuccess: (_, deletedId) => {
+    onMutate: async (deletedId) => {
+      await queryClient.cancelQueries({ queryKey: ["tasks", userId] });
+      await queryClient.cancelQueries({ queryKey: ["completions", userId] });
+      const prevTasks = queryClient.getQueryData<Task[]>(["tasks", userId]);
+      const prevCompletions = queryClient.getQueryData<TaskCompletion[]>([
+        "completions",
+        userId,
+      ]);
+
       queryClient.setQueryData<Task[]>(["tasks", userId], (old = []) =>
         old.filter((t) => t.id !== deletedId),
       );
+      queryClient.setQueryData<TaskCompletion[]>(["completions", userId], (old = []) =>
+        old.filter((c) => c.taskId !== deletedId),
+      );
+
+      return { prevTasks, prevCompletions };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.prevTasks) {
+        queryClient.setQueryData(["tasks", userId], context.prevTasks);
+      }
+      if (context?.prevCompletions) {
+        queryClient.setQueryData(["completions", userId], context.prevCompletions);
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["completions"] });
     },
   });
 

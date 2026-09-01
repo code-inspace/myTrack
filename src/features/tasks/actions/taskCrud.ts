@@ -573,19 +573,57 @@ export async function deleteDbTask(
   }).catch(() => {});
 
   try {
-    // Hard-delete associated reminders (don't rely solely on DB-level ON DELETE CASCADE)
+    // 1. Delete associated task completions first to prevent foreign key constraint violations
+    await supabase.from("task_completions").delete().eq("task_id", taskId);
+  } catch (err) {
+    console.warn("Supabase deleteDbTask completions cleanup error:", err);
+  }
+
+  try {
+    // 2. Delete associated reminders
     await supabase.from("reminders").delete().eq("task_id", taskId);
   } catch (err) {
     console.warn("Supabase deleteDbTask reminders cleanup error:", err);
   }
 
   try {
+    // 3. Delete the task itself
     await supabase.from("tasks").delete().eq("id", taskId);
   } catch (err) {
     console.warn("Supabase deleteDbTask error:", err);
   }
 
+  // 4. Clean local tasks storage across all keys
   const tasks = getStoredTasks(targetId);
-  const updated = tasks.filter((t) => t.id !== taskId);
-  saveStoredTasks(updated, targetId);
+  const updatedTasks = tasks.filter((t) => t.id !== taskId);
+  saveStoredTasks(updatedTasks, targetId);
+
+  // Clean local completions
+  const comps = getStoredCompletions(targetId);
+  const updatedComps = comps.filter((c) => c.taskId !== taskId);
+  saveStoredCompletions(updatedComps, targetId);
+
+  // Also purge from legacy storage keys if present
+  if (typeof window !== "undefined") {
+    const legacyKeys = [
+      TASKS_STORAGE_PREFIX + "00000000-0000-0000-0000-000000000001",
+      "mytrack_tasks_v1",
+      "mytrack_tasks",
+      "tasks",
+    ];
+    for (const k of legacyKeys) {
+      const raw = localStorage.getItem(k);
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            localStorage.setItem(
+              k,
+              JSON.stringify(parsed.filter((t: any) => t.id !== taskId))
+            );
+          }
+        } catch {}
+      }
+    }
+  }
 }
