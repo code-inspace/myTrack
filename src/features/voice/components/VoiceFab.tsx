@@ -31,8 +31,8 @@ export const VoiceFab: React.FC<VoiceFabProps> = ({ selectedDate, allTasks, onNe
     }
 
     for (const task of tasks) {
-      let resolvedProjectId: string | undefined = task.projectId;
-      let resolvedProjectStatus: string | undefined = task.projectStatus;
+      let resolvedProjectId: string | null | undefined = task.projectId;
+      let resolvedProjectStatus: string | null | undefined = task.projectStatus;
 
       if (task.projectName && !resolvedProjectId) {
         const normName = task.projectName.toLowerCase().trim();
@@ -69,8 +69,8 @@ export const VoiceFab: React.FC<VoiceFabProps> = ({ selectedDate, allTasks, onNe
         enableReminders: task.enableReminders,
         reminderOffsetMinutes: task.reminderOffsetMinutes,
         date: task.targetDate,
-        projectId: resolvedProjectId,
-        projectStatus: resolvedProjectStatus,
+        projectId: resolvedProjectId || null,
+        projectStatus: resolvedProjectStatus || null,
       });
     }
   };
