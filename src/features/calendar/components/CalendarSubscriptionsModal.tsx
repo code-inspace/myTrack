@@ -222,25 +222,25 @@ export const CalendarSubscriptionsModal: React.FC<CalendarSubscriptionsModalProp
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#23242E] flex-shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-[#3B82F6]/15 border border-[#3B82F6]/30 flex items-center justify-center text-[#3B82F6]">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#23242E] flex-shrink-0 gap-3">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <div className="w-10 h-10 rounded-2xl bg-[#3B82F6]/15 border border-[#3B82F6]/30 flex items-center justify-center text-[#3B82F6] flex-shrink-0">
               <Calendar className="w-5 h-5" />
             </div>
-            <div>
-              <h3 className="text-lg font-bold text-white">Agendas Connectés</h3>
-              <p className="text-xs text-[#8E929E]">iCal, Google Calendar, CalDAV &amp; Nextcloud</p>
+            <div className="min-w-0 flex-1">
+              <h3 className="text-base sm:text-lg font-bold text-white truncate">Agendas Connectés</h3>
+              <p className="text-[11px] text-[#8E929E] truncate">Google, Apple, iCal &amp; CalDAV</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
             <button
               type="button"
               onClick={onSyncNow || onRefresh}
               disabled={isRefetching || syncSummary?.status === "syncing"}
               title="Synchroniser tous les agendas"
               className={cn(
-                "flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#1F212A] border border-[#2D303E] text-xs font-bold text-[#8E929E] hover:text-white transition-all cursor-pointer",
+                "h-9 px-3 rounded-xl bg-[#1F212A] border border-[#2D303E] text-xs font-bold text-[#8E929E] hover:text-white flex items-center gap-1.5 transition-all cursor-pointer active:scale-95",
                 (isRefetching || syncSummary?.status === "syncing") && "opacity-50 cursor-not-allowed"
               )}
             >
@@ -250,7 +250,7 @@ export const CalendarSubscriptionsModal: React.FC<CalendarSubscriptionsModalProp
             <button
               type="button"
               onClick={onClose}
-              className="p-2 rounded-xl text-[#8E929E] hover:text-white hover:bg-[#20222B] transition-colors cursor-pointer"
+              className="w-9 h-9 flex items-center justify-center rounded-xl text-[#8E929E] hover:text-white hover:bg-[#20222B] transition-colors cursor-pointer flex-shrink-0"
             >
               <X className="w-5 h-5" />
             </button>
@@ -566,26 +566,26 @@ export const CalendarSubscriptionsModal: React.FC<CalendarSubscriptionsModalProp
 
             {/* Test Connection Button & Result */}
             <div className="pt-2 border-t border-[#262834] space-y-3">
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+                <button
+                  type="submit"
+                  className="w-full sm:flex-1 py-3 sm:py-2.5 px-4 rounded-xl bg-[#D4F63D] hover:bg-[#c2e42f] text-black font-extrabold text-xs flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer order-1 sm:order-2 active:scale-98"
+                >
+                  <Check className="w-4 h-4 stroke-[3]" />
+                  <span>{editingId ? "Mettre à jour l'agenda" : "Enregistrer et synchroniser"}</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={() => handleTestConnection()}
                   disabled={isTesting}
                   className={cn(
-                    "px-4 py-2 rounded-xl border border-[#3B82F6]/40 bg-[#1E293B]/60 hover:bg-[#1E293B] text-[#60A5FA] font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer",
+                    "w-full sm:w-auto py-3 sm:py-2.5 px-4 rounded-xl border border-[#3B82F6]/40 bg-[#1E293B]/60 hover:bg-[#1E293B] text-[#60A5FA] font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer order-2 sm:order-1 active:scale-98",
                     isTesting && "opacity-60 cursor-not-allowed"
                   )}
                 >
                   <Play className={cn("w-3.5 h-3.5", isTesting && "animate-spin text-[#D4F63D]")} />
                   <span>{isTesting ? "Test de connexion en cours..." : "Tester la connexion"}</span>
-                </button>
-
-                <button
-                  type="submit"
-                  className="flex-1 py-2 rounded-xl bg-[#D4F63D] hover:bg-[#c2e42f] text-black font-extrabold text-xs flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer"
-                >
-                  <Check className="w-4 h-4 stroke-[3]" />
-                  <span>{editingId ? "Mettre à jour l'agenda" : "Enregistrer et synchroniser"}</span>
                 </button>
               </div>
 

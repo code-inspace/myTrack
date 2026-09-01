@@ -37,6 +37,21 @@ export async function fetchTasks(userId?: string): Promise<Task[]> {
     if (!error && data) {
       const mapped = await Promise.all(data.map(mapDbTaskToModelAsync));
       const local = getStoredTasks(targetId);
+      const dbIds = new Set(data.map((d: any) => d.id));
+
+      // Auto-migrate: If any task was created locally on device and is missing in Supabase,
+      // upload it automatically so it synchronizes across all devices.
+      const missingInDb = local.filter((t) => !dbIds.has(t.id) && t.id.startsWith("task-"));
+      if (missingInDb.length > 0) {
+        Promise.all(
+          missingInDb.map((t) =>
+            createDbTask(t).catch((err) =>
+              console.warn("Auto-sync local task to DB error:", err)
+            )
+          )
+        ).catch(() => {});
+      }
+
       const taskMap = new Map<string, Task>();
       for (const t of local) {
         taskMap.set(t.id, t);

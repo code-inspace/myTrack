@@ -63,15 +63,19 @@ export function useTasks(selectedDateStr: string) {
   const { data: allTasks = getStoredTasks(userId) } = useQuery({
     queryKey: ["tasks", userId],
     queryFn: async () => fetchTasks(userId),
-    initialData: () => getStoredTasks(userId),
-    staleTime: 1000 * 30,
+    placeholderData: () => getStoredTasks(userId),
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
 
   const { data: allCompletions = getStoredCompletions(userId) } = useQuery({
     queryKey: ["completions", userId],
     queryFn: async () => fetchCompletions(userId),
-    initialData: () => getStoredCompletions(userId),
-    staleTime: 1000 * 30,
+    placeholderData: () => getStoredCompletions(userId),
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
 
   const selectedDate = parseISO(selectedDateStr);
