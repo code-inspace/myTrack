@@ -56,6 +56,9 @@ export default function ProfilePage() {
   const {
     subscriptions,
     refetch,
+    syncNow,
+    syncSummary,
+    isRefetching,
     addSubscription,
     updateSubscription,
     deleteSubscription,
@@ -447,6 +450,9 @@ export default function ProfilePage() {
         onClose={() => setIsCalendarModalOpen(false)}
         subscriptions={subscriptions}
         onRefresh={refetch}
+        onSyncNow={syncNow}
+        syncSummary={syncSummary}
+        isRefetching={isRefetching}
         onAddSubscription={addSubscription}
         onUpdateSubscription={updateSubscription}
         onDeleteSubscription={deleteSubscription}

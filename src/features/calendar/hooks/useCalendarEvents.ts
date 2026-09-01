@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/providers/AuthProvider";
 import { CalendarSubscription, ExternalCalendarEvent } from "../types";
@@ -14,10 +14,21 @@ import {
 import { createClient } from "@/utils/supabase/client";
 import { subDays, addDays, parseISO, format } from "date-fns";
 
+export interface CalendarSyncSummary {
+  status: "idle" | "syncing" | "success" | "error";
+  message: string;
+  totalRetrieved: number;
+  addedCount: number;
+  activeCalendarsCount: number;
+  syncedAt?: string;
+  errors?: Record<string, string>;
+}
+
 export function useCalendarEvents(focusedDateStr?: string) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const userId = user?.id || "00000000-0000-0000-0000-000000000001";
+  const [syncSummary, setSyncSummary] = useState<CalendarSyncSummary | null>(null);
 
   // Supabase Realtime Listener for instant multi-device sync (Phone <-> Desktop)
   useEffect(() => {
@@ -68,7 +79,8 @@ export function useCalendarEvents(focusedDateStr?: string) {
   const rangeStart = format(subDays(baseDate, 30), "yyyy-MM-dd");
   const rangeEnd = format(addDays(baseDate, 45), "yyyy-MM-dd");
 
-  const enabledSubs = subscriptions.filter((s) => s.enabled && s.url?.trim());
+  const safeSubscriptions = Array.isArray(subscriptions) ? subscriptions : [];
+  const enabledSubs = safeSubscriptions.filter((s) => s && s.enabled && s.url?.trim());
 
   // 2. External Events Fetch Query
   const {
@@ -115,6 +127,76 @@ export function useCalendarEvents(focusedDateStr?: string) {
     refetchOnWindowFocus: false,
   });
 
+  // Enhanced sync with additions/retrieval metrics
+  const syncNow = async (): Promise<CalendarSyncSummary> => {
+    setSyncSummary({
+      status: "syncing",
+      message: "Synchronisation des flux d'agenda en cours...",
+      totalRetrieved: 0,
+      addedCount: 0,
+      activeCalendarsCount: enabledSubs.length,
+    });
+
+    if (enabledSubs.length === 0) {
+      const summary: CalendarSyncSummary = {
+        status: "idle",
+        message: "Aucun calendrier externe actif à synchroniser. Activez un flux ci-dessous.",
+        totalRetrieved: 0,
+        addedCount: 0,
+        activeCalendarsCount: 0,
+        syncedAt: new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+      };
+      setSyncSummary(summary);
+      return summary;
+    }
+
+    const previousEventIds = new Set((queryResult?.events || []).map((e) => e.id));
+
+    try {
+      const result = await refetch();
+      const newEvents = result.data?.events || [];
+      const errors = result.data?.errors || {};
+      const newAdded = newEvents.filter((e) => !previousEventIds.has(e.id)).length;
+      const errorCount = Object.keys(errors).length;
+
+      let msg = "";
+      if (newAdded > 0) {
+        msg = `Synchronisation réussie : ${newEvents.length} événement(s) récupéré(s) dont ${newAdded} nouveau(x) ajouté(s).`;
+      } else if (newEvents.length > 0) {
+        msg = `Agendas à jour : ${newEvents.length} événement(s) synchronisé(s), aucun nouvel événement.`;
+      } else {
+        msg = `Synchronisation terminée : 0 événement trouvé sur la période.`;
+      }
+
+      if (errorCount > 0) {
+        msg += ` (${errorCount} flux en erreur sur ${enabledSubs.length})`;
+      }
+
+      const summary: CalendarSyncSummary = {
+        status: errorCount === enabledSubs.length ? "error" : "success",
+        message: msg,
+        totalRetrieved: newEvents.length,
+        addedCount: newAdded,
+        activeCalendarsCount: enabledSubs.length,
+        syncedAt: new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+        errors,
+      };
+      setSyncSummary(summary);
+      return summary;
+    } catch (err: any) {
+      const summary: CalendarSyncSummary = {
+        status: "error",
+        message: `Erreur de synchronisation : ${err?.message || "Impossible de joindre le serveur"}`,
+        totalRetrieved: 0,
+        addedCount: 0,
+        activeCalendarsCount: enabledSubs.length,
+        syncedAt: new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+      };
+      setSyncSummary(summary);
+      return summary;
+    }
+  };
+
   // --- Subscriptions Local-First & Optimistic Mutations ---
   const addSubscription = (
     sub: Omit<CalendarSubscription, "id" | "createdAt" | "updatedAt">
@@ -126,7 +208,7 @@ export function useCalendarEvents(focusedDateStr?: string) {
       createdAt: nowIso,
       updatedAt: nowIso,
     };
-    const current = queryClient.getQueryData<CalendarSubscription[]>(["calendar-subscriptions", userId]) || subscriptions;
+    const current = queryClient.getQueryData<CalendarSubscription[]>(["calendar-subscriptions", userId]) || safeSubscriptions;
     const updated = [...current.filter((s) => s.id !== newRecord.id), newRecord];
     queryClient.setQueryData(["calendar-subscriptions", userId], updated);
     saveStoredCalendarSubscriptions(updated, userId);
@@ -142,7 +224,7 @@ export function useCalendarEvents(focusedDateStr?: string) {
     id: string,
     updates: Partial<CalendarSubscription>
   ) => {
-    const current = queryClient.getQueryData<CalendarSubscription[]>(["calendar-subscriptions", userId]) || subscriptions;
+    const current = queryClient.getQueryData<CalendarSubscription[]>(["calendar-subscriptions", userId]) || safeSubscriptions;
     const updated = current.map((s) =>
       s.id === id ? { ...s, ...updates, updatedAt: new Date().toISOString() } : s
     );
@@ -156,7 +238,7 @@ export function useCalendarEvents(focusedDateStr?: string) {
   };
 
   const deleteSubscription = (id: string) => {
-    const current = queryClient.getQueryData<CalendarSubscription[]>(["calendar-subscriptions", userId]) || subscriptions;
+    const current = queryClient.getQueryData<CalendarSubscription[]>(["calendar-subscriptions", userId]) || safeSubscriptions;
     const updated = current.filter((s) => s.id !== id);
     queryClient.setQueryData(["calendar-subscriptions", userId], updated);
     saveStoredCalendarSubscriptions(updated, userId);
@@ -168,18 +250,20 @@ export function useCalendarEvents(focusedDateStr?: string) {
   };
 
   const toggleSubscription = (id: string) => {
-    const target = subscriptions.find((s) => s.id === id);
+    const target = safeSubscriptions.find((s) => s.id === id);
     if (!target) return;
     updateSubscription(id, { enabled: !target.enabled });
   };
 
   return {
-    subscriptions,
-    events: queryResult.events || [],
-    errors: queryResult.errors || {},
+    subscriptions: safeSubscriptions,
+    events: queryResult?.events || [],
+    errors: queryResult?.errors || {},
     isLoading,
     isRefetching,
     refetch,
+    syncNow,
+    syncSummary,
     addSubscription,
     updateSubscription,
     deleteSubscription,

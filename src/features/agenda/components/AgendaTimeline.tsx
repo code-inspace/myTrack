@@ -153,6 +153,8 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
     errors: calendarErrors,
     isRefetching: isCalendarRefetching,
     refetch: refetchCalendarEvents,
+    syncNow,
+    syncSummary,
     addSubscription,
     updateSubscription,
     deleteSubscription,
@@ -755,6 +757,8 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
         onDeleteSubscription={deleteSubscription}
         onToggleSubscription={toggleSubscription}
         onRefresh={() => refetchCalendarEvents()}
+        onSyncNow={syncNow}
+        syncSummary={syncSummary}
         isRefetching={isCalendarRefetching}
         errors={calendarErrors}
       />
