@@ -116,3 +116,35 @@ END:VCALENDAR`;
     expect(recurringOccurrences.length).toBeGreaterThanOrEqual(2);
   });
 });
+
+import { getExternalEventStatus, isExternalEventDone } from "./lib/status";
+import { ExternalCalendarEvent } from "./types";
+
+describe("External Calendar Event Status", () => {
+  const dummyEvent: ExternalCalendarEvent = {
+    id: "evt-1",
+    subscriptionId: "sub-1",
+    calendarName: "Google Pro",
+    calendarColor: "#3B82F6",
+    title: "Session Focus",
+    date: "2026-09-01",
+    startTime: "09:00",
+    endTime: "10:00",
+    isAllDay: false,
+  };
+
+  it("marks past dates as DONE", () => {
+    expect(getExternalEventStatus(dummyEvent, "2020-01-01")).toBe("DONE");
+    expect(isExternalEventDone(dummyEvent, "2020-01-01")).toBe(true);
+  });
+
+  it("marks future dates as TODO", () => {
+    expect(getExternalEventStatus(dummyEvent, "2099-01-01")).toBe("TODO");
+    expect(isExternalEventDone(dummyEvent, "2099-01-01")).toBe(false);
+  });
+
+  it("honors manual completion override", () => {
+    expect(getExternalEventStatus(dummyEvent, "2099-01-01", true)).toBe("DONE");
+    expect(getExternalEventStatus(dummyEvent, "2020-01-01", false)).toBe("TODO");
+  });
+});

@@ -62,7 +62,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
   const [manualCompletedEvents, setManualCompletedEvents] = useState<Record<string, boolean>>({});
 
   const { tasks, allTasks, allCompletions } = useTasks(selectedDate);
-  const { externalEvents } = useCalendarEvents(selectedDate);
+  const { events: externalEvents } = useCalendarEvents(selectedDate);
 
   const {
     createTask,
