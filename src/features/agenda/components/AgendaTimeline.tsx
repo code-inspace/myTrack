@@ -160,6 +160,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
     isRefetching: isCalendarRefetching,
     refetch: refetchCalendarEvents,
     addSubscription,
+    updateSubscription,
     deleteSubscription,
     toggleSubscription,
   } = useCalendarEvents(selectedDate);
@@ -741,6 +742,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
         onClose={() => setIsCalendarModalOpen(false)}
         subscriptions={subscriptions}
         onAddSubscription={addSubscription}
+        onUpdateSubscription={updateSubscription}
         onDeleteSubscription={deleteSubscription}
         onToggleSubscription={toggleSubscription}
         onRefresh={() => refetchCalendarEvents()}
