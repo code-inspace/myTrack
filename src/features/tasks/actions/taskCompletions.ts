@@ -64,42 +64,56 @@ export async function upsertDbCompletion(
     targetId = session?.user?.id || getEffectiveUserId();
   }
 
+  const baseRecord = {
+    task_id: completion.taskId,
+    user_id: targetId,
+    date: completion.date,
+    completed: completion.completed,
+    value: completion.value !== undefined ? completion.value : null,
+    duration: completion.duration !== undefined ? completion.duration : null,
+    notes: completion.notes || null,
+  };
+
+  const extendedRecord = {
+    ...baseRecord,
+    scheduled_start_time: completion.scheduledStartTime
+      ? convertLocalTimeToUtc(
+          completion.scheduledStartTime,
+          completion.date,
+        )
+      : null,
+    scheduled_end_time: completion.scheduledEndTime
+      ? convertLocalTimeToUtc(
+          completion.scheduledEndTime,
+          completion.date,
+        )
+      : null,
+    actual_start_time: completion.actualStartTime
+      ? convertLocalTimeToUtc(
+          completion.actualStartTime,
+          completion.date,
+        )
+      : null,
+    actual_end_time: completion.actualEndTime
+      ? convertLocalTimeToUtc(completion.actualEndTime, completion.date)
+      : null,
+  };
+
   try {
-    await supabase.from("task_completions").upsert(
-      [
-        {
-          task_id: completion.taskId,
-          user_id: targetId,
-          date: completion.date,
-          completed: completion.completed,
-          value: completion.value,
-          duration: completion.duration,
-          notes: completion.notes,
-          scheduled_start_time: completion.scheduledStartTime
-            ? convertLocalTimeToUtc(
-                completion.scheduledStartTime,
-                completion.date,
-              )
-            : null,
-          scheduled_end_time: completion.scheduledEndTime
-            ? convertLocalTimeToUtc(
-                completion.scheduledEndTime,
-                completion.date,
-              )
-            : null,
-          actual_start_time: completion.actualStartTime
-            ? convertLocalTimeToUtc(
-                completion.actualStartTime,
-                completion.date,
-              )
-            : null,
-          actual_end_time: completion.actualEndTime
-            ? convertLocalTimeToUtc(completion.actualEndTime, completion.date)
-            : null,
-        },
-      ],
-      { onConflict: "task_id,date" },
-    );
+    // 1. Try upserting with extended timing fields
+    const { error } = await supabase
+      .from("task_completions")
+      .upsert([extendedRecord], { onConflict: "task_id,date" });
+
+    // 2. If table doesn't have the extended columns, fallback immediately to base columns
+    if (error) {
+      const fallback = await supabase
+        .from("task_completions")
+        .upsert([baseRecord], { onConflict: "task_id,date" });
+      if (fallback.error) {
+        console.warn("Supabase upsertDbCompletion fallback error:", fallback.error);
+      }
+    }
   } catch (err) {
     console.warn("Supabase upsertDbCompletion error:", err);
   }
@@ -155,10 +169,8 @@ export async function upsertDbCompletion(
 }
 
 /**
- * Marks a task as completed "now". If it was never started (no actualStartTime recorded yet for
- * that day), defaults to a 30-minute block ending now and reflects that window in the task's own
- * schedule so it shows up positioned in the Agenda. Idempotent — safe to call on an
- * already-completed task (e.g. re-dropping a card on a Kanban "done" column).
+ * Marks a task as completed on a given date without overwriting its scheduled start/end times.
+ * Idempotent — safe to call on an already-completed task.
  */
 export async function closeTaskAsCompleted(
   taskId: string,
@@ -181,22 +193,8 @@ export async function closeTaskAsCompleted(
 
   const now = new Date();
   const nowTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-  const wasStarted = Boolean(existing?.actualStartTime);
-  const actualStartTime = wasStarted
-    ? existing!.actualStartTime!
-    : subtractMinutesFromTime(nowTime, 30);
-
-  if (!wasStarted) {
-    const isRecurring = target?.recurrence && target.recurrence !== "ONCE";
-    await updateTaskSchedule({
-      taskId,
-      date,
-      startTime: actualStartTime,
-      endTime: nowTime,
-      applyToAll: !isRecurring,
-      userId: targetId,
-    });
-  }
+  const actualStartTime = existing?.actualStartTime || target?.startTime || null;
+  const actualEndTime = existing?.actualEndTime || (actualStartTime ? nowTime : null);
 
   await upsertDbCompletion({
     taskId,
@@ -213,7 +211,7 @@ export async function closeTaskAsCompleted(
       target?.startTime || existing?.scheduledStartTime || null,
     scheduledEndTime: target?.endTime || existing?.scheduledEndTime || null,
     actualStartTime,
-    actualEndTime: nowTime,
+    actualEndTime,
     notes: null,
   });
 

@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useRef, useEffect, useState, useMemo } from "react";
 import { Task, TaskWithCompletion, TaskCompletion } from "@/features/tasks/types";
 import { AgendaTaskBlock } from "./AgendaTaskBlock";
@@ -6,8 +8,23 @@ import { fr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { isTaskScheduledForDate, getTodayDateString } from "@/lib/dates";
 import { mapTaskWithCompletion } from "@/features/tasks/mappers";
-import { CheckCircle2, Circle, Edit3, Bell, BellOff, Sparkles, ChevronDown } from "lucide-react";
+import {
+  CheckCircle2,
+  Circle,
+  Edit3,
+  Bell,
+  BellOff,
+  Sparkles,
+  ChevronDown,
+  Calendar as CalendarIcon,
+  RefreshCw,
+} from "lucide-react";
 import { DesktopDatePicker } from "@/features/tasks/components/desktop/DesktopDatePicker";
+import { useCalendarEvents } from "@/features/calendar/hooks/useCalendarEvents";
+import { CalendarSubscriptionsModal } from "@/features/calendar/components/CalendarSubscriptionsModal";
+import { ExternalEventBlock } from "@/features/calendar/components/ExternalEventBlock";
+import { ExternalEventDetailModal } from "@/features/calendar/components/ExternalEventDetailModal";
+import { ExternalCalendarEvent } from "@/features/calendar/types";
 
 export type AgendaViewMode = "day" | "3days" | "week";
 
@@ -114,6 +131,9 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
 }) => {
   const [viewMode, setViewMode] = useState<AgendaViewMode>("day");
   const [isAllDayExpanded, setIsAllDayExpanded] = useState(false);
+  const [isCalendarModalOpen, setIsCalendarModalOpen] = useState(false);
+  const [selectedExternalEvent, setSelectedExternalEvent] = useState<ExternalCalendarEvent | null>(null);
+
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [dragHoverInfo, setDragHoverInfo] = useState<{ date: string; minute: number } | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
@@ -131,6 +151,20 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
 
   const parsedSelectedDate = parseISO(selectedDate);
   const isSelectedDateToday = isSameDay(parsedSelectedDate, new Date());
+
+  // External Calendar Subscriptions & Events
+  const {
+    subscriptions,
+    events: externalEvents,
+    errors: calendarErrors,
+    isRefetching: isCalendarRefetching,
+    refetch: refetchCalendarEvents,
+    addSubscription,
+    deleteSubscription,
+    toggleSubscription,
+  } = useCalendarEvents(selectedDate);
+
+  const enabledSubsCount = subscriptions.filter((s) => s.enabled).length;
 
   // Determine list of displayed days based on viewMode
   const displayedDays = useMemo(() => {
@@ -186,6 +220,30 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
     }
     return map;
   }, [displayedDays, selectedDate, tasks, allTasks, allCompletions]);
+
+  // Timed external events by day
+  const externalTimedEventsByDay = useMemo(() => {
+    const map = new Map<string, ExternalCalendarEvent[]>();
+    for (const d of displayedDays) {
+      map.set(
+        d,
+        externalEvents.filter((e) => e.date === d && !e.isAllDay)
+      );
+    }
+    return map;
+  }, [displayedDays, externalEvents]);
+
+  // All-day external events by day
+  const externalAllDayEventsByDay = useMemo(() => {
+    const map = new Map<string, ExternalCalendarEvent[]>();
+    for (const d of displayedDays) {
+      map.set(
+        d,
+        externalEvents.filter((e) => e.date === d && e.isAllDay)
+      );
+    }
+    return map;
+  }, [displayedDays, externalEvents]);
 
   // Scroll to current hour or 08:00 on initial load
   useEffect(() => {
@@ -310,315 +368,399 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-[#0E0F12] relative overflow-hidden select-none">
-      {/* 1. Top Controls Bar: Title + View Mode Switcher + Desktop Date Picker */}
-      <div className="flex-shrink-0 px-4 md:px-8 py-3 md:py-4 bg-[#0E0F12] border-b border-[#17181F] flex items-center justify-between z-30 select-none">
-        <div className="hidden md:block">
-          <h1 className="text-2xl font-extrabold text-white tracking-tight">Mon Agenda</h1>
-          <p className="text-xs text-[#8E929E] mt-0.5">Planning journalier, 3 jours &amp; hebdomadaire</p>
-        </div>
-
-        <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end">
-          <div className="flex items-center gap-1 bg-[#17181F] p-1 rounded-xl border border-[#282B36]">
-            <button
-              type="button"
-              onClick={() => setViewMode("day")}
-              className={cn(
-                "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer",
-                viewMode === "day"
-                  ? "bg-[#D4F63D] text-black shadow-sm font-bold"
-                  : "text-[#8E929E] hover:text-white hover:bg-[#22242C]"
-              )}
-            >
-              1 Jour
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("3days")}
-              className={cn(
-                "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer",
-                viewMode === "3days"
-                  ? "bg-[#D4F63D] text-black shadow-sm font-bold"
-                  : "text-[#8E929E] hover:text-white hover:bg-[#22242C]"
-              )}
-            >
-              3 Jours
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("week")}
-              className={cn(
-                "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer",
-                viewMode === "week"
-                  ? "bg-[#D4F63D] text-black shadow-sm font-bold"
-                  : "text-[#8E929E] hover:text-white hover:bg-[#22242C]"
-              )}
-            >
-              Semaine
-            </button>
-          </div>
-
-          {/* Desktop only: interactive date picker */}
+    <>
+      <div className="flex-1 flex flex-col min-h-0 bg-[#0E0F12] relative overflow-hidden select-none">
+        {/* 1. Top Controls Bar: Title + View Mode Switcher + Agendas Button + Desktop Date Picker */}
+        <div className="flex-shrink-0 px-4 md:px-8 py-3 md:py-4 bg-[#0E0F12] border-b border-[#17181F] flex items-center justify-between z-30 select-none">
           <div className="hidden md:block">
-            <DesktopDatePicker
-              selectedDate={selectedDate}
-              onSelectDate={(d) => onSelectDate?.(d)}
-            />
+            <h1 className="text-2xl font-extrabold text-white tracking-tight">Mon Agenda</h1>
+            <p className="text-xs text-[#8E929E] mt-0.5">Planning journalier, 3 jours &amp; hebdomadaire</p>
+          </div>
+
+          <div className="flex items-center gap-2.5 w-full md:w-auto justify-between md:justify-end flex-wrap">
+            {/* View Mode Switcher */}
+            <div className="flex items-center gap-1 bg-[#17181F] p-1 rounded-xl border border-[#282B36]">
+              <button
+                type="button"
+                onClick={() => setViewMode("day")}
+                className={cn(
+                  "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer",
+                  viewMode === "day"
+                    ? "bg-[#D4F63D] text-black shadow-sm font-bold"
+                    : "text-[#8E929E] hover:text-white hover:bg-[#22242C]"
+                )}
+              >
+                1 Jour
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("3days")}
+                className={cn(
+                  "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer",
+                  viewMode === "3days"
+                    ? "bg-[#D4F63D] text-black shadow-sm font-bold"
+                    : "text-[#8E929E] hover:text-white hover:bg-[#22242C]"
+                )}
+              >
+                3 Jours
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("week")}
+                className={cn(
+                  "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer",
+                  viewMode === "week"
+                    ? "bg-[#D4F63D] text-black shadow-sm font-bold"
+                    : "text-[#8E929E] hover:text-white hover:bg-[#22242C]"
+                )}
+              >
+                Semaine
+              </button>
+            </div>
+
+            {/* iCal / Google Calendars Configuration Button */}
+            <button
+              type="button"
+              onClick={() => setIsCalendarModalOpen(true)}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer",
+                enabledSubsCount > 0
+                  ? "bg-[#1E293B] border-[#3B82F6]/40 text-[#60A5FA] hover:border-[#3B82F6]"
+                  : "bg-[#17181F] border-[#282B36] text-[#8E929E] hover:text-white hover:bg-[#22242C]"
+              )}
+              title="Gérer les flux iCal / Google Calendar"
+            >
+              <CalendarIcon className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Agendas</span>
+              {enabledSubsCount > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-[#3B82F6]/20 text-[#60A5FA]">
+                  {enabledSubsCount}
+                </span>
+              )}
+              {isCalendarRefetching && (
+                <RefreshCw className="w-3 h-3 animate-spin text-[#D4F63D] ml-0.5" />
+              )}
+            </button>
+
+            {/* Desktop only: interactive date picker */}
+            <div className="hidden md:block">
+              <DesktopDatePicker
+                selectedDate={selectedDate}
+                onSelectDate={(d) => onSelectDate?.(d)}
+              />
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* 2. Scrollable Timeline Area (Unified horizontal + vertical scroll container) */}
-      <div
-        ref={scrollContainerRef}
-        onClick={handleBackgroundClick}
-        className="flex-1 overflow-y-auto overflow-x-auto relative bg-[#0E0F12] select-none scroll-smooth pb-28"
-      >
-        {/* Sticky Top Block: Multi-Day Headers + Jour Entier Row (Always directly beneath Period Selector) */}
-        <div className="sticky top-0 z-30 flex flex-col bg-[#141518] border-b border-[#23252E] shadow-md">
-          {/* Row 1: Day Column Dates (only in 3-days and week modes) */}
-          {viewMode !== "day" && (
-            <div className="flex border-b border-[#202228] bg-[#13141A]">
-              {/* Hours column offset (Sticky Left) */}
-              <div className="w-14 md:w-16 flex-shrink-0 border-r border-[#202228] bg-[#111214] sticky left-0 z-40" />
+        {/* 2. Scrollable Timeline Area (Unified horizontal + vertical scroll container) */}
+        <div
+          ref={scrollContainerRef}
+          onClick={handleBackgroundClick}
+          className="flex-1 overflow-y-auto overflow-x-auto relative bg-[#0E0F12] select-none scroll-smooth pb-28"
+        >
+          {/* Sticky Top Block: Multi-Day Headers + Jour Entier Row */}
+          <div className="sticky top-0 z-30 flex flex-col bg-[#141518] border-b border-[#23252E] shadow-md">
+            {/* Row 1: Day Column Dates (in 3-days and week modes) */}
+            {viewMode !== "day" && (
+              <div className="flex border-b border-[#202228] bg-[#13141A]">
+                {/* Hours column offset (Sticky Left) */}
+                <div className="w-14 md:w-16 flex-shrink-0 border-r border-[#202228] bg-[#111214] sticky left-0 z-40" />
 
-              {/* Day columns headers */}
+                {/* Day columns headers */}
+                {displayedDays.map((dayStr) => {
+                  const dayDate = parseISO(dayStr);
+                  const isDayToday = isSameDay(dayDate, new Date());
+                  const isCurrentSelected = dayStr === selectedDate;
+
+                  return (
+                    <div
+                      key={dayStr}
+                      onClick={() => onSelectDate?.(dayStr)}
+                      className={cn(
+                        "flex-1 min-w-[120px] md:min-w-[150px] py-1.5 px-2 text-center border-r border-[#202228] transition-colors cursor-pointer",
+                        isCurrentSelected ? "bg-[#1C1E28]" : "hover:bg-[#181920]"
+                      )}
+                    >
+                      <span className="text-[11px] uppercase tracking-wider block font-semibold text-[#8E929E]">
+                        {format(dayDate, "EEE", { locale: fr })}
+                      </span>
+                      <span
+                        className={cn(
+                          "text-xs font-bold font-mono px-2 py-0.5 rounded-full inline-block mt-0.5",
+                          isDayToday
+                            ? "bg-[#D4F63D] text-black"
+                            : isCurrentSelected
+                            ? "text-[#D4F63D]"
+                            : "text-white"
+                        )}
+                      >
+                        {format(dayDate, "d MMM", { locale: fr })}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Row 2: Multi-Day "Jour entier" Section */}
+            <div className="flex bg-[#141518]">
+              {/* Left "Jour entier" Label Column */}
+              <button
+                type="button"
+                onClick={() => setIsAllDayExpanded(!isAllDayExpanded)}
+                className="w-14 md:w-16 flex-shrink-0 border-r border-[#202228] p-1 flex flex-col justify-center items-center text-center bg-[#111214] hover:bg-[#1C1D24] sticky left-0 z-35 transition-colors cursor-pointer group"
+              >
+                <span className="text-[9px] md:text-[10px] font-bold text-[#8E929E] group-hover:text-white uppercase tracking-tighter leading-tight">
+                  Jour<br />entier
+                </span>
+                <ChevronDown
+                  className={cn(
+                    "w-3 h-3 text-[#D4F63D] mt-0.5 transition-transform duration-200",
+                    isAllDayExpanded ? "rotate-180" : ""
+                  )}
+                />
+              </button>
+
+              {/* Day All-Day Columns */}
               {displayedDays.map((dayStr) => {
-                const dayDate = parseISO(dayStr);
-                const isDayToday = isSameDay(dayDate, new Date());
+                const dayAllDayTasks = allDayTasksByDay.get(dayStr) || [];
+                const dayAllDayExternal = externalAllDayEventsByDay.get(dayStr) || [];
                 const isCurrentSelected = dayStr === selectedDate;
+
+                const hasAnyAllDay = dayAllDayTasks.length > 0 || dayAllDayExternal.length > 0;
 
                 return (
                   <div
-                    key={dayStr}
-                    onClick={() => onSelectDate?.(dayStr)}
+                    key={`allday-${dayStr}`}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = "move";
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const taskId = e.dataTransfer.getData("taskId") || e.dataTransfer.getData("text/plain");
+                      if (taskId && onDropToAllDay) {
+                        onDropToAllDay(taskId, dayStr);
+                      }
+                    }}
                     className={cn(
-                      "flex-1 min-w-[120px] md:min-w-[150px] py-1.5 px-2 text-center border-r border-[#202228] transition-colors cursor-pointer",
-                      isCurrentSelected
-                        ? "bg-[#1C1E28]"
-                        : "hover:bg-[#181920]"
+                      "flex-1 p-1.5 flex flex-wrap items-center gap-1.5 border-r border-[#202228] transition-all duration-300",
+                      viewMode !== "day" ? "min-w-[120px] md:min-w-[150px]" : "min-w-0",
+                      isAllDayExpanded
+                        ? "min-h-[46px] max-h-none overflow-visible"
+                        : "min-h-[46px] max-h-[50px] overflow-hidden",
+                      isCurrentSelected ? "bg-[#161820]" : "bg-[#141518]"
                     )}
                   >
-                    <span className="text-[11px] uppercase tracking-wider block font-semibold text-[#8E929E]">
-                      {format(dayDate, "EEE", { locale: fr })}
-                    </span>
-                    <span
-                      className={cn(
-                        "text-xs font-bold font-mono px-2 py-0.5 rounded-full inline-block mt-0.5",
-                        isDayToday
-                          ? "bg-[#D4F63D] text-black"
-                          : isCurrentSelected
-                          ? "text-[#D4F63D]"
-                          : "text-white"
-                      )}
-                    >
-                      {format(dayDate, "d MMM", { locale: fr })}
-                    </span>
+                    {!hasAnyAllDay ? (
+                      <div className="text-[10px] text-[#555866] italic px-1 flex items-center gap-1">
+                        {viewMode === "day" ? (
+                          <>
+                            <Sparkles className="w-3 h-3 text-[#D4F63D]" />
+                            <span>Glisse une tâche ici pour la journée entière</span>
+                          </>
+                        ) : (
+                          <span>—</span>
+                        )}
+                      </div>
+                    ) : (
+                      <>
+                        {/* 1. External All-Day Events */}
+                        {dayAllDayExternal.map((extEvent) => {
+                          const calColor = extEvent.calendarColor || "#3B82F6";
+                          return (
+                            <button
+                              key={extEvent.id}
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedExternalEvent(extEvent);
+                              }}
+                              className="flex items-center gap-1 px-2.5 py-1 rounded-full border text-[11px] font-semibold shadow-sm transition-all duration-150 hover:scale-[1.02] cursor-pointer"
+                              style={{
+                                backgroundColor: `${calColor}20`,
+                                borderColor: `${calColor}50`,
+                                color: "#FFFFFF",
+                              }}
+                              title={`${extEvent.title} (${extEvent.calendarName})`}
+                            >
+                              <span
+                                className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                                style={{ backgroundColor: calColor }}
+                              />
+                              <span className="truncate max-w-[90px] md:max-w-[120px]">
+                                {extEvent.title}
+                              </span>
+                            </button>
+                          );
+                        })}
+
+                        {/* 2. MyTrack All-Day Tasks */}
+                        {dayAllDayTasks.map((task) => {
+                          const tagKey = task.tag || task.category || "General";
+                          const style = TAG_COLORS[tagKey] || TAG_COLORS.General;
+                          const isRemindersEnabled = task.enableReminders !== false;
+
+                          return (
+                            <div
+                              key={task.id}
+                              draggable
+                              onDragStart={(e) => {
+                                e.dataTransfer.setData("text/plain", task.id);
+                                e.dataTransfer.setData("taskId", task.id);
+                                onDragStartTask(e, task);
+                              }}
+                              onClick={() => {
+                                setSelectedTaskId(task.id);
+                                onSelectTask?.(task);
+                              }}
+                              className={cn(
+                                "flex items-center gap-1 px-2.5 py-1 rounded-full border text-[11px] font-semibold shadow-sm transition-all duration-150 cursor-grab active:cursor-grabbing hover:scale-[1.02]",
+                                style.bg,
+                                style.text,
+                                style.border,
+                                task.isCompletedToday ? "opacity-60 line-through" : ""
+                              )}
+                              title={task.title}
+                            >
+                              <button
+                                type="button"
+                                onPointerDown={(e) => e.stopPropagation()}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onToggleComplete(task.id);
+                                }}
+                                className="hover:scale-110 transition-transform cursor-pointer"
+                              >
+                                {task.isCompletedToday ? (
+                                  <CheckCircle2 className="w-3 h-3 text-[#D4F63D] fill-[#D4F63D]/20" />
+                                ) : (
+                                  <Circle className="w-3 h-3 opacity-60" />
+                                )}
+                              </button>
+                              <span className="truncate max-w-[90px] md:max-w-[120px]">{task.title}</span>
+
+                              {onToggleReminder && (
+                                <button
+                                  type="button"
+                                  onPointerDown={(e) => e.stopPropagation()}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onToggleReminder(task.id);
+                                  }}
+                                  className="hover:scale-115 transition-transform cursor-pointer opacity-70 hover:opacity-100 p-0.5"
+                                >
+                                  {isRemindersEnabled ? (
+                                    <Bell className="w-2.5 h-2.5 text-[#D4F63D]" />
+                                  ) : (
+                                    <BellOff className="w-2.5 h-2.5 opacity-50" />
+                                  )}
+                                </button>
+                              )}
+
+                              {onEditTask && (
+                                <button
+                                  type="button"
+                                  onPointerDown={(e) => e.stopPropagation()}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onEditTask(task);
+                                  }}
+                                  className="hover:scale-115 transition-transform cursor-pointer opacity-70 hover:opacity-100 p-0.5"
+                                >
+                                  <Edit3 className="w-2.5 h-2.5" />
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </>
+                    )}
                   </div>
                 );
               })}
             </div>
-          )}
+          </div>
 
-          {/* Row 2: Multi-Day "Jour entier" Section directly below the Period Selector / Day Headers */}
-          <div className="flex bg-[#141518]">
-            {/* Left "Jour entier" Label Column (Sticky Left & Toggleable Accordion) */}
-            <button
-              type="button"
-              onClick={() => setIsAllDayExpanded(!isAllDayExpanded)}
-              className="w-14 md:w-16 flex-shrink-0 border-r border-[#202228] p-1 flex flex-col justify-center items-center text-center bg-[#111214] hover:bg-[#1C1D24] sticky left-0 z-35 transition-colors cursor-pointer group"
-            >
-              <span className="text-[9px] md:text-[10px] font-bold text-[#8E929E] group-hover:text-white uppercase tracking-tighter leading-tight">
-                Jour<br />entier
-              </span>
-              <ChevronDown
-                className={cn(
-                  "w-3 h-3 text-[#D4F63D] mt-0.5 transition-transform duration-200",
-                  isAllDayExpanded ? "rotate-180" : ""
-                )}
-              />
-            </button>
+          {/* 3. 24-Hour Grid Container */}
+          <div className="relative min-h-[1440px] flex">
+            {/* Left Hours Column (00:00 -> 23:00) */}
+            <div className="w-14 md:w-16 flex-shrink-0 border-r border-[#202228] bg-[#111214]/90 z-20 sticky left-0">
+              {HOURS.map((hour) => (
+                <div
+                  key={hour}
+                  style={{ height: `${HOUR_ROW_HEIGHT}px` }}
+                  className="text-right pr-2 text-[10px] md:text-[11px] font-mono font-medium text-[#717684] flex items-start justify-end pt-1"
+                >
+                  <span>{hour.toString().padStart(2, "0")}:00</span>
+                </div>
+              ))}
+            </div>
 
-            {/* Day All-Day Columns (1 column in day mode, 3 in 3days, 7 in week) */}
+            {/* Day Grid Columns */}
             {displayedDays.map((dayStr) => {
-              const dayAllDayTasks = allDayTasksByDay.get(dayStr) || [];
-              const isCurrentSelected = dayStr === selectedDate;
+              const dayDate = parseISO(dayStr);
+              const isDayToday = isSameDay(dayDate, new Date());
+              const dayTasks = timedTasksByDay.get(dayStr) || [];
+              const dayExternalEvents = externalTimedEventsByDay.get(dayStr) || [];
 
               return (
-                <div
-                  key={`allday-${dayStr}`}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    e.dataTransfer.dropEffect = "move";
+                <DayGridColumn
+                  key={dayStr}
+                  dayDate={dayStr}
+                  tasks={dayTasks}
+                  externalEvents={dayExternalEvents}
+                  isToday={isDayToday}
+                  currentTimeMinutes={currentTimeMinutes}
+                  dragHoverMinute={dragHoverInfo?.date === dayStr ? dragHoverInfo.minute : null}
+                  selectedTaskId={selectedTaskId}
+                  resizingState={resizingState?.date === dayStr ? resizingState : null}
+                  onGridDragOver={handleGridDragOver}
+                  onGridDragLeave={handleGridDragLeave}
+                  onGridDrop={handleGridDrop}
+                  onToggleComplete={onToggleComplete}
+                  onToggleReminder={onToggleReminder}
+                  onEditTask={onEditTask}
+                  onDragStartTask={onDragStartTask}
+                  onSelectTask={(t) => {
+                    setSelectedTaskId(t.id);
+                    onSelectTask?.(t);
                   }}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    const taskId = e.dataTransfer.getData("taskId") || e.dataTransfer.getData("text/plain");
-                    if (taskId && onDropToAllDay) {
-                      onDropToAllDay(taskId, dayStr);
-                    }
-                  }}
-                  className={cn(
-                    "flex-1 p-1.5 flex flex-wrap items-center gap-1.5 border-r border-[#202228] transition-all duration-300",
-                    viewMode !== "day" ? "min-w-[120px] md:min-w-[150px]" : "min-w-0",
-                    isAllDayExpanded
-                      ? "min-h-[46px] max-h-none overflow-visible"
-                      : "min-h-[46px] max-h-[50px] overflow-hidden",
-                    isCurrentSelected ? "bg-[#161820]" : "bg-[#141518]"
-                  )}
-                >
-                  {dayAllDayTasks.length === 0 ? (
-                    <div className="text-[10px] text-[#555866] italic px-1 flex items-center gap-1">
-                      {viewMode === "day" ? (
-                        <>
-                          <Sparkles className="w-3 h-3 text-[#D4F63D]" />
-                          <span>Glisse une tâche ici pour la journée entière</span>
-                        </>
-                      ) : (
-                        <span>—</span>
-                      )}
-                    </div>
-                  ) : (
-                    dayAllDayTasks.map((task) => {
-                      const tagKey = task.tag || task.category || "General";
-                      const style = TAG_COLORS[tagKey] || TAG_COLORS.General;
-                      const isRemindersEnabled = task.enableReminders !== false;
-
-                      return (
-                        <div
-                          key={task.id}
-                          draggable
-                          onDragStart={(e) => {
-                            e.dataTransfer.setData("text/plain", task.id);
-                            e.dataTransfer.setData("taskId", task.id);
-                            onDragStartTask(e, task);
-                          }}
-                          onClick={() => {
-                            setSelectedTaskId(task.id);
-                            onSelectTask?.(task);
-                          }}
-                          className={cn(
-                            "flex items-center gap-1 px-2.5 py-1 rounded-full border text-[11px] font-semibold shadow-sm transition-all duration-150 cursor-grab active:cursor-grabbing hover:scale-[1.02]",
-                            style.bg,
-                            style.text,
-                            style.border,
-                            task.isCompletedToday ? "opacity-60 line-through" : ""
-                          )}
-                          title={task.title}
-                        >
-                          <button
-                            type="button"
-                            onPointerDown={(e) => e.stopPropagation()}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onToggleComplete(task.id);
-                            }}
-                            className="hover:scale-110 transition-transform cursor-pointer"
-                          >
-                            {task.isCompletedToday ? (
-                              <CheckCircle2 className="w-3 h-3 text-[#D4F63D] fill-[#D4F63D]/20" />
-                            ) : (
-                              <Circle className="w-3 h-3 opacity-60" />
-                            )}
-                          </button>
-                          <span className="truncate max-w-[90px] md:max-w-[120px]">{task.title}</span>
-
-                          {onToggleReminder && (
-                            <button
-                              type="button"
-                              onPointerDown={(e) => e.stopPropagation()}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onToggleReminder(task.id);
-                              }}
-                              className="hover:scale-115 transition-transform cursor-pointer opacity-70 hover:opacity-100 p-0.5"
-                            >
-                              {isRemindersEnabled ? (
-                                <Bell className="w-2.5 h-2.5 text-[#D4F63D]" />
-                              ) : (
-                                <BellOff className="w-2.5 h-2.5 opacity-50" />
-                              )}
-                            </button>
-                          )}
-
-                          {onEditTask && (
-                            <button
-                              type="button"
-                              onPointerDown={(e) => e.stopPropagation()}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onEditTask(task);
-                              }}
-                              className="hover:scale-115 transition-transform cursor-pointer opacity-70 hover:opacity-100 p-0.5"
-                            >
-                              <Edit3 className="w-2.5 h-2.5" />
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
+                  onSelectExternalEvent={(ext) => setSelectedExternalEvent(ext)}
+                  onStartResize={handleStartResize}
+                />
               );
             })}
           </div>
         </div>
-
-        {/* 4. 24-Hour Grid Container */}
-        <div className="relative min-h-[1440px] flex">
-          {/* Left Hours Column (00:00 -> 23:00) */}
-          <div className="w-14 md:w-16 flex-shrink-0 border-r border-[#202228] bg-[#111214]/90 z-20 sticky left-0">
-            {HOURS.map((hour) => (
-              <div
-                key={hour}
-                style={{ height: `${HOUR_ROW_HEIGHT}px` }}
-                className="text-right pr-2 text-[10px] md:text-[11px] font-mono font-medium text-[#717684] flex items-start justify-end pt-1"
-              >
-                <span>{hour.toString().padStart(2, "0")}:00</span>
-              </div>
-            ))}
-          </div>
-
-          {/* Day Grid Columns */}
-          {displayedDays.map((dayStr) => {
-            const dayDate = parseISO(dayStr);
-            const isDayToday = isSameDay(dayDate, new Date());
-            const dayTasks = timedTasksByDay.get(dayStr) || [];
-
-            return (
-              <DayGridColumn
-                key={dayStr}
-                dayDate={dayStr}
-                tasks={dayTasks}
-                isToday={isDayToday}
-                currentTimeMinutes={currentTimeMinutes}
-                dragHoverMinute={dragHoverInfo?.date === dayStr ? dragHoverInfo.minute : null}
-                selectedTaskId={selectedTaskId}
-                resizingState={resizingState?.date === dayStr ? resizingState : null}
-                onGridDragOver={handleGridDragOver}
-                onGridDragLeave={handleGridDragLeave}
-                onGridDrop={handleGridDrop}
-                onToggleComplete={onToggleComplete}
-                onToggleReminder={onToggleReminder}
-                onEditTask={onEditTask}
-                onDragStartTask={onDragStartTask}
-                onSelectTask={(t) => {
-                  setSelectedTaskId(t.id);
-                  onSelectTask?.(t);
-                }}
-                onStartResize={handleStartResize}
-              />
-            );
-          })}
-        </div>
       </div>
-    </div>
+
+      {/* Calendar Subscriptions Configuration Modal */}
+      <CalendarSubscriptionsModal
+        isOpen={isCalendarModalOpen}
+        onClose={() => setIsCalendarModalOpen(false)}
+        subscriptions={subscriptions}
+        onAddSubscription={addSubscription}
+        onDeleteSubscription={deleteSubscription}
+        onToggleSubscription={toggleSubscription}
+        onRefresh={() => refetchCalendarEvents()}
+        isRefetching={isCalendarRefetching}
+        errors={calendarErrors}
+      />
+
+      {/* External Event Details Modal */}
+      <ExternalEventDetailModal
+        event={selectedExternalEvent}
+        onClose={() => setSelectedExternalEvent(null)}
+      />
+    </>
   );
 };
 
 interface DayGridColumnProps {
   dayDate: string;
   tasks: TaskWithCompletion[];
+  externalEvents?: ExternalCalendarEvent[];
   isToday: boolean;
   currentTimeMinutes: number;
   dragHoverMinute: number | null;
@@ -632,12 +774,14 @@ interface DayGridColumnProps {
   onEditTask?: (task: TaskWithCompletion) => void;
   onDragStartTask: (e: React.DragEvent, task: TaskWithCompletion) => void;
   onSelectTask?: (task: TaskWithCompletion) => void;
+  onSelectExternalEvent?: (event: ExternalCalendarEvent) => void;
   onStartResize: (e: React.PointerEvent, task: TaskWithCompletion, dayDate: string) => void;
 }
 
 const DayGridColumn: React.FC<DayGridColumnProps> = ({
   dayDate,
   tasks,
+  externalEvents = [],
   isToday,
   currentTimeMinutes,
   dragHoverMinute,
@@ -651,6 +795,7 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
   onEditTask,
   onDragStartTask,
   onSelectTask,
+  onSelectExternalEvent,
   onStartResize,
 }) => {
   const colRef = useRef<HTMLDivElement>(null);
@@ -699,10 +844,13 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
         </div>
       )}
 
-      {/* Timed Task Blocks */}
+      {/* Timed Task Blocks & External Events Unified Clustering */}
       {(() => {
         interface TimedLayoutItem {
-          task: TaskWithCompletion;
+          type: "task" | "external";
+          task?: TaskWithCompletion;
+          externalEvent?: ExternalCalendarEvent;
+          id: string;
           startMins: number;
           layoutEndMins: number;
           height: number;
@@ -710,7 +858,8 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
           totalColumns: number;
         }
 
-        const items: TimedLayoutItem[] = tasks
+        // 1. Map MyTrack tasks
+        const taskItems: TimedLayoutItem[] = tasks
           .map((task) => {
             const startTimeStr = task.effectiveStartTime !== undefined ? task.effectiveStartTime : task.startTime;
             if (!startTimeStr) return null;
@@ -741,7 +890,9 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
               : task;
 
             return {
+              type: "task" as const,
               task: displayTask,
+              id: `task-${task.id}`,
               startMins,
               layoutEndMins: startMins + stableHeight,
               height: activeHeight,
@@ -751,20 +902,42 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
           })
           .filter(Boolean) as TimedLayoutItem[];
 
-        if (items.length === 0) return null;
+        // 2. Map External Events
+        const externalItems: TimedLayoutItem[] = externalEvents
+          .map((ext) => {
+            if (!ext.startTime) return null;
+            const startMins = parseTimeToMinutes(ext.startTime);
+            const endMins = ext.endTime ? parseTimeToMinutes(ext.endTime) : startMins + 60;
+            const duration = Math.max(20, endMins - startMins);
 
-        // 1. Sort by start time ascending
-        items.sort((a, b) => {
+            return {
+              type: "external" as const,
+              externalEvent: ext,
+              id: `ext-${ext.id}`,
+              startMins,
+              layoutEndMins: startMins + duration,
+              height: duration,
+              column: 0,
+              totalColumns: 1,
+            };
+          })
+          .filter(Boolean) as TimedLayoutItem[];
+
+        const allItems = [...taskItems, ...externalItems];
+        if (allItems.length === 0) return null;
+
+        // 3. Sort by start time ascending
+        allItems.sort((a, b) => {
           if (a.startMins !== b.startMins) return a.startMins - b.startMins;
           return (b.layoutEndMins - b.startMins) - (a.layoutEndMins - a.startMins);
         });
 
-        // 2. Group into clusters
+        // 4. Group into clusters
         const clusters: TimedLayoutItem[][] = [];
         let currentCluster: TimedLayoutItem[] = [];
         let clusterEnd = 0;
 
-        for (const item of items) {
+        for (const item of allItems) {
           if (currentCluster.length === 0) {
             currentCluster.push(item);
             clusterEnd = item.layoutEndMins;
@@ -781,7 +954,7 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
           clusters.push(currentCluster);
         }
 
-        // 3. Allocate columns
+        // 5. Allocate columns
         for (const cluster of clusters) {
           const cols: TimedLayoutItem[][] = [];
           for (const item of cluster) {
@@ -806,28 +979,46 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
           }
         }
 
-        // 4. Render blocks
-        return items.map((item) => {
+        // 6. Render blocks
+        return allItems.map((item) => {
           const widthPercent = 100 / (item.totalColumns || 1);
           const leftPercent = (item.column || 0) * widthPercent;
 
-          return (
-            <AgendaTaskBlock
-              key={item.task.id}
-              task={item.task}
-              topOffsetPx={item.startMins}
-              heightPx={item.height}
-              leftPercent={leftPercent}
-              widthPercent={widthPercent}
-              isSelected={selectedTaskId === item.task.id || resizingState?.taskId === item.task.id}
-              onToggleComplete={onToggleComplete}
-              onToggleReminder={onToggleReminder}
-              onEditTask={onEditTask}
-              onDragStart={onDragStartTask}
-              onClick={() => onSelectTask?.(item.task)}
-              onStartResize={(e, t) => onStartResize(e, t, dayDate)}
-            />
-          );
+          if (item.type === "external" && item.externalEvent) {
+            return (
+              <ExternalEventBlock
+                key={item.id}
+                event={item.externalEvent}
+                topOffsetPx={item.startMins}
+                heightPx={item.height}
+                leftPercent={leftPercent}
+                widthPercent={widthPercent}
+                onClick={() => onSelectExternalEvent?.(item.externalEvent!)}
+              />
+            );
+          }
+
+          if (item.type === "task" && item.task) {
+            return (
+              <AgendaTaskBlock
+                key={item.id}
+                task={item.task}
+                topOffsetPx={item.startMins}
+                heightPx={item.height}
+                leftPercent={leftPercent}
+                widthPercent={widthPercent}
+                isSelected={selectedTaskId === item.task.id || resizingState?.taskId === item.task.id}
+                onToggleComplete={onToggleComplete}
+                onToggleReminder={onToggleReminder}
+                onEditTask={onEditTask}
+                onDragStart={onDragStartTask}
+                onClick={() => onSelectTask?.(item.task!)}
+                onStartResize={(e, t) => onStartResize(e, t, dayDate)}
+              />
+            );
+          }
+
+          return null;
         });
       })()}
     </div>
