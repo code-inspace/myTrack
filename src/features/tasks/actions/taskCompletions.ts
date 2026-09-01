@@ -181,7 +181,8 @@ export async function upsertDbCompletion(
 }
 
 /**
- * Marks a task as completed on a given date without overwriting its scheduled start/end times.
+ * Marks a task as completed "now". If it had no schedule or was not started yet,
+ * records a 30-minute block ending now and reflects that window in the Agenda for that day.
  * Idempotent — safe to call on an already-completed task.
  */
 export async function closeTaskAsCompleted(
@@ -205,8 +206,24 @@ export async function closeTaskAsCompleted(
 
   const now = new Date();
   const nowTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-  const actualStartTime = existing?.actualStartTime || target?.startTime || null;
-  const actualEndTime = existing?.actualEndTime || (actualStartTime ? nowTime : null);
+  const wasStarted = Boolean(existing?.actualStartTime);
+  const actualStartTime = wasStarted
+    ? existing!.actualStartTime!
+    : target?.startTime || subtractMinutesFromTime(nowTime, 30);
+  const actualEndTime = existing?.actualEndTime || nowTime;
+
+  // If the task had no explicit time or was unstarted, position this day's occurrence in the Agenda timeline
+  if (!wasStarted) {
+    const isRecurring = target?.recurrence && target.recurrence !== "ONCE";
+    await updateTaskSchedule({
+      taskId,
+      date,
+      startTime: actualStartTime,
+      endTime: actualEndTime,
+      applyToAll: !isRecurring,
+      userId: targetId,
+    });
+  }
 
   await upsertDbCompletion({
     taskId,
@@ -220,8 +237,8 @@ export async function closeTaskAsCompleted(
         ? options.duration
         : existing?.duration || null,
     scheduledStartTime:
-      target?.startTime || existing?.scheduledStartTime || null,
-    scheduledEndTime: target?.endTime || existing?.scheduledEndTime || null,
+      target?.startTime || existing?.scheduledStartTime || actualStartTime,
+    scheduledEndTime: target?.endTime || existing?.scheduledEndTime || actualEndTime,
     actualStartTime,
     actualEndTime,
     notes: null,
