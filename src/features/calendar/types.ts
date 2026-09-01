@@ -4,6 +4,8 @@ export interface CalendarSubscription {
   url: string;
   color: string;
   enabled: boolean;
+  username?: string | null;
+  password?: string | null;
   lastSyncedAt?: string;
   error?: string | null;
   createdAt: string;

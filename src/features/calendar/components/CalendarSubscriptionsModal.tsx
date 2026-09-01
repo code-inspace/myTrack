@@ -43,6 +43,9 @@ export const CalendarSubscriptionsModal: React.FC<CalendarSubscriptionsModalProp
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const [color, setColor] = useState(DEFAULT_CALENDAR_COLORS[0]);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [showAuthFields, setShowAuthFields] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -60,7 +63,7 @@ export const CalendarSubscriptionsModal: React.FC<CalendarSubscriptionsModalProp
       return;
     }
     if (!trimmedUrl) {
-      setFormError("Veuillez saisir l'URL du flux .ics / iCal.");
+      setFormError("Veuillez saisir l'URL du flux .ics / CalDAV.");
       return;
     }
 
@@ -79,10 +82,15 @@ export const CalendarSubscriptionsModal: React.FC<CalendarSubscriptionsModalProp
       url: trimmedUrl,
       color,
       enabled: true,
+      username: username.trim() || null,
+      password: password.trim() || null,
     });
 
     setName("");
     setUrl("");
+    setUsername("");
+    setPassword("");
+    setShowAuthFields(false);
     setColor(DEFAULT_CALENDAR_COLORS[(subscriptions.length + 1) % DEFAULT_CALENDAR_COLORS.length]);
   };
 
@@ -246,15 +254,60 @@ export const CalendarSubscriptionsModal: React.FC<CalendarSubscriptionsModalProp
 
               <div>
                 <label className="block text-xs font-semibold text-[#8E929E] mb-1.5">
-                  URL iCal (.ics ou webcal://)
+                  URL iCal ou CalDAV (.ics, webcal:// ou lien Nextcloud/CalDAV)
                 </label>
                 <input
                   type="text"
-                  placeholder="https://calendar.google.com/calendar/ical/.../basic.ics"
+                  placeholder="https://cloud.entreprise.fr/.../calendar?export ou https://.../basic.ics"
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl bg-[#121318] border border-[#2C3040] text-xs font-mono text-white placeholder-[#6B7280] focus:border-[#D4F63D] outline-none transition-colors"
                 />
+              </div>
+
+              {/* Optional CalDAV Credentials Toggle */}
+              <div className="pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowAuthFields(!showAuthFields)}
+                  className="text-xs font-semibold text-[#3B82F6] hover:underline flex items-center gap-1 cursor-pointer"
+                >
+                  <span>{showAuthFields ? "Masquer les identifiants CalDAV" : "+ Authentification CalDAV / Mot de passe d'application"}</span>
+                </button>
+
+                {showAuthFields && (
+                  <div className="mt-2.5 p-3.5 rounded-xl bg-[#121318] border border-[#282B38] space-y-2.5 animate-in fade-in duration-150">
+                    <p className="text-[11px] text-[#8E929E]">
+                      Requis pour les serveurs CalDAV sécurisés (Nextcloud, Zimbra, SOGo).
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <div>
+                        <label className="block text-[11px] font-medium text-[#9CA3AF] mb-1">
+                          Nom d&apos;utilisateur / Email
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="votre_identifiant"
+                          value={username}
+                          onChange={(e) => setUsername(e.target.value)}
+                          className="w-full px-3 py-2 rounded-lg bg-[#181920] border border-[#2C3040] text-xs text-white placeholder-[#6B7280] focus:border-[#D4F63D] outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-[#9CA3AF] mb-1">
+                          Mot de passe d&apos;application CalDAV
+                        </label>
+                        <input
+                          type="password"
+                          placeholder="••••••••••••••••"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          className="w-full px-3 py-2 rounded-lg bg-[#181920] border border-[#2C3040] text-xs text-white placeholder-[#6B7280] focus:border-[#D4F63D] outline-none font-mono"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -298,13 +351,26 @@ export const CalendarSubscriptionsModal: React.FC<CalendarSubscriptionsModalProp
             >
               <div className="flex items-center gap-2">
                 <HelpCircle className="w-4 h-4 text-[#3B82F6]" />
-                <span>Où trouver mon URL secrète iCal ?</span>
+                <span>Comment obtenir l&apos;URL de mon agenda ? (Google, Apple, Nextcloud / CalDAV)</span>
               </div>
               {showHelp ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             </button>
 
             {showHelp && (
               <div className="px-4 pb-4 space-y-3.5 text-xs text-[#9CA3AF] border-t border-[#232530] pt-3">
+                <div>
+                  <h5 className="font-bold text-white flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-[#10B981]" />
+                    <span>Agenda Entreprise / Nextcloud / CalDAV</span>
+                  </h5>
+                  <ol className="list-decimal list-inside space-y-1 mt-1 pl-1 text-[11px] leading-relaxed">
+                    <li>Dans votre agenda (ex: Nextcloud), cliquez sur les <strong>3 points (...)</strong> à côté de votre calendrier.</li>
+                    <li>Sélectionnez <strong>Copier le lien privé</strong> ou <strong>Lien d&apos;abonnement</strong> (ex: <code>https://cloud.entreprise.fr/.../calendar</code>).</li>
+                    <li>Générez un <strong>mot de passe d&apos;application</strong> dans Paramètres &gt; Sécurité (comme sur votre capture d&apos;écran en sélectionnant <em>Client d&apos;agenda CalDAV</em>).</li>
+                    <li>Renseignez l&apos;URL, votre identifiant et ce mot de passe d&apos;application dans le formulaire ci-dessus.</li>
+                  </ol>
+                </div>
+
                 <div>
                   <h5 className="font-bold text-white flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-[#3B82F6]" />
