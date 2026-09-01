@@ -16,6 +16,7 @@ export function useProjects() {
     staleTime: 0,
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
+    refetchInterval: 3000,
   });
 
   return { projects };

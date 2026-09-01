@@ -67,6 +67,7 @@ export function useTasks(selectedDateStr: string) {
     staleTime: 0,
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
+    refetchInterval: 3000,
   });
 
   const { data: allCompletions = getStoredCompletions(userId) } = useQuery({
@@ -76,6 +77,7 @@ export function useTasks(selectedDateStr: string) {
     staleTime: 0,
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
+    refetchInterval: 3000,
   });
 
   const selectedDate = parseISO(selectedDateStr);
