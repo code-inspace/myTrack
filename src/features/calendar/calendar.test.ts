@@ -136,17 +136,21 @@ describe("External Calendar Event Status", () => {
   };
 
   it("marks past dates as DONE", () => {
-    expect(getExternalEventStatus(dummyEvent, "2020-01-01")).toBe("DONE");
-    expect(isExternalEventDone(dummyEvent, "2020-01-01")).toBe(true);
+    const pastEvent = { ...dummyEvent, date: "2020-01-01" };
+    expect(getExternalEventStatus(pastEvent, "2020-01-01")).toBe("DONE");
+    expect(isExternalEventDone(pastEvent, "2020-01-01")).toBe(true);
   });
 
   it("marks future dates as TODO", () => {
-    expect(getExternalEventStatus(dummyEvent, "2099-01-01")).toBe("TODO");
-    expect(isExternalEventDone(dummyEvent, "2099-01-01")).toBe(false);
+    const futureEvent = { ...dummyEvent, date: "2099-01-01" };
+    expect(getExternalEventStatus(futureEvent, "2099-01-01")).toBe("TODO");
+    expect(isExternalEventDone(futureEvent, "2099-01-01")).toBe(false);
   });
 
   it("honors manual completion override", () => {
-    expect(getExternalEventStatus(dummyEvent, "2099-01-01", true)).toBe("DONE");
-    expect(getExternalEventStatus(dummyEvent, "2020-01-01", false)).toBe("TODO");
+    const futureEvent = { ...dummyEvent, date: "2099-01-01" };
+    const pastEvent = { ...dummyEvent, date: "2020-01-01" };
+    expect(getExternalEventStatus(futureEvent, "2099-01-01", true)).toBe("DONE");
+    expect(getExternalEventStatus(pastEvent, "2020-01-01", false)).toBe("TODO");
   });
 });

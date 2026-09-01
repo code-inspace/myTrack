@@ -75,6 +75,22 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
   const [statusFilter, setStatusFilter] = useState<FilterStatus>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("");
   const [manualCompletedEvents, setManualCompletedEvents] = useState<Record<string, boolean>>({});
+  const [showCalendar, setShowCalendar] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("mytrack_show_calendar_in_tasks") !== "false";
+    }
+    return true;
+  });
+
+  const toggleCalendarVisibility = () => {
+    setShowCalendar((prev) => {
+      const next = !prev;
+      if (typeof window !== "undefined") {
+        localStorage.setItem("mytrack_show_calendar_in_tasks", String(next));
+      }
+      return next;
+    });
+  };
 
   const dndSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
@@ -82,41 +98,48 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
 
   const activeTask = tasks.find((t) => t.isActive);
 
+  // ONLY include external events for the EXACT viewed date!
+  const dayExternalEvents = useMemo(() => {
+    if (!showCalendar) return [];
+    return externalEvents.filter((e) => e.date === selectedDate);
+  }, [externalEvents, selectedDate, showCalendar]);
+
   const toggleEventCompleted = (eventId: string) => {
     setManualCompletedEvents((prev) => {
       const current = prev[eventId];
-      const defaultDone = externalEvents.find((e) => e.id === eventId)
-        ? isExternalEventDone(externalEvents.find((e) => e.id === eventId)!, selectedDate)
+      const defaultDone = dayExternalEvents.find((e) => e.id === eventId)
+        ? isExternalEventDone(dayExternalEvents.find((e) => e.id === eventId)!, selectedDate)
         : false;
       const nextVal = current !== undefined ? !current : !defaultDone;
       return { ...prev, [eventId]: nextVal };
     });
   };
 
-  // Counts for pills (tasks + external calendar events)
+  // Counts for pills (tasks + external calendar events of the selected date)
   const counts = useMemo(() => {
-    const activeEventsCount = externalEvents.filter(
+    const activeEventsCount = dayExternalEvents.filter(
       (e) => getExternalEventStatus(e, selectedDate, manualCompletedEvents[e.id]) === "IN_PROGRESS"
     ).length;
-    const todoEventsCount = externalEvents.filter(
+    const todoEventsCount = dayExternalEvents.filter(
       (e) => getExternalEventStatus(e, selectedDate, manualCompletedEvents[e.id]) === "TODO"
     ).length;
-    const doneEventsCount = externalEvents.filter(
+    const doneEventsCount = dayExternalEvents.filter(
       (e) => getExternalEventStatus(e, selectedDate, manualCompletedEvents[e.id]) === "DONE"
     ).length;
 
     return {
-      all: tasks.length + externalEvents.length,
+      all: tasks.length + dayExternalEvents.length,
       active: tasks.filter((t) => t.isActive).length + activeEventsCount,
       urgent: tasks.filter((t) => t.priority && t.priority !== "NORMAL" && !t.isCompletedToday).length,
       todo: tasks.filter((t) => !t.isCompletedToday).length + todoEventsCount,
       done: tasks.filter((t) => t.isCompletedToday).length + doneEventsCount,
     };
-  }, [tasks, externalEvents, selectedDate, manualCompletedEvents]);
+  }, [tasks, dayExternalEvents, selectedDate, manualCompletedEvents]);
 
-  // Filtered external events
+  // Filtered external events strictly for the selected date
   const filteredExternalEvents = useMemo(() => {
-    return externalEvents.filter((event) => {
+    if (!showCalendar) return [];
+    return dayExternalEvents.filter((event) => {
       // 1. Search Query
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
@@ -140,7 +163,7 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
 
       return true;
     });
-  }, [externalEvents, searchQuery, categoryFilter, statusFilter, selectedDate, manualCompletedEvents]);
+  }, [dayExternalEvents, searchQuery, categoryFilter, statusFilter, selectedDate, manualCompletedEvents, showCalendar]);
 
   // Filtered tasks according to search, status pill, category
   const filteredTasks = useMemo(() => {
@@ -306,6 +329,22 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
           <span className={cn("px-1.5 py-0.2 rounded-full text-[10px]", statusFilter === "done" ? "bg-black/15 text-black" : "bg-[#282A34] text-[#8E929E]")}>
             {counts.done}
           </span>
+        </button>
+
+        {/* Calendar visibility toggle button */}
+        <button
+          type="button"
+          onClick={toggleCalendarVisibility}
+          title={showCalendar ? "Masquer les événements d'agenda externe" : "Afficher les événements d'agenda externe"}
+          className={cn(
+            "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ml-auto flex-shrink-0 border",
+            showCalendar
+              ? "bg-[#3B82F6]/15 border-[#3B82F6]/40 text-[#60A5FA]"
+              : "bg-[#181920] border-[#282A34] text-[#6B7280] hover:text-[#9CA3AF]"
+          )}
+        >
+          <Calendar className="w-3.5 h-3.5" />
+          <span>Agenda {showCalendar ? "ON" : "OFF"}</span>
         </button>
       </div>
 

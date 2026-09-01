@@ -20,7 +20,10 @@ import { useNightMode } from "@/features/sleep/providers/NightModeProvider";
 import { getTodayDateString } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 import { CustomReminder } from "@/features/notifications/types";
-import { User, Flame, Trophy, Award, RotateCcw, ShieldCheck, LogOut, Sparkles, UserPlus, Bell, ChevronRight, LayoutPanelTop, PanelsTopLeft, Check, Moon } from "lucide-react";
+import { useCalendarEvents } from "@/features/calendar/hooks/useCalendarEvents";
+import { CalendarSubscriptionsModal } from "@/features/calendar/components/CalendarSubscriptionsModal";
+import { useOffline } from "@/providers/OfflineProvider";
+import { User, Flame, Trophy, Award, RotateCcw, ShieldCheck, LogOut, Sparkles, UserPlus, Bell, ChevronRight, LayoutPanelTop, PanelsTopLeft, Check, Moon, Calendar, Wifi, WifiOff, Zap } from "lucide-react";
 import Link from "next/link";
 
 const DISPLAY_MODE_OPTIONS: Array<{
@@ -49,6 +52,16 @@ export default function ProfilePage() {
   const router = useRouter();
   const { user, logout, switchToDemo } = useAuth();
   const { displayMode, setDisplayMode } = useDisplayMode();
+  const { isOnline, isLowDataMode, toggleLowDataMode } = useOffline();
+  const {
+    subscriptions,
+    refetch,
+    addSubscription,
+    updateSubscription,
+    deleteSubscription,
+    toggleSubscription,
+  } = useCalendarEvents();
+  const [isCalendarModalOpen, setIsCalendarModalOpen] = useState(false);
   const {
     bedtime,
     wakeTime,
@@ -307,6 +320,88 @@ export default function ProfilePage() {
         </div>
       </div>
 
+      {/* External Calendars & Agenda Synchronization Card */}
+      <div className="bg-[#1C1D22] border border-[#282A30] rounded-3xl p-5 shadow-sm space-y-3.5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-[#3B82F6]/15 text-[#60A5FA] flex items-center justify-center">
+              <Calendar className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-white">Agendas & Calendriers</h3>
+              <p className="text-[11px] text-[#8E929E]">Synchronisation iCal, Google, Apple & CalDAV</p>
+            </div>
+          </div>
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#252830] text-[#60A5FA] font-mono font-bold">
+            {subscriptions.length} connecté{subscriptions.length > 1 ? "s" : ""}
+          </span>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setIsCalendarModalOpen(true)}
+          className="w-full py-3 px-4 rounded-2xl bg-[#252830] hover:bg-[#2F323D] text-white hover:text-[#D4F63D] font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer border border-[#373A46]"
+        >
+          <Calendar className="w-4 h-4 text-[#D4F63D]" />
+          <span>Gérer mes calendriers (Google, Apple, Pro...)</span>
+        </button>
+      </div>
+
+      {/* Offline & Data Saver Card */}
+      <div className="bg-[#1C1D22] border border-[#282A30] rounded-3xl p-5 shadow-sm space-y-3.5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-[#10B981]/15 text-[#10B981] flex items-center justify-center">
+              {isOnline ? <Wifi className="w-5 h-5" /> : <WifiOff className="w-5 h-5 text-[#EF4444]" />}
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-white">Connexion & Données</h3>
+              <p className="text-[11px] text-[#8E929E]">Mode hors ligne & optimisation réseau</p>
+            </div>
+          </div>
+          <span
+            className={cn(
+              "text-[10px] px-2 py-0.5 rounded-full font-mono font-bold",
+              isOnline ? "bg-[#10B981]/15 text-[#10B981]" : "bg-[#EF4444]/15 text-[#EF4444]"
+            )}
+          >
+            {isOnline ? "En ligne" : "Hors ligne"}
+          </span>
+        </div>
+
+        <div className="space-y-2.5 pt-1 border-t border-[#282A30]">
+          {/* Low Data Switch */}
+          <div className="flex items-center justify-between p-3 rounded-2xl bg-[#17181D] border border-[#282A30]">
+            <div className="space-y-0.5 pr-3">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-bold text-white block">Mode Économie de données (Low Data)</span>
+                <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-[#F59E0B]/20 text-[#F59E0B] font-mono font-bold">
+                  Réseau lent
+                </span>
+              </div>
+              <p className="text-[10px] text-[#8E929E] leading-snug">
+                Limite les requêtes d'arrière-plan et prolonge la mise en cache locale.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => toggleLowDataMode(!isLowDataMode)}
+              className={cn(
+                "w-12 h-6.5 rounded-full transition-colors relative cursor-pointer flex-shrink-0",
+                isLowDataMode ? "bg-[#D4F63D]" : "bg-[#2A2D36]"
+              )}
+            >
+              <div
+                className={cn(
+                  "w-5 h-5 rounded-full bg-black transition-transform absolute top-0.5",
+                  isLowDataMode ? "left-6" : "left-1"
+                )}
+              />
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Notifications Management Link Banner */}
       <Link
         href="/profile/notifications"
@@ -345,6 +440,18 @@ export default function ProfilePage() {
 
         </div>
       </div>
+
+      {/* Calendar Subscriptions Modal */}
+      <CalendarSubscriptionsModal
+        isOpen={isCalendarModalOpen}
+        onClose={() => setIsCalendarModalOpen(false)}
+        subscriptions={subscriptions}
+        onRefresh={refetch}
+        onAddSubscription={addSubscription}
+        onUpdateSubscription={updateSubscription}
+        onDeleteSubscription={deleteSubscription}
+        onToggleSubscription={toggleSubscription}
+      />
 
       {/* Custom Reminder Modal */}
       <CustomReminderModal

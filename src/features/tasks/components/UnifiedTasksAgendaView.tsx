@@ -64,6 +64,17 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
   const { tasks, allTasks, allCompletions } = useTasks(selectedDate);
   const { events: externalEvents } = useCalendarEvents(selectedDate);
 
+  const dayExternalEvents = useMemo(() => {
+    return externalEvents.filter((e) => e.date === selectedDate);
+  }, [externalEvents, selectedDate]);
+
+  const [showCalendar, setShowCalendar] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("mytrack_show_calendar_in_tasks") !== "false";
+    }
+    return true;
+  });
+
   const {
     createTask,
     updateTask,
@@ -329,6 +340,27 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
               >
                 <div className="flex items-center justify-between px-1">
                   <h2 className="text-xl font-bold text-white tracking-tight">Aujourd&apos;hui</h2>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCalendar((prev) => {
+                        const next = !prev;
+                        if (typeof window !== "undefined") {
+                          localStorage.setItem("mytrack_show_calendar_in_tasks", String(next));
+                        }
+                        return next;
+                      });
+                    }}
+                    className={cn(
+                      "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold transition-all cursor-pointer border",
+                      showCalendar
+                        ? "bg-[#3B82F6]/15 border-[#3B82F6]/40 text-[#60A5FA]"
+                        : "bg-[#1C1D22] border-[#282A30] text-[#6B7280]"
+                    )}
+                  >
+                    <CalendarDays className="w-3.5 h-3.5" />
+                    <span>Agenda {showCalendar ? "ON" : "OFF"}</span>
+                  </button>
                 </div>
 
                 {/* Quick Task Input Bar */}
@@ -367,25 +399,26 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
 
                 {/* Tasks & External Calendar Events Stream */}
                 <div className="space-y-2.5 pt-1">
-                  {/* External calendar events for this date */}
-                  {externalEvents.map((evt) => (
-                    <ExternalEventTaskCard
-                      key={evt.id}
-                      event={evt}
-                      selectedDate={selectedDate}
-                      isManuallyCompleted={manualCompletedEvents[evt.id]}
-                      onToggleComplete={() => {
-                        setManualCompletedEvents((prev) => {
-                          const current = prev[evt.id];
-                          const defaultDone = isExternalEventDone(evt, selectedDate);
-                          return { ...prev, [evt.id]: current !== undefined ? !current : !defaultDone };
-                        });
-                      }}
-                      onClick={() => setSelectedExternalEvent(evt)}
-                    />
-                  ))}
+                  {/* External calendar events for this specific date */}
+                  {showCalendar &&
+                    dayExternalEvents.map((evt) => (
+                      <ExternalEventTaskCard
+                        key={evt.id}
+                        event={evt}
+                        selectedDate={selectedDate}
+                        isManuallyCompleted={manualCompletedEvents[evt.id]}
+                        onToggleComplete={() => {
+                          setManualCompletedEvents((prev) => {
+                            const current = prev[evt.id];
+                            const defaultDone = isExternalEventDone(evt, selectedDate);
+                            return { ...prev, [evt.id]: current !== undefined ? !current : !defaultDone };
+                          });
+                        }}
+                        onClick={() => setSelectedExternalEvent(evt)}
+                      />
+                    ))}
 
-                  {orderedTasks.length === 0 && externalEvents.length === 0 ? (
+                  {orderedTasks.length === 0 && (!showCalendar || dayExternalEvents.length === 0) ? (
                     <div className="p-8 text-center bg-[#1C1D22] border border-[#282A30] rounded-3xl my-4">
                       <Inbox className="w-10 h-10 text-[#6B7280] mx-auto mb-2" />
                       <h4 className="text-base font-bold text-white">Aucun élément programmé</h4>

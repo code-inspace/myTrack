@@ -3,6 +3,8 @@
 import React, { useState } from "react";
 import { Task, TaskCompletion } from "@/features/tasks/types";
 import { ProjectColumn } from "../types";
+import { ExternalCalendarEvent } from "@/features/calendar/types";
+import { ExternalEventBoardCard } from "@/features/calendar/components/ExternalEventBoardCard";
 import { GripVertical, Flame, CheckCircle2, Pencil, Plus, Tag } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getPriorityCardClass, getPriorityTitleClass, getPriorityIconColorClass } from "@/features/tasks/priority";
@@ -127,9 +129,13 @@ export const BoardCard: React.FC<{
   );
 };
 
-import { ExternalCalendarEvent } from "@/features/calendar/types";
-import { ExternalEventBoardCard } from "@/features/calendar/components/ExternalEventBoardCard";
-import { getExternalEventStatus, isExternalEventDone, isExternalEventInProgress } from "@/features/calendar/lib/status";
+import {
+  getExternalEventStatus,
+  isExternalEventDone,
+  isExternalEventInProgress,
+  isEventInDonePeriod,
+  isEventInRollingWeek,
+} from "@/features/calendar/lib/status";
 
 export const BoardColumn: React.FC<{
   column: ProjectColumn;
@@ -161,7 +167,9 @@ export const BoardColumn: React.FC<{
   const columnEvents = React.useMemo(() => {
     const todayStr = getTodayDateString();
     if (column.isDone) {
-      return externalEvents.filter((e) => isExternalEventDone(e, todayStr));
+      return externalEvents.filter(
+        (e) => isExternalEventDone(e, todayStr) && isEventInDonePeriod(e.date, donePeriod, todayStr)
+      );
     }
     const isProgressColumn =
       column.id === "IN_PROGRESS" ||
@@ -169,7 +177,9 @@ export const BoardColumn: React.FC<{
       column.id.toLowerCase().includes("progress");
 
     if (isProgressColumn) {
-      return externalEvents.filter((e) => isExternalEventInProgress(e, todayStr));
+      return externalEvents.filter(
+        (e) => e.date === todayStr && isExternalEventInProgress(e, todayStr)
+      );
     }
 
     const isTodoColumn =
@@ -178,11 +188,16 @@ export const BoardColumn: React.FC<{
       column.id.toLowerCase().includes("todo");
 
     if (isTodoColumn) {
-      return externalEvents.filter((e) => getExternalEventStatus(e, todayStr) === "TODO");
+      return externalEvents.filter(
+        (e) =>
+          isEventInRollingWeek(e.date, todayStr) &&
+          !isExternalEventDone(e, todayStr) &&
+          !isExternalEventInProgress(e, todayStr)
+      );
     }
 
     return [];
-  }, [externalEvents, column]);
+  }, [externalEvents, column, donePeriod]);
 
   const totalCount = displayedTasks.length + columnEvents.length;
 

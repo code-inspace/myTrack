@@ -72,6 +72,8 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
+import { OfflineProvider } from "@/providers/OfflineProvider";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -93,28 +95,30 @@ export default function RootLayout({
       <body className="bg-[#0E0F12] text-[#F3F4F6] min-h-screen antialiased flex flex-row items-stretch overflow-x-hidden">
         <QueryProvider>
           <AuthProvider>
-            <OneSignalProvider>
-              <NotificationWatcherProvider>
-                <NightModeProvider>
-                  <DisplayModeProvider>
-                    <DateProvider>
-                      <AuthGuard>
-                        {/* Desktop Sticky Left Sidebar (hidden on mobile) */}
-                        <DesktopSidebar />
+            <OfflineProvider>
+              <OneSignalProvider>
+                <NotificationWatcherProvider>
+                  <NightModeProvider>
+                    <DisplayModeProvider>
+                      <DateProvider>
+                        <AuthGuard>
+                          {/* Desktop Sticky Left Sidebar (hidden on mobile) */}
+                          <DesktopSidebar />
 
-                        {/* Main App Container: full width on mobile, flex-1 on desktop */}
-                        <main className="flex-1 min-w-0 w-full max-w-md md:max-w-none h-screen max-h-screen flex flex-col safe-top relative overflow-hidden">
-                          {children}
-                        </main>
+                          {/* Main App Container: full width on mobile, flex-1 on desktop */}
+                          <main className="flex-1 min-w-0 w-full max-w-md md:max-w-none h-screen max-h-screen flex flex-col safe-top relative overflow-hidden">
+                            {children}
+                          </main>
 
-                        {/* Fixed Thumb-friendly Navigation on Mobile */}
-                        <BottomNav />
-                      </AuthGuard>
-                    </DateProvider>
-                  </DisplayModeProvider>
-                </NightModeProvider>
-              </NotificationWatcherProvider>
-            </OneSignalProvider>
+                          {/* Fixed Thumb-friendly Navigation on Mobile */}
+                          <BottomNav />
+                        </AuthGuard>
+                      </DateProvider>
+                    </DisplayModeProvider>
+                  </NightModeProvider>
+                </NotificationWatcherProvider>
+              </OneSignalProvider>
+            </OfflineProvider>
           </AuthProvider>
         </QueryProvider>
       </body>
