@@ -60,12 +60,50 @@ export async function fetchCalendarSubscriptions(userId?: string): Promise<Calen
 
     if (!error && data) {
       const mapped = await Promise.all(data.map(mapDbSubscriptionToModel));
-      const local = getStoredCalendarSubscriptions(targetId);
-      const dbIds = new Set(data.map((d: any) => d.id));
 
-      // Auto-migrate: If there are agendas stored locally on the phone that are not yet in Supabase,
-      // encrypt and save them to Supabase automatically so the user never has to retype them!
-      const missingInDb = local.filter((s) => !dbIds.has(s.id) && s.url?.trim());
+      // 1. Deduplicate remote records by normalized URL
+      const uniqueRemoteMap = new Map<string, CalendarSubscription>();
+      const duplicateRemoteIds: string[] = [];
+
+      for (const item of mapped) {
+        const normUrl = item.url?.trim().toLowerCase();
+        if (!normUrl) continue;
+        if (uniqueRemoteMap.has(normUrl)) {
+          duplicateRemoteIds.push(item.id);
+        } else {
+          uniqueRemoteMap.set(normUrl, item);
+        }
+      }
+
+      // Automatically prune duplicate rows from Supabase if any exist
+      if (duplicateRemoteIds.length > 0) {
+        supabase
+          .from("calendar_subscriptions")
+          .delete()
+          .in("id", duplicateRemoteIds)
+          .then(() => console.log(`Pruned ${duplicateRemoteIds.length} duplicate calendars from DB`))
+          .catch((err: any) => console.warn("Prune duplicates error:", err));
+      }
+
+      const deduplicatedRemote = Array.from(uniqueRemoteMap.values());
+      const dbUrls = new Set(deduplicatedRemote.map((d) => d.url?.trim().toLowerCase()));
+
+      // 2. Merge with local cache (only migrating items that truly do not exist in DB yet)
+      const local = getStoredCalendarSubscriptions(targetId);
+      const uniqueLocalMap = new Map<string, CalendarSubscription>();
+
+      for (const item of local) {
+        const normUrl = item.url?.trim().toLowerCase();
+        if (!normUrl) continue;
+        if (!uniqueLocalMap.has(normUrl)) {
+          uniqueLocalMap.set(normUrl, item);
+        }
+      }
+
+      const missingInDb = Array.from(uniqueLocalMap.values()).filter(
+        (s) => !dbUrls.has(s.url?.trim().toLowerCase()) && s.url?.trim()
+      );
+
       if (missingInDb.length > 0) {
         Promise.all(
           missingInDb.map((sub) =>
@@ -76,14 +114,20 @@ export async function fetchCalendarSubscriptions(userId?: string): Promise<Calen
         ).catch(() => {});
       }
 
-      const subMap = new Map<string, CalendarSubscription>();
-      for (const s of local) {
-        subMap.set(s.id, s);
+      // Merge maps keyed by URL
+      const finalMap = new Map<string, CalendarSubscription>();
+      for (const item of deduplicatedRemote) {
+        const normUrl = item.url?.trim().toLowerCase();
+        if (normUrl) finalMap.set(normUrl, item);
       }
-      for (const s of mapped) {
-        subMap.set(s.id, s);
+      for (const item of Array.from(uniqueLocalMap.values())) {
+        const normUrl = item.url?.trim().toLowerCase();
+        if (normUrl && !finalMap.has(normUrl)) {
+          finalMap.set(normUrl, item);
+        }
       }
-      const merged = Array.from(subMap.values());
+
+      const merged = Array.from(finalMap.values());
       saveStoredCalendarSubscriptions(merged, targetId);
       return merged;
     }
@@ -91,18 +135,37 @@ export async function fetchCalendarSubscriptions(userId?: string): Promise<Calen
     console.warn("Supabase fetchCalendarSubscriptions error:", err);
   }
 
-  return getStoredCalendarSubscriptions(targetId);
+  // Deduplicate local storage on fallback
+  const local = getStoredCalendarSubscriptions(targetId);
+  const uniqueLocalMap = new Map<string, CalendarSubscription>();
+  for (const item of local) {
+    const normUrl = item.url?.trim().toLowerCase();
+    if (normUrl && !uniqueLocalMap.has(normUrl)) {
+      uniqueLocalMap.set(normUrl, item);
+    }
+  }
+  const cleanLocal = Array.from(uniqueLocalMap.values());
+  saveStoredCalendarSubscriptions(cleanLocal, targetId);
+  return cleanLocal;
 }
 
 export async function createDbCalendarSubscription(
-  sub: Omit<CalendarSubscription, "id" | "createdAt" | "updatedAt">,
+  sub: Omit<CalendarSubscription, "id" | "createdAt" | "updatedAt"> & { id?: string },
   userId?: string
 ): Promise<CalendarSubscription> {
   const supabase = createClient();
   const targetId = await resolveUserId(userId);
 
   const nowIso = new Date().toISOString();
-  const subId = "cal-" + Date.now();
+  const subId = sub.id || "cal-" + Date.now();
+  const normUrl = sub.url?.trim().toLowerCase();
+
+  // Check if an existing subscription already exists with the same URL
+  const currentList = getStoredCalendarSubscriptions(targetId);
+  const existing = currentList.find((s) => s.url?.trim().toLowerCase() === normUrl);
+  if (existing) {
+    return existing;
+  }
 
   const encryptedName = await encryptText(sub.name);
   const encryptedUrl = await encryptText(sub.url);
@@ -134,7 +197,7 @@ export async function createDbCalendarSubscription(
     if (!error && data) {
       const created = await mapDbSubscriptionToModel(data);
       const current = getStoredCalendarSubscriptions(targetId);
-      const updated = [...current.filter((s) => s.id !== created.id), created];
+      const updated = [...current.filter((s) => s.url?.trim().toLowerCase() !== normUrl), created];
       saveStoredCalendarSubscriptions(updated, targetId);
       return created;
     }
@@ -153,7 +216,7 @@ export async function createDbCalendarSubscription(
     updatedAt: nowIso,
   };
   const current = getStoredCalendarSubscriptions(targetId);
-  const updated = [...current.filter((s) => s.id !== createdLocal.id), createdLocal];
+  const updated = [...current.filter((s) => s.url?.trim().toLowerCase() !== normUrl), createdLocal];
   saveStoredCalendarSubscriptions(updated, targetId);
   return createdLocal;
 }

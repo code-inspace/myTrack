@@ -7,6 +7,8 @@ import {
   loginWithCredentials,
   signupWithCredentials,
   logoutUser,
+  getStoredUserSession,
+  setStoredUserSession,
   DEMO_USER,
 } from "@/features/auth/actions";
 import { createClient } from "@/utils/supabase/client";
@@ -26,7 +28,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<UserSession | null>(null);
+  const [user, setUser] = useState<UserSession | null>(() => getStoredUserSession());
   const [isLoading, setIsLoading] = useState(true);
   const queryClient = useQueryClient();
 
@@ -39,9 +41,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (session?.user) {
         const mapped = mapSupabaseUserToSession(session.user);
         setUser(mapped);
+        setStoredUserSession(mapped);
         loginOneSignalUser(mapped.id);
       } else {
-        setUser(null);
+        const stored = getStoredUserSession();
+        if (!stored) {
+          setUser(null);
+        }
       }
       setIsLoading(false);
     });
@@ -53,9 +59,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (session?.user) {
         const mapped = mapSupabaseUserToSession(session.user);
         setUser(mapped);
+        setStoredUserSession(mapped);
         loginOneSignalUser(mapped.id);
       } else {
         setUser(null);
+        setStoredUserSession(null);
         logoutOneSignalUser();
       }
       queryClient.invalidateQueries();
