@@ -1,7 +1,8 @@
-import { Task, TaskFormValues } from "../types";
+import { Task, TaskCompletion, TaskFormValues } from "../types";
 import { getEffectiveUserId } from "./user";
 import { mapDbTaskToModel, mapDbTaskToModelAsync, TASKS_STORAGE_PREFIX } from "./mappers";
-import { getStoredTasks, saveStoredTasks } from "./storage";
+import { getStoredTasks, saveStoredTasks, getStoredCompletions, saveStoredCompletions } from "./storage";
+import { upsertDbCompletion } from "./taskCompletions";
 import { createClient } from "@/utils/supabase/client";
 import { encryptText, decryptText, isEncrypted } from "@/lib/crypto/encryption";
 import {
@@ -73,7 +74,7 @@ export async function fetchTasks(userId?: string): Promise<Task[]> {
 }
 
 export async function createDbTask(
-  task: Omit<Task, "id" | "createdAt" | "updatedAt">,
+  task: Omit<Task, "id" | "createdAt" | "updatedAt"> & { id?: string },
 ): Promise<Task> {
   const supabase = createClient();
   let targetId = task.userId;
@@ -85,6 +86,7 @@ export async function createDbTask(
     targetId = session?.user?.id || getEffectiveUserId();
   }
 
+  const oldLocalId = task.id;
   const taskTag = task.tag || task.category || "General";
   const taskOverrides = {
     ...(task.dateOverrides || {}),
@@ -114,6 +116,9 @@ export async function createDbTask(
   const encryptedTitle = await encryptText(task.title);
   const encryptedDescription = task.description ? await encryptText(task.description) : null;
 
+  const isValidUuid = (id?: string) =>
+    Boolean(id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id));
+
   const insertPayload: any = {
     user_id: targetId,
     title: encryptedTitle,
@@ -139,6 +144,10 @@ export async function createDbTask(
     created_at: createdIso,
   };
 
+  if (isValidUuid(oldLocalId)) {
+    insertPayload.id = oldLocalId;
+  }
+
   try {
     const { data, error } = await supabase
       .from("tasks")
@@ -149,8 +158,28 @@ export async function createDbTask(
     if (!error && data) {
       const created = await mapDbTaskToModelAsync(data);
       const current = getStoredTasks(targetId);
-      const updated = [created, ...current.filter((t) => t.id !== created.id)];
+      const updated = [
+        created,
+        ...current.filter((t) => t.id !== created.id && t.id !== oldLocalId),
+      ];
       saveStoredTasks(updated, targetId);
+
+      // If this task had a local temporary ID (e.g. task-1788...), update any local completions
+      // to point to the new Supabase UUID and immediately upload them!
+      if (oldLocalId && oldLocalId !== created.id) {
+        const localCompletions = getStoredCompletions(targetId);
+        const hasMatching = localCompletions.some((c) => c.taskId === oldLocalId);
+        if (hasMatching) {
+          const updatedCompletions = localCompletions.map((c) =>
+            c.taskId === oldLocalId ? { ...c, taskId: created.id } : c
+          );
+          saveStoredCompletions(updatedCompletions, targetId);
+
+          for (const comp of updatedCompletions.filter((c) => c.taskId === created.id)) {
+            upsertDbCompletion({ ...comp, userId: targetId }).catch(() => {});
+          }
+        }
+      }
 
       if (created.enableReminders) {
         const scheduledIso = created.startTime

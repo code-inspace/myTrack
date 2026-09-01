@@ -37,8 +37,28 @@ export async function fetchCompletions(
       .select("*")
       .eq("user_id", targetId);
 
+    const safeTargetId = targetId || getEffectiveUserId();
+
     if (!error && data) {
       const mapped = data.map(mapDbCompletionToModel);
+      const dbCompletionKeys = new Set(data.map((d: any) => `${d.task_id}_${d.date}`));
+      const isValidUuid = (id?: string) =>
+        Boolean(id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id));
+
+      // Auto-migrate: If any completion exists locally and is missing in DB (with valid UUID), upload it!
+      const missingInDb = local.filter(
+        (c) => !dbCompletionKeys.has(`${c.taskId}_${c.date}`) && isValidUuid(c.taskId)
+      );
+      if (missingInDb.length > 0) {
+        Promise.all(
+          missingInDb.map((c) =>
+            upsertDbCompletion({ ...c, userId: safeTargetId }).catch((err) =>
+              console.warn("Auto-sync local completion to DB error:", err)
+            )
+          )
+        ).catch(() => {});
+      }
+
       const mergedMap = new Map<string, TaskCompletion>();
       for (const item of local) {
         mergedMap.set(`${item.taskId}_${item.date}`, item);
@@ -47,9 +67,7 @@ export async function fetchCompletions(
         mergedMap.set(`${item.taskId}_${item.date}`, item);
       }
       const merged = Array.from(mergedMap.values());
-      if (typeof window !== "undefined") {
-        localStorage.setItem(key, JSON.stringify(merged));
-      }
+      saveStoredCompletions(merged, safeTargetId);
       return merged;
     }
   } catch (err) {
