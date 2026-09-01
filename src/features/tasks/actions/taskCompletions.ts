@@ -29,6 +29,7 @@ export async function fetchCompletions(
   }
 
   const key = COMPLETIONS_STORAGE_PREFIX + targetId;
+  const local = getStoredCompletions(targetId);
 
   try {
     const { data, error } = await supabase
@@ -38,16 +39,24 @@ export async function fetchCompletions(
 
     if (!error && data) {
       const mapped = data.map(mapDbCompletionToModel);
-      if (typeof window !== "undefined") {
-        localStorage.setItem(key, JSON.stringify(mapped));
+      const mergedMap = new Map<string, TaskCompletion>();
+      for (const item of local) {
+        mergedMap.set(`${item.taskId}_${item.date}`, item);
       }
-      return mapped;
+      for (const item of mapped) {
+        mergedMap.set(`${item.taskId}_${item.date}`, item);
+      }
+      const merged = Array.from(mergedMap.values());
+      if (typeof window !== "undefined") {
+        localStorage.setItem(key, JSON.stringify(merged));
+      }
+      return merged;
     }
   } catch (err) {
     console.warn("Supabase fetchCompletions error:", err);
   }
 
-  return getStoredCompletions(targetId);
+  return local;
 }
 
 export async function upsertDbCompletion(
@@ -64,60 +73,7 @@ export async function upsertDbCompletion(
     targetId = session?.user?.id || getEffectiveUserId();
   }
 
-  const baseRecord = {
-    task_id: completion.taskId,
-    user_id: targetId,
-    date: completion.date,
-    completed: completion.completed,
-    value: completion.value !== undefined ? completion.value : null,
-    duration: completion.duration !== undefined ? completion.duration : null,
-    notes: completion.notes || null,
-  };
-
-  const extendedRecord = {
-    ...baseRecord,
-    scheduled_start_time: completion.scheduledStartTime
-      ? convertLocalTimeToUtc(
-          completion.scheduledStartTime,
-          completion.date,
-        )
-      : null,
-    scheduled_end_time: completion.scheduledEndTime
-      ? convertLocalTimeToUtc(
-          completion.scheduledEndTime,
-          completion.date,
-        )
-      : null,
-    actual_start_time: completion.actualStartTime
-      ? convertLocalTimeToUtc(
-          completion.actualStartTime,
-          completion.date,
-        )
-      : null,
-    actual_end_time: completion.actualEndTime
-      ? convertLocalTimeToUtc(completion.actualEndTime, completion.date)
-      : null,
-  };
-
-  try {
-    // 1. Try upserting with extended timing fields
-    const { error } = await supabase
-      .from("task_completions")
-      .upsert([extendedRecord], { onConflict: "task_id,date" });
-
-    // 2. If table doesn't have the extended columns, fallback immediately to base columns
-    if (error) {
-      const fallback = await supabase
-        .from("task_completions")
-        .upsert([baseRecord], { onConflict: "task_id,date" });
-      if (fallback.error) {
-        console.warn("Supabase upsertDbCompletion fallback error:", fallback.error);
-      }
-    }
-  } catch (err) {
-    console.warn("Supabase upsertDbCompletion error:", err);
-  }
-
+  // 1. Immediately persist to localStorage synchronously
   const completions = getStoredCompletions(targetId);
   const existingIdx = completions.findIndex(
     (c) => c.taskId === completion.taskId && c.date === completion.date,
@@ -158,7 +114,7 @@ export async function upsertDbCompletion(
   } else {
     const newRecord: TaskCompletion = {
       ...completion,
-      id: "comp-" + Date.now(),
+      id: completion.id || "comp-" + Date.now(),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -166,6 +122,62 @@ export async function upsertDbCompletion(
   }
 
   saveStoredCompletions(updated, targetId);
+
+  // 2. Persist to Supabase if valid UUID
+  const isValidUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (isValidUuid.test(completion.taskId) && isValidUuid.test(targetId)) {
+    const baseRecord = {
+      task_id: completion.taskId,
+      user_id: targetId,
+      date: completion.date,
+      completed: completion.completed,
+      value: completion.value !== undefined ? completion.value : null,
+      duration: completion.duration !== undefined ? completion.duration : null,
+      notes: completion.notes || null,
+    };
+
+    const extendedRecord = {
+      ...baseRecord,
+      scheduled_start_time: completion.scheduledStartTime
+        ? convertLocalTimeToUtc(
+            completion.scheduledStartTime,
+            completion.date,
+          )
+        : null,
+      scheduled_end_time: completion.scheduledEndTime
+        ? convertLocalTimeToUtc(
+            completion.scheduledEndTime,
+            completion.date,
+          )
+        : null,
+      actual_start_time: completion.actualStartTime
+        ? convertLocalTimeToUtc(
+            completion.actualStartTime,
+            completion.date,
+          )
+        : null,
+      actual_end_time: completion.actualEndTime
+        ? convertLocalTimeToUtc(completion.actualEndTime, completion.date)
+        : null,
+    };
+
+    try {
+      const { error } = await supabase
+        .from("task_completions")
+        .upsert([extendedRecord], { onConflict: "task_id,date" });
+
+      if (error) {
+        const fallback = await supabase
+          .from("task_completions")
+          .upsert([baseRecord], { onConflict: "task_id,date" });
+        if (fallback.error) {
+          console.warn("Supabase upsertDbCompletion fallback note:", fallback.error);
+        }
+      }
+    } catch (err) {
+      console.warn("Supabase upsertDbCompletion error:", err);
+    }
+  }
 }
 
 /**

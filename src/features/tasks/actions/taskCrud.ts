@@ -36,10 +36,19 @@ export async function fetchTasks(userId?: string): Promise<Task[]> {
 
     if (!error && data) {
       const mapped = await Promise.all(data.map(mapDbTaskToModelAsync));
-      if (typeof window !== "undefined") {
-        localStorage.setItem(key, JSON.stringify(mapped));
+      const local = getStoredTasks(targetId);
+      const taskMap = new Map<string, Task>();
+      for (const t of local) {
+        taskMap.set(t.id, t);
       }
-      return mapped;
+      for (const t of mapped) {
+        taskMap.set(t.id, t);
+      }
+      const merged = Array.from(taskMap.values());
+      if (typeof window !== "undefined") {
+        localStorage.setItem(key, JSON.stringify(merged));
+      }
+      return merged;
     }
   } catch (err) {
     console.warn("Supabase fetchTasks error:", err);

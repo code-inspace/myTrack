@@ -294,9 +294,9 @@ export function useTaskMutations() {
 
       if (newStatus) {
         await closeTaskAsCompleted(taskId, date, userId, { value, duration });
-        return;
+      } else {
+        await reopenTaskAsIncomplete(taskId, date, userId, { value, duration });
       }
-      await reopenTaskAsIncomplete(taskId, date, userId, { value, duration });
     },
     onMutate: async ({ taskId, date, value }) => {
       await queryClient.cancelQueries({ queryKey: ["tasks", userId] });
@@ -308,7 +308,7 @@ export function useTaskMutations() {
         userId,
       ]);
 
-      const completions = getStoredCompletions(userId);
+      const completions = prevCompletions || getStoredCompletions(userId);
       const existing = completions.find(
         (c) => c.taskId === taskId && c.date === date,
       );
@@ -345,42 +345,42 @@ export function useTaskMutations() {
       }
 
       // Optimistically update completions
-      queryClient.setQueryData<TaskCompletion[]>(
-        ["completions", userId],
-        (old = []) => {
-          const exists = old.some((c) => c.taskId === taskId && c.date === date);
-          if (exists) {
-            return old.map((c) =>
-              c.taskId === taskId && c.date === date
-                ? {
-                    ...c,
-                    completed: newStatus,
-                    ...(value !== undefined ? { value } : {}),
-                  }
-                : c,
-            );
-          }
-          return [
-            {
-              id: "comp-" + Date.now(),
-              taskId,
-              userId,
-              date,
-              completed: newStatus,
-              value: value ?? null,
-              duration: null,
-              notes: null,
-              scheduledStartTime: null,
-              scheduledEndTime: null,
-              actualStartTime: null,
-              actualEndTime: null,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-            },
-            ...old,
-          ];
-        },
-      );
+      const nextCompletions = (() => {
+        const current = prevCompletions || getStoredCompletions(userId);
+        const exists = current.some((c) => c.taskId === taskId && c.date === date);
+        if (exists) {
+          return current.map((c) =>
+            c.taskId === taskId && c.date === date
+              ? {
+                  ...c,
+                  completed: newStatus,
+                  ...(value !== undefined ? { value } : {}),
+                }
+              : c,
+          );
+        }
+        return [
+          {
+            id: "comp-" + Date.now(),
+            taskId,
+            userId,
+            date,
+            completed: newStatus,
+            value: value ?? null,
+            duration: null,
+            notes: null,
+            scheduledStartTime: null,
+            scheduledEndTime: null,
+            actualStartTime: null,
+            actualEndTime: null,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+          ...current,
+        ];
+      })();
+
+      queryClient.setQueryData<TaskCompletion[]>(["completions", userId], nextCompletions);
 
       return { prevTasks, prevCompletions };
     },
