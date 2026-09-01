@@ -123,13 +123,15 @@ import { ExternalCalendarEvent } from "./types";
 describe("External Calendar Event Status", () => {
   const dummyEvent: ExternalCalendarEvent = {
     id: "evt-1",
-    subscriptionId: "sub-1",
+    calendarId: "cal-1",
     calendarName: "Google Pro",
     calendarColor: "#3B82F6",
     title: "Session Focus",
     date: "2026-09-01",
     startTime: "09:00",
     endTime: "10:00",
+    startIso: "2026-09-01T09:00:00.000Z",
+    endIso: "2026-09-01T10:00:00.000Z",
     isAllDay: false,
   };
 
