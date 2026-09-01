@@ -5,7 +5,10 @@ import Link from "next/link";
 import { Mic, Plus, MessageSquare } from "lucide-react";
 import { VoiceActionModal } from "./VoiceActionModal";
 import { useTaskMutations } from "@/features/tasks/hooks";
-import { TaskFormValues, Task } from "@/features/tasks/types";
+import { Task } from "@/features/tasks/types";
+import { ParsedVoiceTask } from "../parser";
+import { useProjects, useProjectMutations } from "@/features/projects/hooks";
+import { DEFAULT_PROJECT_COLUMNS } from "@/features/projects/types";
 import { useDisplayMode } from "@/providers/DisplayModeProvider";
 
 interface VoiceFabProps {
@@ -17,10 +20,40 @@ interface VoiceFabProps {
 export const VoiceFab: React.FC<VoiceFabProps> = ({ selectedDate, allTasks, onNewTask }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { createTask, closeTask } = useTaskMutations();
+  const { projects } = useProjects();
+  const { createProject } = useProjectMutations();
   const { displayMode } = useDisplayMode();
 
-  const handleAddTasks = (tasks: (TaskFormValues & { targetDate?: string })[]) => {
+  const handleAddTasks = async (tasks: ParsedVoiceTask[]) => {
+    const projectCache = new Map<string, string>();
+    for (const p of projects || []) {
+      projectCache.set(p.name.toLowerCase().trim(), p.id);
+    }
+
     for (const task of tasks) {
+      let resolvedProjectId: string | undefined = task.projectId;
+      let resolvedProjectStatus: string | undefined = task.projectStatus;
+
+      if (task.projectName && !resolvedProjectId) {
+        const normName = task.projectName.toLowerCase().trim();
+        if (projectCache.has(normName)) {
+          resolvedProjectId = projectCache.get(normName);
+        } else {
+          try {
+            const newProj = await createProject.mutateAsync({
+              name: task.projectName,
+              color: "#D4F63D",
+              columns: DEFAULT_PROJECT_COLUMNS,
+            });
+            resolvedProjectId = newProj.id;
+            projectCache.set(normName, newProj.id);
+          } catch (err) {
+            console.warn("Could not create project from voice intent:", err);
+          }
+        }
+        resolvedProjectStatus = resolvedProjectStatus || "TODO";
+      }
+
       createTask.mutate({
         title: task.title,
         description: task.description,
@@ -36,6 +69,8 @@ export const VoiceFab: React.FC<VoiceFabProps> = ({ selectedDate, allTasks, onNe
         enableReminders: task.enableReminders,
         reminderOffsetMinutes: task.reminderOffsetMinutes,
         date: task.targetDate,
+        projectId: resolvedProjectId,
+        projectStatus: resolvedProjectStatus,
       });
     }
   };

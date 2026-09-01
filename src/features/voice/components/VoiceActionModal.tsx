@@ -1,15 +1,11 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { Mic, MicOff, Sparkles, X, Check, Clock, Repeat, Calendar, Trash2, ArrowRight, AlertCircle, Lock, Volume2, CheckCircle2, HelpCircle } from "lucide-react";
-import { TaskFormValues, Task } from "@/features/tasks/types";
-import { parseVoiceTranscriptToActions, findBestMatchingTask } from "../parser";
+import { Mic, MicOff, Sparkles, X, Check, Clock, Repeat, Calendar, Trash2, ArrowRight, AlertCircle, Lock, Volume2, CheckCircle2, HelpCircle, FolderKanban } from "lucide-react";
+import { Task } from "@/features/tasks/types";
+import { parseVoiceTranscriptToActions, findBestMatchingTask, ParsedVoiceTask } from "../parser";
 import { cn } from "@/lib/utils";
 import confetti from "canvas-confetti";
-
-interface ParsedVoiceTask extends TaskFormValues {
-  targetDate?: string;
-}
 
 type ResolvedAction =
   | { kind: "create"; task: ParsedVoiceTask }
@@ -381,6 +377,19 @@ export const VoiceActionModal: React.FC<VoiceActionModalProps> = ({
               <button
                 type="button"
                 onClick={() =>
+                  handleExamplePrompt(
+                    "ajoute toutes les taches suivantes dans un nouveau projet todo perso : faire ma tva pour mardi, acheter de l'eau"
+                  )
+                }
+                className="text-left text-xs bg-[#1C1E24] hover:bg-[#252830] p-2 rounded-xl text-[#D1D5DB] border border-[#282B33] transition-colors flex items-center justify-between cursor-pointer"
+              >
+                <span>🎙️ "Ajoute dans un nouveau projet todo perso : faire ma tva pour mardi, acheter de l'eau"</span>
+                <ArrowRight className="w-3.5 h-3.5 text-[#D4F63D] flex-shrink-0" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
                   handleExamplePrompt("Tous les jours faire 20 minutes de lecture à 21h")
                 }
                 className="text-left text-xs bg-[#1C1E24] hover:bg-[#252830] p-2 rounded-xl text-[#D1D5DB] border border-[#282B33] transition-colors flex items-center justify-between cursor-pointer"
@@ -463,6 +472,16 @@ export const VoiceActionModal: React.FC<VoiceActionModalProps> = ({
 
                     {/* Metadata Tags */}
                     <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-[#9CA3AF]">
+                      {action.task.projectName && (
+                        <span className="inline-flex items-center gap-1 bg-[#3B82F6]/15 px-2 py-0.5 rounded-lg border border-[#3B82F6]/30 text-[#60A5FA] font-medium">
+                          <FolderKanban className="w-3 h-3 text-[#60A5FA]" />
+                          <span>Projet : {action.task.projectName}</span>
+                          {action.task.isNewProject && (
+                            <span className="text-[9px] bg-[#3B82F6]/30 px-1 rounded text-white font-bold">Nouveau</span>
+                          )}
+                        </span>
+                      )}
+
                       <span className="inline-flex items-center gap-1 bg-[#141518] px-2 py-0.5 rounded-lg border border-[#252830]">
                         <Repeat className="w-3 h-3 text-[#6B7280]" />
                         <span>{RECURRENCE_LABEL_MAP[action.task.recurrence] || "1 fois"}</span>

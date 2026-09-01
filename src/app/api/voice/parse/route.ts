@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     const apiKey = process.env.AI_API_KEY || process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
     if (apiKey) {
       const model = process.env.AI_MODEL || "openai/gpt-oss-120b";
-      const prompt = `Tu es un assistant qui extrait des tâches et habitudes depuis une transcription vocale en français.
+      const prompt = `Tu es un assistant qui extrait des tâches, habitudes et projets depuis une transcription vocale en français.
 Date de référence: ${refDateStr}.
 Transcription vocale: "${transcript}".
 
@@ -44,7 +44,9 @@ Réponds UNIQUEMENT avec un tableau JSON valide d'objets suivant cette structure
     "recurrenceConfig": { "days": [0..6] }, // si WEEKLY (0: Dimanche, 1: Lundi, ...)
     "startTime": "HH:MM" | null,
     "endTime": "HH:MM" | null,
-    "targetDate": "YYYY-MM-DD" // si ONCE
+    "targetDate": "YYYY-MM-DD", // si ONCE
+    "projectName": "Nom du projet" | null, // si l'utilisateur a spécifié un projet
+    "isNewProject": true | false
   }
 ]`;
 

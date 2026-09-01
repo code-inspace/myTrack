@@ -12,8 +12,10 @@ export function useProjects() {
   const { data: projects = getStoredProjects(userId) } = useQuery({
     queryKey: ["projects", userId],
     queryFn: async () => fetchProjects(userId),
-    initialData: () => getStoredProjects(userId),
-    staleTime: 1000 * 30,
+    placeholderData: () => getStoredProjects(userId),
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
 
   return { projects };

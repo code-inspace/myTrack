@@ -63,21 +63,104 @@ function parseReminderIntent(
   return { title, startTime, targetDate };
 }
 
+export interface ParsedVoiceTask extends TaskFormValues {
+  targetDate?: string;
+  projectName?: string;
+  isNewProject?: boolean;
+}
+
+export interface ProjectVoiceIntent {
+  projectName: string;
+  isNewProject: boolean;
+  tasksText: string;
+}
+
+/**
+ * Detects if the transcript asks to add tasks inside a project (new or existing).
+ * e.g. "ajoute toutes les taches suivantes dans un nouveau projet todo perso : faire ma tva pour mardi, acheter de l'eau"
+ */
+export function parseProjectVoiceIntent(text: string): ProjectVoiceIntent | null {
+  const trimmed = text.trim();
+
+  // Pattern 1: With explicit colon ":"
+  const withColonMatch = trimmed.match(
+    /^(?:(?:ajoute(?:r)?\s+(?:toutes\s+)?les\s+t[aâ]ches(?:\s+suivantes)?\s+)?(?:dans\s+(?:un\s+|le\s+)?(?:(nouveau)\s+)?projet|(?:cr[eé]er|cr[eé]e)\s+(?:un\s+|le\s+)?(?:(nouveau)\s+)?projet|(nouveau)\s+projet|au\s+projet)\s+([^:]+?)(?:\s+(?:avec\s+les\s+t[aâ]ches(?:\s+suivantes)?))?)\s*[:]\s*(.+)$/i
+  );
+
+  if (withColonMatch) {
+    const isNew = Boolean(
+      withColonMatch[1] || withColonMatch[2] || withColonMatch[3] || /nouveau|cr[eé]er/i.test(trimmed)
+    );
+    const projectNameRaw = withColonMatch[4].trim();
+    const tasksText = withColonMatch[5].trim();
+    if (projectNameRaw.length > 0 && tasksText.length > 0) {
+      const projectName = projectNameRaw.charAt(0).toUpperCase() + projectNameRaw.slice(1);
+      return { projectName, isNewProject: isNew, tasksText };
+    }
+  }
+
+  // Pattern 2: Without colon (e.g. "dans le projet todo perso avec les tâches faire ma tva, acheter de l'eau")
+  const withoutColonMatch = trimmed.match(
+    /^(?:ajoute(?:r)?\s+(?:toutes\s+)?les\s+t[aâ]ches(?:\s+suivantes)?\s+)?dans\s+(?:un\s+|le\s+)?(?:(nouveau)\s+)?projet\s+([^,]+?)\s+(?:avec\s+les\s+t[aâ]ches|que\s+voici|suivantes)\s*[:,\-]\s*(.+)$/i
+  );
+
+  if (withoutColonMatch) {
+    const isNew = Boolean(withoutColonMatch[1] || /nouveau/i.test(trimmed));
+    const projectNameRaw = withoutColonMatch[2].trim();
+    const tasksText = withoutColonMatch[3].trim();
+    if (projectNameRaw.length > 0 && tasksText.length > 0) {
+      const projectName = projectNameRaw.charAt(0).toUpperCase() + projectNameRaw.slice(1);
+      return { projectName, isNewProject: isNew, tasksText };
+    }
+  }
+
+  return null;
+}
+
 /**
  * Intelligent French Voice Speech-to-Tasks Parser
- * Detects multiple tasks, dates, times, categories, and recurrences from voice transcripts.
+ * Detects multiple tasks, dates, times, categories, projects, and recurrences from voice transcripts.
  */
 export function parseVoiceTranscriptToTasks(
   transcript: string,
   referenceDateStr: string = format(new Date(), "yyyy-MM-dd")
-): (TaskFormValues & { targetDate?: string })[] {
+): ParsedVoiceTask[] {
   if (!transcript || !transcript.trim()) return [];
 
   const rawText = transcript.trim();
   const refDate = parseISO(referenceDateStr);
 
-  // 0. "Rappelle-moi dans N minutes/heures de X" — handled up front since "heures" here would
-  // otherwise collide with the absolute clock-time heuristics below (e.g. "dans 2 heures").
+  // 0. Project intent detection
+  const projectIntent = parseProjectVoiceIntent(rawText);
+  if (projectIntent) {
+    // Split project tasks by commas, semicolons, or standard speech separators
+    const projectTaskSeparators = /(?:,|\n|;|\bet\s+aussi\b|\bet\s+puis\b|nouvelle\s+t[aâ]che|nouvelle\s+action)/gi;
+    const taskParts = projectIntent.tasksText
+      .split(projectTaskSeparators)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 1);
+
+    const segments = taskParts.length > 0 ? taskParts : [projectIntent.tasksText];
+    const results: ParsedVoiceTask[] = [];
+
+    for (const seg of segments) {
+      const parsed = parseSingleTaskSegment(seg, refDate);
+      if (parsed && parsed.title.length > 1) {
+        results.push({
+          ...parsed,
+          projectName: projectIntent.projectName,
+          isNewProject: projectIntent.isNewProject,
+          projectStatus: "TODO",
+        });
+      }
+    }
+
+    if (results.length > 0) {
+      return results;
+    }
+  }
+
+  // 1. "Rappelle-moi dans N minutes/heures de X"
   const reminder = parseReminderIntent(rawText, new Date());
   if (reminder) {
     const inferredTag = inferCategoryFromTitle(reminder.title);
@@ -96,7 +179,7 @@ export function parseVoiceTranscriptToTasks(
     ];
   }
 
-  // 1. Split into distinct task segments by common voice separators
+  // 2. Split into distinct task segments by common voice separators
   const taskSeparators = /(?:nouvelle\s+t[aâ]che|nouvelle\s+action|ajoute\s+la\s+t[aâ]che|ajoute\s+une\s+t[aâ]che|ajouter\s+une\s+t[aâ]che|cr[eé]er\s+la\s+t[aâ]che|cr[eé]er\s+une\s+t[aâ]che|deuxi[eè]me\s+t[aâ]che|troisi[eè]me\s+t[aâ]che|\bet\s+aussi\b|\bet\s+puis\b)/gi;
 
   let rawSegments = rawText.split(taskSeparators).map((s) => s.trim()).filter((s) => s.length > 2);
@@ -106,7 +189,7 @@ export function parseVoiceTranscriptToTasks(
     rawSegments = [rawText];
   }
 
-  const results: (TaskFormValues & { targetDate?: string })[] = [];
+  const results: ParsedVoiceTask[] = [];
 
   for (const segment of rawSegments) {
     const parsed = parseSingleTaskSegment(segment, refDate);
@@ -121,7 +204,7 @@ export function parseVoiceTranscriptToTasks(
 function parseSingleTaskSegment(
   segment: string,
   refDate: Date
-): (TaskFormValues & { targetDate?: string }) | null {
+): ParsedVoiceTask | null {
   let cleaned = segment;
   let recurrence: "ONCE" | "DAILY" | "WEEKDAYS" | "WEEKLY" | "CUSTOM" = "ONCE";
   let recurrenceDays: number[] | undefined = undefined;
@@ -146,9 +229,9 @@ function parseSingleTaskSegment(
     recurrence = "WEEKDAYS";
     cleaned = cleaned.replace(/du\s+lundi\s+au\s+vendredi|en\s+semaine|les\s+jours\s+ouvr[eé]s/gi, "");
   } else {
-    // 2. Specific single date target (e.g. "mardi prochain", "demain", "après-demain", "lundi", "ce soir")
-    const nextDayMatch = cleaned.match(/(?:le\s+)?(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\s+prochain/i);
-    const simpleDayMatch = cleaned.match(/(?:le\s+)?(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)/i);
+    // 2. Specific single date target (e.g. "mardi prochain", "pour mardi", "d'ici mardi", "demain", "après-demain", "lundi", "ce soir")
+    const nextDayMatch = cleaned.match(/(?:pour\s+|d['’]ici\s+|avant\s+|le\s+)?(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\s+prochain/i);
+    const simpleDayMatch = cleaned.match(/(?:pour\s+|d['’]ici\s+|avant\s+|le\s+)?(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)/i);
 
     if (nextDayMatch) {
       const dayName = nextDayMatch[1].toLowerCase();
@@ -278,7 +361,7 @@ const CLOSE_TASK_REGEX =
 
 export interface CreateTaskAction {
   kind: "create";
-  task: TaskFormValues & { targetDate?: string };
+  task: ParsedVoiceTask;
 }
 
 export interface CompleteTaskAction {

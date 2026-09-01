@@ -90,3 +90,37 @@ describe("Complete task voice intent", () => {
     expect(actions[0].kind).toBe("create");
   });
 });
+
+describe("Project voice intent", () => {
+  it("parses the user example: 'ajoute toutes les taches suivantes dans un nouveau projet todo perso : faire ma tva pour mardi, acheter de l\\'eau'", () => {
+    const transcript =
+      "ajoute toutes les taches suivantes dans un nouveau projet todo perso : faire ma tva pour mardi, acheter de l'eau";
+    const refDate = "2026-08-23"; // Sunday
+
+    const tasks = parseVoiceTranscriptToTasks(transcript, refDate);
+
+    expect(tasks.length).toBe(2);
+
+    // Task 1: "Faire ma tva"
+    expect(tasks[0].title).toBe("Faire ma tva");
+    expect(tasks[0].projectName).toBe("Todo perso");
+    expect(tasks[0].isNewProject).toBe(true);
+    expect(tasks[0].targetDate).toBe("2026-08-25"); // Tuesday
+
+    // Task 2: "Acheter de l'eau"
+    expect(tasks[1].title).toBe("Acheter de l'eau");
+    expect(tasks[1].projectName).toBe("Todo perso");
+    expect(tasks[1].isNewProject).toBe(true);
+  });
+
+  it("parses adding to an existing project: 'dans le projet Travail : envoyer rapport financier, relancer Paul'", () => {
+    const transcript = "dans le projet Travail : envoyer rapport financier, relancer Paul";
+    const tasks = parseVoiceTranscriptToTasks(transcript, "2026-08-23");
+
+    expect(tasks.length).toBe(2);
+    expect(tasks[0].title).toBe("Envoyer rapport financier");
+    expect(tasks[0].projectName).toBe("Travail");
+    expect(tasks[1].title).toBe("Relancer Paul");
+    expect(tasks[1].projectName).toBe("Travail");
+  });
+});
