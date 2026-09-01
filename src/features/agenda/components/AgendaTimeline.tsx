@@ -52,21 +52,15 @@ const TAG_COLORS: Record<string, { bg: string; text: string; border: string }> =
   General: { bg: "bg-[#252830]", text: "text-[#E2E8F0]", border: "border-[#475569]/40" },
 };
 
+import {
+  parseTimeToMinutes,
+  formatMinutesToTime,
+  calculateResizedDuration,
+  calculateResizedEndMinutes,
+} from "../lib/resize";
+
 const HOUR_ROW_HEIGHT = 60; // 60px per hour -> 1px per minute
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
-
-function parseTimeToMinutes(timeStr?: string | null): number {
-  if (!timeStr) return 9 * 60; // Default 09:00
-  const [h, m] = timeStr.split(":").map(Number);
-  return (h || 0) * 60 + (m || 0);
-}
-
-function formatMinutesToTime(totalMins: number): string {
-  const normalized = Math.max(0, Math.min(23 * 60 + 55, totalMins));
-  const h = Math.floor(normalized / 60);
-  const m = normalized % 60;
-  return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
-}
 
 export function computeTasksForDate(
   dateStr: string,
@@ -312,44 +306,57 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
     );
   };
 
-  // Interactive Duration Resize Pointer Handler (5-min precision)
+  // Interactive Duration Resize Pointer Handler (5-min precision with iOS & mobile touch capture)
   const handleStartResize = (e: React.PointerEvent, task: TaskWithCompletion, dayDate: string) => {
     e.preventDefault();
+    e.stopPropagation();
+
     const startMins = parseTimeToMinutes(task.effectiveStartTime || task.startTime || "09:00");
     const endMins = parseTimeToMinutes(task.effectiveEndTime || task.endTime || "10:00");
-    const initialHeight = Math.max(15, endMins - startMins);
+    const initialDuration = Math.max(15, endMins - startMins);
 
     const startY = e.clientY;
-    setResizingState({ taskId: task.id, date: dayDate, startMins, currentHeight: initialHeight });
+    const pointerId = e.pointerId;
+    const targetElement = e.currentTarget as HTMLElement;
+
+    try {
+      targetElement.setPointerCapture(pointerId);
+    } catch {
+      // Ignore if pointer capture fails on certain virtual environments
+    }
+
+    setResizingState({ taskId: task.id, date: dayDate, startMins, currentHeight: initialDuration });
 
     const handlePointerMove = (moveEvent: PointerEvent) => {
+      moveEvent.preventDefault();
       const deltaY = moveEvent.clientY - startY;
-      const rawHeight = initialHeight + deltaY;
-      const snappedDuration = Math.max(10, Math.round(rawHeight / 5) * 5);
+      const snappedDuration = calculateResizedDuration(initialDuration, deltaY);
       setResizingState({ taskId: task.id, date: dayDate, startMins, currentHeight: snappedDuration });
     };
 
     const handlePointerUp = (upEvent: PointerEvent) => {
+      try {
+        targetElement.releasePointerCapture(pointerId);
+      } catch {}
+
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", handlePointerUp);
       window.removeEventListener("pointercancel", handlePointerUp);
 
       const deltaY = upEvent.clientY - startY;
-      const rawHeight = initialHeight + deltaY;
-      const finalDuration = Math.max(10, Math.round(rawHeight / 5) * 5);
-      const finalEndMins = startMins + finalDuration;
+      const { endTimeStr } = calculateResizedEndMinutes(startMins, initialDuration, deltaY);
 
       onMoveTaskToTime(
         task.id,
         formatMinutesToTime(startMins),
-        formatMinutesToTime(finalEndMins),
+        endTimeStr,
         dayDate
       );
 
       setResizingState(null);
     };
 
-    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointermove", handlePointerMove, { passive: false });
     window.addEventListener("pointerup", handlePointerUp);
     window.addEventListener("pointercancel", handlePointerUp);
   };

@@ -251,15 +251,16 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
           e.stopPropagation();
           onStartResize?.(e, task);
         }}
+        style={{ touchAction: "none" }}
         className={cn(
-          "absolute bottom-0 inset-x-0 h-4 flex items-center justify-center cursor-ns-resize z-40 bg-gradient-to-t from-black/50 to-transparent rounded-b-xl transition-all",
+          "absolute -bottom-1 inset-x-0 h-6 flex items-center justify-center cursor-ns-resize z-40 select-none touch-none",
           isSelected
-            ? "opacity-100 bg-[#D4F63D]/20"
-            : "opacity-0 group-hover:opacity-100 hover:bg-[#D4F63D]/20"
+            ? "opacity-100 bg-[#D4F63D]/25"
+            : "opacity-80 md:opacity-0 group-hover:opacity-100 hover:bg-[#D4F63D]/25"
         )}
         title="Glisser vers le bas/haut pour étendre ou compresser la durée"
       >
-        <div className="w-10 h-1 bg-[#D4F63D] rounded-full shadow-lg" />
+        <div className="w-12 h-1.5 bg-[#D4F63D] rounded-full shadow-md shadow-black/80" />
       </div>
     </div>
   );
