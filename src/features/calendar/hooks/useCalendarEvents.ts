@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/providers/AuthProvider";
 import { CalendarSubscription, ExternalCalendarEvent } from "../types";
-import { getStoredCalendarSubscriptions } from "../actions/storage";
+import { getStoredCalendarSubscriptions, saveStoredCalendarSubscriptions } from "../actions/storage";
 import {
   fetchCalendarSubscriptions,
   createDbCalendarSubscription,
@@ -21,33 +21,44 @@ export function useCalendarEvents(focusedDateStr?: string) {
 
   // Supabase Realtime Listener for instant multi-device sync (Phone <-> Desktop)
   useEffect(() => {
-    const supabase = createClient();
-    const channel = supabase
-      .channel(`realtime-calendars-${userId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "calendar_subscriptions",
-          filter: `user_id=eq.${userId}`,
-        },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ["calendar-subscriptions", userId] });
-          queryClient.invalidateQueries({ queryKey: ["external-calendar-events"] });
-        }
-      )
-      .subscribe();
+    try {
+      const supabase = createClient();
+      const channel = supabase
+        .channel(`realtime-calendars-${userId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "calendar_subscriptions",
+            filter: `user_id=eq.${userId}`,
+          },
+          () => {
+            queryClient.invalidateQueries({ queryKey: ["calendar-subscriptions", userId] });
+            queryClient.invalidateQueries({ queryKey: ["external-calendar-events"] });
+          }
+        )
+        .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    } catch {
+      // Ignore if realtime fails
+    }
   }, [userId, queryClient]);
 
   // 1. Calendar Subscriptions Query (from Encrypted Supabase DB + Local Cache)
   const { data: subscriptions = getStoredCalendarSubscriptions(userId) } = useQuery<CalendarSubscription[]>({
     queryKey: ["calendar-subscriptions", userId],
-    queryFn: async () => fetchCalendarSubscriptions(userId),
+    queryFn: async () => {
+      try {
+        return await fetchCalendarSubscriptions(userId);
+      } catch (err) {
+        console.warn("fetchCalendarSubscriptions query fallback:", err);
+        return getStoredCalendarSubscriptions(userId);
+      }
+    },
     initialData: () => getStoredCalendarSubscriptions(userId),
     staleTime: 1000 * 60 * 2, // 2 minutes
   });
@@ -78,73 +89,82 @@ export function useCalendarEvents(focusedDateStr?: string) {
         return { events: [], errors: {} };
       }
 
-      const res = await fetch("/api/calendar/ics", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          subscriptions: enabledSubs,
-          rangeStart,
-          rangeEnd,
-        }),
-      });
+      try {
+        const res = await fetch("/api/calendar/ics", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            subscriptions: enabledSubs,
+            rangeStart,
+            rangeEnd,
+          }),
+        });
 
-      if (!res.ok) {
-        throw new Error("Failed to fetch external calendars");
+        if (!res.ok) {
+          throw new Error("Failed to fetch external calendars");
+        }
+
+        return await res.json();
+      } catch (err) {
+        console.warn("External calendar fetch failed:", err);
+        return { events: [], errors: {} };
       }
-
-      return res.json();
     },
     enabled: enabledSubs.length > 0,
     staleTime: 1000 * 60 * 5, // 5 minutes
     refetchOnWindowFocus: false,
   });
 
-  // --- Subscriptions Mutations ---
-  const addSubscriptionMutation = useMutation({
-    mutationFn: async (sub: Omit<CalendarSubscription, "id" | "createdAt" | "updatedAt">) => {
-      return createDbCalendarSubscription(sub, userId);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["calendar-subscriptions", userId] });
-      queryClient.invalidateQueries({ queryKey: ["external-calendar-events"] });
-    },
-  });
-
-  const updateSubscriptionMutation = useMutation({
-    mutationFn: async ({ id, updates }: { id: string; updates: Partial<CalendarSubscription> }) => {
-      return updateDbCalendarSubscription(id, updates, userId);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["calendar-subscriptions", userId] });
-      queryClient.invalidateQueries({ queryKey: ["external-calendar-events"] });
-    },
-  });
-
-  const deleteSubscriptionMutation = useMutation({
-    mutationFn: async (id: string) => {
-      return deleteDbCalendarSubscription(id, userId);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["calendar-subscriptions", userId] });
-      queryClient.invalidateQueries({ queryKey: ["external-calendar-events"] });
-    },
-  });
-
+  // --- Subscriptions Local-First & Optimistic Mutations ---
   const addSubscription = (
     sub: Omit<CalendarSubscription, "id" | "createdAt" | "updatedAt">
-  ) => {
-    return addSubscriptionMutation.mutate(sub);
+  ): CalendarSubscription => {
+    const nowIso = new Date().toISOString();
+    const newRecord: CalendarSubscription = {
+      ...sub,
+      id: "cal-" + Date.now(),
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    };
+    const current = queryClient.getQueryData<CalendarSubscription[]>(["calendar-subscriptions", userId]) || subscriptions;
+    const updated = [...current.filter((s) => s.id !== newRecord.id), newRecord];
+    queryClient.setQueryData(["calendar-subscriptions", userId], updated);
+    saveStoredCalendarSubscriptions(updated, userId);
+
+    createDbCalendarSubscription(newRecord, userId).catch((err) =>
+      console.warn("createDbCalendarSubscription bg fallback:", err)
+    );
+    queryClient.invalidateQueries({ queryKey: ["external-calendar-events"] });
+    return newRecord;
   };
 
   const updateSubscription = (
     id: string,
     updates: Partial<CalendarSubscription>
   ) => {
-    updateSubscriptionMutation.mutate({ id, updates });
+    const current = queryClient.getQueryData<CalendarSubscription[]>(["calendar-subscriptions", userId]) || subscriptions;
+    const updated = current.map((s) =>
+      s.id === id ? { ...s, ...updates, updatedAt: new Date().toISOString() } : s
+    );
+    queryClient.setQueryData(["calendar-subscriptions", userId], updated);
+    saveStoredCalendarSubscriptions(updated, userId);
+
+    updateDbCalendarSubscription(id, updates, userId).catch((err) =>
+      console.warn("updateDbCalendarSubscription bg fallback:", err)
+    );
+    queryClient.invalidateQueries({ queryKey: ["external-calendar-events"] });
   };
 
   const deleteSubscription = (id: string) => {
-    deleteSubscriptionMutation.mutate(id);
+    const current = queryClient.getQueryData<CalendarSubscription[]>(["calendar-subscriptions", userId]) || subscriptions;
+    const updated = current.filter((s) => s.id !== id);
+    queryClient.setQueryData(["calendar-subscriptions", userId], updated);
+    saveStoredCalendarSubscriptions(updated, userId);
+
+    deleteDbCalendarSubscription(id, userId).catch((err) =>
+      console.warn("deleteDbCalendarSubscription bg fallback:", err)
+    );
+    queryClient.invalidateQueries({ queryKey: ["external-calendar-events"] });
   };
 
   const toggleSubscription = (id: string) => {

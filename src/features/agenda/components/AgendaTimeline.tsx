@@ -159,7 +159,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
     toggleSubscription,
   } = useCalendarEvents(selectedDate);
 
-  const enabledSubsCount = subscriptions.filter((s) => s.enabled).length;
+  const enabledSubsCount = (subscriptions || []).filter((s) => s && s.enabled).length;
 
   // Determine list of displayed days based on viewMode
   const displayedDays = useMemo(() => {
@@ -188,10 +188,10 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
   const timedTasksByDay = useMemo(() => {
     const map = new Map<string, TaskWithCompletion[]>();
     for (const d of displayedDays) {
-      if (allTasks.length > 0) {
-        const computed = computeTasksForDate(d, allTasks, allCompletions);
+      if (allTasks && allTasks.length > 0) {
+        const computed = computeTasksForDate(d, allTasks, allCompletions || []);
         map.set(d, computed.filter((t) => !isTaskAllDay(t)));
-      } else if (d === selectedDate && tasks.length > 0) {
+      } else if (d === selectedDate && tasks && tasks.length > 0) {
         map.set(d, tasks.filter((t) => !isTaskAllDay(t)));
       } else {
         map.set(d, []);
@@ -204,10 +204,10 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
   const allDayTasksByDay = useMemo(() => {
     const map = new Map<string, TaskWithCompletion[]>();
     for (const d of displayedDays) {
-      if (allTasks.length > 0) {
-        const computed = computeTasksForDate(d, allTasks, allCompletions);
+      if (allTasks && allTasks.length > 0) {
+        const computed = computeTasksForDate(d, allTasks, allCompletions || []);
         map.set(d, computed.filter(isTaskAllDay));
-      } else if (d === selectedDate && tasks.length > 0) {
+      } else if (d === selectedDate && tasks && tasks.length > 0) {
         map.set(d, tasks.filter(isTaskAllDay));
       } else {
         map.set(d, []);
@@ -219,10 +219,11 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
   // Timed external events by day
   const externalTimedEventsByDay = useMemo(() => {
     const map = new Map<string, ExternalCalendarEvent[]>();
+    const safeList = Array.isArray(externalEvents) ? externalEvents : [];
     for (const d of displayedDays) {
       map.set(
         d,
-        externalEvents.filter((e) => e.date === d && !e.isAllDay)
+        safeList.filter((e) => e && e.date === d && !e.isAllDay)
       );
     }
     return map;
@@ -231,10 +232,11 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
   // All-day external events by day
   const externalAllDayEventsByDay = useMemo(() => {
     const map = new Map<string, ExternalCalendarEvent[]>();
+    const safeList = Array.isArray(externalEvents) ? externalEvents : [];
     for (const d of displayedDays) {
       map.set(
         d,
-        externalEvents.filter((e) => e.date === d && e.isAllDay)
+        safeList.filter((e) => e && e.date === d && e.isAllDay)
       );
     }
     return map;
