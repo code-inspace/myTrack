@@ -42,15 +42,21 @@ export async function fetchTasks(userId?: string): Promise<Task[]> {
 
       // Auto-migrate: If any task was created locally on device and is missing in Supabase,
       // upload it automatically so it synchronizes across all devices.
-      const missingInDb = local.filter((t) => !dbIds.has(t.id) && t.id.startsWith("task-"));
+      const missingInDb = local.filter((t) => !dbIds.has(t.id));
       if (missingInDb.length > 0) {
-        Promise.all(
+        const uploaded = await Promise.all(
           missingInDb.map((t) =>
-            createDbTask(t).catch((err) =>
-              console.warn("Auto-sync local task to DB error:", err)
-            )
+            createDbTask(t).catch((err) => {
+              console.warn("Auto-sync local task to DB error:", err);
+              return null;
+            })
           )
-        ).catch(() => {});
+        );
+        for (const u of uploaded) {
+          if (u && !mapped.some((m) => m.id === u.id)) {
+            mapped.push(u);
+          }
+        }
       }
 
       const taskMap = new Map<string, Task>();
@@ -61,9 +67,7 @@ export async function fetchTasks(userId?: string): Promise<Task[]> {
         taskMap.set(t.id, t);
       }
       const merged = Array.from(taskMap.values());
-      if (typeof window !== "undefined") {
-        localStorage.setItem(key, JSON.stringify(merged));
-      }
+      saveStoredTasks(merged, targetId);
       return merged;
     }
   } catch (err) {
