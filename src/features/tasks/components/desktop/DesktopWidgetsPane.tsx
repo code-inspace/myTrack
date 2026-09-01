@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useMemo } from "react";
 import { TaskWithCompletion, Task } from "@/features/tasks/types";
 import {
   Compass,
@@ -18,9 +18,21 @@ import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 
+import { ExternalCalendarEvent } from "@/features/calendar/types";
+import { getExternalEventStatus } from "@/features/calendar/lib/status";
+
+interface UpcomingItem {
+  id: string;
+  title: string;
+  time: string;
+  color: string;
+  isExternal: boolean;
+}
+
 interface DesktopWidgetsPaneProps {
   tasks: TaskWithCompletion[];
   allTasks: Task[];
+  externalEvents?: ExternalCalendarEvent[];
   activeTask?: TaskWithCompletion | Task;
   selectedDate: string;
   sleepDurationText?: string;
@@ -31,6 +43,7 @@ interface DesktopWidgetsPaneProps {
 export const DesktopWidgetsPane: React.FC<DesktopWidgetsPaneProps> = ({
   tasks,
   allTasks,
+  externalEvents = [],
   activeTask,
   selectedDate,
   sleepDurationText,
@@ -41,10 +54,32 @@ export const DesktopWidgetsPane: React.FC<DesktopWidgetsPaneProps> = ({
   const completedCount = tasks.filter((t) => t.isCompletedToday).length;
   const rate = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
-  // Upcoming scheduled tasks today that have a start time
-  const upcomingTasks = tasks
-    .filter((t) => !t.isCompletedToday && (t.effectiveStartTime || t.startTime))
-    .slice(0, 3);
+  // Upcoming scheduled tasks and external calendar events
+  const upcomingTasks = useMemo<UpcomingItem[]>(() => {
+    const taskItems: UpcomingItem[] = tasks
+      .filter((t) => !t.isCompletedToday && (t.effectiveStartTime || t.startTime))
+      .map((t) => ({
+        id: t.id,
+        title: t.title,
+        time: t.effectiveStartTime || t.startTime || "",
+        color: "#38BDF8",
+        isExternal: false,
+      }));
+
+    const eventItems: UpcomingItem[] = externalEvents
+      .filter((e) => getExternalEventStatus(e, selectedDate) !== "DONE" && e.startTime)
+      .map((e) => ({
+        id: e.id,
+        title: e.title,
+        time: e.startTime || "",
+        color: e.calendarColor || "#3B82F6",
+        isExternal: true,
+      }));
+
+    return [...taskItems, ...eventItems]
+      .sort((a, b) => a.time.localeCompare(b.time))
+      .slice(0, 4);
+  }, [tasks, externalEvents, selectedDate]);
 
   // Projects count
   const projectTasks = allTasks.filter((t) => t.projectId && !t.isArchived);
@@ -169,11 +204,14 @@ export const DesktopWidgetsPane: React.FC<DesktopWidgetsPaneProps> = ({
                 className="flex items-center justify-between p-2.5 rounded-2xl bg-[#1C1E26] border border-[#2A2D3A] text-xs hover:border-[#3E4254] transition-all"
               >
                 <div className="flex items-center gap-2 min-w-0">
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#38BDF8] flex-shrink-0" />
+                  <div
+                    className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: t.color }}
+                  />
                   <span className="font-medium text-white truncate text-xs">{t.title}</span>
                 </div>
                 <span className="font-mono text-[10px] text-[#8E929E] bg-[#222530] px-2 py-0.5 rounded-md flex-shrink-0 ml-2">
-                  {t.effectiveStartTime || t.startTime}
+                  {t.time}
                 </span>
               </div>
             ))}

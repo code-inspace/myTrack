@@ -14,24 +14,30 @@ import {
   useSensors,
 } from "@dnd-kit/core";
 
+import { ExternalCalendarEvent } from "@/features/calendar/types";
+
 interface ProjectBoardViewProps {
   project: Project;
   tasks: Task[];
+  externalEvents?: ExternalCalendarEvent[];
   completions?: TaskCompletion[];
   onBack: () => void;
   onEditTask: (task: Task) => void;
   onAddTask?: (columnId: string) => void;
   onChangeStatus: (taskId: string, status: string, isDoneColumn: boolean, wasDoneColumn: boolean) => void;
+  onSelectExternalEvent?: (event: ExternalCalendarEvent) => void;
 }
 
 export const ProjectBoardView: React.FC<ProjectBoardViewProps> = ({
   project,
   tasks,
+  externalEvents = [],
   completions,
   onBack,
   onEditTask,
   onAddTask,
   onChangeStatus,
+  onSelectExternalEvent,
 }) => {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
   const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
@@ -131,9 +137,11 @@ export const ProjectBoardView: React.FC<ProjectBoardViewProps> = ({
                 key={col.id}
                 column={col}
                 tasks={tasksByColumn.get(col.id) || []}
+                externalEvents={externalEvents}
                 onEditTask={onEditTask}
                 onAddTask={onAddTask}
                 completions={completions}
+                onSelectExternalEvent={onSelectExternalEvent}
               />
             ))}
           </div>

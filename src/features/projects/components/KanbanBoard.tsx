@@ -127,20 +127,64 @@ export const BoardCard: React.FC<{
   );
 };
 
+import { ExternalCalendarEvent } from "@/features/calendar/types";
+import { ExternalEventBoardCard } from "@/features/calendar/components/ExternalEventBoardCard";
+import { getExternalEventStatus, isExternalEventDone, isExternalEventInProgress } from "@/features/calendar/lib/status";
+
 export const BoardColumn: React.FC<{
   column: ProjectColumn;
   tasks: Task[];
+  externalEvents?: ExternalCalendarEvent[];
   onEditTask: (task: Task) => void;
   onAddTask?: (columnId: string) => void;
   getBadge?: (task: Task) => ProjectBadge | null;
   completions?: TaskCompletion[];
-}> = ({ column, tasks, onEditTask, onAddTask, getBadge, completions }) => {
+  onSelectExternalEvent?: (event: ExternalCalendarEvent) => void;
+}> = ({
+  column,
+  tasks,
+  externalEvents = [],
+  onEditTask,
+  onAddTask,
+  getBadge,
+  completions,
+  onSelectExternalEvent,
+}) => {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
   const [donePeriod, setDonePeriod] = useState<DonePeriodFilter>("1d");
 
   const displayedTasks = column.isDone
     ? tasks.filter((t) => isTaskDoneInPeriod(t, completions, donePeriod))
     : tasks;
+
+  // Filter external calendar events for this column
+  const columnEvents = React.useMemo(() => {
+    const todayStr = getTodayDateString();
+    if (column.isDone) {
+      return externalEvents.filter((e) => isExternalEventDone(e, todayStr));
+    }
+    const isProgressColumn =
+      column.id === "IN_PROGRESS" ||
+      column.label.toLowerCase().includes("cours") ||
+      column.id.toLowerCase().includes("progress");
+
+    if (isProgressColumn) {
+      return externalEvents.filter((e) => isExternalEventInProgress(e, todayStr));
+    }
+
+    const isTodoColumn =
+      column.id === "TODO" ||
+      column.label.toLowerCase().includes("faire") ||
+      column.id.toLowerCase().includes("todo");
+
+    if (isTodoColumn) {
+      return externalEvents.filter((e) => getExternalEventStatus(e, todayStr) === "TODO");
+    }
+
+    return [];
+  }, [externalEvents, column]);
+
+  const totalCount = displayedTasks.length + columnEvents.length;
 
   return (
     <div
@@ -157,7 +201,7 @@ export const BoardColumn: React.FC<{
         </span>
         <div className="flex items-center gap-1.5 flex-shrink-0">
           <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#22242B] text-[#8E929E]">
-            {displayedTasks.length}
+            {totalCount}
           </span>
           {onAddTask && (
             <button
@@ -213,16 +257,32 @@ export const BoardColumn: React.FC<{
         </div>
       )}
 
-      {displayedTasks.length > 0 ? (
+      {totalCount > 0 ? (
         <div className="min-h-0 overflow-y-auto overscroll-contain space-y-2 p-0.5 -m-0.5">
+          {/* External Calendar Events */}
+          {columnEvents.map((evt) => (
+            <ExternalEventBoardCard
+              key={evt.id}
+              event={evt}
+              targetDateStr={getTodayDateString()}
+              onClick={() => onSelectExternalEvent?.(evt)}
+            />
+          ))}
+
+          {/* Tasks */}
           {displayedTasks.map((task) => (
-            <BoardCard key={task.id} task={task} onEditTask={onEditTask} projectBadge={getBadge?.(task) ?? null} />
+            <BoardCard
+              key={task.id}
+              task={task}
+              onEditTask={onEditTask}
+              projectBadge={getBadge?.(task) ?? null}
+            />
           ))}
         </div>
       ) : (
         column.isDone && (
           <div className="text-[11px] text-[#6B7280] text-center py-6 italic">
-            Aucune tâche terminée
+            Aucun élément terminé
           </div>
         )
       )}

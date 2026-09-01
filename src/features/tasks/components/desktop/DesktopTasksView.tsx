@@ -2,11 +2,14 @@
 
 import React, { useState, useMemo } from "react";
 import { Task, TaskWithCompletion } from "@/features/tasks/types";
+import { ExternalCalendarEvent } from "@/features/calendar/types";
+import { ExternalEventTaskCard } from "@/features/calendar/components/ExternalEventTaskCard";
+import { getExternalEventStatus, isExternalEventDone, isExternalEventInProgress } from "@/features/calendar/lib/status";
 import { TaskCard } from "../TaskCard";
 import { ActiveTaskBanner } from "../ActiveTaskBanner";
 import { DesktopWidgetsPane } from "./DesktopWidgetsPane";
 import { DesktopDatePicker } from "./DesktopDatePicker";
-import { CheckCircle2, Plus, Flame, Inbox } from "lucide-react";
+import { CheckCircle2, Plus, Flame, Inbox, Calendar } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -25,6 +28,7 @@ type FilterStatus = "all" | "active" | "urgent" | "todo" | "done";
 interface DesktopTasksViewProps {
   tasks: TaskWithCompletion[];
   allTasks: Task[];
+  externalEvents?: ExternalCalendarEvent[];
   selectedDate: string;
   onSelectDate: (date: string) => void;
   searchQuery: string;
@@ -37,6 +41,7 @@ interface DesktopTasksViewProps {
   onDeleteTask: (taskId: string) => void;
   onReorderTasks: (taskIds: string[]) => void;
   onUpdateTaskStartedAt: (taskId: string, newTime: string) => void;
+  onSelectExternalEvent?: (event: ExternalCalendarEvent) => void;
   quickTitle: string;
   onQuickTitleChange: (title: string) => void;
   onQuickAdd: (e: React.FormEvent) => void;
@@ -47,6 +52,7 @@ interface DesktopTasksViewProps {
 export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
   tasks,
   allTasks,
+  externalEvents = [],
   selectedDate,
   onSelectDate,
   searchQuery,
@@ -59,6 +65,7 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
   onDeleteTask,
   onReorderTasks,
   onUpdateTaskStartedAt,
+  onSelectExternalEvent,
   quickTitle,
   onQuickTitleChange,
   onQuickAdd,
@@ -67,6 +74,7 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
 }) => {
   const [statusFilter, setStatusFilter] = useState<FilterStatus>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("");
+  const [manualCompletedEvents, setManualCompletedEvents] = useState<Record<string, boolean>>({});
 
   const dndSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
@@ -74,16 +82,65 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
 
   const activeTask = tasks.find((t) => t.isActive);
 
-  // Counts for pills
+  const toggleEventCompleted = (eventId: string) => {
+    setManualCompletedEvents((prev) => {
+      const current = prev[eventId];
+      const defaultDone = externalEvents.find((e) => e.id === eventId)
+        ? isExternalEventDone(externalEvents.find((e) => e.id === eventId)!, selectedDate)
+        : false;
+      const nextVal = current !== undefined ? !current : !defaultDone;
+      return { ...prev, [eventId]: nextVal };
+    });
+  };
+
+  // Counts for pills (tasks + external calendar events)
   const counts = useMemo(() => {
+    const activeEventsCount = externalEvents.filter(
+      (e) => getExternalEventStatus(e, selectedDate, manualCompletedEvents[e.id]) === "IN_PROGRESS"
+    ).length;
+    const todoEventsCount = externalEvents.filter(
+      (e) => getExternalEventStatus(e, selectedDate, manualCompletedEvents[e.id]) === "TODO"
+    ).length;
+    const doneEventsCount = externalEvents.filter(
+      (e) => getExternalEventStatus(e, selectedDate, manualCompletedEvents[e.id]) === "DONE"
+    ).length;
+
     return {
-      all: tasks.length,
-      active: tasks.filter((t) => t.isActive).length,
+      all: tasks.length + externalEvents.length,
+      active: tasks.filter((t) => t.isActive).length + activeEventsCount,
       urgent: tasks.filter((t) => t.priority && t.priority !== "NORMAL" && !t.isCompletedToday).length,
-      todo: tasks.filter((t) => !t.isCompletedToday).length,
-      done: tasks.filter((t) => t.isCompletedToday).length,
+      todo: tasks.filter((t) => !t.isCompletedToday).length + todoEventsCount,
+      done: tasks.filter((t) => t.isCompletedToday).length + doneEventsCount,
     };
-  }, [tasks]);
+  }, [tasks, externalEvents, selectedDate, manualCompletedEvents]);
+
+  // Filtered external events
+  const filteredExternalEvents = useMemo(() => {
+    return externalEvents.filter((event) => {
+      // 1. Search Query
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchesTitle = event.title.toLowerCase().includes(q);
+        const matchesCal = event.calendarName.toLowerCase().includes(q);
+        const matchesLoc = event.location?.toLowerCase().includes(q);
+        if (!matchesTitle && !matchesCal && !matchesLoc) return false;
+      }
+
+      // 2. Category Filter (Category filter only applies if "Calendar" or empty)
+      if (categoryFilter && categoryFilter !== "Calendar" && categoryFilter !== "General") {
+        return false;
+      }
+
+      // 3. Status Pill
+      const status = getExternalEventStatus(event, selectedDate, manualCompletedEvents[event.id]);
+      if (statusFilter === "active") return status === "IN_PROGRESS";
+      if (statusFilter === "urgent") return false;
+      if (statusFilter === "todo") return status === "TODO";
+      if (statusFilter === "done") return status === "DONE";
+
+      return true;
+    });
+  }, [externalEvents, searchQuery, categoryFilter, statusFilter, selectedDate, manualCompletedEvents]);
 
   // Filtered tasks according to search, status pill, category
   const filteredTasks = useMemo(() => {
@@ -294,19 +351,19 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
             </div>
           )}
 
-          {/* Tasks List */}
+          {/* Tasks & External Calendar Events Stream */}
           <div className="space-y-3 pb-16">
-            {orderedTasks.length === 0 ? (
+            {orderedTasks.length === 0 && filteredExternalEvents.length === 0 ? (
               <div className="p-12 text-center bg-[#15161B] border border-[#242630] rounded-3xl my-4 space-y-3">
                 <div className="w-12 h-12 rounded-2xl bg-[#20222B] border border-[#2E313D] flex items-center justify-center text-[#8E929E] mx-auto">
                   <Inbox className="w-6 h-6" />
                 </div>
                 <div>
-                  <h4 className="text-base font-bold text-white">Aucune tâche trouvée</h4>
+                  <h4 className="text-base font-bold text-white">Aucun élément trouvé</h4>
                   <p className="text-xs text-[#8E929E] mt-1">
                     {searchQuery
                       ? "Aucun résultat pour cette recherche."
-                      : "Aucune tâche pour les filtres sélectionnés."}
+                      : "Aucune tâche ni événement pour les filtres sélectionnés."}
                   </p>
                 </div>
                 <button
@@ -318,25 +375,42 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
                 </button>
               </div>
             ) : (
-              <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                <SortableContext items={orderedTasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
-                  <div className="space-y-2.5">
-                    {orderedTasks.map((task) => (
-                      <TaskCard
-                        key={task.id}
-                        task={task}
-                        sortable
-                        onToggleActive={onToggleActive}
-                        onToggleComplete={onToggleComplete}
-                        onToggleReminder={onToggleReminder}
-                        onOpenLogModal={onOpenLogModal}
-                        onEditTask={onEditTask}
-                        onDeleteTask={onDeleteTask}
-                      />
-                    ))}
-                  </div>
-                </SortableContext>
-              </DndContext>
+              <div className="space-y-2.5">
+                {/* External Calendar Events for this date */}
+                {filteredExternalEvents.map((evt) => (
+                  <ExternalEventTaskCard
+                    key={evt.id}
+                    event={evt}
+                    selectedDate={selectedDate}
+                    isManuallyCompleted={manualCompletedEvents[evt.id]}
+                    onToggleComplete={() => toggleEventCompleted(evt.id)}
+                    onClick={() => onSelectExternalEvent?.(evt)}
+                  />
+                ))}
+
+                {/* Tasks List with Drag & Drop */}
+                {orderedTasks.length > 0 && (
+                  <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                    <SortableContext items={orderedTasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+                      <div className="space-y-2.5">
+                        {orderedTasks.map((task) => (
+                          <TaskCard
+                            key={task.id}
+                            task={task}
+                            sortable
+                            onToggleActive={onToggleActive}
+                            onToggleComplete={onToggleComplete}
+                            onToggleReminder={onToggleReminder}
+                            onOpenLogModal={onOpenLogModal}
+                            onEditTask={onEditTask}
+                            onDeleteTask={onDeleteTask}
+                          />
+                        ))}
+                      </div>
+                    </SortableContext>
+                  </DndContext>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -345,6 +419,7 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
         <DesktopWidgetsPane
           tasks={tasks}
           allTasks={allTasks}
+          externalEvents={externalEvents}
           activeTask={activeTask}
           selectedDate={selectedDate}
           sleepDurationText={sleepDurationText}

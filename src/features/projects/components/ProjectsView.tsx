@@ -13,14 +13,19 @@ import { ProjectFormModal } from "./ProjectFormModal";
 import { ChevronRight, FolderKanban, Plus, Pencil, LayoutGrid } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+import { ExternalCalendarEvent } from "@/features/calendar/types";
+import { ExternalEventDetailModal } from "@/features/calendar/components/ExternalEventDetailModal";
+
 interface ProjectsViewProps {
   allTasks: Task[];
+  externalEvents?: ExternalCalendarEvent[];
   completions?: TaskCompletion[];
   onEditTask: (task: Task) => void;
 }
 
 export const ProjectsView: React.FC<ProjectsViewProps> = ({
   allTasks = [],
+  externalEvents = [],
   completions = [],
   onEditTask,
 }) => {
@@ -34,6 +39,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
   const [showAllProjectsBoard, setShowAllProjectsBoard] = useState(true); // Default to true on desktop
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [selectedExternalEvent, setSelectedExternalEvent] = useState<ExternalCalendarEvent | null>(null);
 
   const selectedProject = projects.find((p) => p.id === selectedProjectId) || null;
 
@@ -78,6 +84,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
             <ProjectBoardView
               project={selectedProject}
               tasks={allTasks.filter((t) => t.projectId === selectedProject.id && !t.isArchived)}
+              externalEvents={externalEvents}
               completions={completions}
               onBack={() => setSelectedProjectId(null)}
               onEditTask={onEditTask}
@@ -89,12 +96,14 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                 } as any)
               }
               onChangeStatus={handleChangeStatus}
+              onSelectExternalEvent={(evt) => setSelectedExternalEvent(evt)}
             />
           )
         ) : showAllProjectsBoard ? (
           <AllProjectsBoardView
             projects={projects}
             tasks={allTasks}
+            externalEvents={externalEvents}
             completions={completions}
             onBack={() => setShowAllProjectsBoard(false)}
             onEditTask={onEditTask}
@@ -102,6 +111,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
               onEditTask({ projectStatus: columnId, date: todayStr } as any)
             }
             onChangeStatus={handleChangeStatus}
+            onSelectExternalEvent={(evt) => setSelectedExternalEvent(evt)}
           />
         ) : (
           <ProjectsListView
@@ -234,6 +244,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
             <ProjectBoardView
               project={selectedProject}
               tasks={allTasks.filter((t) => t.projectId === selectedProject.id && !t.isArchived)}
+              externalEvents={externalEvents}
               completions={completions}
               onBack={() => setSelectedProjectId(null)}
               onEditTask={onEditTask}
@@ -245,11 +256,13 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                 } as any)
               }
               onChangeStatus={handleChangeStatus}
+              onSelectExternalEvent={(evt) => setSelectedExternalEvent(evt)}
             />
           ) : (
             <AllProjectsBoardView
               projects={projects}
               tasks={allTasks}
+              externalEvents={externalEvents}
               completions={completions}
               onBack={() => {}}
               onEditTask={onEditTask}
@@ -257,6 +270,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                 onEditTask({ projectStatus: columnId, date: todayStr } as any)
               }
               onChangeStatus={handleChangeStatus}
+              onSelectExternalEvent={(evt) => setSelectedExternalEvent(evt)}
             />
           )}
         </div>
@@ -273,6 +287,12 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
             createProject.mutate(data);
           }
         }}
+      />
+
+      {/* External Calendar Event Detail Modal */}
+      <ExternalEventDetailModal
+        event={selectedExternalEvent}
+        onClose={() => setSelectedExternalEvent(null)}
       />
     </div>
   );

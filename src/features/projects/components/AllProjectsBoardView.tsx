@@ -14,14 +14,18 @@ import {
   useSensors,
 } from "@dnd-kit/core";
 
+import { ExternalCalendarEvent } from "@/features/calendar/types";
+
 interface AllProjectsBoardViewProps {
   projects: Project[];
   tasks: Task[];
+  externalEvents?: ExternalCalendarEvent[];
   completions?: TaskCompletion[];
   onBack: () => void;
   onEditTask: (task: Task) => void;
   onAddTask?: (columnId: string) => void;
   onChangeStatus: (taskId: string, status: string, isDoneColumn: boolean, wasDoneColumn: boolean) => void;
+  onSelectExternalEvent?: (event: ExternalCalendarEvent) => void;
 }
 
 const NO_PROJECT_FILTER = "__none__";
@@ -29,11 +33,13 @@ const NO_PROJECT_FILTER = "__none__";
 export const AllProjectsBoardView: React.FC<AllProjectsBoardViewProps> = ({
   projects,
   tasks,
+  externalEvents = [],
   completions,
   onBack,
   onEditTask,
   onAddTask,
   onChangeStatus,
+  onSelectExternalEvent,
 }) => {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
   const [categoryFilter, setCategoryFilter] = useState("");
@@ -122,9 +128,11 @@ export const AllProjectsBoardView: React.FC<AllProjectsBoardViewProps> = ({
                 key={col.id}
                 column={col}
                 tasks={tasksByColumn.get(col.id) || []}
+                externalEvents={externalEvents}
                 onEditTask={onEditTask}
                 onAddTask={onAddTask}
                 completions={completions}
+                onSelectExternalEvent={onSelectExternalEvent}
                 getBadge={(t) => {
                   const p = t.projectId ? projectById.get(t.projectId) : null;
                   return p ? { name: p.name, color: p.color } : null;

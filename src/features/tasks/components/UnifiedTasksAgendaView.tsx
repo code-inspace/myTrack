@@ -34,6 +34,12 @@ import {
 import { SortableContext, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
 import { DAY_DROP_ID_PREFIX } from "@/features/tasks/components/HorizontalDatePicker";
 
+import { useCalendarEvents } from "@/features/calendar/hooks/useCalendarEvents";
+import { ExternalCalendarEvent } from "@/features/calendar/types";
+import { ExternalEventTaskCard } from "@/features/calendar/components/ExternalEventTaskCard";
+import { ExternalEventDetailModal } from "@/features/calendar/components/ExternalEventDetailModal";
+import { isExternalEventDone } from "@/features/calendar/lib/status";
+
 import { useSelectedDate } from "@/providers/DateProvider";
 
 interface UnifiedTasksAgendaViewProps {
@@ -52,8 +58,11 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
   const [quickTitle, setQuickTitle] = useState("");
   const [isTestNotificationOpen, setIsTestNotificationOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedExternalEvent, setSelectedExternalEvent] = useState<ExternalCalendarEvent | null>(null);
+  const [manualCompletedEvents, setManualCompletedEvents] = useState<Record<string, boolean>>({});
 
   const { tasks, allTasks, allCompletions } = useTasks(selectedDate);
+  const { externalEvents } = useCalendarEvents(selectedDate);
 
   const {
     createTask,
@@ -304,6 +313,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
             /* PROJETS TAB */
             <ProjectsView
               allTasks={allTasks}
+              externalEvents={externalEvents}
               completions={allCompletions}
               onEditTask={(t) => {
                 setEditingTask(t);
@@ -355,14 +365,32 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
                   </div>
                 )}
 
-                {/* Tasks List with Drag & Drop Reordering */}
+                {/* Tasks & External Calendar Events Stream */}
                 <div className="space-y-2.5 pt-1">
-                  {orderedTasks.length === 0 ? (
+                  {/* External calendar events for this date */}
+                  {externalEvents.map((evt) => (
+                    <ExternalEventTaskCard
+                      key={evt.id}
+                      event={evt}
+                      selectedDate={selectedDate}
+                      isManuallyCompleted={manualCompletedEvents[evt.id]}
+                      onToggleComplete={() => {
+                        setManualCompletedEvents((prev) => {
+                          const current = prev[evt.id];
+                          const defaultDone = isExternalEventDone(evt, selectedDate);
+                          return { ...prev, [evt.id]: current !== undefined ? !current : !defaultDone };
+                        });
+                      }}
+                      onClick={() => setSelectedExternalEvent(evt)}
+                    />
+                  ))}
+
+                  {orderedTasks.length === 0 && externalEvents.length === 0 ? (
                     <div className="p-8 text-center bg-[#1C1D22] border border-[#282A30] rounded-3xl my-4">
                       <Inbox className="w-10 h-10 text-[#6B7280] mx-auto mb-2" />
-                      <h4 className="text-base font-bold text-white">Aucune tâche programmée</h4>
+                      <h4 className="text-base font-bold text-white">Aucun élément programmé</h4>
                       <p className="text-xs text-[#8E929E] mt-1 mb-4">
-                        Tu n&apos;as aucune tâche active pour cette date.
+                        Tu n&apos;as aucune tâche ni événement pour cette date.
                       </p>
                       <button
                         type="button"
@@ -407,6 +435,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
                 <DesktopTasksView
                   tasks={tasks}
                   allTasks={allTasks}
+                  externalEvents={externalEvents}
                   selectedDate={selectedDate}
                   onSelectDate={setSelectedDate}
                   searchQuery={searchQuery}
@@ -428,6 +457,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
                   onUpdateTaskStartedAt={(taskId, newTime) =>
                     updateTaskStartedAt.mutate({ taskId, startedAtTime: newTime })
                   }
+                  onSelectExternalEvent={(evt) => setSelectedExternalEvent(evt)}
                   quickTitle={quickTitle}
                   onQuickTitleChange={setQuickTitle}
                   onQuickAdd={handleQuickAdd}
@@ -496,6 +526,12 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
         taskTitle="Pompes"
         onClose={() => setIsTestNotificationOpen(false)}
         onRespond={handleInteractiveResponse}
+      />
+
+      {/* External Calendar Event Detail Modal */}
+      <ExternalEventDetailModal
+        event={selectedExternalEvent}
+        onClose={() => setSelectedExternalEvent(null)}
       />
 
       {/* Dual Floating Action Buttons: New Task (+) and Voice AI (Mic) */}
