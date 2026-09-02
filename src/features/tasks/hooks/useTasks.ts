@@ -22,10 +22,11 @@ import { parseISO } from "date-fns";
 export function useTasks(selectedDateStr: string) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const userId = user?.id || "00000000-0000-0000-0000-000000000001";
+  const userId = user?.id || "";
 
   // Supabase Realtime Listener across devices
   useEffect(() => {
+    if (!userId) return;
     const supabase = createClient();
     const channel = supabase
       .channel(`realtime-tasks-${userId}`)
@@ -64,6 +65,7 @@ export function useTasks(selectedDateStr: string) {
     queryKey: ["tasks", userId],
     queryFn: async () => fetchTasks(userId),
     placeholderData: () => getStoredTasks(userId),
+    enabled: Boolean(userId),
     staleTime: 0,
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
@@ -74,6 +76,7 @@ export function useTasks(selectedDateStr: string) {
     queryKey: ["completions", userId],
     queryFn: async () => fetchCompletions(userId),
     placeholderData: () => getStoredCompletions(userId),
+    enabled: Boolean(userId),
     staleTime: 0,
     refetchOnMount: "always",
     refetchOnWindowFocus: true,

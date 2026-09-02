@@ -7,12 +7,13 @@ import { useAuth } from "@/providers/AuthProvider";
 
 export function useProjects() {
   const { user } = useAuth();
-  const userId = user?.id || "00000000-0000-0000-0000-000000000001";
+  const userId = user?.id || "";
 
   const { data: projects = getStoredProjects(userId) } = useQuery({
     queryKey: ["projects", userId],
     queryFn: async () => fetchProjects(userId),
     placeholderData: () => getStoredProjects(userId),
+    enabled: Boolean(userId),
     staleTime: 0,
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
@@ -25,7 +26,7 @@ export function useProjects() {
 export function useProjectMutations() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const userId = user?.id || "00000000-0000-0000-0000-000000000001";
+  const userId = user?.id || "";
 
   const createProject = useMutation({
     mutationFn: async ({

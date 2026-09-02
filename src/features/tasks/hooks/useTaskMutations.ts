@@ -27,7 +27,7 @@ import { format } from "date-fns";
 export function useTaskMutations() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const userId = user?.id || "00000000-0000-0000-0000-000000000001";
+  const userId = user?.id || "";
 
   // --- CRUD Mutations ---
   const createTask = useMutation({

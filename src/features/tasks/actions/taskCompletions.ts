@@ -21,14 +21,18 @@ export async function fetchCompletions(
 ): Promise<TaskCompletion[]> {
   const supabase = createClient();
   let targetId = userId;
-  if (!targetId) {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    targetId = session?.user?.id || getEffectiveUserId();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  const currentAuthId = session?.user?.id;
+  if (currentAuthId) {
+    targetId = currentAuthId;
+  } else if (!targetId) {
+    targetId = getEffectiveUserId();
   }
 
-  const key = COMPLETIONS_STORAGE_PREFIX + targetId;
+  if (!targetId) return [];
+
   const local = getStoredCompletions(targetId);
 
   try {
@@ -36,8 +40,6 @@ export async function fetchCompletions(
       .from("task_completions")
       .select("*")
       .eq("user_id", targetId);
-
-    const safeTargetId = targetId || getEffectiveUserId();
 
     if (!error && data) {
       const mapped = data.map(mapDbCompletionToModel);
@@ -52,7 +54,7 @@ export async function fetchCompletions(
       if (missingInDb.length > 0) {
         Promise.all(
           missingInDb.map((c) =>
-            upsertDbCompletion({ ...c, userId: safeTargetId }).catch((err) =>
+            upsertDbCompletion({ ...c, userId: targetId }).catch((err) =>
               console.warn("Auto-sync local completion to DB error:", err)
             )
           )
@@ -67,7 +69,7 @@ export async function fetchCompletions(
         mergedMap.set(`${item.taskId}_${item.date}`, item);
       }
       const merged = Array.from(mergedMap.values());
-      saveStoredCompletions(merged, safeTargetId);
+      saveStoredCompletions(merged, targetId);
       return merged;
     }
   } catch (err) {

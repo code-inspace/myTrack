@@ -19,14 +19,17 @@ export async function fetchTasks(userId?: string): Promise<Task[]> {
   const supabase = createClient();
   let targetId = userId;
 
-  if (!targetId) {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    targetId = session?.user?.id || getEffectiveUserId();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  const currentAuthId = session?.user?.id;
+  if (currentAuthId) {
+    targetId = currentAuthId;
+  } else if (!targetId) {
+    targetId = getEffectiveUserId();
   }
 
-  const key = TASKS_STORAGE_PREFIX + targetId;
+  if (!targetId) return [];
 
   try {
     const { data, error } = await supabase
@@ -46,7 +49,7 @@ export async function fetchTasks(userId?: string): Promise<Task[]> {
       if (missingInDb.length > 0) {
         const uploaded = await Promise.all(
           missingInDb.map((t) =>
-            createDbTask(t).catch((err) => {
+            createDbTask({ ...t, userId: targetId }).catch((err) => {
               console.warn("Auto-sync local task to DB error:", err);
               return null;
             })
@@ -59,16 +62,8 @@ export async function fetchTasks(userId?: string): Promise<Task[]> {
         }
       }
 
-      const taskMap = new Map<string, Task>();
-      for (const t of local) {
-        taskMap.set(t.id, t);
-      }
-      for (const t of mapped) {
-        taskMap.set(t.id, t);
-      }
-      const merged = Array.from(taskMap.values());
-      saveStoredTasks(merged, targetId);
-      return merged;
+      saveStoredTasks(mapped, targetId);
+      return mapped;
     }
   } catch (err) {
     console.warn("Supabase fetchTasks error:", err);
@@ -83,11 +78,14 @@ export async function createDbTask(
   const supabase = createClient();
   let targetId = task.userId;
 
-  if (!targetId) {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    targetId = session?.user?.id || getEffectiveUserId();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  const currentAuthId = session?.user?.id;
+  if (currentAuthId) {
+    targetId = currentAuthId;
+  } else if (!targetId) {
+    targetId = getEffectiveUserId();
   }
 
   const oldLocalId = task.id;
