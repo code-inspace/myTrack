@@ -3,13 +3,13 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/providers/AuthProvider";
-import { LogIn, Sparkles, UserPlus, ShieldCheck, ArrowRight } from "lucide-react";
+import { LogIn, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { Logo } from "@/components/shared/Logo";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, switchToDemo } = useAuth();
+  const { login } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -33,11 +33,6 @@ export default function LoginPage() {
     }
   };
 
-  const handleQuickDemo = async () => {
-    switchToDemo();
-    router.push("/tasks");
-  };
-
   return (
     <div className="flex-1 flex flex-col justify-center py-10 px-4 max-w-md mx-auto w-full space-y-6">
       {/* App Branding */}
@@ -47,36 +42,11 @@ export default function LoginPage() {
           My<span className="text-[#D4F63D]">Track</span>
         </h1>
         <p className="text-xs text-[#8E929E] max-w-xs mx-auto">
-          Mon suivi d'action & tracker d'habitudes personnalisé
+          Mon suivi d'action &amp; tracker d'habitudes personnalisé
         </p>
       </div>
 
-      {/* Quick Demo Account Card */}
-      <div className="bg-[#1C1D22] border-2 border-[#D4F63D]/30 rounded-3xl p-5 shadow-lg space-y-3 lime-glow-sm">
-        <div className="flex items-center gap-2 text-[#D4F63D]">
-          <Sparkles className="w-4 h-4" />
-          <span className="text-xs font-bold uppercase tracking-wider">Compte de démonstration</span>
-        </div>
-
-        <p className="text-xs text-[#D1D5DB]">
-          Accède aux données de démonstration complètes (habitudes, graphiques, streak actif) :
-        </p>
-
-        <div className="bg-[#252830] p-2.5 rounded-xl text-xs font-mono text-[#9CA3AF] flex justify-between items-center">
-          <span>demo@de.mo</span>
-          <span className="text-[#D4F63D]">mdp: demo</span>
-        </div>
-
-        <button
-          onClick={handleQuickDemo}
-          className="w-full py-3 rounded-2xl bg-[#D4F63D] hover:bg-[#c2e432] active:scale-98 text-black font-extrabold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
-        >
-          <span>Accéder au compte Démo (demo@de.mo)</span>
-          <ArrowRight className="w-4 h-4" />
-        </button>
-      </div>
-
-      {/* Regular / Clean Account Login Form */}
+      {/* Account Login Form */}
       <div className="bg-[#1C1D22] border border-[#282A30] rounded-3xl p-6 shadow-sm space-y-4">
         <h2 className="text-sm font-bold text-white">
           Se connecter à un compte
@@ -120,7 +90,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full py-3.5 rounded-2xl bg-[#252830] hover:bg-[#343740] active:scale-98 text-white font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer border border-[#3a3e4c]"
+            className="w-full py-3.5 rounded-2xl bg-[#D4F63D] hover:bg-[#c2e432] active:scale-98 text-black font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
             <LogIn className="w-4 h-4" />
             <span>{isLoading ? "Connexion..." : "Se connecter"}</span>
@@ -133,7 +103,7 @@ export default function LoginPage() {
             className="text-xs text-[#8E929E] hover:text-[#D4F63D] font-semibold transition-colors inline-flex items-center gap-1"
           >
             <UserPlus className="w-3.5 h-3.5" />
-            <span>Créer un nouveau compte vierge</span>
+            <span>Créer un compte</span>
           </Link>
         </div>
       </div>

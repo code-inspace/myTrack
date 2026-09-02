@@ -3,7 +3,6 @@ export interface UserSession {
   email: string;
   name: string;
   avatarUrl?: string | null;
-  isDemo: boolean;
   emailConfirmed: boolean;
   createdAt: string;
 }

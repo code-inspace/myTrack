@@ -9,7 +9,6 @@ import {
   logoutUser,
   getStoredUserSession,
   setStoredUserSession,
-  DEMO_USER,
 } from "@/features/auth/actions";
 import { createClient } from "@/utils/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
@@ -22,7 +21,6 @@ interface AuthContextType {
   login: (email: string, pass: string) => Promise<{ success: boolean; requiresConfirmation?: boolean; error?: string }>;
   signup: (email: string, pass: string, name?: string) => Promise<{ success: boolean; requiresConfirmation?: boolean; error?: string }>;
   logout: () => void;
-  switchToDemo: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -33,7 +31,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    // 0. Purge legacy demo keys from localStorage so fake tasks never pollute real sessions
+    // 0. Purge legacy demo keys and demo items from all localStorage keys so fake tasks never pollute real sessions
     if (typeof window !== "undefined") {
       const demoKeys = [
         "mytrack_tasks_00000000-0000-0000-0000-000000000001",
@@ -51,6 +49,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           localStorage.removeItem(k);
         } catch {}
       }
+
+      // Also scrub any demo-task- / demo-project- / demo-nap- / 00000000- items from any active user keys
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (
+            key &&
+            (key.startsWith("mytrack_tasks") ||
+              key.startsWith("mytrack_completions") ||
+              key.startsWith("mytrack_projects"))
+          ) {
+            const raw = localStorage.getItem(key);
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              if (Array.isArray(parsed)) {
+                const filtered = parsed.filter((item: any) => {
+                  const id = String(item?.id || "");
+                  const taskId = String(item?.taskId || "");
+                  return (
+                    !id.startsWith("demo-") &&
+                    !id.startsWith("00000000-") &&
+                    !taskId.startsWith("demo-") &&
+                    !taskId.startsWith("00000000-")
+                  );
+                });
+                localStorage.setItem(key, JSON.stringify(filtered));
+              }
+            }
+          }
+        }
+      } catch {}
     }
 
     const supabase = createClient();
@@ -131,10 +160,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     queryClient.invalidateQueries();
   };
 
-  const switchToDemo = async () => {
-    await loginWithCredentials("demo@de.mo", "demo");
-  };
-
   return (
     <AuthContext.Provider
       value={{
@@ -143,7 +168,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         login,
         signup,
         logout,
-        switchToDemo,
       }}
     >
       {children}

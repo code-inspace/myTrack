@@ -1,6 +1,5 @@
 import { createClient } from "@/utils/supabase/client";
 import { getEffectiveUserId } from "@/features/tasks/actions";
-import { DEMO_USER } from "@/features/auth/actions";
 
 export interface StoredReminderRecord {
   id: string;
@@ -46,7 +45,7 @@ export async function createDbReminder(
   };
 
   // 1. Try Supabase insert if not demo
-  if (targetUserId !== DEMO_USER.id) {
+  if (targetUserId) {
     try {
       const { data, error } = await supabase
         .from("reminders")
@@ -106,7 +105,7 @@ export async function updateDbReminderStatus(
   const nowIso = new Date().toISOString();
 
   // 1. Update in Supabase
-  if (targetUserId !== DEMO_USER.id) {
+  if (targetUserId) {
     try {
       await supabase
         .from("reminders")
@@ -150,7 +149,7 @@ export async function fetchUserReminders(userId?: string): Promise<StoredReminde
   const supabase = createClient();
   const targetUserId = userId || getEffectiveUserId();
 
-  if (targetUserId !== DEMO_USER.id) {
+  if (targetUserId) {
     try {
       const { data, error } = await supabase
         .from("reminders")

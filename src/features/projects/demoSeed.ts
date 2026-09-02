@@ -12,27 +12,6 @@ export const DEMO_HOME_COLUMNS = [
   { id: "TERMINE", label: "Terminé", isDone: true },
 ];
 
-export function generateDemoSeedProjects(userId: string): Project[] {
-  const now = new Date().toISOString();
-
-  return [
-    {
-      id: DEMO_PROJECT_APP_ID,
-      userId,
-      name: "Lancement App Mobile",
-      color: "#818CF8",
-      columns: DEFAULT_PROJECT_COLUMNS,
-      createdAt: subDays(new Date(), 45).toISOString(),
-      updatedAt: now,
-    },
-    {
-      id: DEMO_PROJECT_HOME_ID,
-      userId,
-      name: "Rénovation Appartement",
-      color: "#F97316",
-      columns: DEMO_HOME_COLUMNS,
-      createdAt: subDays(new Date(), 20).toISOString(),
-      updatedAt: now,
-    },
-  ];
+export function generateDemoSeedProjects(_userId: string): Project[] {
+  return [];
 }

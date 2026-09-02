@@ -39,33 +39,16 @@ function nightPlanFor(nightStartDateStr: string): { bedtime: string; wakeTime: s
  * window without persisting anything.
  */
 export function generateDemoSleepLog(dateStr: string): DailySleepLog {
-  const previousDateStr = format(subDays(parseISO(dateStr), 1), "yyyy-MM-dd");
-  const tonight = nightPlanFor(dateStr);
-  const lastNight = nightPlanFor(previousDateStr);
-
-  const hash = hashDateToInt(dateStr);
-  const naps: NapSession[] = [];
-  // Roughly one demo day in four has a short afternoon nap
-  if (hash % 4 === 0) {
-    const napStart = addMinutesToTime("14:00", (hash >> 5) % 90);
-    const napDuration = 20 + ((hash >> 7) % 40); // 20-60 min
-    naps.push({
-      id: `demo-nap-${dateStr}`,
-      startTime: napStart,
-      endTime: addMinutesToTime(napStart, napDuration),
-    });
-  }
-
   return {
     date: dateStr,
-    bedtime: tonight.bedtime,
-    wakeTime: lastNight.wakeTime,
-    bedtimeValidated: true,
-    wakeTimeValidated: true,
+    bedtime: "",
+    wakeTime: "",
+    bedtimeValidated: false,
+    wakeTimeValidated: false,
     bedtimeOffsets: DEMO_BEDTIME_OFFSETS,
-    bedtimeReminders: DEMO_BEDTIME_OFFSETS.map((offset) => addMinutesToTime(tonight.bedtime, -offset)).sort(),
-    enableBedtimeReminders: true,
-    naps,
+    bedtimeReminders: [],
+    enableBedtimeReminders: false,
+    naps: [],
     notes: "",
     gratitude: "",
     manifestation: "",

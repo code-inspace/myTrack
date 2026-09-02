@@ -29,7 +29,7 @@ export const AuthGuard: React.FC<{ children: React.ReactNode }> = ({ children })
     }
 
     // 2. Unconfirmed email trying to access protected routes -> redirect to verify email
-    if (user && !user.emailConfirmed && !user.isDemo && !isAuthPath) {
+    if (user && !user.emailConfirmed && !isAuthPath) {
       router.replace(`/auth/verify-email?email=${encodeURIComponent(user.email)}`);
       return;
     }

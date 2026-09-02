@@ -1,5 +1,5 @@
 import { DailySleepLog, NapSession } from "./types";
-import { getStoredUserSession, DEMO_USER } from "@/features/auth/actions";
+import { getStoredUserSession } from "@/features/auth/actions";
 import {
   subtractMinutesFromTime,
   createUtcIsoFromLocalDateTime,
@@ -10,7 +10,6 @@ import { scheduleTaskPushNotification, cancelTaskPushNotifications } from "@/lib
 import { createDbReminder } from "@/features/notifications/reminderActions";
 import { createClient } from "@/utils/supabase/client";
 import { subDays, parseISO, format } from "date-fns";
-import { generateDemoSleepLog } from "./demoSeed";
 import { encryptText, decryptText, isEncrypted } from "@/lib/crypto/encryption";
 
 const SLEEP_STORAGE_PREFIX = "mytrack_sleeplog_";
@@ -18,7 +17,7 @@ const SLEEP_STORAGE_PREFIX = "mytrack_sleeplog_";
 export function getEffectiveUserId(explicitUserId?: string): string {
   if (explicitUserId) return explicitUserId;
   const session = getStoredUserSession();
-  return session?.id || DEMO_USER.id;
+  return session?.id || "";
 }
 
 export const BEDTIME_OFFSET_OPTIONS = [
@@ -275,11 +274,9 @@ export function cacheSleepHistoryLocally(logs: DailySleepLog[], userId?: string)
 
 export function getStoredSleepLog(date: string, userId?: string): DailySleepLog {
   const targetId = getEffectiveUserId(userId);
-  const isDemo = targetId === DEMO_USER.id;
   const key = `${SLEEP_STORAGE_PREFIX}${targetId}_${date}`;
 
   if (typeof window === "undefined") {
-    if (isDemo) return generateDemoSleepLog(date);
     return {
       date,
       bedtime: "23:00",
@@ -310,12 +307,6 @@ export function getStoredSleepLog(date: string, userId?: string): DailySleepLog 
     }
   } catch (err) {
     console.warn("getStoredSleepLog parse error:", err);
-  }
-
-  if (isDemo) {
-    const seed = generateDemoSleepLog(date);
-    localStorage.setItem(key, JSON.stringify(seed));
-    return seed;
   }
 
   // Default initial sleep log

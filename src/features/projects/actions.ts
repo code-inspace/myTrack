@@ -1,8 +1,6 @@
 import { Project, ProjectColumn } from "./types";
 import { getEffectiveUserId } from "@/features/tasks/actions";
 import { createClient } from "@/utils/supabase/client";
-import { DEMO_USER } from "@/features/auth/actions";
-import { generateDemoSeedProjects } from "./demoSeed";
 import { encryptText, decryptText, isEncrypted } from "@/lib/crypto/encryption";
 
 const PROJECTS_STORAGE_PREFIX = "mytrack_projects_";

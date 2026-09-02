@@ -50,7 +50,7 @@ const DISPLAY_MODE_OPTIONS: Array<{
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { user, logout, switchToDemo } = useAuth();
+  const { user, logout } = useAuth();
   const { displayMode, setDisplayMode } = useDisplayMode();
   const { isOnline, isLowDataMode, toggleLowDataMode } = useOffline();
   const {
@@ -116,8 +116,6 @@ export default function ProfilePage() {
     router.push("/auth/login");
   };
 
-  const isDemoAccount = user?.isDemo || user?.email === "demo@de.mo";
-
   return (
     <div className="flex-1 flex flex-col overflow-y-auto pb-28 md:pb-10 space-y-4 max-w-md md:max-w-5xl mx-auto w-full px-4 md:px-8 pt-2 md:pt-6">
       {/* Profile Header */}
@@ -144,7 +142,7 @@ export default function ProfilePage() {
               {user?.name || "Utilisateur MyTrack"}
             </h2>
             <p className="text-xs text-[#8E929E] font-mono mt-0.5">
-              {user?.email || "demo@de.mo"}
+              {user?.email || ""}
             </p>
           </div>
         </div>

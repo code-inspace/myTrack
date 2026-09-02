@@ -1,8 +1,6 @@
 import { Task, TaskCompletion } from "../types";
 import { getEffectiveUserId } from "./user";
 import { TASKS_STORAGE_PREFIX, COMPLETIONS_STORAGE_PREFIX } from "./mappers";
-import { DEMO_USER } from "@/features/auth/actions";
-import { generateDemoSeedTasks, generateDemoSeedCompletions } from "../demoSeed";
 
 function safeParseJson<T>(raw: string | null, fallback: T): T {
   if (!raw) return fallback;

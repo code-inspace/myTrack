@@ -1,26 +1,15 @@
 import { UserSession } from "./types";
 import { createClient } from "@/utils/supabase/client";
 
-export const DEMO_USER: UserSession = {
-  id: "00000000-0000-0000-0000-000000000001",
-  email: "demo@de.mo",
-  name: "Axel (Démo)",
-  isDemo: true,
-  emailConfirmed: true,
-  createdAt: "2026-01-01T00:00:00.000Z",
-};
-
 export function mapSupabaseUserToSession(sbUser: any): UserSession {
   const email = sbUser.email || "";
-  const isDemo = email.toLowerCase() === "demo@de.mo" || sbUser.id === DEMO_USER.id;
-  const emailConfirmed = Boolean(sbUser.email_confirmed_at) || isDemo;
+  const emailConfirmed = Boolean(sbUser.email_confirmed_at);
 
   return {
     id: sbUser.id,
     email: email,
     name: sbUser.user_metadata?.name || email.split("@")[0] || "Utilisateur",
     avatarUrl: sbUser.user_metadata?.avatar_url || null,
-    isDemo,
     emailConfirmed,
     createdAt: sbUser.created_at || new Date().toISOString(),
   };
@@ -83,9 +72,7 @@ export async function loginWithCredentials(
       if (error.message.includes("Invalid login credentials")) {
         return {
           success: false,
-          error: normalizedEmail === "demo@de.mo"
-            ? "Identifiants démo incorrects (mot de passe: demo)"
-            : "Email ou mot de passe incorrect.",
+          error: "Email ou mot de passe incorrect.",
         };
       }
       return { success: false, error: error.message };
