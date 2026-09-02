@@ -33,6 +33,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const queryClient = useQueryClient();
 
   useEffect(() => {
+    // 0. Purge legacy demo keys from localStorage so fake tasks never pollute real sessions
+    if (typeof window !== "undefined") {
+      const demoKeys = [
+        "mytrack_tasks_00000000-0000-0000-0000-000000000001",
+        "mytrack_tasks_v1_00000000-0000-0000-0000-000000000001",
+        "mytrack_completions_00000000-0000-0000-0000-000000000001",
+        "mytrack_completions_v1_00000000-0000-0000-0000-000000000001",
+        "mytrack_projects_00000000-0000-0000-0000-000000000001",
+        "mytrack_tasks_v1",
+        "mytrack_tasks",
+        "mytrack_completions_v1",
+        "mytrack_completions",
+      ];
+      for (const k of demoKeys) {
+        try {
+          localStorage.removeItem(k);
+        } catch {}
+      }
+    }
+
     const supabase = createClient();
 
     // 1. Check initial active Supabase Auth session

@@ -33,28 +33,15 @@ export async function mapDbProjectToModelAsync(row: any): Promise<Project> {
 
 export function getStoredProjects(userId?: string): Project[] {
   const targetId = getEffectiveUserId(userId);
-  const isDemo = targetId === DEMO_USER.id;
-  if (typeof window === "undefined") return isDemo ? generateDemoSeedProjects(targetId) : [];
+  if (typeof window === "undefined") return [];
 
   const key = PROJECTS_STORAGE_PREFIX + targetId;
   const stored = localStorage.getItem(key);
-  if (!stored) {
-    if (isDemo) {
-      const seed = generateDemoSeedProjects(targetId);
-      localStorage.setItem(key, JSON.stringify(seed));
-      return seed;
-    }
-    return [];
-  }
+  if (!stored) return [];
   try {
     const parsed = JSON.parse(stored);
     if (Array.isArray(parsed)) {
-      if (parsed.length === 0 && isDemo) {
-        const seed = generateDemoSeedProjects(targetId);
-        localStorage.setItem(key, JSON.stringify(seed));
-        return seed;
-      }
-      return parsed;
+      return parsed.filter((p) => !p.id.startsWith("00000000-0000-0000-0000-"));
     }
     return [];
   } catch {

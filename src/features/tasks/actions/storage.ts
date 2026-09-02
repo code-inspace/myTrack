@@ -20,48 +20,16 @@ export function getStoredTasks(userId?: string): Task[] {
   const key = TASKS_STORAGE_PREFIX + targetId;
 
   const stored = localStorage.getItem(key);
-  const parsedMain = safeParseJson<Task[]>(stored, []);
-
-  const knownKeys = [
-    TASKS_STORAGE_PREFIX + DEMO_USER.id,
-    "mytrack_tasks_v1",
-    "mytrack_tasks",
-    "tasks",
-  ];
-  const taskMap = new Map<string, Task>();
-  for (const t of parsedMain) {
-    if (!t.id.startsWith("00000000-0000-0000-0000-")) {
-      taskMap.set(t.id, t);
-    }
-  }
-
-  let foundExtra = false;
-  for (const k of knownKeys) {
-    const raw = localStorage.getItem(k);
-    if (raw) {
-      const extraTasks = safeParseJson<Task[]>(raw, []);
-      for (const t of extraTasks) {
-        if (t.id.startsWith("00000000-0000-0000-0000-")) continue;
-        if (!taskMap.has(t.id)) {
-          taskMap.set(t.id, { ...t, userId: targetId });
-          foundExtra = true;
-        }
-      }
-    }
-  }
-
-  const merged = Array.from(taskMap.values());
-  if (foundExtra) {
-    saveStoredTasks(merged, targetId);
-  }
-  return merged;
+  const parsed = safeParseJson<Task[]>(stored, []);
+  return parsed.filter((t) => !t.id.startsWith("00000000-0000-0000-0000-"));
 }
 
 export function saveStoredTasks(tasks: Task[], userId?: string): void {
   if (typeof window === "undefined") return;
   const targetId = getEffectiveUserId(userId);
   const key = TASKS_STORAGE_PREFIX + targetId;
-  localStorage.setItem(key, JSON.stringify(tasks));
+  const cleanTasks = tasks.filter((t) => !t.id.startsWith("00000000-0000-0000-0000-"));
+  localStorage.setItem(key, JSON.stringify(cleanTasks));
 }
 
 export function getStoredCompletions(userId?: string): TaskCompletion[] {
@@ -70,47 +38,14 @@ export function getStoredCompletions(userId?: string): TaskCompletion[] {
   const key = COMPLETIONS_STORAGE_PREFIX + targetId;
 
   const stored = localStorage.getItem(key);
-  const parsedMain = safeParseJson<TaskCompletion[]>(stored, []);
-
-  const knownKeys = [
-    COMPLETIONS_STORAGE_PREFIX + DEMO_USER.id,
-    "mytrack_completions_v1",
-    "mytrack_completions",
-    "completions",
-  ];
-  const compMap = new Map<string, TaskCompletion>();
-  for (const c of parsedMain) {
-    if (!c.taskId?.startsWith("00000000-0000-0000-0000-")) {
-      compMap.set(`${c.taskId}_${c.date}`, c);
-    }
-  }
-
-  let foundExtra = false;
-  for (const k of knownKeys) {
-    const raw = localStorage.getItem(k);
-    if (raw) {
-      const extraComps = safeParseJson<TaskCompletion[]>(raw, []);
-      for (const c of extraComps) {
-        if (c.taskId?.startsWith("00000000-0000-0000-0000-")) continue;
-        const mapKey = `${c.taskId}_${c.date}`;
-        if (!compMap.has(mapKey)) {
-          compMap.set(mapKey, { ...c, userId: targetId });
-          foundExtra = true;
-        }
-      }
-    }
-  }
-
-  const merged = Array.from(compMap.values());
-  if (foundExtra) {
-    saveStoredCompletions(merged, targetId);
-  }
-  return merged;
+  const parsed = safeParseJson<TaskCompletion[]>(stored, []);
+  return parsed.filter((c) => !c.taskId?.startsWith("00000000-0000-0000-0000-"));
 }
 
 export function saveStoredCompletions(completions: TaskCompletion[], userId?: string): void {
   if (typeof window === "undefined") return;
   const targetId = getEffectiveUserId(userId);
   const key = COMPLETIONS_STORAGE_PREFIX + targetId;
-  localStorage.setItem(key, JSON.stringify(completions));
+  const cleanComps = completions.filter((c) => !c.taskId?.startsWith("00000000-0000-0000-0000-"));
+  localStorage.setItem(key, JSON.stringify(cleanComps));
 }
