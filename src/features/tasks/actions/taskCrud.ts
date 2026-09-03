@@ -31,45 +31,33 @@ export async function fetchTasks(userId?: string): Promise<Task[]> {
 
   if (!targetId) return [];
 
+  const local = getStoredTasks(targetId);
+
   try {
-    const { data, error } = await supabase
-      .from("tasks")
-      .select("*")
-      .eq("user_id", targetId)
-      .order("created_at", { ascending: false });
+    // 1. First push any local tasks to server sync endpoint if present
+    const localCompletions = getStoredCompletions(targetId);
+    if (local.length > 0) {
+      fetch("/api/tasks/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ localTasks: local, localCompletions, userId: targetId }),
+      }).catch(() => {});
+    }
 
-    if (!error && data) {
-      const mapped = await Promise.all(data.map(mapDbTaskToModelAsync));
-      const local = getStoredTasks(targetId);
-      const dbIds = new Set(data.map((d: any) => d.id));
-
-      // Auto-migrate: If any task was created locally on device and is missing in Supabase,
-      // upload it automatically so it synchronizes across all devices.
-      const missingInDb = local.filter((t) => !dbIds.has(t.id));
-      if (missingInDb.length > 0) {
-        const uploaded = await Promise.all(
-          missingInDb.map((t) =>
-            createDbTask({ ...t, userId: targetId }).catch((err) => {
-              console.warn("Auto-sync local task to DB error:", err);
-              return null;
-            })
-          )
-        );
-        for (const u of uploaded) {
-          if (u && !mapped.some((m) => m.id === u.id)) {
-            mapped.push(u);
-          }
-        }
+    // 2. Fetch all fresh tasks from API route
+    const res = await fetch(`/api/tasks?userId=${encodeURIComponent(targetId)}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data.tasks)) {
+        saveStoredTasks(data.tasks, targetId);
+        return data.tasks;
       }
-
-      saveStoredTasks(mapped, targetId);
-      return mapped;
     }
   } catch (err) {
-    console.warn("Supabase fetchTasks error:", err);
+    console.warn("API fetchTasks error, falling back to storage:", err);
   }
 
-  return getStoredTasks(targetId);
+  return local;
 }
 
 export async function createDbTask(
@@ -90,124 +78,48 @@ export async function createDbTask(
 
   const oldLocalId = task.id;
   const taskTag = task.tag || task.category || "General";
-  const taskOverrides = {
-    ...(task.dateOverrides || {}),
-    _enableReminders:
-      task.enableReminders !== undefined ? task.enableReminders : false,
-    _reminderOffsetMinutes:
-      task.reminderOffsetMinutes !== undefined
-        ? task.reminderOffsetMinutes
-        : 10,
-    _reminderTimes: task.reminderTimes || ["11:00", "18:00"],
-    _projectCategory: task.projectCategory || null,
-    _tag: taskTag,
-  };
-
   const taskDate = (task as any).date || getTodayDateString();
-  const createdIso = taskDate
-    ? `${taskDate}T12:00:00.000Z`
-    : new Date().toISOString();
-
-  const utcStartTime = task.startTime
-    ? convertLocalTimeToUtc(task.startTime, taskDate)
-    : null;
-  const utcEndTime = task.endTime
-    ? convertLocalTimeToUtc(task.endTime, taskDate)
-    : null;
-
-  const encryptedTitle = await encryptText(task.title);
-  const encryptedDescription = task.description ? await encryptText(task.description) : null;
-
-  const isValidUuid = (id?: string) =>
-    Boolean(id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id));
-
-  const insertPayload: any = {
-    user_id: targetId,
-    title: encryptedTitle,
-    description: encryptedDescription,
-    tag: taskTag,
-    category: taskTag,
-    start_time: utcStartTime,
-    end_time: utcEndTime,
-    deadline: task.deadline || null,
-    priority: task.priority || "NORMAL",
-    recurrence: task.recurrence,
-    recurrence_config: task.recurrenceConfig || null,
-    date_overrides: taskOverrides,
-    tracking_type: task.trackingType,
-    target_value: task.targetValue !== undefined ? task.targetValue : null,
-    unit: task.unit || null,
-    is_active: false,
-    started_at: null,
-    is_archived: false,
-    project_id: task.projectId || null,
-    project_status: task.projectId ? task.projectStatus || "TODO" : null,
-    project_category: task.projectId ? task.projectCategory || null : null,
-    created_at: createdIso,
-  };
-
-  if (isValidUuid(oldLocalId)) {
-    insertPayload.id = oldLocalId;
-  }
 
   try {
-    const { data, error } = await supabase
-      .from("tasks")
-      .insert([insertPayload])
-      .select()
-      .single();
+    const res = await fetch("/api/tasks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ task, userId: targetId }),
+    });
 
-    if (!error && data) {
-      const created = await mapDbTaskToModelAsync(data);
-      const current = getStoredTasks(targetId);
-      const updated = [
-        created,
-        ...current.filter((t) => t.id !== created.id && t.id !== oldLocalId),
-      ];
-      saveStoredTasks(updated, targetId);
+    if (res.ok) {
+      const { task: created } = await res.json();
+      if (created) {
+        const current = getStoredTasks(targetId);
+        const updated = [
+          created,
+          ...current.filter((t) => t.id !== created.id && t.id !== oldLocalId),
+        ];
+        saveStoredTasks(updated, targetId);
 
-      // If this task had a local temporary ID (e.g. task-1788...), update any local completions
-      // to point to the new Supabase UUID and immediately upload them!
-      if (oldLocalId && oldLocalId !== created.id) {
-        const localCompletions = getStoredCompletions(targetId);
-        const hasMatching = localCompletions.some((c) => c.taskId === oldLocalId);
-        if (hasMatching) {
-          const updatedCompletions = localCompletions.map((c) =>
-            c.taskId === oldLocalId ? { ...c, taskId: created.id } : c
-          );
-          saveStoredCompletions(updatedCompletions, targetId);
-
-          for (const comp of updatedCompletions.filter((c) => c.taskId === created.id)) {
-            upsertDbCompletion({ ...comp, userId: targetId }).catch(() => {});
-          }
+        if (created.enableReminders) {
+          const scheduledIso = created.startTime
+            ? createUtcIsoFromLocalDateTime(created.startTime, taskDate)
+            : undefined;
+          scheduleTaskPushNotification({
+            userId: targetId,
+            taskId: created.id,
+            taskTitle: created.title,
+            startTime: created.startTime,
+            scheduledIso,
+            replaceExisting: true,
+            reminderOffsetMinutes: created.reminderOffsetMinutes ?? 10,
+            reminderTimes: created.reminderTimes || ["11:00", "18:00"],
+            date: taskDate,
+            category: created.category,
+          }).catch((e) => console.warn("scheduleTaskPushNotification note:", e));
         }
-      }
 
-      if (created.enableReminders) {
-        const scheduledIso = created.startTime
-          ? createUtcIsoFromLocalDateTime(created.startTime, taskDate)
-          : undefined;
-        scheduleTaskPushNotification({
-          userId: targetId,
-          taskId: created.id,
-          taskTitle: created.title,
-          startTime: created.startTime,
-          scheduledIso,
-          replaceExisting: true,
-          reminderOffsetMinutes: created.reminderOffsetMinutes ?? 10,
-          reminderTimes: created.reminderTimes || ["11:00", "18:00"],
-          date: taskDate,
-          category: created.category,
-        }).catch((e) => console.warn("scheduleTaskPushNotification note:", e));
+        return created;
       }
-
-      return created;
-    }
-    if (error) {
-      console.warn("Supabase createDbTask fallback:", error);
     }
   } catch (err) {
-    console.warn("Supabase createDbTask error fallback:", err);
+    console.warn("API createDbTask error fallback:", err);
   }
 
   // Local fallback
@@ -224,7 +136,7 @@ export async function createDbTask(
     priority: task.priority || "NORMAL",
     recurrence: task.recurrence,
     recurrenceConfig: task.recurrenceConfig || null,
-    dateOverrides: taskOverrides,
+    dateOverrides: task.dateOverrides || {},
     trackingType: task.trackingType,
     targetValue: task.targetValue !== undefined ? task.targetValue : null,
     unit: task.unit || null,
@@ -242,30 +154,12 @@ export async function createDbTask(
     projectId: task.projectId || null,
     projectStatus: task.projectId ? task.projectStatus || "TODO" : null,
     projectCategory: task.projectId ? task.projectCategory || null : null,
-    createdAt: createdIso,
+    createdAt: `${taskDate}T12:00:00.000Z`,
     updatedAt: new Date().toISOString(),
   };
   const current = getStoredTasks(targetId);
   const updated = [createdLocal, ...current];
   saveStoredTasks(updated, targetId);
-
-  if (createdLocal.enableReminders) {
-    const scheduledIso = createdLocal.startTime
-      ? createUtcIsoFromLocalDateTime(createdLocal.startTime, taskDate)
-      : undefined;
-    scheduleTaskPushNotification({
-      userId: targetId,
-      taskId: createdLocal.id,
-      taskTitle: createdLocal.title,
-      startTime: createdLocal.startTime,
-      scheduledIso,
-      replaceExisting: true,
-      reminderOffsetMinutes: createdLocal.reminderOffsetMinutes ?? 10,
-      reminderTimes: createdLocal.reminderTimes || ["11:00", "18:00"],
-      date: taskDate,
-      category: createdLocal.category,
-    }).catch((e) => console.warn("scheduleTaskPushNotification note:", e));
-  }
 
   return createdLocal;
 }
@@ -571,24 +465,12 @@ export async function deleteDbTask(
   }).catch(() => {});
 
   try {
-    // 1. Delete associated task completions first to prevent foreign key constraint violations
-    await supabase.from("task_completions").delete().eq("task_id", taskId);
+    // Delete from server
+    await fetch(`/api/tasks?id=${encodeURIComponent(taskId)}&userId=${encodeURIComponent(targetId || "")}`, {
+      method: "DELETE",
+    });
   } catch (err) {
-    console.warn("Supabase deleteDbTask completions cleanup error:", err);
-  }
-
-  try {
-    // 2. Delete associated reminders
-    await supabase.from("reminders").delete().eq("task_id", taskId);
-  } catch (err) {
-    console.warn("Supabase deleteDbTask reminders cleanup error:", err);
-  }
-
-  try {
-    // 3. Delete the task itself
-    await supabase.from("tasks").delete().eq("id", taskId);
-  } catch (err) {
-    console.warn("Supabase deleteDbTask error:", err);
+    console.warn("API deleteDbTask error:", err);
   }
 
   // 4. Clean local tasks storage across all keys

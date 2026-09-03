@@ -192,7 +192,7 @@ describe("Tasks Feature Logic", () => {
         userId: "u1",
         title: "Completed Task",
         category: "General",
-        projectStatus: "TODO",
+        projectStatus: "DONE",
         recurrence: "ONCE",
         trackingType: "BOOLEAN",
         isActive: false,

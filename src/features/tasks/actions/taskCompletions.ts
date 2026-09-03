@@ -36,44 +36,16 @@ export async function fetchCompletions(
   const local = getStoredCompletions(targetId);
 
   try {
-    const { data, error } = await supabase
-      .from("task_completions")
-      .select("*")
-      .eq("user_id", targetId);
-
-    if (!error && data) {
-      const mapped = data.map(mapDbCompletionToModel);
-      const dbCompletionKeys = new Set(data.map((d: any) => `${d.task_id}_${d.date}`));
-      const isValidUuid = (id?: string) =>
-        Boolean(id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id));
-
-      // Auto-migrate: If any completion exists locally and is missing in DB (with valid UUID), upload it!
-      const missingInDb = local.filter(
-        (c) => !dbCompletionKeys.has(`${c.taskId}_${c.date}`) && isValidUuid(c.taskId)
-      );
-      if (missingInDb.length > 0) {
-        Promise.all(
-          missingInDb.map((c) =>
-            upsertDbCompletion({ ...c, userId: targetId }).catch((err) =>
-              console.warn("Auto-sync local completion to DB error:", err)
-            )
-          )
-        ).catch(() => {});
+    const res = await fetch(`/api/completions?userId=${encodeURIComponent(targetId)}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data.completions)) {
+        saveStoredCompletions(data.completions, targetId);
+        return data.completions;
       }
-
-      const mergedMap = new Map<string, TaskCompletion>();
-      for (const item of local) {
-        mergedMap.set(`${item.taskId}_${item.date}`, item);
-      }
-      for (const item of mapped) {
-        mergedMap.set(`${item.taskId}_${item.date}`, item);
-      }
-      const merged = Array.from(mergedMap.values());
-      saveStoredCompletions(merged, targetId);
-      return merged;
     }
   } catch (err) {
-    console.warn("Supabase fetchCompletions error:", err);
+    console.warn("API fetchCompletions error, falling back to storage:", err);
   }
 
   return local;
@@ -143,60 +115,15 @@ export async function upsertDbCompletion(
 
   saveStoredCompletions(updated, targetId);
 
-  // 2. Persist to Supabase if valid UUID
-  const isValidUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  if (isValidUuid.test(completion.taskId) && isValidUuid.test(targetId)) {
-    const baseRecord = {
-      task_id: completion.taskId,
-      user_id: targetId,
-      date: completion.date,
-      completed: completion.completed,
-      value: completion.value !== undefined ? completion.value : null,
-      duration: completion.duration !== undefined ? completion.duration : null,
-      notes: completion.notes || null,
-    };
-
-    const extendedRecord = {
-      ...baseRecord,
-      scheduled_start_time: completion.scheduledStartTime
-        ? convertLocalTimeToUtc(
-            completion.scheduledStartTime,
-            completion.date,
-          )
-        : null,
-      scheduled_end_time: completion.scheduledEndTime
-        ? convertLocalTimeToUtc(
-            completion.scheduledEndTime,
-            completion.date,
-          )
-        : null,
-      actual_start_time: completion.actualStartTime
-        ? convertLocalTimeToUtc(
-            completion.actualStartTime,
-            completion.date,
-          )
-        : null,
-      actual_end_time: completion.actualEndTime
-        ? convertLocalTimeToUtc(completion.actualEndTime, completion.date)
-        : null,
-    };
-
-    try {
-      const { error } = await supabase
-        .from("task_completions")
-        .upsert([extendedRecord], { onConflict: "task_id,date" });
-
-      if (error) {
-        const fallback = await supabase
-          .from("task_completions")
-          .upsert([baseRecord], { onConflict: "task_id,date" });
-        if (fallback.error) {
-          console.warn("Supabase upsertDbCompletion fallback note:", fallback.error);
-        }
-      }
-    } catch (err) {
-      console.warn("Supabase upsertDbCompletion error:", err);
-    }
+  // 2. Persist to API endpoint
+  try {
+    await fetch("/api/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ completion, userId: targetId }),
+    });
+  } catch (err) {
+    console.warn("API upsertDbCompletion error:", err);
   }
 }
 
