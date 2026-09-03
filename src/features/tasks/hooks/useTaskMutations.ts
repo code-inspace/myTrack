@@ -660,6 +660,23 @@ export function useTaskMutations() {
         );
       } catch {}
     },
+    onMutate: async ({ taskId }) => {
+      await queryClient.cancelQueries({ queryKey: ["tasks"] });
+      const previousTasks = queryClient.getQueryData<Task[]>(["tasks"]);
+      const nowIso = new Date().toISOString();
+
+      queryClient.setQueryData<Task[]>(["tasks"], (old) => {
+        if (!Array.isArray(old)) return old;
+        return old.map((t) => (t.id === taskId ? { ...t, isActive: true, startedAt: nowIso } : t));
+      });
+
+      return { previousTasks };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previousTasks) {
+        queryClient.setQueryData(["tasks"], context.previousTasks);
+      }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       queryClient.invalidateQueries({ queryKey: ["completions"] });
@@ -725,6 +742,22 @@ export function useTaskMutations() {
         await LiveActivityBridge.stopActivity(taskId);
       } catch {}
       await syncProjectStatusToDoneColumn(taskId, userId);
+    },
+    onMutate: async ({ taskId }) => {
+      await queryClient.cancelQueries({ queryKey: ["tasks"] });
+      const previousTasks = queryClient.getQueryData<Task[]>(["tasks"]);
+
+      queryClient.setQueryData<Task[]>(["tasks"], (old) => {
+        if (!Array.isArray(old)) return old;
+        return old.map((t) => (t.id === taskId ? { ...t, isActive: false, startedAt: null } : t));
+      });
+
+      return { previousTasks };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previousTasks) {
+        queryClient.setQueryData(["tasks"], context.previousTasks);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });

@@ -116,6 +116,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           )}
 
           <button
+            type="button"
+            onPointerDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
             onClick={handleCircleClick}
             aria-label={isCompleted ? "Marquer comme non fait" : "Marquer comme fait"}
             className={cn(
@@ -264,9 +267,12 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         </div>
 
         {/* Right Actions: Progression counter placed ABOVE Démarrer */}
-        <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+        <div className="flex flex-col items-end gap-1.5 flex-shrink-0" onPointerDown={(e) => e.stopPropagation()}>
           {isQuantitative && (
             <button
+              type="button"
+              onPointerDown={(e) => e.stopPropagation()}
+              onTouchStart={(e) => e.stopPropagation()}
               onClick={() => onOpenLogModal(task)}
               className="px-2.5 py-1 rounded-xl bg-[#252830] hover:bg-[#343740] text-xs font-bold text-white transition-all flex items-center gap-1.5 cursor-pointer border border-[#383C48]"
               title="Modifier la progression"
@@ -285,6 +291,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           {!isCompleted && (
             <button
               type="button"
+              onPointerDown={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              onTouchStart={(e) => e.stopPropagation()}
               onClick={(e) => {
                 e.stopPropagation();
                 e.preventDefault();

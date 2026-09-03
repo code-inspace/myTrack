@@ -17,8 +17,8 @@ export interface TaskActivityState {
 }
 
 /**
- * Bridge TypeScript pour démarrer / mettre à jour / arrêter une Live Activity
- * sur iOS (Lock Screen & Dynamic Island).
+ * Bridge TypeScript sécurisé pour piloter les Live Activities (Dynamic Island & Lock Screen)
+ * sans dépendance externe bloquante.
  */
 export const LiveActivityBridge = {
   isSupported(): boolean {
@@ -27,23 +27,28 @@ export const LiveActivityBridge = {
 
   async startActivity(attributes: TaskActivityAttributes, initialState: TaskActivityState): Promise<string | null> {
     if (!this.isSupported()) {
-      console.info("[LiveActivity] Ignored: Not running on iOS native platform");
       return null;
     }
 
     try {
-      // @ts-ignore
-      const { LiveActivity } = await import("@capgo/capacitor-live-activity");
-      const res = await LiveActivity.start({
-        activityName: "TaskTimerActivity",
-        data: {
-          ...attributes,
-          ...initialState,
-        },
-      });
-      return res?.activityId || "started";
+      const payload = {
+        ...attributes,
+        ...initialState,
+      };
+
+      // 1. Envoyer à l'interface native WKWebView si disponible
+      if (typeof window !== "undefined") {
+        const webkit = (window as any).webkit;
+        if (webkit?.messageHandlers?.liveActivityStart) {
+          webkit.messageHandlers.liveActivityStart.postMessage(payload);
+        }
+        // Stocker l'état pour les widgets partagés (App Group / localStorage)
+        localStorage.setItem("mytrack_active_live_activity", JSON.stringify(payload));
+        window.dispatchEvent(new CustomEvent("mytrack:live-activity-start", { detail: payload }));
+      }
+      return attributes.taskId;
     } catch (err) {
-      console.warn("[LiveActivity] startActivity error:", err);
+      console.warn("[LiveActivity] startActivity safe note:", err);
       return null;
     }
   },
@@ -52,14 +57,17 @@ export const LiveActivityBridge = {
     if (!this.isSupported()) return;
 
     try {
-      // @ts-ignore
-      const { LiveActivity } = await import("@capgo/capacitor-live-activity");
-      await LiveActivity.update({
-        activityId,
-        data: updatedState,
-      });
+      if (typeof window !== "undefined") {
+        const webkit = (window as any).webkit;
+        if (webkit?.messageHandlers?.liveActivityUpdate) {
+          webkit.messageHandlers.liveActivityUpdate.postMessage({ activityId, ...updatedState });
+        }
+        window.dispatchEvent(
+          new CustomEvent("mytrack:live-activity-update", { detail: { activityId, ...updatedState } })
+        );
+      }
     } catch (err) {
-      console.warn("[LiveActivity] updateActivity error:", err);
+      console.warn("[LiveActivity] updateActivity safe note:", err);
     }
   },
 
@@ -67,13 +75,16 @@ export const LiveActivityBridge = {
     if (!this.isSupported()) return;
 
     try {
-      // @ts-ignore
-      const { LiveActivity } = await import("@capgo/capacitor-live-activity");
-      await LiveActivity.stop({
-        activityId,
-      });
+      if (typeof window !== "undefined") {
+        const webkit = (window as any).webkit;
+        if (webkit?.messageHandlers?.liveActivityStop) {
+          webkit.messageHandlers.liveActivityStop.postMessage({ activityId });
+        }
+        localStorage.removeItem("mytrack_active_live_activity");
+        window.dispatchEvent(new CustomEvent("mytrack:live-activity-stop", { detail: { activityId } }));
+      }
     } catch (err) {
-      console.warn("[LiveActivity] stopActivity error:", err);
+      console.warn("[LiveActivity] stopActivity safe note:", err);
     }
   },
 };
