@@ -39,6 +39,7 @@ interface AgendaTimelineProps {
   onEditTask?: (task: TaskWithCompletion) => void;
   onMoveTaskToTime: (taskId: string, startTime: string, endTime: string, date?: string) => void;
   onDropToAllDay?: (taskId: string, date?: string) => void;
+  onMoveTaskOccurrence?: (taskId: string, targetDate: string) => void;
   onDragStartTask: (e: React.DragEvent, task: TaskWithCompletion) => void;
   onSelectTask?: (task: TaskWithCompletion) => void;
 }
@@ -120,6 +121,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
   onEditTask,
   onMoveTaskToTime,
   onDropToAllDay,
+  onMoveTaskOccurrence,
   onDragStartTask,
   onSelectTask,
 }) => {
@@ -488,6 +490,23 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
                     <div
                       key={dayStr}
                       onClick={() => onSelectDate?.(dayStr)}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = "move";
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        const taskId =
+                          e.dataTransfer.getData("taskId") ||
+                          e.dataTransfer.getData("text/plain");
+                        if (taskId) {
+                          if (onMoveTaskOccurrence) {
+                            onMoveTaskOccurrence(taskId, dayStr);
+                          } else if (onDropToAllDay) {
+                            onDropToAllDay(taskId, dayStr);
+                          }
+                        }
+                      }}
                       className={cn(
                         "flex-1 min-w-[120px] md:min-w-[150px] py-1.5 px-2 text-center border-r border-[#202228] transition-colors cursor-pointer",
                         isCurrentSelected ? "bg-[#1C1E28]" : "hover:bg-[#181920]"

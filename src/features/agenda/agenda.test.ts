@@ -57,3 +57,40 @@ describe("Agenda Task Resizing Logic (Mobile & Desktop)", () => {
     expect(result.endTimeStr).toBe("23:55");
   });
 });
+
+describe("Agenda Multi-Day Task Distribution & Moving Logic", () => {
+  it("computes tasks for specific dates accurately", async () => {
+    const { computeTasksForDate } = await import("./components/AgendaTimeline");
+    const taskOnce: any = {
+      id: "t-once",
+      userId: "u1",
+      title: "One-shot task",
+      recurrence: "ONCE",
+      createdAt: "2026-09-02T12:00:00.000Z",
+      trackingType: "BOOLEAN",
+      isActive: false,
+      isArchived: false,
+    };
+    const taskDaily: any = {
+      id: "t-daily",
+      userId: "u1",
+      title: "Daily task",
+      recurrence: "DAILY",
+      createdAt: "2026-09-01T12:00:00.000Z",
+      trackingType: "BOOLEAN",
+      isActive: false,
+      isArchived: false,
+    };
+
+    const { getTodayDateString } = await import("@/lib/dates");
+    const today = getTodayDateString();
+
+    const tasksToday = computeTasksForDate(today, [taskOnce, taskDaily], []);
+    expect(tasksToday.some((t) => t.id === "t-once")).toBe(true);
+    expect(tasksToday.some((t) => t.id === "t-daily")).toBe(true);
+
+    const tasksFuture = computeTasksForDate("2099-01-01", [taskOnce, taskDaily], []);
+    expect(tasksFuture.some((t) => t.id === "t-once")).toBe(false);
+    expect(tasksFuture.some((t) => t.id === "t-daily")).toBe(true);
+  });
+});

@@ -37,6 +37,7 @@ interface TasksHeaderWithNavProps {
   onChangeTab?: (tab: TasksTab) => void;
   /** true while a habit card is being dragged, to hint that the day strip accepts drops */
   isDragActive?: boolean;
+  onDropDate?: (dateStr: string, taskId: string) => void;
 }
 
 export const TasksHeaderWithNav: React.FC<TasksHeaderWithNavProps> = ({
@@ -46,6 +47,7 @@ export const TasksHeaderWithNav: React.FC<TasksHeaderWithNavProps> = ({
   activeTab,
   onChangeTab,
   isDragActive,
+  onDropDate,
 }) => {
   const pathname = usePathname();
   const { displayMode } = useDisplayMode();
@@ -87,6 +89,7 @@ export const TasksHeaderWithNav: React.FC<TasksHeaderWithNavProps> = ({
             selectedDate={selectedDate}
             onSelectDate={onSelectDate}
             isDragActive={isDragActive}
+            onDropDate={onDropDate}
           />
         </div>
       )}

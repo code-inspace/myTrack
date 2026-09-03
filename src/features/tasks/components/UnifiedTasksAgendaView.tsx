@@ -270,6 +270,9 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
               activeTab={activeTab}
               onChangeTab={handleTabChange}
               isDragActive={Boolean(activeDragTaskId)}
+              onDropDate={(dateStr, taskId) =>
+                moveOccurrence.mutate({ taskId, fromDate: selectedDate, toDate: dateStr })
+              }
             />
           </div>
 
@@ -522,6 +525,9 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
                   }}
                   onMoveTaskToTime={handleMoveTaskToTime}
                   onDropToAllDay={handleDropToAllDay}
+                  onMoveTaskOccurrence={(taskId, targetDate) =>
+                    moveOccurrence.mutate({ taskId, fromDate: selectedDate, toDate: targetDate })
+                  }
                   onDragStartTask={handleDragStartTask}
                 />
               </div>

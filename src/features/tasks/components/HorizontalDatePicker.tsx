@@ -32,17 +32,35 @@ interface HorizontalDatePickerProps {
   onSelectDate: (date: string) => void;
   /** true while a habit card is being dragged, to hint that days accept drops */
   isDragActive?: boolean;
+  onDropDate?: (dateStr: string, taskId: string) => void;
 }
 
-const DayDropTarget: React.FC<{ dateStr: string; isDragActive?: boolean; children: React.ReactNode }> = ({
+const DayDropTarget: React.FC<{
+  dateStr: string;
+  isDragActive?: boolean;
+  onDropDate?: (dateStr: string, taskId: string) => void;
+  children: React.ReactNode;
+}> = ({
   dateStr,
   isDragActive,
+  onDropDate,
   children,
 }) => {
   const { setNodeRef, isOver } = useDroppable({ id: `${DAY_DROP_ID_PREFIX}${dateStr}` });
   return (
     <div
       ref={setNodeRef}
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        const taskId = e.dataTransfer.getData("taskId") || e.dataTransfer.getData("text/plain");
+        if (taskId && onDropDate) {
+          onDropDate(dateStr, taskId);
+        }
+      }}
       className={cnClass(
         "flex-shrink-0 rounded-2xl transition-all",
         isOver ? "ring-2 ring-[#D4F63D] scale-105" : isDragActive ? "ring-1 ring-[#D4F63D]/30" : ""
@@ -57,6 +75,7 @@ export const HorizontalDatePicker: React.FC<HorizontalDatePickerProps> = ({
   selectedDate,
   onSelectDate,
   isDragActive,
+  onDropDate,
 }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
@@ -370,7 +389,12 @@ export const HorizontalDatePicker: React.FC<HorizontalDatePickerProps> = ({
           const isSelected = day.dateStr === selectedDate;
 
           return (
-            <DayDropTarget key={day.dateStr} dateStr={day.dateStr} isDragActive={isDragActive}>
+            <DayDropTarget
+              key={day.dateStr}
+              dateStr={day.dateStr}
+              isDragActive={isDragActive}
+              onDropDate={onDropDate}
+            >
               <button
                 ref={isSelected ? selectedButtonRef : null}
                 type="button"

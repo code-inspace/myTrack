@@ -232,6 +232,38 @@ export async function updateTaskSchedule({
   const utcStart = startTime ? convertLocalTimeToUtc(startTime, date) : null;
   const utcEnd = endTime ? convertLocalTimeToUtc(endTime, date) : null;
 
+  if (!isRecurring) {
+    // For a ONCE task, updating schedule for a date also moves the task occurrence to that target date!
+    const createdIso = `${date}T12:00:00.000Z`;
+    try {
+      await supabase
+        .from("tasks")
+        .update({
+          start_time: utcStart,
+          end_time: utcEnd,
+          created_at: createdIso,
+          updated_at: nowIso,
+        })
+        .eq("id", taskId);
+    } catch (err) {
+      console.warn("Supabase updateTaskSchedule ONCE error:", err);
+    }
+
+    const updated = tasks.map((t) =>
+      t.id === taskId
+        ? {
+            ...t,
+            startTime,
+            endTime,
+            createdAt: createdIso,
+            updatedAt: nowIso,
+          }
+        : t,
+    );
+    saveStoredTasks(updated, targetId);
+    return;
+  }
+
   if (isRecurring && !applyToAll) {
     // Specific day override
     const currentOverrides = target?.dateOverrides || {};
