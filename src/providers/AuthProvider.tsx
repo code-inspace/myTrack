@@ -27,7 +27,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<UserSession | null>(() => getStoredUserSession());
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -84,38 +84,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const supabase = createClient();
 
-    // 1. Check initial active Supabase Auth session
-    supabase.auth.getSession().then((res: any) => {
-      const session = res.data?.session;
-      if (session?.user) {
-        const mapped = mapSupabaseUserToSession(session.user);
-        setUser(mapped);
-        setStoredUserSession(mapped);
-        loginOneSignalUser(mapped.id);
-      } else {
-        const stored = getStoredUserSession();
-        if (!stored) {
-          setUser(null);
-        }
-      }
+    // 1. Check initial active Supabase Auth session with safety timeout
+    const timeout = setTimeout(() => {
       setIsLoading(false);
-    });
+    }, 800);
+
+    supabase.auth
+      .getSession()
+      .then((res: any) => {
+        clearTimeout(timeout);
+        const session = res.data?.session;
+        if (session?.user) {
+          const mapped = mapSupabaseUserToSession(session.user);
+          setUser(mapped);
+          setStoredUserSession(mapped);
+          loginOneSignalUser(mapped.id);
+        } else {
+          const stored = getStoredUserSession();
+          if (!stored) {
+            setUser(null);
+          }
+        }
+        setIsLoading(false);
+      })
+      .catch(() => {
+        clearTimeout(timeout);
+        setIsLoading(false);
+      });
 
     // 2. Real-time auth listener from Supabase
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
+    } = supabase.auth.onAuthStateChange((event: string, session: any) => {
+      if (event === "SIGNED_OUT") {
+        setUser(null);
+        setStoredUserSession(null);
+        logoutOneSignalUser();
+        queryClient.invalidateQueries();
+        return;
+      }
+
       if (session?.user) {
         const mapped = mapSupabaseUserToSession(session.user);
         setUser(mapped);
         setStoredUserSession(mapped);
         loginOneSignalUser(mapped.id);
-      } else {
-        setUser(null);
-        setStoredUserSession(null);
-        logoutOneSignalUser();
+        queryClient.invalidateQueries();
       }
-      queryClient.invalidateQueries();
     });
 
     return () => {

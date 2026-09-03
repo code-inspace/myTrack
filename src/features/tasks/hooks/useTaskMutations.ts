@@ -23,6 +23,7 @@ import { getStoredProjects } from "@/features/projects/actions";
 import { getProjectColumns, DEFAULT_PROJECT_COLUMNS } from "@/features/projects/types";
 import { addHoursToTimeString, getTodayDateString } from "@/lib/dates";
 import { format } from "date-fns";
+import { LiveActivityBridge } from "@/lib/native/liveActivity";
 
 export function useTaskMutations() {
   const queryClient = useQueryClient();
@@ -639,6 +640,25 @@ export function useTaskMutations() {
       });
 
       await updateDbTaskActive(taskId, true, userId);
+
+      try {
+        await LiveActivityBridge.startActivity(
+          {
+            taskId,
+            taskTitle: targetTask?.title || "Tâche en cours",
+            category: targetTask?.category,
+          },
+          {
+            currentStatus: "IN_PROGRESS",
+            startedAtTimestamp: Date.now(),
+            elapsedSeconds: 0,
+            targetDurationSeconds: ((targetTask?.targetValue || 30) as number) * 60,
+            totalFormattedDuration: `${targetTask?.targetValue || 30} min`,
+            subtitle: targetTask?.category || "En cours",
+            progress: 0,
+          }
+        );
+      } catch {}
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
@@ -701,6 +721,9 @@ export function useTaskMutations() {
       });
 
       await updateDbTaskActive(taskId, false, userId);
+      try {
+        await LiveActivityBridge.stopActivity(taskId);
+      } catch {}
       await syncProjectStatusToDoneColumn(taskId, userId);
     },
     onSuccess: () => {

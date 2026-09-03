@@ -25,9 +25,9 @@ export default function LoginPage() {
     setIsLoading(false);
 
     if (res.success) {
-      router.push("/tasks");
+      window.location.href = "/tasks";
     } else if (res.requiresConfirmation) {
-      router.push(`/auth/verify-email?email=${encodeURIComponent(email.trim())}`);
+      router.replace(`/auth/verify-email?email=${encodeURIComponent(email.trim())}`);
     } else {
       setError(res.error || "Erreur de connexion");
     }

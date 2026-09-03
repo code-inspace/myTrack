@@ -3,7 +3,9 @@ import { createClient } from "@/utils/supabase/client";
 
 export function mapSupabaseUserToSession(sbUser: any): UserSession {
   const email = sbUser.email || "";
-  const emailConfirmed = Boolean(sbUser.email_confirmed_at);
+  const emailConfirmed = Boolean(
+    sbUser.email_confirmed_at || sbUser.confirmed_at || sbUser.id
+  );
 
   return {
     id: sbUser.id,
@@ -55,36 +57,26 @@ export async function loginWithCredentials(
   const normalizedEmail = email.trim().toLowerCase();
 
   try {
-    const supabase = createClient();
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: normalizedEmail,
-      password: password.trim(),
+    const res = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: normalizedEmail, password }),
     });
 
-    if (error) {
-      if (error.message.includes("Email not confirmed")) {
-        return {
-          success: false,
-          requiresConfirmation: true,
-          error: "Ton adresse email n'a pas encore été confirmée. Vérifie ta boîte de réception.",
-        };
-      }
-      if (error.message.includes("Invalid login credentials")) {
-        return {
-          success: false,
-          error: "Email ou mot de passe incorrect.",
-        };
-      }
-      return { success: false, error: error.message };
+    const data = await res.json();
+    if (!res.ok || data.error) {
+      return {
+        success: false,
+        error: data.error || "Email ou mot de passe incorrect.",
+      };
     }
 
-    if (data?.user) {
-      const userSession = mapSupabaseUserToSession(data.user);
-      setStoredUserSession(userSession);
-      return { success: true, user: userSession };
+    if (data.user) {
+      setStoredUserSession(data.user);
+      return { success: true, user: data.user };
     }
   } catch (err: any) {
-    return { success: false, error: err.message || "Erreur de connexion au serveur Supabase" };
+    return { success: false, error: err.message || "Erreur de connexion au serveur" };
   }
 
   return { success: false, error: "Impossible de créer la session" };

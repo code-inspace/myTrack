@@ -9,6 +9,11 @@ let currentSyncedUserId: string | null = null;
 export async function initOneSignal(): Promise<void> {
   if (typeof window === "undefined" || isInitialized) return;
 
+  // Web Push is not supported in iOS WKWebView native wrapper (uses APNs native instead)
+  if (typeof (window as any).Capacitor !== "undefined" && (window as any).Capacitor.getPlatform?.() === "ios") {
+    return;
+  }
+
   const appId =
     process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID ||
     "945a1ce4-1662-414e-9e72-9d014e9c3f5f";

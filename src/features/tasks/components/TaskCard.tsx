@@ -284,8 +284,13 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 
           {!isCompleted && (
             <button
-              onClick={() => onToggleActive(task.id)}
-              className="px-4 py-1.5 rounded-full bg-[#D4F63D] hover:bg-[#c2e42f] text-black font-extrabold text-xs flex items-center gap-1 shadow-md transition-all active:scale-95 cursor-pointer"
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                onToggleActive(task.id);
+              }}
+              className="px-4 py-1.5 rounded-full bg-[#D4F63D] hover:bg-[#c2e42f] text-black font-extrabold text-xs flex items-center gap-1 shadow-md transition-all active:scale-95 cursor-pointer z-10"
             >
               <Play className="w-3 h-3 fill-current" />
               <span>Démarrer</span>

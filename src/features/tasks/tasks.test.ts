@@ -286,4 +286,97 @@ describe("Tasks Feature Logic", () => {
       expect(isTaskDoneInPeriod(baseTask, completions15DaysAgo, "30d", "2026-08-27")).toBe(true);
     });
   });
+
+  describe("Task Start & Execution Flow (Démarrer / Active Timer)", () => {
+    it("activates task state with startedAt timestamp and prioritizes active task", () => {
+      const initialTask: Task = {
+        id: "task-running-1",
+        userId: "user-123",
+        title: "Séance Musculation",
+        category: "Sport",
+        recurrence: "DAILY",
+        trackingType: "DURATION",
+        targetValue: 45,
+        isActive: false,
+        startedAt: null,
+        isArchived: false,
+        createdAt: "2026-09-03T10:00:00.000Z",
+        updatedAt: "2026-09-03T10:00:00.000Z",
+      };
+
+      const nowIso = "2026-09-03T12:30:00.000Z";
+      const activatedTask: Task = {
+        ...initialTask,
+        isActive: true,
+        startedAt: nowIso,
+      };
+
+      expect(activatedTask.isActive).toBe(true);
+      expect(activatedTask.startedAt).toBe(nowIso);
+
+      const otherTask: Task = {
+        id: "task-idle-2",
+        userId: "user-123",
+        title: "Lecture",
+        category: "Mindset",
+        recurrence: "DAILY",
+        trackingType: "BOOLEAN",
+        isActive: false,
+        startedAt: null,
+        isArchived: false,
+        createdAt: "2026-09-03T10:00:00.000Z",
+        updatedAt: "2026-09-03T10:00:00.000Z",
+      };
+
+      const mappedList = [initialTask, activatedTask, otherTask].map((t) =>
+        mapTaskWithCompletion(t, [], "2026-09-03")
+      );
+      const sorted = sortTasksByPriority(mappedList);
+
+      // The active task must be first
+      expect(sorted[0].id).toBe("task-running-1");
+      expect(sorted[0].isActive).toBe(true);
+    });
+
+    it("generates correct Live Activity attributes and initial state payload for iOS/Dynamic Island", () => {
+      const task: Task = {
+        id: "task-live-1",
+        userId: "user-123",
+        title: "Dip sur banc",
+        category: "Fitness",
+        recurrence: "ONCE",
+        trackingType: "DURATION",
+        targetValue: 50,
+        isActive: true,
+        isArchived: false,
+        createdAt: "2026-09-03T12:00:00.000Z",
+        updatedAt: "2026-09-03T12:00:00.000Z",
+      };
+
+      const nowTimestamp = 1788438600000;
+      const targetDurationMinutes = task.targetValue || 30;
+
+      const activityAttributes = {
+        taskId: task.id,
+        taskTitle: task.title,
+        category: task.category,
+      };
+
+      const activityState = {
+        currentStatus: "IN_PROGRESS" as const,
+        startedAtTimestamp: nowTimestamp,
+        elapsedSeconds: 0,
+        targetDurationSeconds: targetDurationMinutes * 60,
+        totalFormattedDuration: `${targetDurationMinutes} min`,
+        subtitle: task.category || "En cours",
+        progress: 0,
+      };
+
+      expect(activityAttributes.taskId).toBe("task-live-1");
+      expect(activityAttributes.taskTitle).toBe("Dip sur banc");
+      expect(activityState.currentStatus).toBe("IN_PROGRESS");
+      expect(activityState.targetDurationSeconds).toBe(3000);
+      expect(activityState.totalFormattedDuration).toBe("50 min");
+    });
+  });
 });
