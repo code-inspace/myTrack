@@ -163,6 +163,58 @@ export async function POST(req: NextRequest) {
   }
 }
 
+// PATCH /api/tasks
+export async function PATCH(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const { taskId, updates, userId } = body;
+
+    if (!taskId) {
+      return NextResponse.json({ error: "Missing taskId" }, { status: 400 });
+    }
+
+    const supabase = getAdminClient();
+    const dbPayload: any = {
+      updated_at: new Date().toISOString(),
+    };
+
+    if (updates.isActive !== undefined) {
+      dbPayload.is_active = updates.isActive;
+    }
+    if (updates.startedAt !== undefined) {
+      dbPayload.started_at = updates.startedAt;
+    }
+    if (updates.startTime !== undefined) {
+      dbPayload.start_time = updates.startTime;
+    }
+    if (updates.endTime !== undefined) {
+      dbPayload.end_time = updates.endTime;
+    }
+    if (updates.title !== undefined) {
+      dbPayload.title = await encryptText(updates.title);
+    }
+    if (updates.description !== undefined) {
+      dbPayload.description = updates.description ? await encryptText(updates.description) : null;
+    }
+
+    let query = supabase.from("tasks").update(dbPayload).eq("id", taskId);
+    if (userId) {
+      query = query.eq("user_id", userId);
+    }
+
+    const { error } = await query;
+    if (error) {
+      console.error("API /api/tasks PATCH error:", error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true, taskId, updates });
+  } catch (err: any) {
+    console.error("API /api/tasks PATCH exception:", err);
+    return NextResponse.json({ error: err?.message || "Internal server error" }, { status: 500 });
+  }
+}
+
 // DELETE /api/tasks?id=...&userId=...
 export async function DELETE(req: NextRequest) {
   try {

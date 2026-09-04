@@ -5,8 +5,8 @@ const config: CapacitorConfig = {
   appName: "myTrack",
   webDir: "out",
   server: {
-    // 127.0.0.1 ou IP LAN du Mac pour le simulateur iOS
-    url: "http://127.0.0.1:3000",
+    // IP LAN du Mac pour permettre au téléphone physique et au simulateur de se connecter
+    url: "http://192.168.68.105:3000",
     cleartext: true,
   },
   ios: {

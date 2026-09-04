@@ -1,4 +1,4 @@
-import { Capacitor } from "@capacitor/core";
+import { Capacitor, registerPlugin } from "@capacitor/core";
 
 export interface TaskActivityAttributes {
   taskId: string;
@@ -16,9 +16,17 @@ export interface TaskActivityState {
   progress?: number;
 }
 
+interface LiveActivityPluginInterface {
+  startActivity(options: any): Promise<{ activityId?: string; taskId?: string }>;
+  updateActivity(options: any): Promise<{ success: boolean }>;
+  stopActivity(options: any): Promise<{ success: boolean }>;
+}
+
+const NativeLiveActivity = registerPlugin<LiveActivityPluginInterface>("LiveActivityPlugin");
+
 /**
- * Bridge TypeScript sécurisé pour piloter les Live Activities (Dynamic Island & Lock Screen)
- * sans dépendance externe bloquante.
+ * Bridge TypeScript pour démarrer / mettre à jour / arrêter une Live Activity
+ * sur iOS (Lock Screen & Dynamic Island).
  */
 export const LiveActivityBridge = {
   isSupported(): boolean {
@@ -36,19 +44,23 @@ export const LiveActivityBridge = {
         ...initialState,
       };
 
-      // 1. Envoyer à l'interface native WKWebView si disponible
+      // 1. Déclencher le plugin natif Swift Capacitor
+      try {
+        const res = await NativeLiveActivity.startActivity(payload);
+        console.log("[LiveActivityBridge] Native activity started:", res);
+      } catch (nativeErr) {
+        console.warn("[LiveActivityBridge] Native call note:", nativeErr);
+      }
+
+      // 2. Stocker l'état pour les widgets partagés (App Group / localStorage)
       if (typeof window !== "undefined") {
-        const webkit = (window as any).webkit;
-        if (webkit?.messageHandlers?.liveActivityStart) {
-          webkit.messageHandlers.liveActivityStart.postMessage(payload);
-        }
-        // Stocker l'état pour les widgets partagés (App Group / localStorage)
         localStorage.setItem("mytrack_active_live_activity", JSON.stringify(payload));
         window.dispatchEvent(new CustomEvent("mytrack:live-activity-start", { detail: payload }));
       }
+
       return attributes.taskId;
     } catch (err) {
-      console.warn("[LiveActivity] startActivity safe note:", err);
+      console.warn("[LiveActivity] startActivity error:", err);
       return null;
     }
   },
@@ -57,17 +69,17 @@ export const LiveActivityBridge = {
     if (!this.isSupported()) return;
 
     try {
+      try {
+        await NativeLiveActivity.updateActivity({ activityId, ...updatedState });
+      } catch {}
+
       if (typeof window !== "undefined") {
-        const webkit = (window as any).webkit;
-        if (webkit?.messageHandlers?.liveActivityUpdate) {
-          webkit.messageHandlers.liveActivityUpdate.postMessage({ activityId, ...updatedState });
-        }
         window.dispatchEvent(
           new CustomEvent("mytrack:live-activity-update", { detail: { activityId, ...updatedState } })
         );
       }
     } catch (err) {
-      console.warn("[LiveActivity] updateActivity safe note:", err);
+      console.warn("[LiveActivity] updateActivity error:", err);
     }
   },
 
@@ -75,16 +87,16 @@ export const LiveActivityBridge = {
     if (!this.isSupported()) return;
 
     try {
+      try {
+        await NativeLiveActivity.stopActivity({ activityId });
+      } catch {}
+
       if (typeof window !== "undefined") {
-        const webkit = (window as any).webkit;
-        if (webkit?.messageHandlers?.liveActivityStop) {
-          webkit.messageHandlers.liveActivityStop.postMessage({ activityId });
-        }
         localStorage.removeItem("mytrack_active_live_activity");
         window.dispatchEvent(new CustomEvent("mytrack:live-activity-stop", { detail: { activityId } }));
       }
     } catch (err) {
-      console.warn("[LiveActivity] stopActivity safe note:", err);
+      console.warn("[LiveActivity] stopActivity error:", err);
     }
   },
 };

@@ -662,18 +662,22 @@ export function useTaskMutations() {
     },
     onMutate: async ({ taskId }) => {
       await queryClient.cancelQueries({ queryKey: ["tasks"] });
-      const previousTasks = queryClient.getQueryData<Task[]>(["tasks"]);
+      const previousTasks = queryClient.getQueryData<Task[]>(["tasks", userId]) || queryClient.getQueryData<Task[]>(["tasks"]);
       const nowIso = new Date().toISOString();
 
-      queryClient.setQueryData<Task[]>(["tasks"], (old) => {
+      const updater = (old: any) => {
         if (!Array.isArray(old)) return old;
         return old.map((t) => (t.id === taskId ? { ...t, isActive: true, startedAt: nowIso } : t));
-      });
+      };
+
+      queryClient.setQueryData<Task[]>(["tasks", userId], updater);
+      queryClient.setQueryData<Task[]>(["tasks"], updater);
 
       return { previousTasks };
     },
     onError: (_err, _vars, context) => {
       if (context?.previousTasks) {
+        queryClient.setQueryData(["tasks", userId], context.previousTasks);
         queryClient.setQueryData(["tasks"], context.previousTasks);
       }
     },
@@ -745,17 +749,21 @@ export function useTaskMutations() {
     },
     onMutate: async ({ taskId }) => {
       await queryClient.cancelQueries({ queryKey: ["tasks"] });
-      const previousTasks = queryClient.getQueryData<Task[]>(["tasks"]);
+      const previousTasks = queryClient.getQueryData<Task[]>(["tasks", userId]) || queryClient.getQueryData<Task[]>(["tasks"]);
 
-      queryClient.setQueryData<Task[]>(["tasks"], (old) => {
+      const updater = (old: any) => {
         if (!Array.isArray(old)) return old;
         return old.map((t) => (t.id === taskId ? { ...t, isActive: false, startedAt: null } : t));
-      });
+      };
+
+      queryClient.setQueryData<Task[]>(["tasks", userId], updater);
+      queryClient.setQueryData<Task[]>(["tasks"], updater);
 
       return { previousTasks };
     },
     onError: (_err, _vars, context) => {
       if (context?.previousTasks) {
+        queryClient.setQueryData(["tasks", userId], context.previousTasks);
         queryClient.setQueryData(["tasks"], context.previousTasks);
       }
     },

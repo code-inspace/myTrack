@@ -22,35 +22,14 @@ export async function updateDbTaskActive(
   isActive: boolean,
   userId?: string,
 ): Promise<void> {
-  const supabase = createClient();
   let targetId = userId;
   if (!targetId) {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    targetId = session?.user?.id || getEffectiveUserId();
+    targetId = getEffectiveUserId();
   }
 
   const nowIso = new Date().toISOString();
 
-  try {
-    if (isActive) {
-      // Activate target task with started_at = now (without deactivating other parallel tasks)
-      await supabase
-        .from("tasks")
-        .update({ is_active: true, started_at: nowIso, updated_at: nowIso })
-        .eq("id", taskId);
-    } else {
-      // Stop target task
-      await supabase
-        .from("tasks")
-        .update({ is_active: false, started_at: null, updated_at: nowIso })
-        .eq("id", taskId);
-    }
-  } catch (err) {
-    console.warn("Supabase updateDbTaskActive error:", err);
-  }
-
+  // 1. Immediately update localStorage for instant UI reactivity
   const tasks = getStoredTasks(targetId);
   const updated = tasks.map((t) => {
     if (t.id === taskId) {
@@ -64,6 +43,24 @@ export async function updateDbTaskActive(
     return t;
   });
   saveStoredTasks(updated, targetId);
+
+  // 2. Persist to server via robust PATCH API route
+  try {
+    fetch("/api/tasks", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        taskId,
+        userId: targetId,
+        updates: {
+          isActive,
+          startedAt: isActive ? nowIso : null,
+        },
+      }),
+    }).catch((err) => console.warn("API updateDbTaskActive PATCH note:", err));
+  } catch (err) {
+    console.warn("updateDbTaskActive error:", err);
+  }
 }
 
 export async function updateDbTaskStartedAt(
