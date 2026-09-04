@@ -82,6 +82,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
     reorderTasks,
     moveOccurrence,
     toggleTaskActive,
+    stopTaskExecution,
     toggleCompletion,
     updateCompletionValue,
     updateTaskStartedAt,
@@ -389,7 +390,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
                       <ActiveTaskBanner
                         key={activeItem.id}
                         task={activeItem}
-                        onStop={(taskId) => toggleTaskActive.mutate({ taskId, date: selectedDate })}
+                        onStop={(taskId) => stopTaskExecution.mutate({ taskId, date: selectedDate })}
                         onComplete={(taskId) => toggleCompletion.mutate({ taskId, date: selectedDate })}
                         onOpenLogModal={(t) => setSelectedLoggingTask(t)}
                         onUpdateStartTime={(taskId, newTime) =>
@@ -482,6 +483,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
                   }}
                   onToggleComplete={(taskId) => toggleCompletion.mutate({ taskId, date: selectedDate })}
                   onToggleActive={(taskId) => toggleTaskActive.mutate({ taskId, date: selectedDate })}
+                  onStopTask={(taskId) => stopTaskExecution.mutate({ taskId, date: selectedDate })}
                   onToggleReminder={(taskId) => {
                     const target = tasks.find((t) => t.id === taskId);
                     const newEnable = target ? !(target.enableReminders !== false) : true;

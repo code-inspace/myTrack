@@ -37,6 +37,7 @@ interface DesktopTasksViewProps {
   onEditTask: (task: TaskWithCompletion | Task) => void;
   onToggleComplete: (taskId: string) => void;
   onToggleActive: (taskId: string) => void;
+  onStopTask?: (taskId: string) => void;
   onToggleReminder: (taskId: string) => void;
   onOpenLogModal: (task: TaskWithCompletion) => void;
   onDeleteTask: (taskId: string) => void;
@@ -61,6 +62,7 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
   onEditTask,
   onToggleComplete,
   onToggleActive,
+  onStopTask,
   onToggleReminder,
   onOpenLogModal,
   onDeleteTask,
@@ -401,7 +403,7 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
             <div className="space-y-3">
               <ActiveTaskBanner
                 task={activeTask}
-                onStop={(taskId) => onToggleActive(taskId)}
+                onStop={(taskId) => (onStopTask ? onStopTask(taskId) : onToggleActive(taskId))}
                 onComplete={(taskId) => onToggleComplete(taskId)}
                 onOpenLogModal={(t) => onOpenLogModal(t)}
                 onUpdateStartTime={(taskId, newTime) =>

@@ -691,8 +691,11 @@ export function useTaskMutations() {
     mutationFn: async ({ taskId, date }: { taskId: string; date: string }) => {
       const now = new Date();
       const nowTime = format(now, "HH:mm");
-      const tasks = getStoredTasks(userId);
-      const targetTask = tasks.find((t) => t.id === taskId);
+      const currentTasks =
+        queryClient.getQueryData<Task[]>(["tasks", userId]) ||
+        queryClient.getQueryData<Task[]>(["tasks"]) ||
+        getStoredTasks(userId);
+      const targetTask = currentTasks.find((t) => t.id === taskId);
       const isRecurring =
         targetTask?.recurrence && targetTask.recurrence !== "ONCE";
 
@@ -709,7 +712,9 @@ export function useTaskMutations() {
           durationMinutes = Math.max(1, diffMinutes);
         }
       } else {
-        const completions = getStoredCompletions(userId);
+        const completions =
+          queryClient.getQueryData<TaskCompletion[]>(["completions", userId]) ||
+          getStoredCompletions(userId);
         const existing = completions.find(
           (c) => c.taskId === taskId && c.date === date,
         );
@@ -720,36 +725,57 @@ export function useTaskMutations() {
         }
       }
 
-      await updateTaskSchedule({
-        taskId,
-        date,
-        startTime: actualStart,
-        endTime: nowTime,
-        applyToAll: !isRecurring,
-        userId,
-      });
-
-      await upsertDbCompletion({
-        taskId,
-        userId,
-        date,
-        completed: true,
-        duration: durationMinutes,
-        actualStartTime: actualStart,
-        actualEndTime: nowTime,
-        scheduledStartTime: actualStart,
-        scheduledEndTime: nowTime,
-      });
-
+      // 1. Immediately deactivate task in database and local storage
       await updateDbTaskActive(taskId, false, userId);
+
+      // 2. Stop Live Activity
       try {
         await LiveActivityBridge.stopActivity(taskId);
       } catch {}
-      await syncProjectStatusToDoneColumn(taskId, userId);
+
+      // 3. Update schedule defensively
+      try {
+        await updateTaskSchedule({
+          taskId,
+          date,
+          startTime: actualStart,
+          endTime: nowTime,
+          applyToAll: !isRecurring,
+          userId,
+        });
+      } catch (err) {
+        console.warn("finishTaskExecution updateTaskSchedule error:", err);
+      }
+
+      // 4. Log completion with full elapsed duration (e.g. 26h = 1560 min)
+      try {
+        await upsertDbCompletion({
+          taskId,
+          userId,
+          date,
+          completed: true,
+          duration: durationMinutes,
+          actualStartTime: actualStart,
+          actualEndTime: nowTime,
+          scheduledStartTime: actualStart,
+          scheduledEndTime: nowTime,
+        });
+      } catch (err) {
+        console.warn("finishTaskExecution upsertDbCompletion error:", err);
+      }
+
+      // 5. Sync project status if linked to project
+      try {
+        await syncProjectStatusToDoneColumn(taskId, userId);
+      } catch (err) {
+        console.warn("finishTaskExecution syncProjectStatusToDoneColumn error:", err);
+      }
     },
     onMutate: async ({ taskId }) => {
       await queryClient.cancelQueries({ queryKey: ["tasks"] });
-      const previousTasks = queryClient.getQueryData<Task[]>(["tasks", userId]) || queryClient.getQueryData<Task[]>(["tasks"]);
+      const previousTasks =
+        queryClient.getQueryData<Task[]>(["tasks", userId]) ||
+        queryClient.getQueryData<Task[]>(["tasks"]);
 
       const updater = (old: any) => {
         if (!Array.isArray(old)) return old;
@@ -774,15 +800,24 @@ export function useTaskMutations() {
   });
 
   const toggleTaskActive = useMutation({
-    mutationFn: async (args: string | { taskId: string; date?: string }) => {
+    mutationFn: async (args: string | { taskId: string; date?: string; forceStop?: boolean }) => {
       const taskId = typeof args === "string" ? args : args.taskId;
       const date =
         typeof args === "string"
           ? getTodayDateString()
           : args.date || getTodayDateString();
+      const forceStop = typeof args === "object" ? args.forceStop : false;
 
-      const tasks = getStoredTasks(userId);
-      const target = tasks.find((t) => t.id === taskId);
+      if (forceStop) {
+        await finishTaskExecution.mutateAsync({ taskId, date });
+        return;
+      }
+
+      const currentTasks =
+        queryClient.getQueryData<Task[]>(["tasks", userId]) ||
+        queryClient.getQueryData<Task[]>(["tasks"]) ||
+        getStoredTasks(userId);
+      const target = currentTasks.find((t) => t.id === taskId);
       const isCurrentlyActive = Boolean(target?.isActive);
 
       if (!isCurrentlyActive) {
@@ -811,6 +846,7 @@ export function useTaskMutations() {
     updateCompletionValue,
     startTaskExecution,
     finishTaskExecution,
+    stopTaskExecution: finishTaskExecution,
     toggleTaskActive,
   };
 }

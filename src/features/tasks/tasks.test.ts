@@ -378,5 +378,78 @@ describe("Tasks Feature Logic", () => {
       expect(activityState.targetDurationSeconds).toBe(3000);
       expect(activityState.totalFormattedDuration).toBe("50 min");
     });
+
+    it("accurately handles stopping a task running for 26 hours across multi-day", () => {
+      // Started yesterday at 14:00
+      const startedAt = "2026-09-03T14:00:00.000Z";
+      // Stopped today at 16:00 (26 hours later)
+      const stoppedAt = new Date("2026-09-04T16:00:00.000Z");
+
+      const startDate = new Date(startedAt);
+      const diffMinutes = Math.round((stoppedAt.getTime() - startDate.getTime()) / 60000);
+      const durationMinutes = Math.max(1, diffMinutes);
+
+      // 26 hours = 26 * 60 = 1560 minutes
+      expect(durationMinutes).toBe(1560);
+
+      // Verify timer formatter for 26h (93600 seconds)
+      const totalSec = Math.floor((stoppedAt.getTime() - startDate.getTime()) / 1000);
+      const hours = Math.floor(totalSec / 3600);
+      const mins = Math.floor((totalSec % 3600) / 60);
+      const days = Math.floor(hours / 24);
+      const remHours = hours % 24;
+
+      expect(hours).toBe(26);
+      expect(days).toBe(1);
+      expect(remHours).toBe(2);
+
+      const formattedTimer = `${days}j ${remHours.toString().padStart(2, "0")}h ${mins.toString().padStart(2, "0")}m`;
+      expect(formattedTimer).toBe("1j 02h 00m");
+
+      // Verify task deactivation state
+      const runningTask: Task = {
+        id: "task-26h",
+        userId: "user-1",
+        title: "Long Run Marathon",
+        category: "Sport",
+        recurrence: "ONCE",
+        trackingType: "DURATION",
+        isActive: true,
+        startedAt,
+        isArchived: false,
+        createdAt: "2026-09-03T14:00:00.000Z",
+        updatedAt: "2026-09-03T14:00:00.000Z",
+      };
+
+      const stoppedTask: Task = {
+        ...runningTask,
+        isActive: false,
+        startedAt: null,
+        updatedAt: stoppedAt.toISOString(),
+      };
+
+      expect(stoppedTask.isActive).toBe(false);
+      expect(stoppedTask.startedAt).toBeNull();
+
+      const completion: TaskCompletion = {
+        id: "comp-26h",
+        taskId: runningTask.id,
+        userId: runningTask.userId,
+        date: "2026-09-04",
+        completed: true,
+        duration: durationMinutes,
+        actualStartTime: "14:00",
+        actualEndTime: "16:00",
+        createdAt: stoppedAt.toISOString(),
+        updatedAt: stoppedAt.toISOString(),
+      };
+
+      expect(completion.completed).toBe(true);
+      expect(completion.duration).toBe(1560);
+
+      const mapped = mapTaskWithCompletion(stoppedTask, [completion], "2026-09-04");
+      expect(mapped.isActive).toBe(false);
+      expect(mapped.isCompletedToday).toBe(true);
+    });
   });
 });

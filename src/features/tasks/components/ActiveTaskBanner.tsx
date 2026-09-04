@@ -71,6 +71,11 @@ export const ActiveTaskBanner: React.FC<ActiveTaskBannerProps> = ({
     const hours = Math.floor(totalSec / 3600);
     const mins = Math.floor((totalSec % 3600) / 60);
     const secs = totalSec % 60;
+    if (hours >= 24) {
+      const days = Math.floor(hours / 24);
+      const remHours = hours % 24;
+      return `${days}j ${remHours.toString().padStart(2, "0")}h ${mins.toString().padStart(2, "0")}m`;
+    }
     if (hours > 0) {
       return `${hours.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
     }
