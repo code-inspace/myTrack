@@ -7,6 +7,7 @@ import { ActiveTaskBanner } from "@/features/tasks/components/ActiveTaskBanner";
 import { TaskCard } from "@/features/tasks/components/TaskCard";
 import { TaskFormModal } from "@/features/tasks/components/TaskFormModal";
 import { QuantityLoggingModal } from "@/features/tasks/components/QuantityLoggingModal";
+import { LiveActivityPermissionModal } from "@/features/tasks/components/LiveActivityPermissionModal";
 import { InteractiveNotificationSheet } from "@/features/notifications/components/InteractiveNotificationSheet";
 import { VoiceFab } from "@/features/voice/components/VoiceFab";
 import { AgendaTimeline } from "@/features/agenda/components/AgendaTimeline";
@@ -55,11 +56,20 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskWithCompletion | Task | null>(null);
   const [selectedLoggingTask, setSelectedLoggingTask] = useState<TaskWithCompletion | null>(null);
+  const [isLiveActivityPermissionModalOpen, setIsLiveActivityPermissionModalOpen] = useState(false);
   const [quickTitle, setQuickTitle] = useState("");
   const [isTestNotificationOpen, setIsTestNotificationOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedExternalEvent, setSelectedExternalEvent] = useState<ExternalCalendarEvent | null>(null);
   const [manualCompletedEvents, setManualCompletedEvents] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    const handlePermissionNeeded = () => {
+      setIsLiveActivityPermissionModalOpen(true);
+    };
+    window.addEventListener("mytrack:live-activity-permission-needed", handlePermissionNeeded);
+    return () => window.removeEventListener("mytrack:live-activity-permission-needed", handlePermissionNeeded);
+  }, []);
 
   const { tasks, allTasks, allCompletions } = useTasks(selectedDate);
   const { events: externalEvents } = useCalendarEvents(selectedDate);
@@ -567,6 +577,12 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
         taskTitle="Pompes"
         onClose={() => setIsTestNotificationOpen(false)}
         onRespond={handleInteractiveResponse}
+      />
+
+      {/* Live Activity iOS Permission Alert Modal */}
+      <LiveActivityPermissionModal
+        isOpen={isLiveActivityPermissionModalOpen}
+        onClose={() => setIsLiveActivityPermissionModalOpen(false)}
       />
 
       {/* External Calendar Event Detail Modal */}

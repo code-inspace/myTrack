@@ -608,8 +608,11 @@ export function useTaskMutations() {
   const startTaskExecution = useMutation({
     mutationFn: async ({ taskId, date }: { taskId: string; date: string }) => {
       const nowTime = format(new Date(), "HH:mm");
-      const tasks = getStoredTasks(userId);
-      const targetTask = tasks.find((t) => t.id === taskId);
+      const currentTasks =
+        queryClient.getQueryData<Task[]>(["tasks", userId]) ||
+        queryClient.getQueryData<Task[]>(["tasks"]) ||
+        getStoredTasks(userId);
+      const targetTask = currentTasks.find((t) => t.id === taskId);
       const isRecurring =
         targetTask?.recurrence && targetTask.recurrence !== "ONCE";
 

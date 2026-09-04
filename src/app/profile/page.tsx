@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { DataExportCard } from "@/features/profile/components/DataExportCard";
 import { NotificationSettingsCard } from "@/features/notifications/components/NotificationSettingsCard";
+import { LiveActivitySettingsCard } from "@/features/profile/components/LiveActivitySettingsCard";
 import { CustomReminderModal } from "@/features/notifications/components/CustomReminderModal";
 import { InteractiveNotificationSheet } from "@/features/notifications/components/InteractiveNotificationSheet";
 import {
@@ -240,6 +241,9 @@ export default function ProfilePage() {
         </div>
         {/* ── Right column ── */}
         <div className="space-y-4">
+
+      {/* Live Activities & Dynamic Island Settings */}
+      <LiveActivitySettingsCard />
 
       {/* Night Mode & Inactivity Auto-Lock Settings */}
       <div className="bg-[#1C1D22] border border-[#282A30] rounded-3xl p-5 shadow-sm space-y-4">

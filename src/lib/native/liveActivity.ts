@@ -20,6 +20,8 @@ interface LiveActivityPluginInterface {
   startActivity(options: any): Promise<{ activityId?: string; taskId?: string }>;
   updateActivity(options: any): Promise<{ success: boolean }>;
   stopActivity(options: any): Promise<{ success: boolean }>;
+  checkAuthorization(): Promise<{ enabled: boolean; frequentUpdatesEnabled: boolean; supported: boolean; reason?: string }>;
+  openSettings(): Promise<{ success: boolean }>;
 }
 
 const NativeLiveActivity = registerPlugin<LiveActivityPluginInterface>("LiveActivityPlugin");
@@ -31,6 +33,27 @@ const NativeLiveActivity = registerPlugin<LiveActivityPluginInterface>("LiveActi
 export const LiveActivityBridge = {
   isSupported(): boolean {
     return Capacitor.getPlatform() === "ios";
+  },
+
+  async checkAuthorization(): Promise<{ enabled: boolean; frequentUpdatesEnabled: boolean; supported: boolean; reason?: string }> {
+    if (!this.isSupported()) {
+      return { enabled: false, frequentUpdatesEnabled: false, supported: false, reason: "Non supporté sur cette plateforme" };
+    }
+    try {
+      return await NativeLiveActivity.checkAuthorization();
+    } catch (err: any) {
+      return { enabled: false, frequentUpdatesEnabled: false, supported: true, reason: err?.message };
+    }
+  },
+
+  async openSettings(): Promise<boolean> {
+    if (!this.isSupported()) return false;
+    try {
+      const res = await NativeLiveActivity.openSettings();
+      return res?.success ?? true;
+    } catch {
+      return false;
+    }
   },
 
   async startActivity(attributes: TaskActivityAttributes, initialState: TaskActivityState): Promise<string | null> {
@@ -46,9 +69,19 @@ export const LiveActivityBridge = {
 
       // 1. Déclencher le plugin natif Swift Capacitor
       try {
+        const auth = await this.checkAuthorization();
+        if (auth.supported && !auth.enabled) {
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("mytrack:live-activity-permission-needed"));
+          }
+        }
+
         const res = await NativeLiveActivity.startActivity(payload);
         console.log("[LiveActivityBridge] Native activity started:", res);
-      } catch (nativeErr) {
+      } catch (nativeErr: any) {
+        if (typeof window !== "undefined" && nativeErr?.message?.includes("not enabled")) {
+          window.dispatchEvent(new CustomEvent("mytrack:live-activity-permission-needed"));
+        }
         console.warn("[LiveActivityBridge] Native call note:", nativeErr);
       }
 

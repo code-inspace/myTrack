@@ -111,4 +111,36 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
 
         call.resolve(["success": true])
     }
+
+    @objc func checkAuthorization(_ call: CAPPluginCall) {
+        guard #available(iOS 16.2, *) else {
+            call.resolve([
+                "enabled": false,
+                "frequentUpdatesEnabled": false,
+                "supported": false,
+                "reason": "iOS 16.2+ required"
+            ])
+            return
+        }
+
+        let info = ActivityAuthorizationInfo()
+        call.resolve([
+            "enabled": info.areActivitiesEnabled,
+            "frequentUpdatesEnabled": info.frequentPushesEnabled,
+            "supported": true
+        ])
+    }
+
+    @objc func openSettings(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            guard let settingsUrl = URL(string: UIApplication.openSettingsURLString),
+                  UIApplication.shared.canOpenURL(settingsUrl) else {
+                call.reject("Cannot open settings URL")
+                return
+            }
+            UIApplication.shared.open(settingsUrl) { success in
+                call.resolve(["success": success])
+            }
+        }
+    }
 }
