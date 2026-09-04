@@ -1,9 +1,10 @@
 import { ChatMessage } from "./types";
 import { AICoachContext } from "@/lib/ai/types";
-import { fetchTasks, fetchCompletions, getEffectiveUserId } from "../tasks/actions";
+import { fetchTasks, fetchCompletions, getEffectiveUserId, decryptTaskModel } from "../tasks/actions";
 import { calculateDashboardStats } from "../analytics/calculations";
 import { HeuristicAIProvider } from "@/lib/ai/provider";
 import { createClient } from "@/utils/supabase/client";
+import { decryptEmbeddedEncryptedText } from "@/lib/crypto/encryption";
 
 const CHAT_STORAGE_PREFIX = "mytrack_chat_messages_";
 
@@ -24,10 +25,12 @@ export const DEFAULT_INITIAL_MESSAGES: ChatMessage[] = [
 
 export async function extractAICoachContext(userId?: string): Promise<AICoachContext> {
   const targetId = getEffectiveUserId(userId);
-  const [tasks, completions] = await Promise.all([
+  const [rawTasks, completions] = await Promise.all([
     fetchTasks(targetId),
     fetchCompletions(targetId),
   ]);
+  // Ensure all task titles and descriptions are decrypted before feeding to the AI coach
+  const tasks = await Promise.all(rawTasks.map((t) => decryptTaskModel(t)));
   const stats = calculateDashboardStats(tasks, completions, "week");
 
   const taskCompletionCounts = tasks.map((t) => {
@@ -75,13 +78,15 @@ export async function fetchDbChatMessages(userId?: string): Promise<ChatMessage[
       .order("created_at", { ascending: true });
 
     if (!error && data && data.length > 0) {
-      const mapped: ChatMessage[] = data.map((m: any) => ({
-        id: m.id,
-        sender: m.sender,
-        content: m.content,
-        timestamp: m.created_at,
-        suggestedActions: m.context_snapshot?.suggestedActions,
-      }));
+      const mapped: ChatMessage[] = await Promise.all(
+        data.map(async (m: any) => ({
+          id: m.id,
+          sender: m.sender,
+          content: await decryptEmbeddedEncryptedText(m.content),
+          timestamp: m.created_at,
+          suggestedActions: m.context_snapshot?.suggestedActions,
+        }))
+      );
       saveStoredChatMessages(mapped, targetId);
       return mapped;
     }
@@ -89,7 +94,13 @@ export async function fetchDbChatMessages(userId?: string): Promise<ChatMessage[
     console.warn("Supabase fetchDbChatMessages fallback:", err);
   }
 
-  return getStoredChatMessages(targetId);
+  const stored = getStoredChatMessages(targetId);
+  return Promise.all(
+    stored.map(async (m) => ({
+      ...m,
+      content: await decryptEmbeddedEncryptedText(m.content),
+    }))
+  );
 }
 
 export function getStoredChatMessages(userId: string = "00000000-0000-0000-0000-000000000001"): ChatMessage[] {
@@ -153,10 +164,13 @@ export async function processUserMessage(userText: string, userId?: string): Pro
     suggestedActions = heuristicRes.suggestedActions;
   }
 
+  // Transparently decrypt any embedded encrypted tokens in the final output
+  const cleanResponse = await decryptEmbeddedEncryptedText(responseContent);
+
   const assistantMessage: ChatMessage = {
     id: "msg-" + Date.now(),
     sender: "assistant",
-    content: responseContent,
+    content: cleanResponse,
     timestamp: new Date().toISOString(),
     suggestedActions,
   };
@@ -181,7 +195,7 @@ export async function processUserMessage(userText: string, userId?: string): Pro
         {
           conversation_id: conv.id,
           sender: "assistant",
-          content: responseContent,
+          content: cleanResponse,
           context_snapshot: { suggestedActions },
         },
       ]);

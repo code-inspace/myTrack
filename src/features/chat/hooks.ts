@@ -15,7 +15,7 @@ export function useChat() {
   const { user } = useAuth();
   const userId = user?.id || "00000000-0000-0000-0000-000000000001";
 
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>(() => getStoredChatMessages(userId));
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {

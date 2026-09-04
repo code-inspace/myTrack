@@ -172,6 +172,36 @@ export async function decryptText(
   }
 }
 
+export const ENCRYPTED_TOKEN_REGEX = /enc:v1:[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+/g;
+
+/**
+ * Decrypts a string or any embedded encrypted tokens (enc:v1:...) inside a larger text.
+ */
+export async function decryptEmbeddedEncryptedText(
+  text?: string | null,
+  customKey?: string
+): Promise<string> {
+  if (!text || typeof text !== "string") return text ?? "";
+  if (isEncrypted(text)) {
+    return decryptText(text, customKey);
+  }
+  if (!text.includes(ENCRYPTION_PREFIX)) {
+    return text;
+  }
+
+  const matches = Array.from(new Set(text.match(ENCRYPTED_TOKEN_REGEX) || []));
+  if (matches.length === 0) return text;
+
+  let result = text;
+  for (const token of matches) {
+    const decrypted = await decryptText(token, customKey);
+    if (decrypted && decrypted !== token) {
+      result = result.split(token).join(decrypted);
+    }
+  }
+  return result;
+}
+
 /**
  * Synchronous in-memory helper for immediate sync UI mappings when async isn't available,
  * with fallback to asynchronous background decryption.
