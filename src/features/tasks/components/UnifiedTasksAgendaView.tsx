@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { TasksHeaderWithNav, TasksTab } from "@/components/shared/TasksHeaderWithNav";
 import { ProjectsView } from "@/features/projects/components/ProjectsView";
 import { ActiveTaskBanner } from "@/features/tasks/components/ActiveTaskBanner";

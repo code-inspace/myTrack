@@ -81,28 +81,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr" className="dark">
-      <head>
-        <link rel="icon" href="/icon.svg" type="image/svg+xml" />
-        <link rel="icon" href="/icon.png" type="image/png" />
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-        <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192.png" />
-        <link rel="apple-touch-icon" sizes="512x512" href="/icons/icon-512.png" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              if (typeof window !== 'undefined' && (!window.Capacitor || typeof window.Capacitor.triggerEvent !== 'function')) {
-                window.Capacitor = window.Capacitor || {};
-                window.Capacitor.triggerEvent = window.Capacitor.triggerEvent || function(name, target, data) {
-                  window.dispatchEvent(new CustomEvent(name, { detail: data }));
-                };
-              }
-            `,
-          }}
-        />
-        <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
-      </head>
       <body className="bg-[#0E0F12] text-[#F3F4F6] min-h-screen antialiased flex flex-row items-stretch overflow-x-hidden">
         <QueryProvider>
           <AuthProvider>
