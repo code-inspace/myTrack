@@ -145,32 +145,11 @@ struct Provider: TimelineProvider {
             ?? UserDefaults.standard.integer(forKey: "mytrack_widget_task_page")
     }
 
-    private func backgroundFetchRemoteData() {
-        guard let url = URL(string: "https://mytrack-nine.vercel.app/api/widget/tasks") else { return }
-        var req = URLRequest(url: url)
-        req.timeoutInterval = 4.0
-        URLSession.shared.dataTask(with: req) { data, _, _ in
-            guard let data = data,
-                  let resp = try? JSONDecoder().decode(TasksListApiResponse.self, from: data),
-                  !resp.tasks.isEmpty else { return }
-            if let encoded = try? JSONEncoder().encode(resp.tasks),
-               let jsonStr = String(data: encoded, encoding: .utf8) {
-                UserDefaults(suiteName: "group.com.mytrack.app")?.set(jsonStr, forKey: "mytrack_tasks_list")
-                UserDefaults.standard.set(jsonStr, forKey: "mytrack_tasks_list")
-                WidgetCenter.shared.reloadAllTimelines()
-            }
-        }.resume()
-    }
-
     func placeholder(in context: Context) -> ActiveTaskEntry {
         ActiveTaskEntry(
             date: Date(),
             activeTask: nil,
-            tasks: [
-                TaskItemWidgetModel(id: "1", title: "Séance Musculation", category: "Sport", targetFormattedDuration: "45 min"),
-                TaskItemWidgetModel(id: "2", title: "Lecture & Apprentissage", category: "Focus", targetFormattedDuration: "20 min"),
-                TaskItemWidgetModel(id: "3", title: "Méditation", category: "Santé", targetFormattedDuration: "10 min")
-            ],
+            tasks: [],
             selectedTaskId: nil,
             currentPage: 0
         )
@@ -185,7 +164,7 @@ struct Provider: TimelineProvider {
         let entry = ActiveTaskEntry(
             date: Date(),
             activeTask: localActive,
-            tasks: localTasks.isEmpty ? placeholder(in: context).tasks : localTasks,
+            tasks: localTasks,
             selectedTaskId: selectedId,
             currentPage: page
         )
@@ -197,11 +176,6 @@ struct Provider: TimelineProvider {
         let page = getCurrentPage()
         let localTasks = fetchLocalTasksList()
         let localActive = fetchLocalActiveTask()
-
-        // Si aucune tâche en mémoire locale, lancer un rafraîchissement asynchrone non-bloquant
-        if localTasks.isEmpty && localActive == nil {
-            backgroundFetchRemoteData()
-        }
 
         let entry = ActiveTaskEntry(
             date: Date(),
