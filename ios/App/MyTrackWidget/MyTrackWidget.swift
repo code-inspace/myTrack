@@ -7,6 +7,7 @@
 
 import WidgetKit
 import SwiftUI
+import AppIntents
 
 // MARK: - 1. Modèle de données pour la tâche active dans le Widget
 public struct ActiveTaskWidgetModel: Codable {
@@ -227,8 +228,8 @@ struct MediumActiveTaskView: View {
 
                 Spacer()
 
-                // Bouton Arrêter (1:1 avec le bouton blanc de l'app)
-                Link(destination: URL(string: "mytrack://stop-task?id=\(task.taskId)")!) {
+                // Bouton Arrêter silencieux en tâche de fond (AppIntent)
+                Button(intent: StopTaskIntent(taskId: task.taskId)) {
                     HStack(spacing: 5) {
                         Image(systemName: "square.fill")
                             .font(.system(size: 10, weight: .bold))
@@ -242,6 +243,7 @@ struct MediumActiveTaskView: View {
                     .clipShape(Capsule())
                     .shadow(color: Color.black.opacity(0.12), radius: 3, x: 0, y: 1)
                 }
+                .buttonStyle(.plain)
             }
 
             Spacer()
@@ -326,7 +328,7 @@ struct SmallActiveTaskView: View {
 
                 Spacer()
 
-                Link(destination: URL(string: "mytrack://stop-task?id=\(task.taskId)")!) {
+                Button(intent: StopTaskIntent(taskId: task.taskId)) {
                     Image(systemName: "square.fill")
                         .font(.system(size: 12, weight: .bold))
                         .foregroundColor(darkBg)
@@ -335,6 +337,7 @@ struct SmallActiveTaskView: View {
                         .clipShape(Circle())
                         .shadow(color: Color.black.opacity(0.15), radius: 2, x: 0, y: 1)
                 }
+                .buttonStyle(.plain)
             }
         }
         .padding(12)

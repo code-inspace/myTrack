@@ -23,6 +23,8 @@
 		A7000005 /* TaskActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7000006 /* TaskActivityAttributes.swift */; };
 		A7000007 /* TaskActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7000006 /* TaskActivityAttributes.swift */; };
 		A7000008 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7000009 /* ViewController.swift */; };
+		A7000010 /* StopTaskIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7000012 /* StopTaskIntent.swift */; };
+		A7000011 /* StopTaskIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7000012 /* StopTaskIntent.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -66,6 +68,7 @@
 		A7000004 /* LiveActivityPlugin.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LiveActivityPlugin.m; sourceTree = "<group>"; };
 		A7000006 /* TaskActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskActivityAttributes.swift; sourceTree = "<group>"; };
 		A7000009 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
+		A7000012 /* StopTaskIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StopTaskIntent.swift; sourceTree = "<group>"; };
 		AF277DCFFFF123FFC6DF26C7 /* Pods_App.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_App.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		AF51FD2D460BCFE21FA515B2 /* Pods-App.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-App.release.xcconfig"; path = "Pods/Target Support Files/Pods-App/Pods-App.release.xcconfig"; sourceTree = "<group>"; };
 		FC68EB0AF532CFC21C3344DD /* Pods-App.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-App.debug.xcconfig"; path = "Pods/Target Support Files/Pods-App/Pods-App.debug.xcconfig"; sourceTree = "<group>"; };
@@ -145,6 +148,7 @@
 				A7000002 /* LiveActivityPlugin.swift */,
 				A7000004 /* LiveActivityPlugin.m */,
 				A7000006 /* TaskActivityAttributes.swift */,
+				A7000012 /* StopTaskIntent.swift */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
 				504EC30E1FED79650016851F /* Assets.xcassets */,
 				504EC3101FED79650016851F /* LaunchScreen.storyboard */,
@@ -319,6 +323,7 @@
 				A7000001 /* LiveActivityPlugin.swift in Sources */,
 				A7000003 /* LiveActivityPlugin.m in Sources */,
 				A7000005 /* TaskActivityAttributes.swift in Sources */,
+				A7000010 /* StopTaskIntent.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -327,6 +332,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A7000007 /* TaskActivityAttributes.swift in Sources */,
+				A7000011 /* StopTaskIntent.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

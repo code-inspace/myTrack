@@ -80,7 +80,7 @@ struct MyTrackWidgetLiveActivity: Widget {
 
                         Spacer(minLength: 16)
 
-                        Link(destination: URL(string: "mytrack://stop-task?id=\(context.attributes.taskId)")!) {
+                        Button(intent: StopTaskIntent(taskId: context.attributes.taskId)) {
                             HStack(spacing: 4) {
                                 Image(systemName: "square.fill")
                                     .font(.system(size: 10, weight: .bold))
@@ -93,6 +93,7 @@ struct MyTrackWidgetLiveActivity: Widget {
                             .background(Color.white)
                             .clipShape(Capsule())
                         }
+                        .buttonStyle(.plain)
                     }
                     .padding(.horizontal, 4)
                     .padding(.top, 6)
@@ -151,7 +152,7 @@ struct LockScreenLiveActivityView: View {
                             .foregroundColor(.gray)
                     }
 
-                    Link(destination: URL(string: "mytrack://stop-task?id=\(context.attributes.taskId)")!) {
+                    Button(intent: StopTaskIntent(taskId: context.attributes.taskId)) {
                         HStack(spacing: 5) {
                             Image(systemName: "square.fill")
                                 .font(.system(size: 10, weight: .bold))
@@ -165,6 +166,7 @@ struct LockScreenLiveActivityView: View {
                         .clipShape(Capsule())
                         .shadow(color: Color.black.opacity(0.15), radius: 3, x: 0, y: 1)
                     }
+                    .buttonStyle(.plain)
                 }
             }
 
