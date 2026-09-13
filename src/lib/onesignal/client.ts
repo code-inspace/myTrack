@@ -80,10 +80,17 @@ export async function syncPushSubscriptionToSupabase(userId: string, subscriptio
   }
 }
 
+import { NativeNotifications } from "@/lib/native/localNotifications";
+
 export async function requestNotificationPermission(): Promise<NotificationPermission> {
   if (typeof window === "undefined") return "denied";
 
   try {
+    if (NativeNotifications.isSupported()) {
+      const granted = await NativeNotifications.requestPermission();
+      return granted ? "granted" : "denied";
+    }
+
     if (!isInitialized) {
       await initOneSignal();
     }
@@ -157,6 +164,32 @@ export async function scheduleTaskPushNotification(params: {
   timezoneOffsetMinutes?: number;
 }): Promise<any> {
   try {
+    // 1. Native local notification for iOS Capacitor
+    if (NativeNotifications.isSupported()) {
+      let targetDate: Date | undefined;
+      if (params.scheduledIso) {
+        targetDate = new Date(params.scheduledIso);
+      } else if (params.date && params.startTime) {
+        targetDate = new Date(`${params.date}T${params.startTime}:00`);
+      }
+
+      if (targetDate && !isNaN(targetDate.getTime())) {
+        if (params.reminderOffsetMinutes) {
+          targetDate = new Date(targetDate.getTime() - params.reminderOffsetMinutes * 60000);
+        }
+
+        if (targetDate > new Date()) {
+          await NativeNotifications.scheduleNotification({
+            id: params.taskId,
+            title: `⏰ ${params.taskTitle}`,
+            body: params.customMessage || (params.startTime ? `Prévu pour ${params.startTime}` : `Rappel : ${params.taskTitle}`),
+            scheduleAt: targetDate,
+            extra: { taskId: params.taskId },
+          });
+        }
+      }
+    }
+
     const tzOffset =
       params.timezoneOffsetMinutes !== undefined
         ? params.timezoneOffsetMinutes
@@ -185,6 +218,10 @@ export async function cancelTaskPushNotifications(params: {
   reminderType?: string;
 }): Promise<any> {
   try {
+    if (NativeNotifications.isSupported() && params.taskId) {
+      await NativeNotifications.cancelNotification(params.taskId);
+    }
+
     const res = await fetch("/api/notifications/cancel", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

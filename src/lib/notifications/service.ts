@@ -1,6 +1,5 @@
-"use client";
-
 import { requestNotificationPermission } from "@/lib/onesignal/client";
+import { NativeNotifications } from "@/lib/native/localNotifications";
 
 export interface PushNotificationOptions {
   title: string;
@@ -12,13 +11,22 @@ export interface PushNotificationOptions {
 }
 
 /**
- * Sends a native browser Web Push Notification with audio & vibration feedback,
+ * Sends a native local notification (iOS Capacitor) or Web Push Notification,
  * falling back gracefully if permissions or service workers are restricted.
  */
 export async function sendNativeNotification(options: PushNotificationOptions): Promise<boolean> {
   if (typeof window === "undefined") return false;
 
   try {
+    // 0. Native iOS Local Notification (Capacitor)
+    if (NativeNotifications.isSupported()) {
+      const id = await NativeNotifications.scheduleNotification({
+        title: options.title,
+        body: options.body,
+        extra: options.data,
+      });
+      return id !== null;
+    }
     // 1. Check & Request permission if not already granted
     let perm: NotificationPermission = "default";
     if ("Notification" in window) {

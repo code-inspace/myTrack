@@ -7,6 +7,7 @@ import { useAuth } from "@/providers/AuthProvider";
 import { useQueryClient } from "@tanstack/react-query";
 import { getTodayDateString } from "@/lib/dates";
 import { LiveActivityBridge } from "@/lib/native/liveActivity";
+import { NativeNotifications } from "@/lib/native/localNotifications";
 import type { Task } from "@/features/tasks/types";
 
 import { App as CapApp } from "@capacitor/app";
@@ -191,7 +192,15 @@ export function DeepLinkProvider({ children }: { children: React.ReactNode }) {
       triggerQuickAdd();
     }
 
+    // Native local notifications action listener
+    const cleanupNotifs = NativeNotifications.setupListeners((extra) => {
+      if (extra?.taskId) {
+        router.push(`/tasks?taskId=${extra.taskId}`);
+      }
+    });
+
     return () => {
+      cleanupNotifs();
       document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("focus", onVisibilityChange);
       window.removeEventListener("appUrlOpen", onAppUrlOpen);
