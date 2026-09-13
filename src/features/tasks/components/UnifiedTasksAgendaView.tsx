@@ -69,17 +69,34 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
     const handlePermissionNeeded = () => {
       setIsLiveActivityPermissionModalOpen(true);
     };
+
+    const focusInput = () => {
+      if (quickInputRef.current) {
+        try {
+          quickInputRef.current.focus({ preventScroll: false });
+          quickInputRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+        } catch {}
+      }
+    };
+
     const handleOpenQuickAdd = () => {
       setActiveTab("habits");
-      [50, 150, 300, 500, 800].forEach((delay) => {
-        setTimeout(() => {
-          if (quickInputRef.current) {
-            quickInputRef.current.focus();
-            quickInputRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
-          }
-        }, delay);
+      [30, 100, 200, 400, 700, 1200].forEach((delay) => {
+        setTimeout(focusInput, delay);
       });
     };
+
+    // Check if deep link flagged an open quick add
+    try {
+      if (
+        sessionStorage.getItem("mytrack_focus_quick_add") === "1" ||
+        (window as any).__mytrack_focus_quick_add
+      ) {
+        sessionStorage.removeItem("mytrack_focus_quick_add");
+        (window as any).__mytrack_focus_quick_add = false;
+        handleOpenQuickAdd();
+      }
+    } catch {}
 
     window.addEventListener("mytrack:live-activity-permission-needed", handlePermissionNeeded);
     window.addEventListener("mytrack:open-quick-add", handleOpenQuickAdd);

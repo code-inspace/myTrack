@@ -43,6 +43,7 @@ public struct TaskItemWidgetModel: Codable, Identifiable {
     public let targetFormattedDuration: String?
     public let isHabit: Bool?
     public let color: String?
+    public let isCompleted: Bool?
 
     public init(
         id: String,
@@ -51,7 +52,8 @@ public struct TaskItemWidgetModel: Codable, Identifiable {
         subtitle: String? = nil,
         targetFormattedDuration: String? = nil,
         isHabit: Bool? = false,
-        color: String? = "#D4F63D"
+        color: String? = "#D4F63D",
+        isCompleted: Bool? = false
     ) {
         self.id = id
         self.title = title
@@ -60,6 +62,7 @@ public struct TaskItemWidgetModel: Codable, Identifiable {
         self.targetFormattedDuration = targetFormattedDuration
         self.isHabit = isHabit
         self.color = color
+        self.isCompleted = isCompleted
     }
 }
 
@@ -77,17 +80,20 @@ public struct ActiveTaskEntry: TimelineEntry {
     public let activeTask: ActiveTaskWidgetModel?
     public let tasks: [TaskItemWidgetModel]
     public let selectedTaskId: String?
+    public let currentPage: Int
 
     public init(
         date: Date,
         activeTask: ActiveTaskWidgetModel?,
         tasks: [TaskItemWidgetModel] = [],
-        selectedTaskId: String? = nil
+        selectedTaskId: String? = nil,
+        currentPage: Int = 0
     ) {
         self.date = date
         self.activeTask = activeTask
         self.tasks = tasks
         self.selectedTaskId = selectedTaskId
+        self.currentPage = currentPage
     }
 }
 
@@ -134,78 +140,26 @@ struct Provider: TimelineProvider {
             ?? UserDefaults.standard.string(forKey: "mytrack_selected_widget_task_id")
     }
 
-    private func fetchRemoteData(completion: @escaping (ActiveTaskWidgetModel?, [TaskItemWidgetModel]) -> Void) {
-        let activeTaskUrls = [
-            "http://127.0.0.1:3000/api/widget/active-task",
-            "https://mytrack-nine.vercel.app/api/widget/active-task"
-        ]
+    private func getCurrentPage() -> Int {
+        return UserDefaults(suiteName: "group.com.mytrack.app")?.integer(forKey: "mytrack_widget_task_page")
+            ?? UserDefaults.standard.integer(forKey: "mytrack_widget_task_page")
+    }
 
-        let tasksListUrls = [
-            "http://127.0.0.1:3000/api/widget/tasks",
-            "https://mytrack-nine.vercel.app/api/widget/tasks"
-        ]
-
-        func tryFetchActiveTask(index: Int, done: @escaping (ActiveTaskWidgetModel?) -> Void) {
-            guard index < activeTaskUrls.count, let url = URL(string: activeTaskUrls[index]) else {
-                done(self.fetchLocalActiveTask())
-                return
+    private func backgroundFetchRemoteData() {
+        guard let url = URL(string: "https://mytrack-nine.vercel.app/api/widget/tasks") else { return }
+        var req = URLRequest(url: url)
+        req.timeoutInterval = 4.0
+        URLSession.shared.dataTask(with: req) { data, _, _ in
+            guard let data = data,
+                  let resp = try? JSONDecoder().decode(TasksListApiResponse.self, from: data),
+                  !resp.tasks.isEmpty else { return }
+            if let encoded = try? JSONEncoder().encode(resp.tasks),
+               let jsonStr = String(data: encoded, encoding: .utf8) {
+                UserDefaults(suiteName: "group.com.mytrack.app")?.set(jsonStr, forKey: "mytrack_tasks_list")
+                UserDefaults.standard.set(jsonStr, forKey: "mytrack_tasks_list")
+                WidgetCenter.shared.reloadAllTimelines()
             }
-
-            var req = URLRequest(url: url)
-            req.timeoutInterval = 2.0
-            req.cachePolicy = .reloadIgnoringLocalCacheData
-
-            URLSession.shared.dataTask(with: req) { data, _, _ in
-                if let data = data,
-                   let resp = try? JSONDecoder().decode(ActiveTaskApiResponse.self, from: data) {
-                    if resp.active, let task = resp.task {
-                        done(task)
-                        return
-                    } else if !resp.active {
-                        done(nil)
-                        return
-                    }
-                }
-                tryFetchActiveTask(index: index + 1, done: done)
-            }.resume()
-        }
-
-        func tryFetchTasksList(index: Int, done: @escaping ([TaskItemWidgetModel]) -> Void) {
-            let local = self.fetchLocalTasksList()
-            guard index < tasksListUrls.count, let url = URL(string: tasksListUrls[index]) else {
-                done(local)
-                return
-            }
-
-            var req = URLRequest(url: url)
-            req.timeoutInterval = 2.0
-            req.cachePolicy = .reloadIgnoringLocalCacheData
-
-            URLSession.shared.dataTask(with: req) { data, _, _ in
-                if let data = data,
-                   let resp = try? JSONDecoder().decode(TasksListApiResponse.self, from: data),
-                   !resp.tasks.isEmpty {
-                    if let encoded = try? JSONEncoder().encode(resp.tasks),
-                       let jsonStr = String(data: encoded, encoding: .utf8) {
-                        UserDefaults(suiteName: "group.com.mytrack.app")?.set(jsonStr, forKey: "mytrack_tasks_list")
-                        UserDefaults.standard.set(jsonStr, forKey: "mytrack_tasks_list")
-                    }
-                    done(resp.tasks)
-                    return
-                }
-                tryFetchTasksList(index: index + 1, done: done)
-            }.resume()
-        }
-
-        tryFetchActiveTask(index: 0) { activeTask in
-            if activeTask != nil {
-                completion(activeTask, [])
-            } else {
-                tryFetchTasksList(index: 0) { tasksList in
-                    completion(nil, tasksList)
-                }
-            }
-        }
+        }.resume()
     }
 
     func placeholder(in context: Context) -> ActiveTaskEntry {
@@ -214,34 +168,53 @@ struct Provider: TimelineProvider {
             activeTask: nil,
             tasks: [
                 TaskItemWidgetModel(id: "1", title: "Séance Musculation", category: "Sport", targetFormattedDuration: "45 min"),
-                TaskItemWidgetModel(id: "2", title: "Lecture & Apprentissage", category: "Focus", targetFormattedDuration: "20 min")
+                TaskItemWidgetModel(id: "2", title: "Lecture & Apprentissage", category: "Focus", targetFormattedDuration: "20 min"),
+                TaskItemWidgetModel(id: "3", title: "Méditation", category: "Santé", targetFormattedDuration: "10 min")
             ],
-            selectedTaskId: nil
+            selectedTaskId: nil,
+            currentPage: 0
         )
     }
 
     func getSnapshot(in context: Context, completion: @escaping (ActiveTaskEntry) -> Void) {
         let selectedId = getSelectedTaskId()
+        let page = getCurrentPage()
         let localTasks = fetchLocalTasksList()
-        if let local = fetchLocalActiveTask() {
-            completion(ActiveTaskEntry(date: Date(), activeTask: local, tasks: [], selectedTaskId: selectedId))
-        } else if !localTasks.isEmpty {
-            completion(ActiveTaskEntry(date: Date(), activeTask: nil, tasks: localTasks, selectedTaskId: selectedId))
-        } else {
-            fetchRemoteData { activeTask, tasks in
-                completion(ActiveTaskEntry(date: Date(), activeTask: activeTask, tasks: tasks, selectedTaskId: selectedId))
-            }
-        }
+        let localActive = fetchLocalActiveTask()
+
+        let entry = ActiveTaskEntry(
+            date: Date(),
+            activeTask: localActive,
+            tasks: localTasks.isEmpty ? placeholder(in: context).tasks : localTasks,
+            selectedTaskId: selectedId,
+            currentPage: page
+        )
+        completion(entry)
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<ActiveTaskEntry>) -> Void) {
         let selectedId = getSelectedTaskId()
-        fetchRemoteData { activeTask, tasks in
-            let entry = ActiveTaskEntry(date: Date(), activeTask: activeTask, tasks: tasks, selectedTaskId: selectedId)
-            let nextUpdate = Date().addingTimeInterval(60)
-            let timeline = Timeline(entries: [entry], policy: .after(nextUpdate))
-            completion(timeline)
+        let page = getCurrentPage()
+        let localTasks = fetchLocalTasksList()
+        let localActive = fetchLocalActiveTask()
+
+        // Si aucune tâche en mémoire locale, lancer un rafraîchissement asynchrone non-bloquant
+        if localTasks.isEmpty && localActive == nil {
+            backgroundFetchRemoteData()
         }
+
+        let entry = ActiveTaskEntry(
+            date: Date(),
+            activeTask: localActive,
+            tasks: localTasks,
+            selectedTaskId: selectedId,
+            currentPage: page
+        )
+
+        // Rafraîchissement régulier toutes les 5 minutes (ou instantané lors des AppIntents)
+        let nextUpdate = Date().addingTimeInterval(300)
+        let timeline = Timeline(entries: [entry], policy: .after(nextUpdate))
+        completion(timeline)
     }
 }
 
@@ -279,11 +252,28 @@ struct MyTrackWidgetEntryView: View {
                 }
             } else {
                 if family == .systemLarge {
-                    LargeTasksListWidgetView(tasks: entry.tasks, selectedTaskId: entry.selectedTaskId, brandNeon: brandNeon, darkBg: darkBg)
+                    LargeTasksListWidgetView(
+                        tasks: entry.tasks,
+                        selectedTaskId: entry.selectedTaskId,
+                        currentPage: entry.currentPage,
+                        brandNeon: brandNeon,
+                        darkBg: darkBg
+                    )
                 } else if family == .systemMedium {
-                    MediumTasksListWidgetView(tasks: entry.tasks, selectedTaskId: entry.selectedTaskId, brandNeon: brandNeon, darkBg: darkBg)
+                    MediumTasksListWidgetView(
+                        tasks: entry.tasks,
+                        selectedTaskId: entry.selectedTaskId,
+                        currentPage: entry.currentPage,
+                        brandNeon: brandNeon,
+                        darkBg: darkBg
+                    )
                 } else {
-                    SmallTasksListWidgetView(tasks: entry.tasks, selectedTaskId: entry.selectedTaskId, brandNeon: brandNeon, darkBg: darkBg)
+                    SmallTasksListWidgetView(
+                        tasks: entry.tasks,
+                        selectedTaskId: entry.selectedTaskId,
+                        brandNeon: brandNeon,
+                        darkBg: darkBg
+                    )
                 }
             }
         }
@@ -487,45 +477,79 @@ struct SmallActiveTaskView: View {
     }
 }
 
-// MARK: - 6. Vues Liste des Tâches (Sans tâche active) avec Sélection & Bouton Play
+// MARK: - 6. Vues Liste des Tâches avec Pagination & Input & Sélection Instantanée
 
 struct MediumTasksListWidgetView: View {
     let tasks: [TaskItemWidgetModel]
     let selectedTaskId: String?
+    let currentPage: Int
     let brandNeon: Color
     let darkBg: Color
 
+    let pageSize = 2
+
     var body: some View {
+        let totalPages = max(1, Int(ceil(Double(tasks.count) / Double(pageSize))))
+        let safePage = min(max(0, currentPage), totalPages - 1)
+        let pageTasks = Array(tasks.dropFirst(safePage * pageSize).prefix(pageSize))
+
         VStack(alignment: .leading, spacing: 6) {
-            // Barre de saisie / Input pour ajouter directement une tâche
-            Link(destination: URL(string: "mytrack://new-task")!) {
-                HStack(spacing: 6) {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundColor(brandNeon)
-                    Text("Nom de la tâche...")
-                        .font(.system(size: 11))
-                        .foregroundColor(Color(white: 0.55))
-                    Spacer()
-                    Image(systemName: "return")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundColor(Color(white: 0.4))
+            // Header compact: Barre de saisie + Boutons de défilement / pagination
+            HStack(spacing: 6) {
+                Link(destination: URL(string: "mytrack://new-task")!) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(brandNeon)
+                        Text("Ajouter une tâche...")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(Color(white: 0.6))
+                        Spacer()
+                    }
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 5)
+                    .background(Color.white.opacity(0.08))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                    )
+                    .cornerRadius(10)
                 }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(Color.white.opacity(0.07))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(Color.white.opacity(0.12), lineWidth: 1)
-                )
-                .cornerRadius(10)
+
+                if totalPages > 1 {
+                    HStack(spacing: 3) {
+                        Button(intent: ChangeTaskPageIntent(delta: -1)) {
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundColor(.white)
+                                .frame(width: 20, height: 20)
+                                .background(Color.white.opacity(0.12))
+                                .clipShape(Circle())
+                        }
+                        .buttonStyle(.plain)
+
+                        Text("\(safePage + 1)/\(totalPages)")
+                            .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                            .foregroundColor(Color(white: 0.7))
+
+                        Button(intent: ChangeTaskPageIntent(delta: 1)) {
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundColor(.white)
+                                .frame(width: 20, height: 20)
+                                .background(Color.white.opacity(0.12))
+                                .clipShape(Circle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
             }
 
             if tasks.isEmpty {
                 Spacer()
                 HStack {
                     Spacer()
-                    Text("Aucune tâche en attente")
+                    Text("Aucune tâche aujourd'hui")
                         .font(.system(size: 12, weight: .medium))
                         .foregroundColor(Color.gray)
                     Spacer()
@@ -533,7 +557,7 @@ struct MediumTasksListWidgetView: View {
                 Spacer()
             } else {
                 VStack(spacing: 5) {
-                    ForEach(tasks.prefix(2)) { task in
+                    ForEach(pageTasks) { task in
                         TaskRowInteractiveView(
                             task: task,
                             isSelected: selectedTaskId == task.id,
@@ -551,46 +575,87 @@ struct MediumTasksListWidgetView: View {
 struct LargeTasksListWidgetView: View {
     let tasks: [TaskItemWidgetModel]
     let selectedTaskId: String?
+    let currentPage: Int
     let brandNeon: Color
     let darkBg: Color
 
+    let pageSize = 5
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            // Header avec logo myTrack
+        let totalPages = max(1, Int(ceil(Double(tasks.count) / Double(pageSize))))
+        let safePage = min(max(0, currentPage), totalPages - 1)
+        let pageTasks = Array(tasks.dropFirst(safePage * pageSize).prefix(pageSize))
+
+        VStack(alignment: .leading, spacing: 9) {
+            // Header avec logo myTrack + pagination
             HStack(spacing: 8) {
                 Image(systemName: "figure.run.circle.fill")
-                    .font(.system(size: 18))
+                    .font(.system(size: 17))
                     .foregroundColor(brandNeon)
 
                 Text("Mes Tâches du Jour")
-                    .font(.system(size: 15, weight: .bold))
+                    .font(.system(size: 14, weight: .bold))
                     .foregroundColor(.white)
 
+                if !tasks.isEmpty {
+                    Text("(\(tasks.count))")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(brandNeon)
+                }
+
                 Spacer()
+
+                if totalPages > 1 {
+                    HStack(spacing: 4) {
+                        Button(intent: ChangeTaskPageIntent(delta: -1)) {
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(.white)
+                                .frame(width: 22, height: 22)
+                                .background(Color.white.opacity(0.12))
+                                .clipShape(Circle())
+                        }
+                        .buttonStyle(.plain)
+
+                        Text("\(safePage + 1)/\(totalPages)")
+                            .font(.system(size: 10, weight: .bold, design: .monospaced))
+                            .foregroundColor(Color(white: 0.8))
+
+                        Button(intent: ChangeTaskPageIntent(delta: 1)) {
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(.white)
+                                .frame(width: 22, height: 22)
+                                .background(Color.white.opacity(0.12))
+                                .clipShape(Circle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
             }
 
             // Barre de saisie / Input pour ajouter directement une tâche
             Link(destination: URL(string: "mytrack://new-task")!) {
                 HStack(spacing: 8) {
                     Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 14, weight: .bold))
+                        .font(.system(size: 13, weight: .bold))
                         .foregroundColor(brandNeon)
                     Text("Nom de la tâche...")
-                        .font(.system(size: 13))
+                        .font(.system(size: 12))
                         .foregroundColor(Color(white: 0.55))
                     Spacer()
                     Image(systemName: "return")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.system(size: 10, weight: .semibold))
                         .foregroundColor(Color(white: 0.4))
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
+                .padding(.horizontal, 11)
+                .padding(.vertical, 7)
                 .background(Color.white.opacity(0.07))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 12)
+                    RoundedRectangle(cornerRadius: 11)
                         .stroke(Color.white.opacity(0.14), lineWidth: 1)
                 )
-                .cornerRadius(12)
+                .cornerRadius(11)
             }
 
             if tasks.isEmpty {
@@ -609,8 +674,8 @@ struct LargeTasksListWidgetView: View {
                 }
                 Spacer()
             } else {
-                VStack(spacing: 6) {
-                    ForEach(tasks.prefix(5)) { task in
+                VStack(spacing: 5) {
+                    ForEach(pageTasks) { task in
                         TaskRowInteractiveView(
                             task: task,
                             isSelected: selectedTaskId == task.id,
@@ -621,7 +686,7 @@ struct LargeTasksListWidgetView: View {
                 }
             }
         }
-        .padding(14)
+        .padding(12)
     }
 }
 
@@ -689,28 +754,29 @@ struct TaskRowInteractiveView: View {
     let darkBg: Color
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 7) {
             // Bouton de sélection de la tâche
             Button(intent: SelectTaskIntent(taskId: task.id)) {
-                HStack(spacing: 8) {
-                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(isSelected ? brandNeon : Color.gray)
+                HStack(spacing: 7) {
+                    Image(systemName: isSelected ? "checkmark.circle.fill" : (task.isCompleted == true ? "checkmark.circle" : "circle"))
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(isSelected ? brandNeon : (task.isCompleted == true ? Color.gray.opacity(0.5) : Color.gray))
 
                     VStack(alignment: .leading, spacing: 1) {
                         Text(task.title)
-                            .font(.system(size: 13, weight: isSelected ? .bold : .semibold))
-                            .foregroundColor(isSelected ? .white : Color.white.opacity(0.9))
+                            .font(.system(size: 12, weight: isSelected ? .bold : .semibold))
+                            .foregroundColor(isSelected ? .white : (task.isCompleted == true ? Color.white.opacity(0.5) : Color.white.opacity(0.95)))
+                            .strikethrough(task.isCompleted == true && !isSelected)
                             .lineLimit(1)
 
                         HStack(spacing: 4) {
                             Text(task.category)
-                                .font(.system(size: 10, weight: .medium))
+                                .font(.system(size: 9.5, weight: .medium))
                                 .foregroundColor(isSelected ? brandNeon : Color.gray)
                             
                             if let dur = task.targetFormattedDuration {
                                 Text("• \(dur)")
-                                    .font(.system(size: 10))
+                                    .font(.system(size: 9.5))
                                     .foregroundColor(Color.gray)
                             }
                         }
@@ -722,18 +788,18 @@ struct TaskRowInteractiveView: View {
             }
             .buttonStyle(.plain)
 
-            // BOUTON PLAY qui apparaît quand la tâche est sélectionnée (ou présent en permanence)
+            // BOUTON PLAY qui apparaît quand la tâche est sélectionnée
             if isSelected {
                 Button(intent: StartTaskIntent(taskId: task.id, taskTitle: task.title, category: task.category)) {
                     HStack(spacing: 4) {
                         Image(systemName: "play.fill")
-                            .font(.system(size: 10, weight: .heavy))
+                            .font(.system(size: 9.5, weight: .heavy))
                         Text("Play")
                             .font(.system(size: 11, weight: .heavy))
                     }
                     .foregroundColor(darkBg)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 5)
                     .background(brandNeon)
                     .clipShape(Capsule())
                     .shadow(color: brandNeon.opacity(0.3), radius: 3, x: 0, y: 1)
@@ -741,13 +807,13 @@ struct TaskRowInteractiveView: View {
                 .buttonStyle(.plain)
             }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 7)
+        .padding(.horizontal, 9)
+        .padding(.vertical, 6)
         .background(isSelected ? Color.white.opacity(0.12) : Color.white.opacity(0.04))
         .overlay(
-            RoundedRectangle(cornerRadius: 12)
+            RoundedRectangle(cornerRadius: 11)
                 .stroke(isSelected ? brandNeon.opacity(0.8) : Color.clear, lineWidth: 1.5)
         )
-        .cornerRadius(12)
+        .cornerRadius(11)
     }
 }

@@ -136,6 +136,7 @@ export const LiveActivityBridge = {
         targetFormattedDuration: t.targetValue ? `${t.targetValue} ${t.unit || "min"}` : undefined,
         isHabit: t.isHabit ?? false,
         color: t.color || "#D4F63D",
+        isCompleted: Boolean(t.isCompletedToday || t.completion?.completed),
       }));
 
       await NativeLiveActivity.syncTasks({ tasks: widgetTasks });

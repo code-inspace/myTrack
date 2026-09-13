@@ -28,7 +28,9 @@ public struct StopTaskIntent: AppIntent, LiveActivityIntent {
         if #available(iOS 16.2, *) {
             for activity in Activity<TaskActivityAttributes>.activities {
                 if activity.attributes.taskId == taskId || taskId.isEmpty {
-                    await activity.end(nil, dismissalPolicy: .immediate)
+                    Task {
+                        await activity.end(nil, dismissalPolicy: .immediate)
+                    }
                 }
             }
         }
@@ -41,26 +43,21 @@ public struct StopTaskIntent: AppIntent, LiveActivityIntent {
         let tempUrl = URL(fileURLWithPath: "/tmp/mytrack_active_task.json")
         try? FileManager.default.removeItem(at: tempUrl)
 
-        // 3. Notifier l'API distante pour arrêter la tâche sur le serveur / Supabase
-        let candidateUrls = [
-            "http://127.0.0.1:3000/api/widget/stop-task",
-            "https://mytrack-nine.vercel.app/api/widget/stop-task"
-        ]
-
-        for urlString in candidateUrls {
-            if let url = URL(string: urlString) {
-                var request = URLRequest(url: url)
-                request.httpMethod = "POST"
-                request.timeoutInterval = 2.0
-                request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-                let body: [String: Any] = ["taskId": taskId]
-                request.httpBody = try? JSONSerialization.data(withJSONObject: body)
-                _ = try? await URLSession.shared.data(for: request)
-            }
-        }
-
-        // 4. Recharger immédiatement les widgets
+        // 3. Recharger immédiatement les widgets
         WidgetCenter.shared.reloadAllTimelines()
+
+        // 4. Notifier l'API distante en tâche de fond non-bloquante
+        let currentTaskId = self.taskId
+        Task.detached(priority: .background) {
+            guard let url = URL(string: "https://mytrack-nine.vercel.app/api/widget/stop-task") else { return }
+            var request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            request.timeoutInterval = 5.0
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            let body: [String: Any] = ["taskId": currentTaskId]
+            request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+            _ = try? await URLSession.shared.data(for: request)
+        }
 
         return .result()
     }
@@ -182,27 +179,51 @@ public struct StartTaskIntent: AppIntent {
             )
         }
 
-        // 4. Notifier l'API distante pour activer la tâche sur Supabase
-        let candidateUrls = [
-            "http://127.0.0.1:3000/api/widget/start-task",
-            "https://mytrack-nine.vercel.app/api/widget/start-task"
-        ]
-
-        for urlString in candidateUrls {
-            if let url = URL(string: urlString) {
-                var request = URLRequest(url: url)
-                request.httpMethod = "POST"
-                request.timeoutInterval = 2.0
-                request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-                let body: [String: Any] = ["taskId": taskId]
-                request.httpBody = try? JSONSerialization.data(withJSONObject: body)
-                _ = try? await URLSession.shared.data(for: request)
-            }
-        }
-
-        // 5. Recharger les timelines
+        // 4. Recharger immédiatement les widgets
         WidgetCenter.shared.reloadAllTimelines()
+
+        // 5. Notifier l'API distante en tâche de fond non-bloquante
+        let currentTaskId = self.taskId
+        Task.detached(priority: .background) {
+            guard let url = URL(string: "https://mytrack-nine.vercel.app/api/widget/start-task") else { return }
+            var request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            request.timeoutInterval = 5.0
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            let body: [String: Any] = ["taskId": currentTaskId]
+            request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+            _ = try? await URLSession.shared.data(for: request)
+        }
 
         return .result()
     }
 }
+
+// MARK: - 4. Intent pour Changer de Page (Pagination / Défilement des tâches)
+@available(iOS 16.0, macOS 13.0, *)
+public struct ChangeTaskPageIntent: AppIntent {
+    public static var title: LocalizedStringResource = "Changer de page"
+    public static var description = IntentDescription("Fait défiler les tâches dans le widget myTrack.")
+    public static var openAppWhenRun: Bool = false
+
+    @Parameter(title: "Delta")
+    public var delta: Int
+
+    public init() {
+        self.delta = 1
+    }
+
+    public init(delta: Int) {
+        self.delta = delta
+    }
+
+    public func perform() async throws -> some IntentResult {
+        let suite = UserDefaults(suiteName: "group.com.mytrack.app") ?? UserDefaults.standard
+        let currentPage = suite.integer(forKey: "mytrack_widget_task_page")
+        let newPage = max(0, currentPage + delta)
+        suite.set(newPage, forKey: "mytrack_widget_task_page")
+        WidgetCenter.shared.reloadAllTimelines()
+        return .result()
+    }
+}
+

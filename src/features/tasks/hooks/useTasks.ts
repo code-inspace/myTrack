@@ -158,7 +158,7 @@ export function useTasks(selectedDateStr: string) {
   const activeTask = allTasks.find((t) => t.isActive && !t.isArchived);
 
   useEffect(() => {
-    if (sortedTasks.length > 0) {
+    if (sortedTasks) {
       LiveActivityBridge.syncTasks(sortedTasks);
     }
   }, [sortedTasks]);
