@@ -653,7 +653,7 @@ export function useTaskMutations() {
           },
           {
             currentStatus: "IN_PROGRESS",
-            startedAtTimestamp: Date.now(),
+            startedAtTimestamp: Math.floor(Date.now() / 1000),
             elapsedSeconds: 0,
             targetDurationSeconds: ((targetTask?.targetValue || 30) as number) * 60,
             totalFormattedDuration: `${targetTask?.targetValue || 30} min`,

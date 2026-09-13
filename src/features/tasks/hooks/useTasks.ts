@@ -168,8 +168,8 @@ export function useTasks(selectedDateStr: string) {
               category: activeTask.tag || activeTask.category || "myTrack",
               subtitle: activeTask.description || activeTask.category || "En cours",
               startedAtTimestamp: activeTask.startedAt
-                ? new Date(activeTask.startedAt).getTime()
-                : Date.now(),
+                ? Math.floor(new Date(activeTask.startedAt).getTime() / 1000)
+                : Math.floor(Date.now() / 1000),
               totalFormattedDuration: activeTask.targetValue
                 ? `${activeTask.targetValue} ${activeTask.unit || "min"}`
                 : undefined,

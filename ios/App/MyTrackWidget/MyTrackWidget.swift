@@ -10,13 +10,23 @@ import SwiftUI
 import AppIntents
 
 // MARK: - 1. Modèles de données
-public struct ActiveTaskWidgetModel: Codable {
+public struct ActiveTaskWidgetModel: Codable, Identifiable {
+    public var id: String { taskId }
     public let taskId: String
     public let taskTitle: String
     public let category: String?
     public let subtitle: String?
     public let startedAtTimestamp: Double
     public let totalFormattedDuration: String?
+
+    public var safeStartedAt: Date {
+        let ts = startedAtTimestamp > 10000000000 ? startedAtTimestamp / 1000.0 : startedAtTimestamp
+        let d = Date(timeIntervalSince1970: ts)
+        if d > Date() {
+            return Date()
+        }
+        return d
+    }
 
     public init(
         taskId: String,
@@ -349,7 +359,7 @@ struct MediumActiveTaskView: View {
                 HStack(spacing: 4) {
                     Text("⏱")
                         .font(.system(size: 11))
-                    Text(timerInterval: Date(timeIntervalSince1970: task.startedAtTimestamp)...Date(timeIntervalSinceNow: 86400), countsDown: false)
+                    Text(timerInterval: task.safeStartedAt...Date(timeIntervalSinceNow: 86400), countsDown: false)
                         .font(.system(size: 12, weight: .bold, design: .monospaced))
                         .monospacedDigit()
                 }
@@ -442,7 +452,7 @@ struct SmallActiveTaskView: View {
             Spacer()
 
             HStack {
-                Text(timerInterval: Date(timeIntervalSince1970: task.startedAtTimestamp)...Date(timeIntervalSinceNow: 86400), countsDown: false)
+                Text(timerInterval: task.safeStartedAt...Date(timeIntervalSinceNow: 86400), countsDown: false)
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
                     .monospacedDigit()
                     .foregroundColor(brandNeon)

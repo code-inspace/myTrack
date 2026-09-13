@@ -65,7 +65,13 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
         // Synchronisation de la tâche active : si null ou absente, on nettoie pour éviter tout blocage
         if let activeTaskDict = call.getObject("activeTask") as? [String: Any],
            let taskId = activeTaskDict["taskId"] as? String, !taskId.isEmpty {
-            if let activeData = try? JSONSerialization.data(withJSONObject: activeTaskDict),
+            var normalizedDict = activeTaskDict
+            if let rawTs = activeTaskDict["startedAtTimestamp"] as? Double {
+                normalizedDict["startedAtTimestamp"] = rawTs > 10000000000 ? rawTs / 1000.0 : rawTs
+            } else {
+                normalizedDict["startedAtTimestamp"] = Date().timeIntervalSince1970
+            }
+            if let activeData = try? JSONSerialization.data(withJSONObject: normalizedDict),
                let activeJsonString = String(data: activeData, encoding: .utf8) {
                 suite.set(activeJsonString, forKey: "mytrack_active_task")
                 UserDefaults.standard.set(activeJsonString, forKey: "mytrack_active_task")
@@ -98,12 +104,14 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
         suite.removeObject(forKey: "mytrack_last_stopped_task_id")
         suite.removeObject(forKey: "mytrack_selected_widget_task_id")
 
+        let normalizedTimestamp = startedAtTimestamp > 10000000000 ? startedAtTimestamp / 1000.0 : startedAtTimestamp
+
         let dict: [String: Any] = [
             "taskId": taskId,
             "taskTitle": taskTitle,
             "category": category ?? "myTrack",
             "subtitle": subtitle ?? (category ?? "En cours"),
-            "startedAtTimestamp": startedAtTimestamp,
+            "startedAtTimestamp": normalizedTimestamp,
             "totalFormattedDuration": totalFormattedDuration ?? ""
         ]
         if let data = try? JSONSerialization.data(withJSONObject: dict),
