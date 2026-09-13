@@ -80,11 +80,6 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
             return
         }
 
-        guard ActivityAuthorizationInfo().areActivitiesEnabled else {
-            call.reject("Live Activities are not enabled by user")
-            return
-        }
-
         let attributes = TaskActivityAttributes(
             taskId: taskId,
             taskTitle: taskTitle,
@@ -122,7 +117,7 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
                 "taskId": taskId
             ])
         } catch {
-            print("[LiveActivityPlugin] Live Activity request failed (standard widget active): \(error)")
+            print("[LiveActivityPlugin] Live Activity request failed: \(error.localizedDescription)")
             call.resolve([
                 "taskId": taskId,
                 "warning": "Live Activity error: \(error.localizedDescription)"

@@ -69,14 +69,6 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
       setIsLiveActivityPermissionModalOpen(true);
     };
     window.addEventListener("mytrack:live-activity-permission-needed", handlePermissionNeeded);
-
-    // Vérifier l'autorisation dès le chargement sur iPhone
-    LiveActivityBridge.checkAuthorization().then((auth) => {
-      if (auth.supported && !auth.enabled) {
-        setIsLiveActivityPermissionModalOpen(true);
-      }
-    });
-
     return () => window.removeEventListener("mytrack:live-activity-permission-needed", handlePermissionNeeded);
   }, []);
 
