@@ -69,10 +69,17 @@ export const LiveActivityBridge = {
 
       // 1. Déclencher le plugin natif Swift Capacitor
       try {
+        const auth = await this.checkAuthorization();
+        if (auth.supported && !auth.enabled) {
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("mytrack:live-activity-permission-needed"));
+          }
+        }
+
         const res = await NativeLiveActivity.startActivity(payload);
         console.log("[LiveActivityBridge] Native activity / widget updated:", res);
       } catch (nativeErr: any) {
-        if (typeof window !== "undefined" && nativeErr?.message?.includes("not enabled")) {
+        if (typeof window !== "undefined") {
           window.dispatchEvent(new CustomEvent("mytrack:live-activity-permission-needed"));
         }
         console.warn("[LiveActivityBridge] Native call note:", nativeErr);
