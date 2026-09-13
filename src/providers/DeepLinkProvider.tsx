@@ -1,10 +1,12 @@
 "use client";
 
 import React, { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useTaskMutations } from "@/features/tasks/hooks";
 import { getTodayDateString } from "@/lib/dates";
 
 export function DeepLinkProvider({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const { finishTaskExecution } = useTaskMutations();
 
   useEffect(() => {
@@ -28,6 +30,7 @@ export function DeepLinkProvider({ children }: { children: React.ReactNode }) {
 
         const isNewTask = url.pathname.includes("new-task") || url.pathname.includes("create-task") || url.hostname === "new-task" || url.hostname === "create-task";
         if (isNewTask) {
+          router.push("/tasks");
           window.dispatchEvent(new CustomEvent("mytrack:open-quick-add"));
         }
       } catch (err) {
@@ -62,6 +65,11 @@ export function DeepLinkProvider({ children }: { children: React.ReactNode }) {
         const today = getTodayDateString();
         finishTaskExecution.mutate({ taskId, date: today });
       }
+    }
+
+    if (window.location.search.includes("new-task") || window.location.search.includes("create-task")) {
+      router.push("/tasks");
+      window.dispatchEvent(new CustomEvent("mytrack:open-quick-add"));
     }
 
     return () => {

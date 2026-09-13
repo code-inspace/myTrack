@@ -69,10 +69,15 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
       setIsLiveActivityPermissionModalOpen(true);
     };
     const handleOpenQuickAdd = () => {
-      setTimeout(() => {
-        quickInputRef.current?.focus();
-        quickInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-      }, 100);
+      setActiveTab("habits");
+      [50, 150, 300, 500, 800].forEach((delay) => {
+        setTimeout(() => {
+          if (quickInputRef.current) {
+            quickInputRef.current.focus();
+            quickInputRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+          }
+        }, delay);
+      });
     };
 
     window.addEventListener("mytrack:live-activity-permission-needed", handlePermissionNeeded);
