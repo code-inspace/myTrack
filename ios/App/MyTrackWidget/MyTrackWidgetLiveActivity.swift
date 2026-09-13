@@ -80,7 +80,7 @@ struct MyTrackWidgetLiveActivity: Widget {
 
                         Spacer(minLength: 16)
 
-                        Button(intent: StopTaskIntent(taskId: context.attributes.taskId)) {
+                        Button(intent: StopLiveActivityIntent(taskId: context.attributes.taskId)) {
                             HStack(spacing: 4) {
                                 Image(systemName: "square.fill")
                                     .font(.system(size: 10, weight: .bold))
@@ -152,7 +152,7 @@ struct LockScreenLiveActivityView: View {
                             .foregroundColor(.gray)
                     }
 
-                    Button(intent: StopTaskIntent(taskId: context.attributes.taskId)) {
+                    Button(intent: StopLiveActivityIntent(taskId: context.attributes.taskId)) {
                         HStack(spacing: 5) {
                             Image(systemName: "square.fill")
                                 .font(.system(size: 10, weight: .bold))

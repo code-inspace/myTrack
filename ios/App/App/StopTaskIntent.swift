@@ -3,9 +3,9 @@ import AppIntents
 import ActivityKit
 import WidgetKit
 
-// MARK: - 1. Intent pour Arrêter la tâche active
+// MARK: - 1. Intent pour Arrêter la tâche active (Widget Home Screen)
 @available(iOS 16.0, macOS 13.0, *)
-public struct StopTaskIntent: AppIntent, LiveActivityIntent {
+public struct StopTaskIntent: AppIntent {
     public static var title: LocalizedStringResource = "Arrêter la tâche"
     public static var description = IntentDescription("Arrête la tâche active myTrack directement sans ouvrir l'application.")
     public static var openAppWhenRun: Bool = false
@@ -43,10 +43,8 @@ public struct StopTaskIntent: AppIntent, LiveActivityIntent {
         // 3. Clôturer immédiatement toutes les Live Activities
         if #available(iOS 16.2, *) {
             for activity in Activity<TaskActivityAttributes>.activities {
-                if activity.attributes.taskId == taskId || taskId.isEmpty {
-                    Task {
-                        await activity.end(nil, dismissalPolicy: .immediate)
-                    }
+                Task {
+                    await activity.end(nil, dismissalPolicy: .immediate)
                 }
             }
         }
@@ -60,7 +58,68 @@ public struct StopTaskIntent: AppIntent, LiveActivityIntent {
             guard let url = URL(string: "https://mytrack-nine.vercel.app/api/widget/stop-task") else { return }
             var request = URLRequest(url: url)
             request.httpMethod = "POST"
-            request.timeoutInterval = 5.0
+            request.timeoutInterval = 3.0
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            let body: [String: Any] = ["taskId": currentTaskId]
+            request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+            _ = try? await URLSession.shared.data(for: request)
+        }
+
+        return .result()
+    }
+}
+
+// MARK: - 1b. Intent pour Arrêter la Live Activity (Lock Screen & Dynamic Island)
+@available(iOS 16.0, macOS 13.0, *)
+public struct StopLiveActivityIntent: LiveActivityIntent {
+    public static var title: LocalizedStringResource = "Arrêter la tâche (Live Activity)"
+    public static var description = IntentDescription("Arrête la Live Activity active myTrack.")
+    public static var openAppWhenRun: Bool = false
+
+    @Parameter(title: "Task ID")
+    public var taskId: String
+
+    public init() {
+        self.taskId = ""
+    }
+
+    public init(taskId: String) {
+        self.taskId = taskId
+    }
+
+    public func perform() async throws -> some IntentResult {
+        print("[StopLiveActivityIntent] Stopping Live Activity for task ID: \(taskId)")
+
+        let suite = UserDefaults(suiteName: "group.com.mytrack.app") ?? UserDefaults.standard
+
+        if !taskId.isEmpty {
+            suite.set(taskId, forKey: "mytrack_last_stopped_task_id")
+            suite.set(Date().timeIntervalSince1970, forKey: "mytrack_last_stopped_timestamp")
+        }
+
+        suite.removeObject(forKey: "mytrack_active_task")
+        UserDefaults.standard.removeObject(forKey: "mytrack_active_task")
+        suite.removeObject(forKey: "mytrack_selected_widget_task_id")
+        UserDefaults.standard.removeObject(forKey: "mytrack_selected_widget_task_id")
+        let tempUrl = URL(fileURLWithPath: "/tmp/mytrack_active_task.json")
+        try? FileManager.default.removeItem(at: tempUrl)
+
+        if #available(iOS 16.2, *) {
+            for activity in Activity<TaskActivityAttributes>.activities {
+                Task {
+                    await activity.end(nil, dismissalPolicy: .immediate)
+                }
+            }
+        }
+
+        WidgetCenter.shared.reloadAllTimelines()
+
+        let currentTaskId = self.taskId
+        Task.detached(priority: .background) {
+            guard let url = URL(string: "https://mytrack-nine.vercel.app/api/widget/stop-task") else { return }
+            var request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            request.timeoutInterval = 3.0
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             let body: [String: Any] = ["taskId": currentTaskId]
             request.httpBody = try? JSONSerialization.data(withJSONObject: body)
