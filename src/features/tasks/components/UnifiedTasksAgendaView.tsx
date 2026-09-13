@@ -62,6 +62,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
   const [isTestNotificationOpen, setIsTestNotificationOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedExternalEvent, setSelectedExternalEvent] = useState<ExternalCalendarEvent | null>(null);
+  const [manualCompletedEvents, setManualCompletedEvents] = useState<Record<string, boolean>>({});
   const quickInputRef = React.useRef<HTMLInputElement>(null);
 
   useEffect(() => {
