@@ -21,6 +21,7 @@
 		A7000001 /* LiveActivityPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7000002 /* LiveActivityPlugin.swift */; };
 		A7000003 /* LiveActivityPlugin.m in Sources */ = {isa = PBXBuildFile; fileRef = A7000004 /* LiveActivityPlugin.m */; };
 		A7000005 /* TaskActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7000006 /* TaskActivityAttributes.swift */; };
+		A7000007 /* TaskActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7000006 /* TaskActivityAttributes.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -321,6 +322,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A7000007 /* TaskActivityAttributes.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
