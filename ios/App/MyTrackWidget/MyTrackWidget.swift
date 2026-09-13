@@ -99,21 +99,35 @@ public struct ActiveTaskEntry: TimelineEntry {
 
 // MARK: - 2. Provider de données
 struct Provider: TimelineProvider {
-    private func fetchLocalActiveTask() -> ActiveTaskWidgetModel? {
+    private func fetchLocalActiveTask(tasks: [TaskItemWidgetModel]) -> ActiveTaskWidgetModel? {
+        var active: ActiveTaskWidgetModel? = nil
+
         if let rawJson = UserDefaults(suiteName: "group.com.mytrack.app")?.string(forKey: "mytrack_active_task")
             ?? UserDefaults.standard.string(forKey: "mytrack_active_task"),
            let data = rawJson.data(using: .utf8),
            let task = try? JSONDecoder().decode(ActiveTaskWidgetModel.self, from: data) {
-            return task
+            active = task
+        } else {
+            let tempUrl = URL(fileURLWithPath: "/tmp/mytrack_active_task.json")
+            if let data = try? Data(contentsOf: tempUrl),
+               let task = try? JSONDecoder().decode(ActiveTaskWidgetModel.self, from: data) {
+                active = task
+            }
         }
 
-        let tempUrl = URL(fileURLWithPath: "/tmp/mytrack_active_task.json")
-        if let data = try? Data(contentsOf: tempUrl),
-           let task = try? JSONDecoder().decode(ActiveTaskWidgetModel.self, from: data) {
-            return task
+        guard let activeTask = active else { return nil }
+
+        // Si la tâche correspondante dans la liste synchronisée est terminée, elle ne doit pas être affichée active
+        if let matching = tasks.first(where: { $0.id == activeTask.taskId }), matching.isCompleted == true {
+            return nil
         }
 
-        return nil
+        // Si la tâche a démarré il y a plus de 24h, on évite le blocage
+        if Date().timeIntervalSince1970 - activeTask.startedAtTimestamp > 86400 {
+            return nil
+        }
+
+        return activeTask
     }
 
     private func fetchLocalTasksList() -> [TaskItemWidgetModel] {
@@ -159,7 +173,7 @@ struct Provider: TimelineProvider {
         let selectedId = getSelectedTaskId()
         let page = getCurrentPage()
         let localTasks = fetchLocalTasksList()
-        let localActive = fetchLocalActiveTask()
+        let localActive = fetchLocalActiveTask(tasks: localTasks)
 
         let entry = ActiveTaskEntry(
             date: Date(),
@@ -175,7 +189,7 @@ struct Provider: TimelineProvider {
         let selectedId = getSelectedTaskId()
         let page = getCurrentPage()
         let localTasks = fetchLocalTasksList()
-        let localActive = fetchLocalActiveTask()
+        let localActive = fetchLocalActiveTask(tasks: localTasks)
 
         let entry = ActiveTaskEntry(
             date: Date(),

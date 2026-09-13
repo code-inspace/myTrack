@@ -51,17 +51,37 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     @objc func syncTasks(_ call: CAPPluginCall) {
+        let suite = UserDefaults(suiteName: "group.com.mytrack.app") ?? UserDefaults.standard
+
         if let tasksArray = call.getArray("tasks") as? [[String: Any]],
            let data = try? JSONSerialization.data(withJSONObject: tasksArray),
            let jsonString = String(data: data, encoding: .utf8) {
-            UserDefaults(suiteName: "group.com.mytrack.app")?.set(jsonString, forKey: "mytrack_tasks_list")
+            suite.set(jsonString, forKey: "mytrack_tasks_list")
             UserDefaults.standard.set(jsonString, forKey: "mytrack_tasks_list")
             let tempUrl = URL(fileURLWithPath: "/tmp/mytrack_tasks_list.json")
             try? data.write(to: tempUrl)
-            
-            if #available(iOS 14.0, macOS 11.0, *) {
-                WidgetCenter.shared.reloadAllTimelines()
+        }
+
+        // Synchronisation de la tâche active : si null ou absente, on nettoie pour éviter tout blocage
+        if let activeTaskDict = call.getObject("activeTask") as? [String: Any],
+           let taskId = activeTaskDict["taskId"] as? String, !taskId.isEmpty {
+            if let activeData = try? JSONSerialization.data(withJSONObject: activeTaskDict),
+               let activeJsonString = String(data: activeData, encoding: .utf8) {
+                suite.set(activeJsonString, forKey: "mytrack_active_task")
+                UserDefaults.standard.set(activeJsonString, forKey: "mytrack_active_task")
+                let tempUrl = URL(fileURLWithPath: "/tmp/mytrack_active_task.json")
+                try? activeData.write(to: tempUrl)
             }
+        } else {
+            // Aucune tâche active dans l'application -> suppression immédiate
+            suite.removeObject(forKey: "mytrack_active_task")
+            UserDefaults.standard.removeObject(forKey: "mytrack_active_task")
+            let tempUrl = URL(fileURLWithPath: "/tmp/mytrack_active_task.json")
+            try? FileManager.default.removeItem(at: tempUrl)
+        }
+
+        if #available(iOS 14.0, macOS 11.0, *) {
+            WidgetCenter.shared.reloadAllTimelines()
         }
         call.resolve(["success": true])
     }

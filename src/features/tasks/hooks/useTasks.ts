@@ -159,9 +159,25 @@ export function useTasks(selectedDateStr: string) {
 
   useEffect(() => {
     if (sortedTasks) {
-      LiveActivityBridge.syncTasks(sortedTasks);
+      LiveActivityBridge.syncTasks(
+        sortedTasks,
+        activeTask
+          ? {
+              taskId: activeTask.id,
+              taskTitle: activeTask.title || "Tâche en cours",
+              category: activeTask.tag || activeTask.category || "myTrack",
+              subtitle: activeTask.description || activeTask.category || "En cours",
+              startedAtTimestamp: activeTask.startedAt
+                ? new Date(activeTask.startedAt).getTime()
+                : Date.now(),
+              totalFormattedDuration: activeTask.targetValue
+                ? `${activeTask.targetValue} ${activeTask.unit || "min"}`
+                : undefined,
+            }
+          : null
+      );
     }
-  }, [sortedTasks]);
+  }, [sortedTasks, activeTask]);
 
   return {
     tasks: sortedTasks,

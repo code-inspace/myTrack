@@ -32,7 +32,7 @@ interface LiveActivityPluginInterface {
     } | null;
     lastStoppedTaskId?: string | null;
   }>;
-  syncTasks(options: { tasks: any[] }): Promise<{ success: boolean }>;
+  syncTasks(options: { tasks: any[]; activeTask?: any }): Promise<{ success: boolean }>;
   checkAuthorization(): Promise<{ enabled: boolean; frequentUpdatesEnabled: boolean; supported: boolean; reason?: string }>;
   openSettings(): Promise<{ success: boolean }>;
 }
@@ -159,7 +159,17 @@ export const LiveActivityBridge = {
     }
   },
 
-  async syncTasks(tasks: any[]): Promise<void> {
+  async syncTasks(
+    tasks: any[],
+    activeTask?: {
+      taskId: string;
+      taskTitle: string;
+      category?: string;
+      subtitle?: string;
+      startedAtTimestamp?: number;
+      totalFormattedDuration?: string;
+    } | null
+  ): Promise<void> {
     if (!this.isSupported() || !Array.isArray(tasks)) return;
 
     try {
@@ -174,7 +184,10 @@ export const LiveActivityBridge = {
         isCompleted: Boolean(t.isCompletedToday || t.completion?.completed),
       }));
 
-      await NativeLiveActivity.syncTasks({ tasks: widgetTasks });
+      await NativeLiveActivity.syncTasks({
+        tasks: widgetTasks,
+        activeTask: activeTask ?? null,
+      });
     } catch (err) {
       console.warn("[LiveActivity] syncTasks error:", err);
     }
