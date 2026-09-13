@@ -32,7 +32,7 @@ const NativeLiveActivity = registerPlugin<LiveActivityPluginInterface>("LiveActi
  */
 export const LiveActivityBridge = {
   isSupported(): boolean {
-    return Capacitor.getPlatform() === "ios";
+    return Capacitor.isNativePlatform() || Capacitor.getPlatform() === "ios";
   },
 
   async checkAuthorization(): Promise<{ enabled: boolean; frequentUpdatesEnabled: boolean; supported: boolean; reason?: string }> {
@@ -69,15 +69,8 @@ export const LiveActivityBridge = {
 
       // 1. Déclencher le plugin natif Swift Capacitor
       try {
-        const auth = await this.checkAuthorization();
-        if (auth.supported && !auth.enabled) {
-          if (typeof window !== "undefined") {
-            window.dispatchEvent(new CustomEvent("mytrack:live-activity-permission-needed"));
-          }
-        }
-
         const res = await NativeLiveActivity.startActivity(payload);
-        console.log("[LiveActivityBridge] Native activity started:", res);
+        console.log("[LiveActivityBridge] Native activity / widget updated:", res);
       } catch (nativeErr: any) {
         if (typeof window !== "undefined" && nativeErr?.message?.includes("not enabled")) {
           window.dispatchEvent(new CustomEvent("mytrack:live-activity-permission-needed"));

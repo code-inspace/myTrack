@@ -5,8 +5,8 @@ const config: CapacitorConfig = {
   appName: "myTrack",
   webDir: "out",
   server: {
-    // IP LAN du Mac pour permettre au téléphone physique et au simulateur de se connecter
-    url: "http://192.168.68.105:3000",
+    // URL de production pour fonctionner en 4G/5G déconnecté du Mac
+    url: "https://mytrack-nine.vercel.app",
     cleartext: true,
   },
   ios: {

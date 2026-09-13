@@ -73,6 +73,7 @@ export const viewport: Viewport = {
 };
 
 import { OfflineProvider } from "@/providers/OfflineProvider";
+import { DeepLinkProvider } from "@/providers/DeepLinkProvider";
 
 export default function RootLayout({
   children,
@@ -87,24 +88,26 @@ export default function RootLayout({
             <OfflineProvider>
               <OneSignalProvider>
                 <NotificationWatcherProvider>
-                  <NightModeProvider>
-                    <DisplayModeProvider>
-                      <DateProvider>
-                        <AuthGuard>
-                          {/* Desktop Sticky Left Sidebar (hidden on mobile) */}
-                          <DesktopSidebar />
+                  <DeepLinkProvider>
+                    <NightModeProvider>
+                      <DisplayModeProvider>
+                        <DateProvider>
+                          <AuthGuard>
+                            {/* Desktop Sticky Left Sidebar (hidden on mobile) */}
+                            <DesktopSidebar />
 
-                          {/* Main App Container: full width on mobile, flex-1 on desktop */}
-                          <main className="flex-1 min-w-0 w-full max-w-md md:max-w-none h-screen max-h-screen flex flex-col safe-top relative overflow-hidden">
-                            {children}
-                          </main>
+                            {/* Main App Container: full width on mobile, flex-1 on desktop */}
+                            <main className="flex-1 min-w-0 w-full max-w-md md:max-w-none h-screen max-h-screen flex flex-col safe-top relative overflow-hidden">
+                              {children}
+                            </main>
 
-                          {/* Fixed Thumb-friendly Navigation on Mobile */}
-                          <BottomNav />
-                        </AuthGuard>
-                      </DateProvider>
-                    </DisplayModeProvider>
-                  </NightModeProvider>
+                            {/* Fixed Thumb-friendly Navigation on Mobile */}
+                            <BottomNav />
+                          </AuthGuard>
+                        </DateProvider>
+                      </DisplayModeProvider>
+                    </NightModeProvider>
+                  </DeepLinkProvider>
                 </NotificationWatcherProvider>
               </OneSignalProvider>
             </OfflineProvider>

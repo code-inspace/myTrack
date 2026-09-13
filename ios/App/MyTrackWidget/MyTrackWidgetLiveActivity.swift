@@ -121,10 +121,18 @@ struct MyTrackWidgetLiveActivity: Widget {
 
                         Spacer(minLength: 16)
 
-                        Link(destination: URL(string: "mytrack://complete-task?id=\(context.attributes.taskId)")!) {
-                            Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 20))
-                                .foregroundColor(brandNeon)
+                        Link(destination: URL(string: "mytrack://stop-task?id=\(context.attributes.taskId)")!) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "square.fill")
+                                    .font(.system(size: 10, weight: .bold))
+                                Text("Arrêter")
+                                    .font(.system(size: 11, weight: .bold))
+                            }
+                            .foregroundColor(Color(red: 0.07, green: 0.07, blue: 0.08))
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(Color.white)
+                            .clipShape(Capsule())
                         }
                     }
                     .padding(.horizontal, 4)
@@ -180,19 +188,23 @@ struct LockScreenLiveActivityView: View {
                 VStack(alignment: .trailing, spacing: 6) {
                     if let total = context.state.totalFormattedDuration {
                         Text(total)
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundColor(.white)
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(.gray)
                     }
 
-                    Link(destination: URL(string: "mytrack://complete-task?id=\(context.attributes.taskId)")!) {
-                        ZStack {
-                            Circle()
-                                .fill(Color(red: 0.12, green: 0.40, blue: 0.85))
-                                .frame(width: 32, height: 32)
-                            Image(systemName: "checkmark")
-                                .font(.system(size: 14, weight: .black))
-                                .foregroundColor(.white)
+                    Link(destination: URL(string: "mytrack://stop-task?id=\(context.attributes.taskId)")!) {
+                        HStack(spacing: 5) {
+                            Image(systemName: "square.fill")
+                                .font(.system(size: 10, weight: .bold))
+                            Text("Arrêter")
+                                .font(.system(size: 13, weight: .bold))
                         }
+                        .foregroundColor(Color(red: 0.07, green: 0.07, blue: 0.08))
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 7)
+                        .background(Color.white)
+                        .clipShape(Capsule())
+                        .shadow(color: Color.black.opacity(0.15), radius: 3, x: 0, y: 1)
                     }
                 }
             }
@@ -214,10 +226,14 @@ struct LockScreenLiveActivityView: View {
             .frame(height: 4)
 
             HStack {
-                Text(timerInterval: Date(timeIntervalSince1970: context.state.startedAtTimestamp)...Date(timeIntervalSinceNow: 86400), countsDown: false)
-                    .font(.system(size: 13, weight: .semibold, design: .monospaced))
-                    .monospacedDigit()
-                    .foregroundColor(Color.white.opacity(0.9))
+                HStack(spacing: 4) {
+                    Text("⏱")
+                        .font(.system(size: 11))
+                    Text(timerInterval: Date(timeIntervalSince1970: context.state.startedAtTimestamp)...Date(timeIntervalSinceNow: 86400), countsDown: false)
+                        .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                        .monospacedDigit()
+                }
+                .foregroundColor(brandNeon)
 
                 Spacer()
             }

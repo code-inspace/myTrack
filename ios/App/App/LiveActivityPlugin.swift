@@ -1,6 +1,7 @@
 import Foundation
 import Capacitor
 import ActivityKit
+import WidgetKit
 
 @objc(LiveActivityPlugin)
 public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
@@ -9,20 +10,52 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "startActivity", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "updateActivity", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "stopActivity", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "stopActivity", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "checkAuthorization", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "openSettings", returnType: CAPPluginReturnPromise)
     ]
 
+    private func saveActiveTaskForWidget(
+        taskId: String,
+        taskTitle: String,
+        category: String?,
+        startedAtTimestamp: Double,
+        subtitle: String?,
+        totalFormattedDuration: String?
+    ) {
+        let dict: [String: Any] = [
+            "taskId": taskId,
+            "taskTitle": taskTitle,
+            "category": category ?? "myTrack",
+            "subtitle": subtitle ?? (category ?? "En cours"),
+            "startedAtTimestamp": startedAtTimestamp,
+            "totalFormattedDuration": totalFormattedDuration ?? ""
+        ]
+        if let data = try? JSONSerialization.data(withJSONObject: dict),
+           let jsonString = String(data: data, encoding: .utf8) {
+            UserDefaults(suiteName: "group.com.mytrack.app")?.set(jsonString, forKey: "mytrack_active_task")
+            UserDefaults.standard.set(jsonString, forKey: "mytrack_active_task")
+            
+            // Fallback fichier partagé pour macOS (Mac Catalyst & Widget Simulator)
+            let tempUrl = URL(fileURLWithPath: "/tmp/mytrack_active_task.json")
+            try? data.write(to: tempUrl)
+        }
+        if #available(iOS 14.0, macOS 11.0, *) {
+            WidgetCenter.shared.reloadAllTimelines()
+        }
+    }
+
+    private func clearActiveTaskForWidget() {
+        UserDefaults(suiteName: "group.com.mytrack.app")?.removeObject(forKey: "mytrack_active_task")
+        UserDefaults.standard.removeObject(forKey: "mytrack_active_task")
+        let tempUrl = URL(fileURLWithPath: "/tmp/mytrack_active_task.json")
+        try? FileManager.default.removeItem(at: tempUrl)
+        if #available(iOS 14.0, macOS 11.0, *) {
+            WidgetCenter.shared.reloadAllTimelines()
+        }
+    }
+
     @objc func startActivity(_ call: CAPPluginCall) {
-        guard #available(iOS 16.2, *) else {
-            call.reject("Live Activities require iOS 16.2+")
-            return
-        }
-
-        guard ActivityAuthorizationInfo().areActivitiesEnabled else {
-            call.reject("Live Activities are not enabled by user")
-            return
-        }
-
         let taskId = call.getString("taskId") ?? UUID().uuidString
         let taskTitle = call.getString("taskTitle") ?? "Tâche"
         let category = call.getString("category") ?? "myTrack"
@@ -31,6 +64,26 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
         let startedAtTimestamp = rawTimestamp > 10000000000 ? rawTimestamp / 1000.0 : rawTimestamp
         let totalFormattedDuration = call.getString("totalFormattedDuration") ?? "30 min"
         let progress = call.getDouble("progress") ?? 0.0
+
+        // Synchroniser immédiatement pour le Widget macOS & iOS Home Screen
+        saveActiveTaskForWidget(
+            taskId: taskId,
+            taskTitle: taskTitle,
+            category: category,
+            startedAtTimestamp: startedAtTimestamp,
+            subtitle: subtitle,
+            totalFormattedDuration: totalFormattedDuration
+        )
+
+        guard #available(iOS 16.2, *) else {
+            call.resolve(["taskId": taskId, "note": "Widget updated, iOS 16.2+ needed for Live Activity"])
+            return
+        }
+
+        guard ActivityAuthorizationInfo().areActivitiesEnabled else {
+            call.reject("Live Activities are not enabled by user")
+            return
+        }
 
         let attributes = TaskActivityAttributes(
             taskId: taskId,
@@ -69,28 +122,28 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
                 "taskId": taskId
             ])
         } catch {
-            print("[LiveActivityPlugin] Failed to start Live Activity: \(error)")
-            call.reject("Failed to start Live Activity: \(error.localizedDescription)")
+            print("[LiveActivityPlugin] Live Activity request failed (standard widget active): \(error)")
+            call.resolve([
+                "taskId": taskId,
+                "warning": "Live Activity error: \(error.localizedDescription)"
+            ])
         }
     }
 
     @objc func updateActivity(_ call: CAPPluginCall) {
-        guard #available(iOS 16.2, *) else {
-            call.reject("Live Activities require iOS 16.2+")
-            return
-        }
+        if #available(iOS 16.2, *) {
+            let progress = call.getDouble("progress") ?? 0.0
+            let subtitle = call.getString("subtitle")
 
-        let progress = call.getDouble("progress") ?? 0.0
-        let subtitle = call.getString("subtitle")
-
-        for activity in Activity<TaskActivityAttributes>.activities {
-            var updatedState = activity.content.state
-            updatedState.progress = progress
-            if let sub = subtitle {
-                updatedState.subtitle = sub
-            }
-            Task {
-                await activity.update(.init(state: updatedState, staleDate: nil))
+            for activity in Activity<TaskActivityAttributes>.activities {
+                var updatedState = activity.content.state
+                updatedState.progress = progress
+                if let sub = subtitle {
+                    updatedState.subtitle = sub
+                }
+                Task {
+                    await activity.update(.init(state: updatedState, staleDate: nil))
+                }
             }
         }
 
@@ -98,14 +151,13 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     @objc func stopActivity(_ call: CAPPluginCall) {
-        guard #available(iOS 16.2, *) else {
-            call.reject("Live Activities require iOS 16.2+")
-            return
-        }
+        clearActiveTaskForWidget()
 
-        for activity in Activity<TaskActivityAttributes>.activities {
-            Task {
-                await activity.end(nil, dismissalPolicy: .immediate)
+        if #available(iOS 16.2, *) {
+            for activity in Activity<TaskActivityAttributes>.activities {
+                Task {
+                    await activity.end(nil, dismissalPolicy: .immediate)
+                }
             }
         }
 
