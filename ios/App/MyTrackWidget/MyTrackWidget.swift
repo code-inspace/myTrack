@@ -468,26 +468,38 @@ struct MediumTasksListWidgetView: View {
         let pageTasks = Array(tasks.dropFirst(safePage * pageSize).prefix(pageSize))
 
         VStack(alignment: .leading, spacing: 6) {
-            // Header compact: Barre de saisie + Boutons de défilement / pagination
-            HStack(spacing: 6) {
-                Link(destination: URL(string: "mytrack://tasks?action=new-task")!) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "plus.circle.fill")
+            // Header compact: Bouton Lancer App + Barre de saisie + Boutons de défilement / pagination
+            HStack(spacing: 5) {
+                // Bouton haut-gauche pour lancer l'application directement
+                Link(destination: URL(string: "mytrack://tasks")!) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "figure.run.circle.fill")
                             .font(.system(size: 13, weight: .bold))
                             .foregroundColor(brandNeon)
-                        Text("Ajouter une tâche...")
-                            .font(.system(size: 11, weight: .medium))
+                    }
+                    .frame(width: 26, height: 26)
+                    .background(Color.white.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+
+                Link(destination: URL(string: "mytrack://tasks?action=new-task")!) {
+                    HStack(spacing: 5) {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(brandNeon)
+                        Text("Ajouter...")
+                            .font(.system(size: 10.5, weight: .medium))
                             .foregroundColor(Color(white: 0.6))
                         Spacer()
                     }
-                    .padding(.horizontal, 9)
+                    .padding(.horizontal, 7)
                     .padding(.vertical, 5)
                     .background(Color.white.opacity(0.08))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 10)
+                        RoundedRectangle(cornerRadius: 8)
                             .stroke(Color.white.opacity(0.12), lineWidth: 1)
                     )
-                    .cornerRadius(10)
+                    .cornerRadius(8)
                 }
 
                 if totalPages > 1 {
@@ -561,19 +573,31 @@ struct LargeTasksListWidgetView: View {
         let pageTasks = Array(tasks.dropFirst(safePage * pageSize).prefix(pageSize))
 
         VStack(alignment: .leading, spacing: 9) {
-            // Header avec logo myTrack + pagination
+            // Header avec bouton de lancement de l'application + pagination
             HStack(spacing: 8) {
-                Image(systemName: "figure.run.circle.fill")
-                    .font(.system(size: 17))
-                    .foregroundColor(brandNeon)
+                Link(destination: URL(string: "mytrack://tasks")!) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "figure.run.circle.fill")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(brandNeon)
 
-                Text("Mes Tâches du Jour")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(.white)
+                        Text("myTrack")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(.white)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.white.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+
+                Text("• Mes Tâches")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(Color(white: 0.75))
 
                 if !tasks.isEmpty {
                     Text("(\(tasks.count))")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.system(size: 12, weight: .bold))
                         .foregroundColor(brandNeon)
                 }
 
@@ -672,14 +696,16 @@ struct SmallTasksListWidgetView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 4) {
-                Image(systemName: "figure.run.circle.fill")
-                    .font(.system(size: 14))
-                    .foregroundColor(brandNeon)
-                Text("myTrack")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(.white)
-                Spacer()
+            Link(destination: URL(string: "mytrack://tasks")!) {
+                HStack(spacing: 4) {
+                    Image(systemName: "figure.run.circle.fill")
+                        .font(.system(size: 14))
+                        .foregroundColor(brandNeon)
+                    Text("myTrack")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.white)
+                    Spacer()
+                }
             }
 
             if let firstTask = tasks.first {
