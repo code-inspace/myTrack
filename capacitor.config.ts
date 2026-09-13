@@ -8,6 +8,7 @@ const config: CapacitorConfig = {
     // URL de production pour fonctionner en 4G/5G déconnecté du Mac
     url: "https://mytrack-nine.vercel.app",
     cleartext: true,
+    allowNavigation: ["mytrack-nine.vercel.app", "*.vercel.app"],
   },
   ios: {
     contentInset: "always",
