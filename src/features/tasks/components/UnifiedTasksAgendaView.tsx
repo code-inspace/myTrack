@@ -62,14 +62,26 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
   const [isTestNotificationOpen, setIsTestNotificationOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedExternalEvent, setSelectedExternalEvent] = useState<ExternalCalendarEvent | null>(null);
-  const [manualCompletedEvents, setManualCompletedEvents] = useState<Record<string, boolean>>({});
+  const quickInputRef = React.useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const handlePermissionNeeded = () => {
       setIsLiveActivityPermissionModalOpen(true);
     };
+    const handleOpenQuickAdd = () => {
+      setTimeout(() => {
+        quickInputRef.current?.focus();
+        quickInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 100);
+    };
+
     window.addEventListener("mytrack:live-activity-permission-needed", handlePermissionNeeded);
-    return () => window.removeEventListener("mytrack:live-activity-permission-needed", handlePermissionNeeded);
+    window.addEventListener("mytrack:open-quick-add", handleOpenQuickAdd);
+
+    return () => {
+      window.removeEventListener("mytrack:live-activity-permission-needed", handlePermissionNeeded);
+      window.removeEventListener("mytrack:open-quick-add", handleOpenQuickAdd);
+    };
   }, []);
 
   const { tasks, allTasks, allCompletions } = useTasks(selectedDate);
@@ -385,6 +397,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
                       <CheckCircle2 className="w-4 h-4" />
                     </div>
                     <input
+                      ref={quickInputRef}
                       type="text"
                       placeholder="Nom de la tâche"
                       value={quickTitle}

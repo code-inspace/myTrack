@@ -467,33 +467,29 @@ struct MediumTasksListWidgetView: View {
     let darkBg: Color
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            // Header avec Input / Bouton Créer une tâche
-            HStack(spacing: 6) {
-                Image(systemName: "figure.run.circle.fill")
-                    .font(.system(size: 15))
-                    .foregroundColor(brandNeon)
-                
-                Text("Mes Tâches")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(.white)
-
-                Spacer()
-
-                // Barre / Bouton d'ajout rapide (deep link vers modal de création)
-                Link(destination: URL(string: "mytrack://new-task")!) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 11, weight: .bold))
-                        Text("Nouvelle")
-                            .font(.system(size: 11, weight: .semibold))
-                    }
-                    .foregroundColor(brandNeon)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(Color.white.opacity(0.08))
-                    .cornerRadius(12)
+        VStack(alignment: .leading, spacing: 6) {
+            // Barre de saisie / Input pour ajouter directement une tâche
+            Link(destination: URL(string: "mytrack://new-task")!) {
+                HStack(spacing: 6) {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(brandNeon)
+                    Text("Nom de la tâche...")
+                        .font(.system(size: 11))
+                        .foregroundColor(Color(white: 0.55))
+                    Spacer()
+                    Image(systemName: "return")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(Color(white: 0.4))
                 }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(Color.white.opacity(0.07))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                )
+                .cornerRadius(10)
             }
 
             if tasks.isEmpty {
@@ -519,7 +515,7 @@ struct MediumTasksListWidgetView: View {
                 }
             }
         }
-        .padding(12)
+        .padding(10)
     }
 }
 
@@ -531,7 +527,7 @@ struct LargeTasksListWidgetView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            // Header avec Input stylisé pour créer une tâche
+            // Header avec logo myTrack
             HStack(spacing: 8) {
                 Image(systemName: "figure.run.circle.fill")
                     .font(.system(size: 18))
@@ -542,36 +538,29 @@ struct LargeTasksListWidgetView: View {
                     .foregroundColor(.white)
 
                 Spacer()
-
-                Link(destination: URL(string: "mytrack://new-task")!) {
-                    HStack(spacing: 5) {
-                        Image(systemName: "plus")
-                            .font(.system(size: 11, weight: .bold))
-                        Text("Ajouter")
-                            .font(.system(size: 12, weight: .bold))
-                    }
-                    .foregroundColor(darkBg)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background(brandNeon)
-                    .clipShape(Capsule())
-                }
             }
 
-            // Champ de saisie simulé (Appui ouvre directement le prompt de création dans l'app)
+            // Barre de saisie / Input pour ajouter directement une tâche
             Link(destination: URL(string: "mytrack://new-task")!) {
-                HStack {
-                    Image(systemName: "square.and.pencil")
-                        .font(.system(size: 12))
-                        .foregroundColor(Color.gray)
-                    Text("Créer une nouvelle tâche...")
-                        .font(.system(size: 12))
-                        .foregroundColor(Color.gray)
+                HStack(spacing: 8) {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(brandNeon)
+                    Text("Nom de la tâche...")
+                        .font(.system(size: 13))
+                        .foregroundColor(Color(white: 0.55))
                     Spacer()
+                    Image(systemName: "return")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(Color(white: 0.4))
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
-                .background(Color.white.opacity(0.06))
+                .background(Color.white.opacity(0.07))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.white.opacity(0.14), lineWidth: 1)
+                )
                 .cornerRadius(12)
             }
 

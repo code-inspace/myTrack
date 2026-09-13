@@ -25,6 +25,11 @@ export function DeepLinkProvider({ children }: { children: React.ReactNode }) {
             finishTaskExecution.mutate({ taskId, date: today });
           }
         }
+
+        const isNewTask = url.pathname.includes("new-task") || url.pathname.includes("create-task") || url.hostname === "new-task" || url.hostname === "create-task";
+        if (isNewTask) {
+          window.dispatchEvent(new CustomEvent("mytrack:open-quick-add"));
+        }
       } catch (err) {
         console.warn("[DeepLinkProvider] Failed to parse URL:", urlString, err);
       }
