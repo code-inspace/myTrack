@@ -18,6 +18,7 @@ import { mapTaskWithCompletion, sortTasksByPriority } from "../mappers";
 import { useAuth } from "@/providers/AuthProvider";
 import { createClient } from "@/utils/supabase/client";
 import { parseISO } from "date-fns";
+import { LiveActivityBridge } from "@/lib/native/liveActivity";
 
 export function useTasks(selectedDateStr: string) {
   const queryClient = useQueryClient();
@@ -155,6 +156,12 @@ export function useTasks(selectedDateStr: string) {
 
   const sortedTasks = sortTasksByPriority(filteredTasks);
   const activeTask = allTasks.find((t) => t.isActive && !t.isArchived);
+
+  useEffect(() => {
+    if (sortedTasks.length > 0) {
+      LiveActivityBridge.syncTasks(sortedTasks);
+    }
+  }, [sortedTasks]);
 
   return {
     tasks: sortedTasks,

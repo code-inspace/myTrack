@@ -19,11 +19,11 @@ export async function GET(_req: NextRequest) {
       .from("tasks")
       .select("*")
       .eq("is_archived", false)
-      .order("position", { ascending: true })
       .order("created_at", { ascending: false })
-      .limit(10);
+      .limit(20);
 
     if (error || !data) {
+      console.error("[api/widget/tasks] Supabase error:", error);
       return NextResponse.json({ tasks: [] }, {
         headers: { "Cache-Control": "no-store, max-age=0" }
       });

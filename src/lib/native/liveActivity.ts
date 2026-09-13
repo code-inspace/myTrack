@@ -20,6 +20,7 @@ interface LiveActivityPluginInterface {
   startActivity(options: any): Promise<{ activityId?: string; taskId?: string }>;
   updateActivity(options: any): Promise<{ success: boolean }>;
   stopActivity(options: any): Promise<{ success: boolean }>;
+  syncTasks(options: { tasks: any[] }): Promise<{ success: boolean }>;
   checkAuthorization(): Promise<{ enabled: boolean; frequentUpdatesEnabled: boolean; supported: boolean; reason?: string }>;
   openSettings(): Promise<{ success: boolean }>;
 }
@@ -120,6 +121,26 @@ export const LiveActivityBridge = {
       }
     } catch (err) {
       console.warn("[LiveActivity] stopActivity error:", err);
+    }
+  },
+
+  async syncTasks(tasks: any[]): Promise<void> {
+    if (!this.isSupported() || !Array.isArray(tasks)) return;
+
+    try {
+      const widgetTasks = tasks.map((t: any) => ({
+        id: t.id,
+        title: t.title || "Tâche",
+        category: t.tag || t.category || "myTrack",
+        subtitle: t.description || t.category || "Routine",
+        targetFormattedDuration: t.targetValue ? `${t.targetValue} ${t.unit || "min"}` : undefined,
+        isHabit: t.isHabit ?? false,
+        color: t.color || "#D4F63D",
+      }));
+
+      await NativeLiveActivity.syncTasks({ tasks: widgetTasks });
+    } catch (err) {
+      console.warn("[LiveActivity] syncTasks error:", err);
     }
   },
 };

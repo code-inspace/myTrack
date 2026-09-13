@@ -11,9 +11,26 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "startActivity", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "updateActivity", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "stopActivity", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "syncTasks", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "checkAuthorization", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "openSettings", returnType: CAPPluginReturnPromise)
     ]
+
+    @objc func syncTasks(_ call: CAPPluginCall) {
+        if let tasksArray = call.getArray("tasks") as? [[String: Any]],
+           let data = try? JSONSerialization.data(withJSONObject: tasksArray),
+           let jsonString = String(data: data, encoding: .utf8) {
+            UserDefaults(suiteName: "group.com.mytrack.app")?.set(jsonString, forKey: "mytrack_tasks_list")
+            UserDefaults.standard.set(jsonString, forKey: "mytrack_tasks_list")
+            let tempUrl = URL(fileURLWithPath: "/tmp/mytrack_tasks_list.json")
+            try? data.write(to: tempUrl)
+            
+            if #available(iOS 14.0, macOS 11.0, *) {
+                WidgetCenter.shared.reloadAllTimelines()
+            }
+        }
+        call.resolve(["success": true])
+    }
 
     private func saveActiveTaskForWidget(
         taskId: String,

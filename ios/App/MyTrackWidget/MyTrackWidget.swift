@@ -110,6 +110,25 @@ struct Provider: TimelineProvider {
         return nil
     }
 
+    private func fetchLocalTasksList() -> [TaskItemWidgetModel] {
+        if let rawJson = UserDefaults(suiteName: "group.com.mytrack.app")?.string(forKey: "mytrack_tasks_list")
+            ?? UserDefaults.standard.string(forKey: "mytrack_tasks_list"),
+           let data = rawJson.data(using: .utf8),
+           let list = try? JSONDecoder().decode([TaskItemWidgetModel].self, from: data),
+           !list.isEmpty {
+            return list
+        }
+
+        let tempUrl = URL(fileURLWithPath: "/tmp/mytrack_tasks_list.json")
+        if let data = try? Data(contentsOf: tempUrl),
+           let list = try? JSONDecoder().decode([TaskItemWidgetModel].self, from: data),
+           !list.isEmpty {
+            return list
+        }
+
+        return []
+    }
+
     private func getSelectedTaskId() -> String? {
         return UserDefaults(suiteName: "group.com.mytrack.app")?.string(forKey: "mytrack_selected_widget_task_id")
             ?? UserDefaults.standard.string(forKey: "mytrack_selected_widget_task_id")
@@ -152,8 +171,9 @@ struct Provider: TimelineProvider {
         }
 
         func tryFetchTasksList(index: Int, done: @escaping ([TaskItemWidgetModel]) -> Void) {
+            let local = self.fetchLocalTasksList()
             guard index < tasksListUrls.count, let url = URL(string: tasksListUrls[index]) else {
-                done([])
+                done(local)
                 return
             }
 
@@ -163,7 +183,13 @@ struct Provider: TimelineProvider {
 
             URLSession.shared.dataTask(with: req) { data, _, _ in
                 if let data = data,
-                   let resp = try? JSONDecoder().decode(TasksListApiResponse.self, from: data) {
+                   let resp = try? JSONDecoder().decode(TasksListApiResponse.self, from: data),
+                   !resp.tasks.isEmpty {
+                    if let encoded = try? JSONEncoder().encode(resp.tasks),
+                       let jsonStr = String(data: encoded, encoding: .utf8) {
+                        UserDefaults(suiteName: "group.com.mytrack.app")?.set(jsonStr, forKey: "mytrack_tasks_list")
+                        UserDefaults.standard.set(jsonStr, forKey: "mytrack_tasks_list")
+                    }
                     done(resp.tasks)
                     return
                 }
@@ -196,8 +222,11 @@ struct Provider: TimelineProvider {
 
     func getSnapshot(in context: Context, completion: @escaping (ActiveTaskEntry) -> Void) {
         let selectedId = getSelectedTaskId()
+        let localTasks = fetchLocalTasksList()
         if let local = fetchLocalActiveTask() {
             completion(ActiveTaskEntry(date: Date(), activeTask: local, tasks: [], selectedTaskId: selectedId))
+        } else if !localTasks.isEmpty {
+            completion(ActiveTaskEntry(date: Date(), activeTask: nil, tasks: localTasks, selectedTaskId: selectedId))
         } else {
             fetchRemoteData { activeTask, tasks in
                 completion(ActiveTaskEntry(date: Date(), activeTask: activeTask, tasks: tasks, selectedTaskId: selectedId))
