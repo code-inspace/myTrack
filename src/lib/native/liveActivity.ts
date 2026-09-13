@@ -20,6 +20,18 @@ interface LiveActivityPluginInterface {
   startActivity(options: any): Promise<{ activityId?: string; taskId?: string }>;
   updateActivity(options: any): Promise<{ success: boolean }>;
   stopActivity(options: any): Promise<{ success: boolean }>;
+  getActiveTask(): Promise<{
+    hasActiveTask: boolean;
+    task: {
+      taskId: string;
+      taskTitle: string;
+      category?: string;
+      startedAtTimestamp?: number;
+      subtitle?: string;
+      totalFormattedDuration?: string;
+    } | null;
+    lastStoppedTaskId?: string | null;
+  }>;
   syncTasks(options: { tasks: any[] }): Promise<{ success: boolean }>;
   checkAuthorization(): Promise<{ enabled: boolean; frequentUpdatesEnabled: boolean; supported: boolean; reason?: string }>;
   openSettings(): Promise<{ success: boolean }>;
@@ -121,6 +133,29 @@ export const LiveActivityBridge = {
       }
     } catch (err) {
       console.warn("[LiveActivity] stopActivity error:", err);
+    }
+  },
+
+  async getActiveTask(): Promise<{
+    hasActiveTask: boolean;
+    task: {
+      taskId: string;
+      taskTitle: string;
+      category?: string;
+      startedAtTimestamp?: number;
+      subtitle?: string;
+      totalFormattedDuration?: string;
+    } | null;
+    lastStoppedTaskId?: string | null;
+  }> {
+    if (!this.isSupported()) {
+      return { hasActiveTask: false, task: null, lastStoppedTaskId: null };
+    }
+    try {
+      const res = await NativeLiveActivity.getActiveTask();
+      return res || { hasActiveTask: false, task: null, lastStoppedTaskId: null };
+    } catch {
+      return { hasActiveTask: false, task: null, lastStoppedTaskId: null };
     }
   },
 

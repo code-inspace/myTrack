@@ -11,10 +11,44 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "startActivity", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "updateActivity", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "stopActivity", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "getActiveTask", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "syncTasks", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "checkAuthorization", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "openSettings", returnType: CAPPluginReturnPromise)
     ]
+
+    @objc func getActiveTask(_ call: CAPPluginCall) {
+        let suite = UserDefaults(suiteName: "group.com.mytrack.app") ?? UserDefaults.standard
+        let lastStoppedTaskId = suite.string(forKey: "mytrack_last_stopped_task_id")
+        
+        if let rawJson = suite.string(forKey: "mytrack_active_task"),
+           let data = rawJson.data(using: .utf8),
+           let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            call.resolve([
+                "hasActiveTask": true,
+                "task": dict,
+                "lastStoppedTaskId": lastStoppedTaskId ?? NSNull()
+            ])
+            return
+        }
+        
+        let tempUrl = URL(fileURLWithPath: "/tmp/mytrack_active_task.json")
+        if let data = try? Data(contentsOf: tempUrl),
+           let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            call.resolve([
+                "hasActiveTask": true,
+                "task": dict,
+                "lastStoppedTaskId": lastStoppedTaskId ?? NSNull()
+            ])
+            return
+        }
+
+        call.resolve([
+            "hasActiveTask": false,
+            "task": NSNull(),
+            "lastStoppedTaskId": lastStoppedTaskId ?? NSNull()
+        ])
+    }
 
     @objc func syncTasks(_ call: CAPPluginCall) {
         if let tasksArray = call.getArray("tasks") as? [[String: Any]],
@@ -40,6 +74,10 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
         subtitle: String?,
         totalFormattedDuration: String?
     ) {
+        let suite = UserDefaults(suiteName: "group.com.mytrack.app") ?? UserDefaults.standard
+        suite.removeObject(forKey: "mytrack_last_stopped_task_id")
+        suite.removeObject(forKey: "mytrack_selected_widget_task_id")
+
         let dict: [String: Any] = [
             "taskId": taskId,
             "taskTitle": taskTitle,
@@ -50,7 +88,7 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
         ]
         if let data = try? JSONSerialization.data(withJSONObject: dict),
            let jsonString = String(data: data, encoding: .utf8) {
-            UserDefaults(suiteName: "group.com.mytrack.app")?.set(jsonString, forKey: "mytrack_active_task")
+            suite.set(jsonString, forKey: "mytrack_active_task")
             UserDefaults.standard.set(jsonString, forKey: "mytrack_active_task")
             
             // Fallback fichier partagé pour macOS (Mac Catalyst & Widget Simulator)
@@ -63,8 +101,12 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     private func clearActiveTaskForWidget() {
-        UserDefaults(suiteName: "group.com.mytrack.app")?.removeObject(forKey: "mytrack_active_task")
+        let suite = UserDefaults(suiteName: "group.com.mytrack.app") ?? UserDefaults.standard
+        suite.removeObject(forKey: "mytrack_active_task")
         UserDefaults.standard.removeObject(forKey: "mytrack_active_task")
+        suite.removeObject(forKey: "mytrack_selected_widget_task_id")
+        UserDefaults.standard.removeObject(forKey: "mytrack_selected_widget_task_id")
+        suite.removeObject(forKey: "mytrack_last_stopped_task_id")
         let tempUrl = URL(fileURLWithPath: "/tmp/mytrack_active_task.json")
         try? FileManager.default.removeItem(at: tempUrl)
         if #available(iOS 14.0, macOS 11.0, *) {

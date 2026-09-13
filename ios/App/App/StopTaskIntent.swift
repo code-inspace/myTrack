@@ -24,7 +24,23 @@ public struct StopTaskIntent: AppIntent, LiveActivityIntent {
     public func perform() async throws -> some IntentResult {
         print("[StopTaskIntent] Performing background stop for task ID: \(taskId)")
 
-        // 1. Clôturer immédiatement toutes les Live Activities
+        let suite = UserDefaults(suiteName: "group.com.mytrack.app") ?? UserDefaults.standard
+
+        // 1. Enregistrer l'ID de la tâche arrêtée
+        if !taskId.isEmpty {
+            suite.set(taskId, forKey: "mytrack_last_stopped_task_id")
+            suite.set(Date().timeIntervalSince1970, forKey: "mytrack_last_stopped_timestamp")
+        }
+
+        // 2. Nettoyer les données locales partagées pour le widget
+        suite.removeObject(forKey: "mytrack_active_task")
+        UserDefaults.standard.removeObject(forKey: "mytrack_active_task")
+        suite.removeObject(forKey: "mytrack_selected_widget_task_id")
+        UserDefaults.standard.removeObject(forKey: "mytrack_selected_widget_task_id")
+        let tempUrl = URL(fileURLWithPath: "/tmp/mytrack_active_task.json")
+        try? FileManager.default.removeItem(at: tempUrl)
+
+        // 3. Clôturer immédiatement toutes les Live Activities
         if #available(iOS 16.2, *) {
             for activity in Activity<TaskActivityAttributes>.activities {
                 if activity.attributes.taskId == taskId || taskId.isEmpty {
@@ -35,18 +51,10 @@ public struct StopTaskIntent: AppIntent, LiveActivityIntent {
             }
         }
 
-        // 2. Nettoyer les données locales partagées pour le widget
-        UserDefaults(suiteName: "group.com.mytrack.app")?.removeObject(forKey: "mytrack_active_task")
-        UserDefaults.standard.removeObject(forKey: "mytrack_active_task")
-        UserDefaults(suiteName: "group.com.mytrack.app")?.removeObject(forKey: "mytrack_selected_widget_task_id")
-        UserDefaults.standard.removeObject(forKey: "mytrack_selected_widget_task_id")
-        let tempUrl = URL(fileURLWithPath: "/tmp/mytrack_active_task.json")
-        try? FileManager.default.removeItem(at: tempUrl)
-
-        // 3. Recharger immédiatement les widgets
+        // 4. Recharger immédiatement les widgets
         WidgetCenter.shared.reloadAllTimelines()
 
-        // 4. Notifier l'API distante en tâche de fond non-bloquante
+        // 5. Notifier l'API distante en tâche de fond non-bloquante
         let currentTaskId = self.taskId
         Task.detached(priority: .background) {
             guard let url = URL(string: "https://mytrack-nine.vercel.app/api/widget/stop-task") else { return }
@@ -126,6 +134,7 @@ public struct StartTaskIntent: AppIntent {
 
     public func perform() async throws -> some IntentResult {
         let startedAtTimestamp = Date().timeIntervalSince1970
+        let suite = UserDefaults(suiteName: "group.com.mytrack.app") ?? UserDefaults.standard
 
         // 1. Sauvegarder localement pour le widget
         let dict: [String: Any] = [
@@ -138,14 +147,15 @@ public struct StartTaskIntent: AppIntent {
         ]
         if let data = try? JSONSerialization.data(withJSONObject: dict),
            let jsonString = String(data: data, encoding: .utf8) {
-            UserDefaults(suiteName: "group.com.mytrack.app")?.set(jsonString, forKey: "mytrack_active_task")
+            suite.set(jsonString, forKey: "mytrack_active_task")
             UserDefaults.standard.set(jsonString, forKey: "mytrack_active_task")
             let tempUrl = URL(fileURLWithPath: "/tmp/mytrack_active_task.json")
             try? data.write(to: tempUrl)
         }
 
-        // 2. Nettoyer la sélection
-        UserDefaults(suiteName: "group.com.mytrack.app")?.removeObject(forKey: "mytrack_selected_widget_task_id")
+        // 2. Nettoyer la sélection et le dernier arrêt
+        suite.removeObject(forKey: "mytrack_last_stopped_task_id")
+        suite.removeObject(forKey: "mytrack_selected_widget_task_id")
         UserDefaults.standard.removeObject(forKey: "mytrack_selected_widget_task_id")
 
         // 3. Lancer la Live Activity sur Dynamic Island et Lock Screen
