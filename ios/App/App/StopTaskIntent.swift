@@ -237,3 +237,38 @@ public struct ChangeTaskPageIntent: AppIntent {
     }
 }
 
+// MARK: - 5. Intent pour Réinitialiser complètement le widget
+@available(iOS 16.0, macOS 13.0, *)
+public struct ResetWidgetIntent: AppIntent {
+    public static var title: LocalizedStringResource = "Réinitialiser le widget"
+    public static var description = IntentDescription("Réinitialise complètement l'état du widget myTrack et ferme les chronos actifs.")
+    public static var openAppWhenRun: Bool = false
+
+    public init() {}
+
+    public func perform() async throws -> some IntentResult {
+        let suite = UserDefaults(suiteName: "group.com.mytrack.app") ?? UserDefaults.standard
+        suite.removeObject(forKey: "mytrack_active_task")
+        UserDefaults.standard.removeObject(forKey: "mytrack_active_task")
+        suite.removeObject(forKey: "mytrack_selected_widget_task_id")
+        UserDefaults.standard.removeObject(forKey: "mytrack_selected_widget_task_id")
+        suite.removeObject(forKey: "mytrack_last_stopped_task_id")
+        suite.removeObject(forKey: "mytrack_widget_task_page")
+
+        let tempUrl = URL(fileURLWithPath: "/tmp/mytrack_active_task.json")
+        try? FileManager.default.removeItem(at: tempUrl)
+
+        if #available(iOS 16.2, *) {
+            for activity in Activity<TaskActivityAttributes>.activities {
+                Task {
+                    await activity.end(nil, dismissalPolicy: .immediate)
+                }
+            }
+        }
+
+        WidgetCenter.shared.reloadAllTimelines()
+        return .result()
+    }
+}
+
+

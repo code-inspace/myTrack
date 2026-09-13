@@ -285,26 +285,28 @@ struct MediumActiveTaskView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top, spacing: 8) {
-                HStack(alignment: .center, spacing: 8) {
-                    ZStack {
-                        Circle()
-                            .fill(darkBg)
-                            .frame(width: 16, height: 16)
-                        Circle()
-                            .fill(brandNeon)
-                            .frame(width: 7, height: 7)
-                    }
+                Link(destination: URL(string: "mytrack://tasks")!) {
+                    HStack(alignment: .center, spacing: 8) {
+                        ZStack {
+                            Circle()
+                                .fill(darkBg)
+                                .frame(width: 20, height: 20)
+                            Image(systemName: "figure.run.circle.fill")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundColor(brandNeon)
+                        }
 
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(task.taskTitle)
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(darkBg)
-                            .lineLimit(1)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(task.taskTitle)
+                                .font(.system(size: 15, weight: .bold))
+                                .foregroundColor(darkBg)
+                                .lineLimit(1)
 
-                        Text(task.subtitle ?? task.category ?? "En cours")
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundColor(darkBg.opacity(0.8))
-                            .lineLimit(1)
+                            Text(task.subtitle ?? task.category ?? "En cours")
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(darkBg.opacity(0.8))
+                                .lineLimit(1)
+                        }
                     }
                 }
 
@@ -413,21 +415,23 @@ struct SmallActiveTaskView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 6) {
-                ZStack {
-                    Circle()
-                        .fill(darkBg)
-                        .frame(width: 14, height: 14)
-                    Circle()
-                        .fill(brandNeon)
-                        .frame(width: 6, height: 6)
+            Link(destination: URL(string: "mytrack://tasks")!) {
+                HStack(spacing: 6) {
+                    ZStack {
+                        Circle()
+                            .fill(darkBg)
+                            .frame(width: 14, height: 14)
+                        Image(systemName: "figure.run.circle.fill")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundColor(brandNeon)
+                    }
+
+                    Text("EN COURS")
+                        .font(.system(size: 9, weight: .heavy))
+                        .foregroundColor(darkBg.opacity(0.8))
+
+                    Spacer()
                 }
-
-                Text("EN COURS")
-                    .font(.system(size: 9, weight: .heavy))
-                    .foregroundColor(darkBg.opacity(0.8))
-
-                Spacer()
             }
 
             Text(task.taskTitle)
