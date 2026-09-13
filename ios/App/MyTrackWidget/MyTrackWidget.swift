@@ -496,7 +496,7 @@ struct MediumTasksListWidgetView: View {
         VStack(alignment: .leading, spacing: 6) {
             // Header compact: Barre de saisie + Boutons de défilement / pagination
             HStack(spacing: 6) {
-                Link(destination: URL(string: "mytrack://new-task")!) {
+                Link(destination: URL(string: "https://mytrack-nine.vercel.app/tasks?action=new-task")!) {
                     HStack(spacing: 6) {
                         Image(systemName: "plus.circle.fill")
                             .font(.system(size: 13, weight: .bold))
@@ -635,7 +635,7 @@ struct LargeTasksListWidgetView: View {
             }
 
             // Barre de saisie / Input pour ajouter directement une tâche
-            Link(destination: URL(string: "mytrack://new-task")!) {
+            Link(destination: URL(string: "https://mytrack-nine.vercel.app/tasks?action=new-task")!) {
                 HStack(spacing: 8) {
                     Image(systemName: "plus.circle.fill")
                         .font(.system(size: 13, weight: .bold))

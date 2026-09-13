@@ -104,8 +104,9 @@ export function DeepLinkProvider({ children }: { children: React.ReactNode }) {
     window.addEventListener("mytrack:stop-task-from-native", onNativeStop);
 
     // 4. Check initial URL query if launched directly via browser redirect
-    if (window.location.search.includes("stop-task") || window.location.search.includes("complete-task")) {
-      const params = new URLSearchParams(window.location.search);
+    const search = window.location.search;
+    if (search.includes("stop-task") || search.includes("complete-task")) {
+      const params = new URLSearchParams(search);
       const taskId = params.get("id") || params.get("taskId");
       if (taskId) {
         const today = getTodayDateString();
@@ -113,7 +114,11 @@ export function DeepLinkProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    if (window.location.search.includes("new-task") || window.location.search.includes("create-task")) {
+    if (
+      search.includes("new-task") ||
+      search.includes("create-task") ||
+      search.includes("action=new-task")
+    ) {
       triggerQuickAdd();
     }
 
