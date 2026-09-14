@@ -10,6 +10,50 @@ import WidgetKit
 import SwiftUI
 import AppIntents
 
+// MARK: - App Logo View
+public struct AppLogoView: View {
+    public var size: CGFloat = 16
+    public var cornerRadius: CGFloat? = nil
+
+    private let brandNeon = Color(red: 0.83, green: 0.96, blue: 0.24) // #D4F63D
+    private let darkBg = Color(red: 0.07, green: 0.07, blue: 0.08) // #111214
+
+    public init(size: CGFloat = 16, cornerRadius: CGFloat? = nil) {
+        self.size = size
+        self.cornerRadius = cornerRadius
+    }
+
+    public var body: some View {
+        if let uiImage = UIImage(named: "AppLogo") {
+            Image(uiImage: uiImage)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: size, height: size)
+                .clipShape(RoundedRectangle(cornerRadius: cornerRadius ?? (size * 0.26)))
+        } else {
+            ZStack {
+                RoundedRectangle(cornerRadius: cornerRadius ?? (size * 0.26))
+                    .fill(brandNeon)
+                    .frame(width: size, height: size)
+
+                AppLogoCheckmark()
+                    .stroke(darkBg, style: StrokeStyle(lineWidth: max(1.5, size * 0.14), lineCap: .round, lineJoin: .round))
+                    .frame(width: size * 0.52, height: size * 0.40)
+            }
+        }
+    }
+}
+
+public struct AppLogoCheckmark: Shape {
+    public func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.minX, y: rect.midY + rect.height * 0.1))
+        path.addLine(to: CGPoint(x: rect.minX + rect.width * 0.38, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
+        return path
+    }
+}
+
 // MARK: - Widget Live Activity (Dynamic Island & Lock Screen)
 struct MyTrackWidgetLiveActivity: Widget {
     let brandNeon = Color(red: 0.83, green: 0.96, blue: 0.24) // #D4F63D
@@ -31,9 +75,7 @@ struct MyTrackWidgetLiveActivity: Widget {
                 // Région étendue gauche (Appui long)
                 DynamicIslandExpandedRegion(.leading) {
                     HStack(spacing: 6) {
-                        Image(systemName: "figure.run.circle.fill")
-                            .font(.system(size: 20))
-                            .foregroundColor(brandNeon)
+                        AppLogoView(size: 20)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(context.attributes.taskTitle)
                                 .font(.system(size: 14, weight: .bold))
@@ -100,24 +142,18 @@ struct MyTrackWidgetLiveActivity: Widget {
                 }
 
             } compactLeading: {
-                // PILULE GAUCHE : Logo Vert Fluo
-                Image(systemName: "figure.run.circle.fill")
-                    .font(.system(size: 16))
-                    .foregroundColor(brandNeon)
-                    .padding(.leading, 4)
+                // PILULE GAUCHE : Logo Officiel MyTrack Compact
+                AppLogoView(size: 14)
 
             } compactTrailing: {
-                // PILULE DROITE : Timer en direct
+                // PILULE DROITE : Timer Compact Monospaced
                 Text(timerInterval: Date(timeIntervalSince1970: context.state.startedAtTimestamp)...Date(timeIntervalSinceNow: 86400), countsDown: false)
-                    .font(.system(size: 13, weight: .bold, design: .monospaced))
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
                     .monospacedDigit()
                     .foregroundColor(.white)
-                    .padding(.trailing, 4)
 
             } minimal: {
-                Image(systemName: "figure.run.circle.fill")
-                    .font(.system(size: 14))
-                    .foregroundColor(brandNeon)
+                AppLogoView(size: 13)
             }
         }
     }
@@ -131,16 +167,19 @@ struct LockScreenLiveActivityView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(context.attributes.taskTitle)
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(.white)
-                        .lineLimit(1)
+                HStack(spacing: 8) {
+                    AppLogoView(size: 22)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(context.attributes.taskTitle)
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.white)
+                            .lineLimit(1)
 
-                    Text(context.state.subtitle ?? (context.attributes.category ?? "En cours"))
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(Color.white.opacity(0.8))
-                        .lineLimit(1)
+                        Text(context.state.subtitle ?? (context.attributes.category ?? "En cours"))
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(Color.white.opacity(0.8))
+                            .lineLimit(1)
+                    }
                 }
 
                 Spacer()

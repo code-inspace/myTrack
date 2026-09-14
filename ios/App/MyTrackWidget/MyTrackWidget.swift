@@ -297,14 +297,7 @@ struct MediumActiveTaskView: View {
             HStack(alignment: .top, spacing: 8) {
                 Link(destination: URL(string: "mytrack://tasks")!) {
                     HStack(alignment: .center, spacing: 8) {
-                        ZStack {
-                            Circle()
-                                .fill(darkBg)
-                                .frame(width: 20, height: 20)
-                            Image(systemName: "figure.run.circle.fill")
-                                .font(.system(size: 13, weight: .bold))
-                                .foregroundColor(brandNeon)
-                        }
+                        AppLogoView(size: 22)
 
                         VStack(alignment: .leading, spacing: 2) {
                             Text(task.taskTitle)
@@ -427,14 +420,7 @@ struct SmallActiveTaskView: View {
         VStack(alignment: .leading, spacing: 8) {
             Link(destination: URL(string: "mytrack://tasks")!) {
                 HStack(spacing: 6) {
-                    ZStack {
-                        Circle()
-                            .fill(darkBg)
-                            .frame(width: 14, height: 14)
-                        Image(systemName: "figure.run.circle.fill")
-                            .font(.system(size: 9, weight: .bold))
-                            .foregroundColor(brandNeon)
-                    }
+                    AppLogoView(size: 16)
 
                     Text("EN COURS")
                         .font(.system(size: 9, weight: .heavy))
@@ -500,14 +486,7 @@ struct MediumTasksListWidgetView: View {
             HStack(spacing: 5) {
                 // Bouton haut-gauche pour lancer l'application directement
                 Link(destination: URL(string: "mytrack://tasks")!) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "figure.run.circle.fill")
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundColor(brandNeon)
-                    }
-                    .frame(width: 26, height: 26)
-                    .background(Color.white.opacity(0.12))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    AppLogoView(size: 26, cornerRadius: 8)
                 }
 
                 Link(destination: URL(string: "mytrack://tasks?action=new-task")!) {
@@ -605,9 +584,7 @@ struct LargeTasksListWidgetView: View {
             HStack(spacing: 8) {
                 Link(destination: URL(string: "mytrack://tasks")!) {
                     HStack(spacing: 6) {
-                        Image(systemName: "figure.run.circle.fill")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(brandNeon)
+                        AppLogoView(size: 18)
 
                         Text("myTrack")
                             .font(.system(size: 14, weight: .bold))
@@ -725,10 +702,8 @@ struct SmallTasksListWidgetView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Link(destination: URL(string: "mytrack://tasks")!) {
-                HStack(spacing: 4) {
-                    Image(systemName: "figure.run.circle.fill")
-                        .font(.system(size: 14))
-                        .foregroundColor(brandNeon)
+                HStack(spacing: 5) {
+                    AppLogoView(size: 16)
                     Text("myTrack")
                         .font(.system(size: 12, weight: .bold))
                         .foregroundColor(.white)
