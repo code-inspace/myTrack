@@ -3,6 +3,7 @@ import { getStoredCalendarSubscriptions, saveStoredCalendarSubscriptions } from 
 import { createClient } from "@/utils/supabase/client";
 import { encryptText, decryptText, isEncrypted } from "@/lib/crypto/encryption";
 import { getEffectiveUserId } from "@/features/tasks/actions/user";
+import { getStoredUserSession } from "@/features/auth/actions";
 
 export async function mapDbSubscriptionToModel(row: any): Promise<CalendarSubscription> {
   let name = row.name;
@@ -39,12 +40,26 @@ export async function mapDbSubscriptionToModel(row: any): Promise<CalendarSubscr
 }
 
 async function resolveUserId(explicitUserId?: string): Promise<string> {
-  if (explicitUserId) return explicitUserId;
   const supabase = createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  return session?.user?.id || getEffectiveUserId();
+  try {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (session?.user?.id) {
+      return session.user.id;
+    }
+  } catch {}
+
+  const stored = getStoredUserSession();
+  if (stored?.id && stored.id !== "00000000-0000-0000-0000-000000000001") {
+    return stored.id;
+  }
+
+  if (explicitUserId && explicitUserId !== "00000000-0000-0000-0000-000000000001") {
+    return explicitUserId;
+  }
+
+  return getEffectiveUserId();
 }
 
 export async function fetchCalendarSubscriptions(userId?: string): Promise<CalendarSubscription[]> {
@@ -52,11 +67,11 @@ export async function fetchCalendarSubscriptions(userId?: string): Promise<Calen
   const targetId = await resolveUserId(userId);
 
   try {
-    const { data, error } = await supabase
-      .from("calendar_subscriptions")
-      .select("*")
-      .eq("user_id", targetId)
-      .order("created_at", { ascending: true });
+    let query = supabase.from("calendar_subscriptions").select("*");
+    if (targetId && targetId !== "00000000-0000-0000-0000-000000000001") {
+      query = query.eq("user_id", targetId);
+    }
+    const { data, error } = await query.order("created_at", { ascending: true });
 
     if (!error && data) {
       const mapped = await Promise.all(data.map(mapDbSubscriptionToModel));

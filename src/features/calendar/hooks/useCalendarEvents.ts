@@ -12,6 +12,7 @@ import {
   deleteDbCalendarSubscription,
 } from "../actions/calendarCrud";
 import { createClient } from "@/utils/supabase/client";
+import { getEffectiveUserId } from "@/features/tasks/actions/user";
 import { subDays, addDays, parseISO, format } from "date-fns";
 
 export interface CalendarSyncSummary {
@@ -27,7 +28,7 @@ export interface CalendarSyncSummary {
 export function useCalendarEvents(focusedDateStr?: string) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const userId = user?.id || "00000000-0000-0000-0000-000000000001";
+  const userId = user?.id || getEffectiveUserId() || "00000000-0000-0000-0000-000000000001";
   const [syncSummary, setSyncSummary] = useState<CalendarSyncSummary | null>(null);
 
   // Supabase Realtime Listener for instant multi-device sync (Phone <-> Desktop)
@@ -257,9 +258,31 @@ export function useCalendarEvents(focusedDateStr?: string) {
     updateSubscription(id, { enabled: !target.enabled });
   };
 
+  // Format event start/end times in user's local timezone
+  const rawEvents = queryResult?.events || [];
+  const localEvents: ExternalCalendarEvent[] = rawEvents.map((evt) => {
+    if (evt.isAllDay) return evt;
+    if (!evt.startIso) return evt;
+    try {
+      const startDate = parseISO(evt.startIso);
+      const endDate = evt.endIso ? parseISO(evt.endIso) : null;
+      if (!isNaN(startDate.getTime())) {
+        return {
+          ...evt,
+          date: format(startDate, "yyyy-MM-dd"),
+          startTime: format(startDate, "HH:mm"),
+          endTime: endDate && !isNaN(endDate.getTime()) ? format(endDate, "HH:mm") : evt.endTime,
+        };
+      }
+    } catch {
+      // Fallback to raw event on parse error
+    }
+    return evt;
+  });
+
   return {
     subscriptions: safeSubscriptions,
-    events: queryResult?.events || [],
+    events: localEvents,
     errors: queryResult?.errors || {},
     isLoading,
     isRefetching,
