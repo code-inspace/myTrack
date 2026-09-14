@@ -38,7 +38,7 @@ export const HistoryView: React.FC = () => {
   };
 
   return (
-    <div className="flex-1 flex flex-col h-screen max-h-screen bg-[#0E0F12] relative overflow-hidden">
+    <div className="flex-1 min-h-0 flex flex-col w-full h-full bg-[#0E0F12] relative overflow-hidden">
       {/* 1. Fixed Header Area */}
       <div className="flex-shrink-0 z-30 shadow-md">
         <TasksHeaderWithNav

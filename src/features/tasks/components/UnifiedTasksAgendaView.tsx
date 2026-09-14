@@ -297,7 +297,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
         onDragStart={handleHabitDragStart}
         onDragEnd={handleHabitDragEnd}
       >
-        <div className="flex-1 flex flex-col h-[100dvh] max-h-[100dvh] bg-[#0E0F12] relative overflow-hidden">
+        <div className="flex-1 min-h-0 flex flex-col w-full h-full bg-[#0E0F12] relative overflow-hidden">
           {/* 1. Permanent Fixed Header Area with Profile Icon Top Right & Adaptive Date Picker */}
           <div className="flex-shrink-0 z-30 shadow-md">
             <TasksHeaderWithNav
@@ -385,7 +385,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
             <>
               {/* MOBILE VERSION: Max-width 7-day strip style */}
               <div
-                className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-4 pt-3 pb-36 space-y-3.5 max-w-md mx-auto w-full touch-pan-y md:hidden"
+                className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-4 pt-3 pb-36 space-y-3.5 max-w-lg mx-auto w-full touch-pan-y md:hidden"
                 style={{ WebkitOverflowScrolling: "touch" }}
               >
                 <div className="flex items-center justify-between px-1">

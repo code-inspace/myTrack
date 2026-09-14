@@ -112,7 +112,7 @@ export default function NotificationSettingsPage() {
   };
 
   return (
-    <div className="flex-1 flex flex-col h-screen max-h-screen bg-[#0E0F12] text-white relative overflow-hidden">
+    <div className="flex-1 min-h-0 flex flex-col w-full h-full bg-[#0E0F12] text-white relative overflow-hidden">
       {/* Header */}
       <div className="flex-shrink-0 px-4 md:px-8 py-4 md:py-5 border-b border-[#17181F] bg-[#0E0F12] flex items-center justify-between z-30 select-none">
         <div className="flex items-center gap-3">

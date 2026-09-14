@@ -38,14 +38,17 @@
 
 html,
 body {
-  background-color: #111214;
+  background-color: #0e0f12;
   color: #f3f4f6;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  min-height: 100vh;
+  height: 100%;
+  min-height: 100%;
   min-height: 100dvh;
-  overflow-x: hidden;
+  overflow: hidden;
+  overscroll-behavior: none;
   user-select: none;
   -webkit-font-smoothing: antialiased;
+  -webkit-touch-callout: none;
 }
 
 /* Safe area padding utilities for iOS / PWA standalone mode */
@@ -61,23 +64,38 @@ body {
   padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
 }
 
-/* Custom scrollbars */
-::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+/* Hide scrollbars on mobile / touch devices for native iOS app feel */
+@media (max-width: 768px), (hover: none) and (pointer: coarse) {
+  ::-webkit-scrollbar {
+    display: none !important;
+    width: 0px !important;
+    height: 0px !important;
+  }
+  * {
+    -ms-overflow-style: none !important;
+    scrollbar-width: none !important;
+  }
 }
 
-::-webkit-scrollbar-track {
-  background: transparent;
-}
+/* Custom scrollbars on desktop */
+@media (min-width: 769px) and (hover: hover) {
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
 
-::-webkit-scrollbar-thumb {
-  background: #2a2c33;
-  border-radius: 10px;
-}
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
 
-::-webkit-scrollbar-thumb:hover {
-  background: #3c3f4a;
+  ::-webkit-scrollbar-thumb {
+    background: #2a2c33;
+    border-radius: 10px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #3c3f4a;
+  }
 }
 
 /* Subtle glow utilities */
