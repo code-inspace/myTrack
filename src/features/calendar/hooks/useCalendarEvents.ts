@@ -263,20 +263,26 @@ export function useCalendarEvents(focusedDateStr?: string) {
   const localEvents: ExternalCalendarEvent[] = rawEvents.map((evt) => {
     if (evt.isAllDay) return evt;
     if (!evt.startIso) return evt;
-    try {
-      const startDate = parseISO(evt.startIso);
-      const endDate = evt.endIso ? parseISO(evt.endIso) : null;
-      if (!isNaN(startDate.getTime())) {
-        return {
-          ...evt,
-          date: format(startDate, "yyyy-MM-dd"),
-          startTime: format(startDate, "HH:mm"),
-          endTime: endDate && !isNaN(endDate.getTime()) ? format(endDate, "HH:mm") : evt.endTime,
-        };
+
+    // Only convert pure UTC timestamps (ending with 'Z', e.g. Google Calendar)
+    if (evt.startIso.endsWith("Z")) {
+      try {
+        const startDate = parseISO(evt.startIso);
+        const endDate = evt.endIso && evt.endIso.endsWith("Z") ? parseISO(evt.endIso) : null;
+        if (!isNaN(startDate.getTime())) {
+          return {
+            ...evt,
+            date: format(startDate, "yyyy-MM-dd"),
+            startTime: format(startDate, "HH:mm"),
+            endTime: endDate && !isNaN(endDate.getTime()) ? format(endDate, "HH:mm") : evt.endTime,
+          };
+        }
+      } catch {
+        // Fallback to raw event on parse error
       }
-    } catch {
-      // Fallback to raw event on parse error
     }
+
+    // Local / Floating / TZID events (Zimbra, Beta.gouv, CalDAV) are already in exact local time
     return evt;
   });
 

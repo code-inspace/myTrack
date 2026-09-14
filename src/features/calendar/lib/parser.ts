@@ -99,7 +99,15 @@ export function unescapeIcsText(text: string): string {
   return clean;
 }
 
-function parseIcsDate(dateStr: string, params: Record<string, string> = {}): { date: Date; isAllDay: boolean } {
+export interface ParsedDateInfo {
+  date: Date;
+  isAllDay: boolean;
+  isUtc: boolean;
+  rawDate: string;
+  rawTime: string | null;
+}
+
+function parseIcsDate(dateStr: string, params: Record<string, string> = {}): ParsedDateInfo {
   const isDateOnly = params["VALUE"] === "DATE" || dateStr.length === 8;
 
   if (isDateOnly) {
@@ -107,7 +115,15 @@ function parseIcsDate(dateStr: string, params: Record<string, string> = {}): { d
     const y = parseInt(dateStr.slice(0, 4), 10);
     const m = parseInt(dateStr.slice(4, 6), 10) - 1;
     const d = parseInt(dateStr.slice(6, 8), 10);
-    return { date: new Date(Date.UTC(y, m, d, 0, 0, 0)), isAllDay: true };
+    const mm = String(m + 1).padStart(2, "0");
+    const dd = String(d).padStart(2, "0");
+    return {
+      date: new Date(Date.UTC(y, m, d, 0, 0, 0)),
+      isAllDay: true,
+      isUtc: false,
+      rawDate: `${y}-${mm}-${dd}`,
+      rawTime: null,
+    };
   }
 
   // Format YYYYMMDDTHHMMSS[Z]
@@ -116,25 +132,43 @@ function parseIcsDate(dateStr: string, params: Record<string, string> = {}): { d
 
   if (match) {
     const [, y, mo, d, h, mi, s, z] = match;
-    if (z) {
-      // UTC time
+    const isUtc = Boolean(z);
+    const rawDate = `${y}-${mo}-${d}`;
+    const rawTime = `${h}:${mi}`;
+
+    if (isUtc) {
+      // Pure UTC timestamp (ends with Z)
       return {
         date: new Date(Date.UTC(parseInt(y, 10), parseInt(mo, 10) - 1, parseInt(d, 10), parseInt(h, 10), parseInt(mi, 10), parseInt(s, 10))),
         isAllDay: false,
+        isUtc: true,
+        rawDate,
+        rawTime,
       };
     }
-    // Local floating or TZID
+
+    // Local floating or TZID (e.g. Europe/Paris from Zimbra / CalDAV)
     return {
-      date: new Date(parseInt(y, 10), parseInt(mo, 10) - 1, parseInt(d, 10), parseInt(h, 10), parseInt(mi, 10), parseInt(s, 10)),
+      date: new Date(Date.UTC(parseInt(y, 10), parseInt(mo, 10) - 1, parseInt(d, 10), parseInt(h, 10), parseInt(mi, 10), parseInt(s, 10))),
       isAllDay: false,
+      isUtc: false,
+      rawDate,
+      rawTime,
     };
   }
 
   // Fallback
   const parsed = new Date(dateStr);
+  const isValid = !isNaN(parsed.getTime());
+  const isUtc = dateStr.endsWith("Z");
+  const fallbackDate = isValid ? parsed : new Date();
+
   return {
-    date: isNaN(parsed.getTime()) ? new Date() : parsed,
+    date: fallbackDate,
     isAllDay: isDateOnly,
+    isUtc,
+    rawDate: format(fallbackDate, "yyyy-MM-dd"),
+    rawTime: isDateOnly ? null : format(fallbackDate, "HH:mm"),
   };
 }
 
@@ -247,11 +281,14 @@ function processVEvent(
   if (raw.status === "CANCELLED" || !raw.dtstart) return;
 
   const startInfo = parseIcsDate(raw.dtstart, raw.dtstartParams);
-  const endInfo = raw.dtend
+  const endInfo: ParsedDateInfo = raw.dtend
     ? parseIcsDate(raw.dtend, raw.dtendParams)
     : {
         date: startInfo.isAllDay ? addDays(startInfo.date, 1) : new Date(startInfo.date.getTime() + 60 * 60 * 1000),
         isAllDay: startInfo.isAllDay,
+        isUtc: startInfo.isUtc,
+        rawDate: startInfo.rawDate,
+        rawTime: startInfo.rawTime,
       };
 
   const title = raw.summary || "Événement sans titre";
@@ -266,9 +303,8 @@ function processVEvent(
         title,
         raw.description,
         raw.location,
-        startInfo.date,
-        endInfo.date,
-        startInfo.isAllDay,
+        startInfo,
+        endInfo,
         calendarId,
         calendarName,
         calendarColor,
@@ -282,9 +318,8 @@ function processVEvent(
   const rruleParts = parseRRule(raw.rrule);
   expandRRule(
     rruleParts,
-    startInfo.date,
+    startInfo,
     durationMs,
-    startInfo.isAllDay,
     baseUid,
     title,
     raw.description,
@@ -309,9 +344,8 @@ function parseRRule(rruleStr: string): Record<string, string> {
 
 function expandRRule(
   rrule: Record<string, string>,
-  dtstart: Date,
+  startInfo: ParsedDateInfo,
   durationMs: number,
-  isAllDay: boolean,
   baseUid: string,
   title: string,
   description?: string,
@@ -328,7 +362,7 @@ function expandRRule(
   const count = rrule["COUNT"] ? parseInt(rrule["COUNT"], 10) : 500;
   const until = rrule["UNTIL"] ? parseIcsDate(rrule["UNTIL"]).date : null;
 
-  let currentStart = new Date(dtstart.getTime());
+  let currentStart = new Date(startInfo.date.getTime());
   let iterations = 0;
 
   while (iterations < count && iterations < 500) {
@@ -337,17 +371,31 @@ function expandRRule(
 
     const currentEnd = new Date(currentStart.getTime() + durationMs);
 
-    if (isEventInRange(currentStart, currentEnd, rangeStart, rangeEnd, isAllDay)) {
+    if (isEventInRange(currentStart, currentEnd, rangeStart, rangeEnd, startInfo.isAllDay)) {
       const occurrenceDateStr = format(currentStart, "yyyy-MM-dd");
       const occurrenceId = `${baseUid}_${occurrenceDateStr}`;
+      const occurrenceStartInfo: ParsedDateInfo = {
+        date: currentStart,
+        isAllDay: startInfo.isAllDay,
+        isUtc: startInfo.isUtc,
+        rawDate: occurrenceDateStr,
+        rawTime: startInfo.rawTime,
+      };
+      const occurrenceEndInfo: ParsedDateInfo = {
+        date: currentEnd,
+        isAllDay: startInfo.isAllDay,
+        isUtc: startInfo.isUtc,
+        rawDate: format(currentEnd, "yyyy-MM-dd"),
+        rawTime: format(currentEnd, "HH:mm"),
+      };
+
       addEventOccurrence(
         occurrenceId,
         title,
         description,
         location,
-        currentStart,
-        currentEnd,
-        isAllDay,
+        occurrenceStartInfo,
+        occurrenceEndInfo,
         calendarId,
         calendarName,
         calendarColor,
@@ -393,17 +441,47 @@ function addEventOccurrence(
   title: string,
   description?: string,
   location?: string,
-  start: Date = new Date(),
-  end: Date = new Date(),
-  isAllDay: boolean = false,
+  startInfo: ParsedDateInfo | Date = new Date(),
+  endInfo: ParsedDateInfo | Date = new Date(),
   calendarId: string = "",
   calendarName: string = "",
   calendarColor: string = "",
   outEvents: ExternalCalendarEvent[] = []
 ) {
-  const dateStr = format(start, "yyyy-MM-dd");
-  const startTime = isAllDay ? null : format(start, "HH:mm");
-  const endTime = isAllDay ? null : format(end, "HH:mm");
+  const isDateObj = startInfo instanceof Date;
+  const isAllDay = isDateObj ? false : startInfo.isAllDay;
+  const isUtc = isDateObj ? true : startInfo.isUtc;
+  const startDate = isDateObj ? startInfo : startInfo.date;
+  const endDate = endInfo instanceof Date ? endInfo : endInfo.date;
+
+  let dateStr: string;
+  let startTime: string | null;
+  let endTime: string | null;
+  let startIso: string;
+  let endIso: string;
+
+  if (isAllDay) {
+    dateStr = isDateObj ? format(startDate, "yyyy-MM-dd") : startInfo.rawDate;
+    startTime = null;
+    endTime = null;
+    startIso = `${dateStr}T00:00:00`;
+    endIso = `${dateStr}T23:59:59`;
+  } else if (isUtc) {
+    // Pure UTC timestamp (Google Calendar, etc.)
+    dateStr = format(startDate, "yyyy-MM-dd");
+    startTime = format(startDate, "HH:mm");
+    endTime = format(endDate, "HH:mm");
+    startIso = startDate.toISOString();
+    endIso = endDate.toISOString();
+  } else {
+    // Local / Floating / TZID timestamp (Zimbra, SOGo, Apple Calendar, Beta.gouv)
+    dateStr = !isDateObj && startInfo.rawDate ? startInfo.rawDate : format(startDate, "yyyy-MM-dd");
+    startTime = !isDateObj && startInfo.rawTime ? startInfo.rawTime : format(startDate, "HH:mm");
+    endTime = !(endInfo instanceof Date) && endInfo.rawTime ? endInfo.rawTime : format(endDate, "HH:mm");
+    // Local ISO WITHOUT trailing 'Z' so clients know it is already local clock time
+    startIso = `${dateStr}T${startTime}:00`;
+    endIso = `${dateStr}T${endTime || startTime}:00`;
+  }
 
   outEvents.push({
     id,
@@ -417,7 +495,7 @@ function addEventOccurrence(
     startTime,
     endTime,
     isAllDay,
-    startIso: start.toISOString(),
-    endIso: end.toISOString(),
+    startIso,
+    endIso,
   });
 }
