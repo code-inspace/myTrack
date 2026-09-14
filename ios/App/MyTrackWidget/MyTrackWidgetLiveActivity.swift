@@ -24,23 +24,26 @@ public struct AppLogoView: View {
     }
 
     public var body: some View {
-        if let uiImage = UIImage(named: "AppLogo") {
-            Image(uiImage: uiImage)
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .frame(width: size, height: size)
-                .clipShape(RoundedRectangle(cornerRadius: cornerRadius ?? (size * 0.26)))
-        } else {
-            ZStack {
-                RoundedRectangle(cornerRadius: cornerRadius ?? (size * 0.26))
-                    .fill(brandNeon)
+        Group {
+            if let uiImage = UIImage(named: "AppLogo") {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
                     .frame(width: size, height: size)
+                    .clipShape(RoundedRectangle(cornerRadius: cornerRadius ?? (size * 0.26)))
+            } else {
+                ZStack {
+                    RoundedRectangle(cornerRadius: cornerRadius ?? (size * 0.26))
+                        .fill(brandNeon)
+                        .frame(width: size, height: size)
 
-                AppLogoCheckmark()
-                    .stroke(darkBg, style: StrokeStyle(lineWidth: max(1.5, size * 0.14), lineCap: .round, lineJoin: .round))
-                    .frame(width: size * 0.52, height: size * 0.40)
+                    AppLogoCheckmark()
+                        .stroke(darkBg, style: StrokeStyle(lineWidth: max(1.5, size * 0.14), lineCap: .round, lineJoin: .round))
+                        .frame(width: size * 0.52, height: size * 0.40)
+                }
             }
         }
+        .frame(width: size, height: size)
     }
 }
 
@@ -142,18 +145,25 @@ struct MyTrackWidgetLiveActivity: Widget {
                 }
 
             } compactLeading: {
-                // PILULE GAUCHE : Logo Officiel MyTrack Compact
-                AppLogoView(size: 14)
+                // ==========================================
+                // PILULE GAUCHE : Logo Officiel MyTrack Compact (13x13)
+                // ==========================================
+                AppLogoView(size: 13)
+                    .frame(width: 13, height: 13)
 
             } compactTrailing: {
-                // PILULE DROITE : Timer Compact Monospaced
+                // ==========================================
+                // PILULE DROITE : Timer Compact Strict (ex: 0:31)
+                // ==========================================
                 Text(timerInterval: Date(timeIntervalSince1970: context.state.startedAtTimestamp)...Date(timeIntervalSinceNow: 86400), countsDown: false)
-                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .font(.system(size: 11.5, weight: .bold, design: .rounded))
                     .monospacedDigit()
-                    .foregroundColor(.white)
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: 32, alignment: .trailing)
 
             } minimal: {
-                AppLogoView(size: 13)
+                AppLogoView(size: 12)
+                    .frame(width: 12, height: 12)
             }
         }
     }

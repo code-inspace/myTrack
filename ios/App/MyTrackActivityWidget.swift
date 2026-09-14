@@ -104,22 +104,23 @@ struct MyTrackActivityWidget: Widget {
                 // ==========================================
                 // PILULE GAUCHE : Logo myTrack en Vert Fluo
                 // ==========================================
-                MyTrackLogoView(size: 16)
-                    .padding(.leading, 4)
+                MyTrackLogoView(size: 13)
+                    .frame(width: 13, height: 13)
 
             } compactTrailing: {
                 // ==========================================
                 // PILULE DROITE : Timer en direct (ex: 0:31)
                 // ==========================================
                 Text(timerInterval: Date(timeIntervalSince1970: context.state.startedAtTimestamp)...Date(timeIntervalSinceNow: 86400), countsDown: false)
-                    .font(.system(size: 13, weight: .bold, design: .monospaced))
+                    .font(.system(size: 11.5, weight: .bold, design: .rounded))
                     .monospacedDigit()
-                    .foregroundColor(.white)
-                    .padding(.trailing, 4)
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: 32, alignment: .trailing)
 
             } minimal: {
                 // Vue minimale (quand 2 apps partagent l'île)
-                MyTrackLogoView(size: 14)
+                MyTrackLogoView(size: 12)
+                    .frame(width: 12, height: 12)
             }
         }
     }
