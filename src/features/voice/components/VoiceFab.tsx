@@ -2,11 +2,13 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { Mic, Plus, MessageSquare } from "lucide-react";
+import { Mic, Plus, MessageSquare, Camera } from "lucide-react";
 import { VoiceActionModal } from "./VoiceActionModal";
+import { PhotoTaskImportModal } from "@/features/tasks/components/PhotoTaskImportModal";
 import { useTaskMutations } from "@/features/tasks/hooks";
 import { Task } from "@/features/tasks/types";
 import { ParsedVoiceTask } from "../parser";
+import { ExtractedPhotoTask } from "@/app/api/tasks/import-photo/route";
 import { useProjects, useProjectMutations } from "@/features/projects/hooks";
 import { DEFAULT_PROJECT_COLUMNS } from "@/features/projects/types";
 import { useDisplayMode } from "@/providers/DisplayModeProvider";
@@ -19,6 +21,7 @@ interface VoiceFabProps {
 
 export const VoiceFab: React.FC<VoiceFabProps> = ({ selectedDate, allTasks, onNewTask }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
   const { createTask, closeTask } = useTaskMutations();
   const { projects } = useProjects();
   const { createProject } = useProjectMutations();
@@ -75,6 +78,22 @@ export const VoiceFab: React.FC<VoiceFabProps> = ({ selectedDate, allTasks, onNe
     }
   };
 
+  const handleImportPhotoTasks = (tasks: ExtractedPhotoTask[]) => {
+    for (const task of tasks) {
+      createTask.mutate({
+        title: task.title,
+        description: task.description,
+        tag: task.category || "General",
+        category: task.category || "General",
+        trackingType: "BOOLEAN",
+        recurrence: "ONCE",
+        startTime: task.startTime || undefined,
+        endTime: task.endTime || undefined,
+        date: task.targetDate || selectedDate,
+      });
+    }
+  };
+
   const handleCompleteTasks = (taskIds: string[]) => {
     for (const taskId of taskIds) {
       closeTask.mutate({ taskId, date: selectedDate });
@@ -83,7 +102,7 @@ export const VoiceFab: React.FC<VoiceFabProps> = ({ selectedDate, allTasks, onNe
 
   return (
     <>
-      {/* Floating Action Buttons: Coach IA (modern mode only), New Task (+), Voice AI (Mic) */}
+      {/* Floating Action Buttons: Coach IA (modern mode only), Photo Import (Camera), Voice AI (Mic), New Task (+) */}
       <div className="fixed bottom-24 right-4 sm:right-6 z-40 flex items-center gap-2.5">
         {/* 0. Coach IA — only shown in "modern" display mode, where it's no longer in the bottom nav */}
         {displayMode === "modern" && (
@@ -97,7 +116,18 @@ export const VoiceFab: React.FC<VoiceFabProps> = ({ selectedDate, allTasks, onNe
           </Link>
         )}
 
-        {/* 1. Voice AI Command Button */}
+        {/* 1. Photo OCR Import Button */}
+        <button
+          type="button"
+          onClick={() => setIsPhotoModalOpen(true)}
+          aria-label="Scanner une liste papier"
+          title="Scanner une liste de tâches manuscrite ou papier"
+          className="w-11 h-11 rounded-full bg-[#1C1D22] hover:bg-[#252830] active:scale-95 text-[#D4F63D] border border-[#2E323D] flex items-center justify-center shadow-xl transition-all duration-200 cursor-pointer hover:scale-105 group"
+        >
+          <Camera className="w-5 h-5 stroke-[2.2] group-hover:scale-110 transition-transform" />
+        </button>
+
+        {/* 2. Voice AI Command Button */}
         <button
           type="button"
           onClick={() => setIsModalOpen(true)}
@@ -108,7 +138,7 @@ export const VoiceFab: React.FC<VoiceFabProps> = ({ selectedDate, allTasks, onNe
           <Mic className="w-5 h-5 stroke-[2.2] group-hover:scale-110 transition-transform" />
         </button>
 
-        {/* 2. New Task Button (+) */}
+        {/* 3. New Task Button (+) */}
         {onNewTask && (
           <button
             type="button"
@@ -121,6 +151,14 @@ export const VoiceFab: React.FC<VoiceFabProps> = ({ selectedDate, allTasks, onNe
           </button>
         )}
       </div>
+
+      {/* Photo Import Modal */}
+      <PhotoTaskImportModal
+        isOpen={isPhotoModalOpen}
+        selectedDate={selectedDate}
+        onClose={() => setIsPhotoModalOpen(false)}
+        onImportTasks={handleImportPhotoTasks}
+      />
 
       {/* Voice Action Modal */}
       <VoiceActionModal
