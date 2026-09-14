@@ -34,12 +34,69 @@ function unfoldIcsLines(rawIcs: string): string[] {
   return unfolded;
 }
 
-function unescapeIcsText(text: string): string {
-  return text
+export function unescapeIcsText(text: string): string {
+  if (!text) return "";
+  let clean = text
     .replace(/\\n/gi, "\n")
+    .replace(/\\r/gi, "")
     .replace(/\\,/g, ",")
     .replace(/\\;/g, ";")
-    .replace(/\\\\/g, "\\");
+    .replace(/\\\\/g, "\\")
+    .replace(/\\"/g, '"')
+    .replace(/\\'/g, "'");
+
+  // Decode common HTML entities (from Zimbra/Nextcloud/Google HTML-embedded descriptions)
+  clean = clean
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;/gi, '"')
+    .replace(/&apos;/gi, "'")
+    .replace(/&#39;/gi, "'")
+    .replace(/&#34;/gi, '"')
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&rsquo;/gi, "’")
+    .replace(/&lsquo;/gi, "‘")
+    .replace(/&rdquo;/gi, "”")
+    .replace(/&ldquo;/gi, "“")
+    .replace(/&hellip;/gi, "…")
+    .replace(/&eacute;/gi, "é")
+    .replace(/&egrave;/gi, "è")
+    .replace(/&ecirc;/gi, "ê")
+    .replace(/&euml;/gi, "ë")
+    .replace(/&agrave;/gi, "à")
+    .replace(/&acirc;/gi, "â")
+    .replace(/&icirc;/gi, "î")
+    .replace(/&iuml;/gi, "ï")
+    .replace(/&ocirc;/gi, "ô")
+    .replace(/&ouml;/gi, "ö")
+    .replace(/&ugrave;/gi, "ù")
+    .replace(/&ucirc;/gi, "û")
+    .replace(/&uuml;/gi, "ü")
+    .replace(/&ccedil;/gi, "ç")
+    .replace(/&#(\d+);/g, (_, dec) => {
+      try {
+        return String.fromCharCode(parseInt(dec, 10));
+      } catch {
+        return _;
+      }
+    })
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => {
+      try {
+        return String.fromCharCode(parseInt(hex, 16));
+      } catch {
+        return _;
+      }
+    });
+
+  // Convert HTML linebreaks to real linebreaks
+  clean = clean
+    .replace(/<br\s*[\/]?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n\n")
+    .replace(/<\/div>/gi, "\n")
+    .replace(/<[^>]+>/g, ""); // Strip any leftover HTML tags
+
+  return clean;
 }
 
 function parseIcsDate(dateStr: string, params: Record<string, string> = {}): { date: Date; isAllDay: boolean } {
