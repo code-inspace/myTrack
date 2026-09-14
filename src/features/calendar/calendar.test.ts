@@ -190,3 +190,49 @@ describe("Encrypted Calendar Subscriptions Database Mapping", () => {
     expect(mapped.enabled).toBe(true);
   });
 });
+
+import { generateCandidateUrls, extractCalendarDataFromXml } from "./lib/caldavClient";
+
+describe("Universal CalDAV & Zimbra URL Resolution", () => {
+  it("generates Zimbra and CalDAV candidate endpoints for French state email (messagerie.numerique.gouv.fr)", () => {
+    const rawUrl = "https://messagerie.numerique.gouv.fr";
+    const username = "axel.test@beta.gouv.fr";
+
+    const candidates = generateCandidateUrls(rawUrl, username);
+    expect(candidates).toContain("https://messagerie.numerique.gouv.fr");
+    expect(candidates).toContain("https://messagerie.numerique.gouv.fr/home/axel.test%40beta.gouv.fr/Calendar.ics");
+    expect(candidates).toContain("https://messagerie.numerique.gouv.fr/home/axel.test%40beta.gouv.fr/Calendrier.ics");
+    expect(candidates).toContain("https://messagerie.numerique.gouv.fr/home/axel.test%40beta.gouv.fr/Calendar?fmt=ics");
+    expect(candidates).toContain("https://messagerie.numerique.gouv.fr/dav/axel.test%40beta.gouv.fr/Calendar?fmt=ics");
+  });
+
+  it("extracts VCALENDAR / VEVENT data from CalDAV Multi-Status XML responses", () => {
+    const calDavXml = `<?xml version="1.0" encoding="utf-8" ?>
+<D:multistatus xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
+  <D:response>
+    <D:href>/dav/user/Calendar/event-1.ics</D:href>
+    <D:propstat>
+      <D:prop>
+        <C:calendar-data>BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+UID:beta-gouv-event-1
+SUMMARY:Point d'équipe Beta.gouv
+DTSTART:20260914T100000Z
+DTEND:20260914T110000Z
+END:VEVENT
+END:VCALENDAR</C:calendar-data>
+      </D:prop>
+      <D:status>HTTP/1.1 200 OK</D:status>
+    </D:propstat>
+  </D:response>
+</D:multistatus>`;
+
+    const extracted = extractCalendarDataFromXml(calDavXml);
+    expect(extracted.length).toBe(1);
+    expect(extracted[0]).toContain("BEGIN:VCALENDAR");
+    expect(extracted[0]).toContain("Point d'équipe Beta.gouv");
+    expect(extracted[0]).toContain("beta-gouv-event-1");
+  });
+});
+
