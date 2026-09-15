@@ -14,6 +14,7 @@ import {
   FolderKanban,
   Tag,
   BarChart3,
+  Timer,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -26,6 +27,55 @@ interface ProjectStatsViewProps {
   initialProjectId?: string | null;
 }
 
+// Helpers for duration calculation
+function getTaskCompletionDurationMinutes(c: TaskCompletion, task?: Task): number {
+  if (c.duration && c.duration > 0) return c.duration;
+  if (c.actualStartTime && c.actualEndTime) {
+    const [h1, m1] = c.actualStartTime.split(":").map(Number);
+    const [h2, m2] = c.actualEndTime.split(":").map(Number);
+    const diff = h2 * 60 + m2 - (h1 * 60 + m1);
+    if (diff > 0) return diff;
+  }
+  if (task?.startTime && task?.endTime) {
+    const [h1, m1] = task.startTime.split(":").map(Number);
+    const [h2, m2] = task.endTime.split(":").map(Number);
+    const diff = h2 * 60 + m2 - (h1 * 60 + m1);
+    if (diff > 0) return diff;
+  }
+  if (task?.trackingType === "DURATION" && task.targetValue) {
+    return Number(task.targetValue);
+  }
+  if (task?.unit === "min" && task.targetValue) {
+    return Number(task.targetValue);
+  }
+  return 30; // fallback per completed session
+}
+
+function getTaskScheduledDurationMinutes(task: Task): number {
+  if (task.startTime && task.endTime) {
+    const [h1, m1] = task.startTime.split(":").map(Number);
+    const [h2, m2] = task.endTime.split(":").map(Number);
+    const diff = h2 * 60 + m2 - (h1 * 60 + m1);
+    if (diff > 0) return diff;
+  }
+  if (task.trackingType === "DURATION" && task.targetValue) {
+    return Number(task.targetValue);
+  }
+  if (task.unit === "min" && task.targetValue) {
+    return Number(task.targetValue);
+  }
+  return 30;
+}
+
+export function formatDurationHoursMinutes(totalMinutes: number): string {
+  if (!totalMinutes || totalMinutes <= 0) return "0 min";
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = Math.round(totalMinutes % 60);
+  if (hours === 0) return `${minutes} min`;
+  if (minutes === 0) return `${hours}h`;
+  return `${hours}h ${minutes}m`;
+}
+
 // Helpers for SVG Pie/Donut Chart slices
 function getCoordinatesForPercent(percent: number) {
   const x = Math.cos(2 * Math.PI * percent);
@@ -33,31 +83,41 @@ function getCoordinatesForPercent(percent: number) {
   return [x, y];
 }
 
+interface ChartSliceData {
+  id: string;
+  label: string;
+  durationMinutes: number;
+  taskCount: number;
+  color: string;
+}
+
 function DonutChart({
   data,
-  total,
+  totalMinutes,
+  totalTasks,
   hoveredIndex,
   onHover,
   onClick,
-  centerLabel = "Tâches",
-  centerSubLabel,
+  centerLabel = "Temps passé",
 }: {
-  data: { label: string; value: number; color: string; id: string }[];
-  total: number;
+  data: ChartSliceData[];
+  totalMinutes: number;
+  totalTasks: number;
   hoveredIndex: number | null;
   onHover: (idx: number | null) => void;
   onClick: (id: string) => void;
   centerLabel?: string;
-  centerSubLabel?: string;
 }) {
-  if (total === 0) {
+  const effectiveTotal = totalMinutes > 0 ? totalMinutes : totalTasks;
+
+  if (effectiveTotal === 0) {
     return (
       <div className="relative w-56 h-56 mx-auto flex items-center justify-center">
         <svg viewBox="-1 -1 2 2" className="w-full h-full -rotate-90">
           <circle cx="0" cy="0" r="0.8" fill="transparent" stroke="#252830" strokeWidth="0.3" />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-4">
-          <span className="text-xl font-extrabold text-white">0</span>
+          <span className="text-xl font-extrabold text-white">0 min</span>
           <span className="text-xs text-[#8E929E]">Aucune tâche</span>
         </div>
       </div>
@@ -70,8 +130,9 @@ function DonutChart({
     <div className="relative w-60 h-60 md:w-64 md:h-64 mx-auto select-none">
       <svg viewBox="-1.2 -1.2 2.4 2.4" className="w-full h-full -rotate-90 overflow-visible">
         {data.map((slice, index) => {
-          if (slice.value === 0) return null;
-          const percent = slice.value / total;
+          const sliceValue = totalMinutes > 0 ? slice.durationMinutes : slice.taskCount;
+          if (sliceValue === 0) return null;
+          const percent = sliceValue / effectiveTotal;
           const [startX, startY] = getCoordinatesForPercent(cumulativePercent);
           cumulativePercent += percent;
           const [endX, endY] = getCoordinatesForPercent(cumulativePercent);
@@ -133,25 +194,35 @@ function DonutChart({
       <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center px-4">
         {hoveredIndex !== null && data[hoveredIndex] ? (
           <>
-            <span className="text-2xl font-black text-white leading-none tracking-tight">
-              {data[hoveredIndex].value}
+            <span className="text-xl font-black text-white leading-none tracking-tight">
+              {formatDurationHoursMinutes(data[hoveredIndex].durationMinutes)}
             </span>
             <span className="text-xs font-bold text-[#D4F63D] mt-1">
-              {Math.round((data[hoveredIndex].value / total) * 100)}%
+              {effectiveTotal > 0
+                ? Math.round(
+                    ((totalMinutes > 0
+                      ? data[hoveredIndex].durationMinutes
+                      : data[hoveredIndex].taskCount) /
+                      effectiveTotal) *
+                      100
+                  )
+                : 0}
+              % du temps
             </span>
             <span className="text-[11px] text-[#8E929E] truncate max-w-[120px] mt-0.5">
-              {data[hoveredIndex].label}
+              {data[hoveredIndex].label} ({data[hoveredIndex].taskCount} tâche
+              {data[hoveredIndex].taskCount !== 1 ? "s" : ""})
             </span>
           </>
         ) : (
           <>
-            <span className="text-3xl font-black text-white leading-none tracking-tight">
-              {total}
+            <span className="text-2xl font-black text-white leading-none tracking-tight">
+              {formatDurationHoursMinutes(totalMinutes)}
             </span>
             <span className="text-xs text-[#8E929E] font-medium mt-1">{centerLabel}</span>
-            {centerSubLabel && (
-              <span className="text-[10px] text-[#6B7280] mt-0.5">{centerSubLabel}</span>
-            )}
+            <span className="text-[11px] text-[#D4F63D] font-bold mt-0.5">
+              {totalTasks} tâche{totalTasks !== 1 ? "s" : ""}
+            </span>
           </>
         )}
       </div>
@@ -193,18 +264,40 @@ export const ProjectStatsView: React.FC<ProjectStatsViewProps> = ({
     return tasks.filter((t) => Boolean(t.projectId) && !t.isArchived);
   }, [tasks]);
 
-  // Chart data: Distribution by project
-  const projectChartData = useMemo(() => {
-    return projects.map((p) => {
+  // Global project chart data based on duration & tasks
+  const { projectChartData, totalGlobalMinutes } = useMemo(() => {
+    let globalMinutes = 0;
+    const projectMap = projects.map((p) => {
       const pTasks = tasks.filter((t) => t.projectId === p.id && !t.isArchived);
+      const pTaskIds = new Set(pTasks.map((t) => t.id));
+
+      let pMinutes = 0;
+      const pCompletions = completions.filter((c) => pTaskIds.has(c.taskId) && c.completed);
+
+      if (pCompletions.length > 0) {
+        for (const c of pCompletions) {
+          const t = pTasks.find((item) => item.id === c.taskId);
+          pMinutes += getTaskCompletionDurationMinutes(c, t);
+        }
+      } else {
+        for (const t of pTasks) {
+          pMinutes += getTaskScheduledDurationMinutes(t);
+        }
+      }
+
+      globalMinutes += pMinutes;
+
       return {
         id: p.id,
         label: p.name,
-        value: pTasks.length,
+        durationMinutes: pMinutes,
+        taskCount: pTasks.length,
         color: p.color || "#D4F63D",
       };
     });
-  }, [projects, tasks]);
+
+    return { projectChartData: projectMap, totalGlobalMinutes: globalMinutes };
+  }, [projects, tasks, completions]);
 
   // Specific project details if selected
   const singleProjectTasks = useMemo(() => {
@@ -212,24 +305,47 @@ export const ProjectStatsView: React.FC<ProjectStatsViewProps> = ({
     return tasks.filter((t) => t.projectId === selectedProjectId && !t.isArchived);
   }, [tasks, selectedProjectId]);
 
-  // Project categories breakdown
-  const projectCategoryChartData = useMemo(() => {
-    if (!selectedProject) return [];
-    const counts: Record<string, number> = {};
+  // Project categories breakdown based on duration & tasks
+  const { projectCategoryChartData, totalSingleProjectMinutes } = useMemo(() => {
+    if (!selectedProject) return { projectCategoryChartData: [], totalSingleProjectMinutes: 0 };
+    const catMap: Record<string, { durationMinutes: number; taskCount: number }> = {};
+    const singleTaskIds = new Set(singleProjectTasks.map((t) => t.id));
+    const projectCompletions = completions.filter((c) => singleTaskIds.has(c.taskId) && c.completed);
+
+    let totalProjMinutes = 0;
 
     for (const t of singleProjectTasks) {
       const cat = t.projectCategory || t.category || "Général";
-      counts[cat] = (counts[cat] || 0) + 1;
+      if (!catMap[cat]) {
+        catMap[cat] = { durationMinutes: 0, taskCount: 0 };
+      }
+      catMap[cat].taskCount++;
+
+      const tComps = projectCompletions.filter((c) => c.taskId === t.id);
+      let tMins = 0;
+      if (tComps.length > 0) {
+        for (const c of tComps) {
+          tMins += getTaskCompletionDurationMinutes(c, t);
+        }
+      } else {
+        tMins = getTaskScheduledDurationMinutes(t);
+      }
+
+      catMap[cat].durationMinutes += tMins;
+      totalProjMinutes += tMins;
     }
 
-    const categories = Object.keys(counts);
-    return categories.map((cat, idx) => ({
+    const categories = Object.keys(catMap);
+    const chartData = categories.map((cat, idx) => ({
       id: cat,
       label: cat,
-      value: counts[cat],
+      durationMinutes: catMap[cat].durationMinutes,
+      taskCount: catMap[cat].taskCount,
       color: CATEGORY_COLORS[idx % CATEGORY_COLORS.length],
     }));
-  }, [selectedProject, singleProjectTasks]);
+
+    return { projectCategoryChartData: chartData, totalSingleProjectMinutes: totalProjMinutes };
+  }, [selectedProject, singleProjectTasks, completions]);
 
   // Project status breakdown (Kanban columns)
   const projectStatusBreakdown = useMemo(() => {
@@ -258,9 +374,10 @@ export const ProjectStatsView: React.FC<ProjectStatsViewProps> = ({
     return singleProjectTasks.filter((t) => t.projectStatus && doneColumnIds.has(t.projectStatus)).length;
   }, [selectedProject, singleProjectTasks]);
 
-  const completionRate = singleProjectTasks.length > 0
-    ? Math.round((projectCompletedCount / singleProjectTasks.length) * 100)
-    : 0;
+  const completionRate =
+    singleProjectTasks.length > 0
+      ? Math.round((projectCompletedCount / singleProjectTasks.length) * 100)
+      : 0;
 
   // Filtered task list for drill-down view
   const filteredSingleTasks = useMemo(() => {
@@ -278,13 +395,15 @@ export const ProjectStatsView: React.FC<ProjectStatsViewProps> = ({
           <button
             type="button"
             onClick={() => {
-              if (selectedProjectId) {
+              if (selectedProject) {
                 setSelectedProjectId(null);
+                setHoveredProjectIdx(null);
               } else {
                 onBack();
               }
             }}
             className="p-2 rounded-xl bg-[#1C1D22] hover:bg-[#282A30] text-[#8E929E] hover:text-white transition-colors cursor-pointer"
+            title="Retour"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
@@ -299,8 +418,8 @@ export const ProjectStatsView: React.FC<ProjectStatsViewProps> = ({
             </h1>
             <p className="text-xs text-[#8E929E]">
               {selectedProject
-                ? "Répartition par catégories et état d'avancement"
-                : "Camembert de répartition des tâches par projets"}
+                ? "Répartition du temps passé et avancement par sous-catégories"
+                : "Camembert du temps passé et totaux par projets"}
             </p>
           </div>
         </div>
@@ -314,9 +433,10 @@ export const ProjectStatsView: React.FC<ProjectStatsViewProps> = ({
             Tous les projets
           </button>
         ) : (
-          <div className="px-3 py-1.5 rounded-xl bg-[#D4F63D]/10 border border-[#D4F63D]/20 text-[#D4F63D] text-xs font-bold flex items-center gap-1.5">
-            <Layers className="w-3.5 h-3.5" />
-            <span>{projectTasks.length} tâches assignées</span>
+          <div className="px-3 py-1.5 rounded-xl bg-[#D4F63D]/10 border border-[#D4F63D]/20 text-[#D4F63D] text-xs font-bold flex items-center gap-2">
+            <Timer className="w-3.5 h-3.5" />
+            <span>{formatDurationHoursMinutes(totalGlobalMinutes)}</span>
+            <span className="opacity-75">({projectTasks.length} tâches)</span>
           </div>
         )}
       </div>
@@ -330,7 +450,15 @@ export const ProjectStatsView: React.FC<ProjectStatsViewProps> = ({
             <div className="grid grid-cols-3 gap-3">
               <div className="p-4 rounded-2xl bg-[#16171C] border border-[#282A30] flex flex-col">
                 <span className="text-[11px] font-semibold text-[#8E929E] uppercase tracking-wider">
-                  Total Tâches
+                  Temps passé
+                </span>
+                <span className="text-2xl font-black text-[#D4F63D] mt-1">
+                  {formatDurationHoursMinutes(totalSingleProjectMinutes)}
+                </span>
+              </div>
+              <div className="p-4 rounded-2xl bg-[#16171C] border border-[#282A30] flex flex-col">
+                <span className="text-[11px] font-semibold text-[#8E929E] uppercase tracking-wider">
+                  Tâches
                 </span>
                 <span className="text-2xl font-black text-white mt-1">
                   {singleProjectTasks.length}
@@ -338,15 +466,7 @@ export const ProjectStatsView: React.FC<ProjectStatsViewProps> = ({
               </div>
               <div className="p-4 rounded-2xl bg-[#16171C] border border-[#282A30] flex flex-col">
                 <span className="text-[11px] font-semibold text-[#8E929E] uppercase tracking-wider">
-                  Complétées
-                </span>
-                <span className="text-2xl font-black text-[#D4F63D] mt-1">
-                  {projectCompletedCount}
-                </span>
-              </div>
-              <div className="p-4 rounded-2xl bg-[#16171C] border border-[#282A30] flex flex-col">
-                <span className="text-[11px] font-semibold text-[#8E929E] uppercase tracking-wider">
-                  Progression
+                  Avancement
                 </span>
                 <span className="text-2xl font-black text-[#60A5FA] mt-1">
                   {completionRate}%
@@ -354,47 +474,82 @@ export const ProjectStatsView: React.FC<ProjectStatsViewProps> = ({
               </div>
             </div>
 
-            {/* Category Chart & Kanban Breakdown */}
-            <div className="grid md:grid-cols-2 gap-6">
-              {/* Category Breakdown Donut */}
-              <div className="p-5 rounded-3xl bg-[#16171C] border border-[#282A30] space-y-4">
-                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+            {/* Project Categories Breakdown & Donut Chart */}
+            <div className="grid gap-6 md:grid-cols-2 items-start">
+              {/* Category Donut Chart */}
+              <div className="p-6 rounded-3xl bg-[#16171C] border border-[#282A30] flex flex-col items-center">
+                <h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2 self-start">
                   <Tag className="w-4 h-4 text-[#D4F63D]" />
-                  <span>Répartition par Catégorie</span>
+                  <span>Temps passé par Sous-Catégorie</span>
                 </h3>
-
                 <DonutChart
                   data={projectCategoryChartData}
-                  total={singleProjectTasks.length}
+                  totalMinutes={totalSingleProjectMinutes}
+                  totalTasks={singleProjectTasks.length}
                   hoveredIndex={hoveredCategoryIdx}
                   onHover={setHoveredCategoryIdx}
-                  onClick={(catId) => {
-                    setSelectedCategoryFilter(selectedCategoryFilter === catId ? "ALL" : catId);
-                  }}
-                  centerLabel="Tâches"
-                  centerSubLabel="dans ce projet"
+                  onClick={(catId) => setSelectedCategoryFilter(catId)}
+                  centerLabel="Temps projet"
                 />
+              </div>
 
-                {/* Categories List / Legend */}
-                <div className="space-y-1.5 pt-2 border-t border-[#202228]">
+              {/* Status and Categories List */}
+              <div className="p-6 rounded-3xl bg-[#16171C] border border-[#282A30] space-y-5">
+                <div>
+                  <h3 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
+                    <BarChart3 className="w-4 h-4 text-[#60A5FA]" />
+                    <span>Statut Kanban</span>
+                  </h3>
+                  <div className="space-y-2">
+                    {projectStatusBreakdown.map((col) => (
+                      <div key={col.id} className="space-y-1">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-[#8E929E] flex items-center gap-1.5">
+                            {col.isDone && <CheckCircle2 className="w-3 h-3 text-[#D4F63D]" />}
+                            <span>{col.label}</span>
+                          </span>
+                          <span className="font-bold text-white">
+                            {col.count} ({col.percent}%)
+                          </span>
+                        </div>
+                        <div className="h-1.5 w-full bg-[#202228] rounded-full overflow-hidden">
+                          <div
+                            className={cn(
+                              "h-full rounded-full transition-all duration-500",
+                              col.isDone ? "bg-[#D4F63D]" : "bg-[#60A5FA]"
+                            )}
+                            style={{ width: `${col.percent}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Subcategories Breakdown Table */}
+                <div className="pt-3 border-t border-[#202228] space-y-2">
+                  <div className="flex items-center justify-between text-xs font-bold text-[#8E929E]">
+                    <span>Sous-catégorie</span>
+                    <span>Temps & Tâches</span>
+                  </div>
                   {projectCategoryChartData.map((cat, idx) => {
-                    const isSelected = selectedCategoryFilter === cat.id;
-                    const percent = singleProjectTasks.length > 0
-                      ? Math.round((cat.value / singleProjectTasks.length) * 100)
-                      : 0;
+                    const percent =
+                      totalSingleProjectMinutes > 0
+                        ? Math.round((cat.durationMinutes / totalSingleProjectMinutes) * 100)
+                        : Math.round((cat.taskCount / singleProjectTasks.length) * 100);
 
                     return (
                       <button
-                        key={cat.id}
                         type="button"
-                        onClick={() =>
-                          setSelectedCategoryFilter(isSelected ? "ALL" : cat.id)
-                        }
+                        key={cat.id}
+                        onClick={() => setSelectedCategoryFilter(cat.id)}
+                        onMouseEnter={() => setHoveredCategoryIdx(idx)}
+                        onMouseLeave={() => setHoveredCategoryIdx(null)}
                         className={cn(
-                          "w-full flex items-center justify-between p-2 rounded-xl transition-all text-xs cursor-pointer",
-                          isSelected
-                            ? "bg-[#252830] border border-[#383C48] text-white"
-                            : "hover:bg-white/5 text-[#8E929E] hover:text-white"
+                          "w-full flex items-center justify-between p-2 rounded-xl text-xs transition-all cursor-pointer text-left",
+                          selectedCategoryFilter === cat.id
+                            ? "bg-[#252830] ring-1 ring-[#D4F63D]/40"
+                            : "hover:bg-white/5"
                         )}
                       >
                         <div className="flex items-center gap-2 min-w-0">
@@ -402,50 +557,20 @@ export const ProjectStatsView: React.FC<ProjectStatsViewProps> = ({
                             className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                             style={{ backgroundColor: cat.color }}
                           />
-                          <span className="font-semibold truncate">{cat.label}</span>
+                          <span className="text-white truncate font-medium">{cat.label}</span>
                         </div>
-                        <div className="flex items-center gap-3 flex-shrink-0">
-                          <span className="font-bold text-white">{cat.value}</span>
-                          <span className="text-[11px] text-[#6B7280] w-8 text-right">
-                            {percent}%
+                        <div className="flex items-center gap-2 flex-shrink-0 text-right">
+                          <span className="font-bold text-[#D4F63D]">
+                            {formatDurationHoursMinutes(cat.durationMinutes)}
                           </span>
+                          <span className="text-[11px] text-[#8E929E]">
+                            ({cat.taskCount} t.)
+                          </span>
+                          <span className="text-[10px] text-[#6B7280] w-8">{percent}%</span>
                         </div>
                       </button>
                     );
                   })}
-                </div>
-              </div>
-
-              {/* Status Columns Breakdown & Progress */}
-              <div className="p-5 rounded-3xl bg-[#16171C] border border-[#282A30] space-y-4">
-                <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                  <BarChart3 className="w-4 h-4 text-[#60A5FA]" />
-                  <span>Avancement par Colonne Kanban</span>
-                </h3>
-
-                <div className="space-y-3 pt-2">
-                  {projectStatusBreakdown.map((col) => (
-                    <div key={col.id} className="space-y-1">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-semibold text-white flex items-center gap-1.5">
-                          {col.isDone && <CheckCircle2 className="w-3.5 h-3.5 text-[#D4F63D]" />}
-                          {col.label}
-                        </span>
-                        <span className="text-[#8E929E]">
-                          {col.count} ({col.percent}%)
-                        </span>
-                      </div>
-                      <div className="w-full h-2.5 bg-[#202228] rounded-full overflow-hidden">
-                        <div
-                          className="h-full rounded-full transition-all duration-500"
-                          style={{
-                            width: `${col.percent}%`,
-                            backgroundColor: col.isDone ? "#D4F63D" : selectedProject.color || "#60A5FA",
-                          }}
-                        />
-                      </div>
-                    </div>
-                  ))}
                 </div>
 
                 {/* Filterable Tasks List within this project */}
@@ -500,10 +625,10 @@ export const ProjectStatsView: React.FC<ProjectStatsViewProps> = ({
                 <div>
                   <h2 className="text-base font-bold text-white flex items-center gap-2">
                     <FolderKanban className="w-4 h-4 text-[#D4F63D]" />
-                    <span>Répartition globale par Projet</span>
+                    <span>Répartition globale du temps par Projet</span>
                   </h2>
                   <p className="text-xs text-[#8E929E]">
-                    Clique sur un projet ou une portion pour zoomer sur ses catégories
+                    Camembert calculé sur le temps passé avec totaux d&apos;heures et de tâches
                   </p>
                 </div>
               </div>
@@ -511,12 +636,12 @@ export const ProjectStatsView: React.FC<ProjectStatsViewProps> = ({
               <div className="py-4">
                 <DonutChart
                   data={projectChartData}
-                  total={projectTasks.length}
+                  totalMinutes={totalGlobalMinutes}
+                  totalTasks={projectTasks.length}
                   hoveredIndex={hoveredProjectIdx}
                   onHover={setHoveredProjectIdx}
                   onClick={(projectId) => setSelectedProjectId(projectId)}
-                  centerLabel="Tâches projet"
-                  centerSubLabel="sur tous les projets"
+                  centerLabel="Temps total"
                 />
               </div>
             </div>
@@ -528,16 +653,16 @@ export const ProjectStatsView: React.FC<ProjectStatsViewProps> = ({
               </h3>
 
               <div className="grid gap-3 sm:grid-cols-2">
-                {projects.map((project, idx) => {
-                  const pTasks = tasks.filter((t) => t.projectId === project.id && !t.isArchived);
-                  const percent = projectTasks.length > 0
-                    ? Math.round((pTasks.length / projectTasks.length) * 100)
-                    : 0;
+                {projectChartData.map((projectItem, idx) => {
+                  const percent =
+                    totalGlobalMinutes > 0
+                      ? Math.round((projectItem.durationMinutes / totalGlobalMinutes) * 100)
+                      : Math.round((projectItem.taskCount / projectTasks.length) * 100);
 
                   return (
                     <div
-                      key={project.id}
-                      onClick={() => setSelectedProjectId(project.id)}
+                      key={projectItem.id}
+                      onClick={() => setSelectedProjectId(projectItem.id)}
                       onMouseEnter={() => setHoveredProjectIdx(idx)}
                       onMouseLeave={() => setHoveredProjectIdx(null)}
                       className={cn(
@@ -550,28 +675,27 @@ export const ProjectStatsView: React.FC<ProjectStatsViewProps> = ({
                       <div className="flex items-center gap-3 min-w-0">
                         <div
                           className="w-4 h-4 rounded-full flex-shrink-0 shadow-sm"
-                          style={{ backgroundColor: project.color }}
+                          style={{ backgroundColor: projectItem.color }}
                         />
                         <div className="min-w-0">
                           <div className="text-sm font-bold text-white truncate group-hover:text-[#D4F63D] transition-colors">
-                            {project.name}
+                            {projectItem.label}
                           </div>
-                          <div className="text-[11px] text-[#8E929E] mt-0.5">
-                            {pTasks.length} tâche{pTasks.length !== 1 ? "s" : ""} &bull; {percent}% du total
+                          <div className="text-[11px] text-[#8E929E] mt-0.5 flex items-center gap-1.5 flex-wrap">
+                            <span className="font-bold text-[#D4F63D]">
+                              {formatDurationHoursMinutes(projectItem.durationMinutes)}
+                            </span>
+                            <span>&bull;</span>
+                            <span>
+                              {projectItem.taskCount} tâche{projectItem.taskCount !== 1 ? "s" : ""}
+                            </span>
+                            <span>&bull;</span>
+                            <span>{percent}% du temps</span>
                           </div>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-2 flex-shrink-0">
-                        <span
-                          className="text-xs font-extrabold px-2.5 py-1 rounded-lg"
-                          style={{
-                            backgroundColor: `${project.color}20`,
-                            color: project.color,
-                          }}
-                        >
-                          {pTasks.length}
-                        </span>
                         <ChevronRight className="w-4 h-4 text-[#6B7280] group-hover:translate-x-0.5 transition-transform" />
                       </div>
                     </div>
