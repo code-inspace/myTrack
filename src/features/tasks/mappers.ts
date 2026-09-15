@@ -8,10 +8,14 @@ export function mapTaskWithCompletion(
   const completion = completions.find((c) => c.taskId === task.id && c.date === selectedDate);
   const isCompletedToday = Boolean(completion?.completed);
 
-  // Check for day-specific override
+  // Check for day-specific override and completion actual execution times
   const override = task.dateOverrides?.[selectedDate];
-  const effectiveStartTime = override && override.startTime !== undefined ? override.startTime : task.startTime;
-  const effectiveEndTime = override && override.endTime !== undefined ? override.endTime : task.endTime;
+  const effectiveStartTime =
+    completion?.actualStartTime ||
+    (override && override.startTime !== undefined ? override.startTime : task.startTime);
+  const effectiveEndTime =
+    completion?.actualEndTime ||
+    (override && override.endTime !== undefined ? override.endTime : task.endTime);
 
   return {
     ...task,

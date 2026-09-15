@@ -213,15 +213,39 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     @objc func updateActivity(_ call: CAPPluginCall) {
-        if #available(iOS 16.2, *) {
-            let progress = call.getDouble("progress") ?? 0.0
-            let subtitle = call.getString("subtitle")
+        let rawTimestamp = call.getDouble("startedAtTimestamp")
+        let subtitle = call.getString("subtitle")
+        let progress = call.getDouble("progress")
 
+        // 1. Update Widget / App Group Storage if startedAtTimestamp is provided
+        if let rawTs = rawTimestamp {
+            let startedAtTimestamp = rawTs > 10000000000 ? rawTs / 1000.0 : rawTs
+            if var activeTaskDict = getSharedDefaults()?.dictionary(forKey: "active_task") {
+                activeTaskDict["startedAtTimestamp"] = startedAtTimestamp
+                if let sub = subtitle {
+                    activeTaskDict["subtitle"] = sub
+                }
+                getSharedDefaults()?.set(activeTaskDict, forKey: "active_task")
+                getSharedDefaults()?.synchronize()
+                if #available(iOS 14.0, macOS 11.0, *) {
+                    WidgetCenter.shared.reloadAllTimelines()
+                }
+            }
+        }
+
+        // 2. Update Live Activities (Dynamic Island & Lock Screen)
+        if #available(iOS 16.2, *) {
             for activity in Activity<TaskActivityAttributes>.activities {
                 var updatedState = activity.content.state
-                updatedState.progress = progress
+                if let prog = progress {
+                    updatedState.progress = prog
+                }
                 if let sub = subtitle {
                     updatedState.subtitle = sub
+                }
+                if let rawTs = rawTimestamp {
+                    let startedAtTimestamp = rawTs > 10000000000 ? rawTs / 1000.0 : rawTs
+                    updatedState.startedAtTimestamp = startedAtTimestamp
                 }
                 Task {
                     await activity.update(.init(state: updatedState, staleDate: nil))
