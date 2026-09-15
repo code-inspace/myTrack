@@ -38,7 +38,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
   const { updateTask, closeTask, reopenTask } = useTaskMutations();
 
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
-  const [showAllProjectsBoard, setShowAllProjectsBoard] = useState(true); // Default to true on desktop
+  const [showAllProjectsBoard, setShowAllProjectsBoard] = useState(false); // Lands on projects menu by default
   const [showTaskAssignment, setShowTaskAssignment] = useState(false);
   const [showProjectStats, setShowProjectStats] = useState(false);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
