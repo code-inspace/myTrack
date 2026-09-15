@@ -109,7 +109,8 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
   );
 
-  const activeTask = tasks.find((t) => t.isActive);
+  const activeTasks = tasks.filter((t) => t.isActive);
+  const activeTask = activeTasks[0] || null;
 
   // ONLY include external events for the EXACT viewed date!
   const dayExternalEvents = useMemo(() => {
@@ -420,24 +421,27 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
             </div>
           </form>
 
-          {/* Active Running Task Banner if any */}
-          {activeTask && (
+          {/* Active Running Task Banners if any */}
+          {activeTasks.length > 0 && (
             <div className="space-y-3">
-              <ActiveTaskBanner
-                task={activeTask}
-                onStop={(taskId) => (onStopTask ? onStopTask(taskId) : onToggleActive(taskId))}
-                onComplete={(taskId) => onToggleComplete(taskId)}
-                onOpenLogModal={(t) => onOpenLogModal(t)}
-                onUpdateStartTime={(taskId, newTime) =>
-                  onUpdateTaskStartedAt(taskId, newTime)
-                }
-              />
+              {activeTasks.map((actTask) => (
+                <ActiveTaskBanner
+                  key={actTask.id}
+                  task={actTask}
+                  onStop={(taskId) => (onStopTask ? onStopTask(taskId) : onToggleActive(taskId))}
+                  onComplete={(taskId) => onToggleComplete(taskId)}
+                  onOpenLogModal={(t) => onOpenLogModal(t)}
+                  onUpdateStartTime={(taskId, newTime) =>
+                    onUpdateTaskStartedAt(taskId, newTime)
+                  }
+                />
+              ))}
             </div>
           )}
 
           {/* Tasks & External Calendar Events Stream */}
           <div className="space-y-3 pb-16">
-            {orderedTasks.length === 0 && filteredExternalEvents.length === 0 && !activeTask ? (
+            {orderedTasks.length === 0 && filteredExternalEvents.length === 0 && activeTasks.length === 0 ? (
               <div className="p-12 text-center bg-[#15161B] border border-[#242630] rounded-3xl my-4 space-y-3">
                 <div className="w-12 h-12 rounded-2xl bg-[#20222B] border border-[#2E313D] flex items-center justify-center text-[#8E929E] mx-auto">
                   <Inbox className="w-6 h-6" />

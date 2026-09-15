@@ -24,11 +24,23 @@ export async function POST(req: NextRequest) {
     const supabase = getAdminClient();
     const now = new Date().toISOString();
 
-    // 1. Désactiver toutes les autres tâches en cours
-    await supabase
+    // 1. Si plus d'1 autre tâche est en cours, désactiver les plus anciennes pour garder au max 2 tâches actives au total
+    const { data: activeTasks } = await supabase
       .from("tasks")
-      .update({ is_active: false, updated_at: now })
-      .eq("is_active", true);
+      .select("id, started_at")
+      .eq("is_active", true)
+      .neq("id", taskId)
+      .order("started_at", { ascending: false });
+
+    if (activeTasks && activeTasks.length >= 2) {
+      const idsToDeactivate = activeTasks.slice(1).map((t) => t.id);
+      if (idsToDeactivate.length > 0) {
+        await supabase
+          .from("tasks")
+          .update({ is_active: false, started_at: null, updated_at: now })
+          .in("id", idsToDeactivate);
+      }
+    }
 
     // 2. Activer la tâche sélectionnée
     const { data, error } = await supabase

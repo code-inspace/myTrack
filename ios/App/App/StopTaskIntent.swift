@@ -32,19 +32,50 @@ public struct StopTaskIntent: AppIntent {
             suite.set(Date().timeIntervalSince1970, forKey: "mytrack_last_stopped_timestamp")
         }
 
-        // 2. Nettoyer les données locales partagées pour le widget
-        suite.removeObject(forKey: "mytrack_active_task")
-        UserDefaults.standard.removeObject(forKey: "mytrack_active_task")
+        // 2. Mettre à jour les données locales partagées pour le widget (jusqu'à 2 tâches)
+        var currentActiveList: [[String: Any]] = []
+        if let rawListJson = suite.string(forKey: "mytrack_active_tasks"),
+           let data = rawListJson.data(using: .utf8),
+           let list = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
+            currentActiveList = list
+        }
+
+        currentActiveList.removeAll { ($0["taskId"] as? String) == taskId }
+
+        if !currentActiveList.isEmpty {
+            if let listData = try? JSONSerialization.data(withJSONObject: currentActiveList),
+               let listJsonString = String(data: listData, encoding: .utf8) {
+                suite.set(listJsonString, forKey: "mytrack_active_tasks")
+                UserDefaults.standard.set(listJsonString, forKey: "mytrack_active_tasks")
+                try? listData.write(to: URL(fileURLWithPath: "/tmp/mytrack_active_tasks.json"))
+            }
+
+            if let remaining = currentActiveList.first,
+               let primData = try? JSONSerialization.data(withJSONObject: remaining),
+               let primJson = String(data: primData, encoding: .utf8) {
+                suite.set(primJson, forKey: "mytrack_active_task")
+                UserDefaults.standard.set(primJson, forKey: "mytrack_active_task")
+                try? primData.write(to: URL(fileURLWithPath: "/tmp/mytrack_active_task.json"))
+            }
+        } else {
+            suite.removeObject(forKey: "mytrack_active_tasks")
+            UserDefaults.standard.removeObject(forKey: "mytrack_active_tasks")
+            suite.removeObject(forKey: "mytrack_active_task")
+            UserDefaults.standard.removeObject(forKey: "mytrack_active_task")
+            try? FileManager.default.removeItem(at: URL(fileURLWithPath: "/tmp/mytrack_active_tasks.json"))
+            try? FileManager.default.removeItem(at: URL(fileURLWithPath: "/tmp/mytrack_active_task.json"))
+        }
+
         suite.removeObject(forKey: "mytrack_selected_widget_task_id")
         UserDefaults.standard.removeObject(forKey: "mytrack_selected_widget_task_id")
-        let tempUrl = URL(fileURLWithPath: "/tmp/mytrack_active_task.json")
-        try? FileManager.default.removeItem(at: tempUrl)
 
-        // 3. Clôturer immédiatement toutes les Live Activities
+        // 3. Clôturer uniquement la Live Activity ciblée
         if #available(iOS 16.2, *) {
             for activity in Activity<TaskActivityAttributes>.activities {
-                Task {
-                    await activity.end(nil, dismissalPolicy: .immediate)
+                if taskId.isEmpty || activity.attributes.taskId == taskId {
+                    Task {
+                        await activity.end(nil, dismissalPolicy: .immediate)
+                    }
                 }
             }
         }
@@ -97,17 +128,48 @@ public struct StopLiveActivityIntent: LiveActivityIntent {
             suite.set(Date().timeIntervalSince1970, forKey: "mytrack_last_stopped_timestamp")
         }
 
-        suite.removeObject(forKey: "mytrack_active_task")
-        UserDefaults.standard.removeObject(forKey: "mytrack_active_task")
+        var currentActiveList: [[String: Any]] = []
+        if let rawListJson = suite.string(forKey: "mytrack_active_tasks"),
+           let data = rawListJson.data(using: .utf8),
+           let list = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
+            currentActiveList = list
+        }
+
+        currentActiveList.removeAll { ($0["taskId"] as? String) == taskId }
+
+        if !currentActiveList.isEmpty {
+            if let listData = try? JSONSerialization.data(withJSONObject: currentActiveList),
+               let listJsonString = String(data: listData, encoding: .utf8) {
+                suite.set(listJsonString, forKey: "mytrack_active_tasks")
+                UserDefaults.standard.set(listJsonString, forKey: "mytrack_active_tasks")
+                try? listData.write(to: URL(fileURLWithPath: "/tmp/mytrack_active_tasks.json"))
+            }
+
+            if let remaining = currentActiveList.first,
+               let primData = try? JSONSerialization.data(withJSONObject: remaining),
+               let primJson = String(data: primData, encoding: .utf8) {
+                suite.set(primJson, forKey: "mytrack_active_task")
+                UserDefaults.standard.set(primJson, forKey: "mytrack_active_task")
+                try? primData.write(to: URL(fileURLWithPath: "/tmp/mytrack_active_task.json"))
+            }
+        } else {
+            suite.removeObject(forKey: "mytrack_active_tasks")
+            UserDefaults.standard.removeObject(forKey: "mytrack_active_tasks")
+            suite.removeObject(forKey: "mytrack_active_task")
+            UserDefaults.standard.removeObject(forKey: "mytrack_active_task")
+            try? FileManager.default.removeItem(at: URL(fileURLWithPath: "/tmp/mytrack_active_tasks.json"))
+            try? FileManager.default.removeItem(at: URL(fileURLWithPath: "/tmp/mytrack_active_task.json"))
+        }
+
         suite.removeObject(forKey: "mytrack_selected_widget_task_id")
         UserDefaults.standard.removeObject(forKey: "mytrack_selected_widget_task_id")
-        let tempUrl = URL(fileURLWithPath: "/tmp/mytrack_active_task.json")
-        try? FileManager.default.removeItem(at: tempUrl)
 
         if #available(iOS 16.2, *) {
             for activity in Activity<TaskActivityAttributes>.activities {
-                Task {
-                    await activity.end(nil, dismissalPolicy: .immediate)
+                if taskId.isEmpty || activity.attributes.taskId == taskId {
+                    Task {
+                        await activity.end(nil, dismissalPolicy: .immediate)
+                    }
                 }
             }
         }
@@ -195,7 +257,7 @@ public struct StartTaskIntent: AppIntent {
         let startedAtTimestamp = Date().timeIntervalSince1970
         let suite = UserDefaults(suiteName: "group.com.mytrack.app") ?? UserDefaults.standard
 
-        // 1. Sauvegarder localement pour le widget
+        // 1. Sauvegarder localement pour le widget (conserve jusqu'à 2 tâches actives)
         let dict: [String: Any] = [
             "taskId": taskId,
             "taskTitle": taskTitle,
@@ -204,12 +266,30 @@ public struct StartTaskIntent: AppIntent {
             "startedAtTimestamp": startedAtTimestamp,
             "totalFormattedDuration": ""
         ]
+
+        var currentActiveList: [[String: Any]] = []
+        if let rawListJson = suite.string(forKey: "mytrack_active_tasks"),
+           let data = rawListJson.data(using: .utf8),
+           let list = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
+            currentActiveList = list
+        }
+
+        currentActiveList.removeAll { ($0["taskId"] as? String) == taskId }
+        currentActiveList.insert(dict, at: 0)
+        let cappedList = Array(currentActiveList.prefix(2))
+
+        if let listData = try? JSONSerialization.data(withJSONObject: cappedList),
+           let listJsonString = String(data: listData, encoding: .utf8) {
+            suite.set(listJsonString, forKey: "mytrack_active_tasks")
+            UserDefaults.standard.set(listJsonString, forKey: "mytrack_active_tasks")
+            try? listData.write(to: URL(fileURLWithPath: "/tmp/mytrack_active_tasks.json"))
+        }
+
         if let data = try? JSONSerialization.data(withJSONObject: dict),
            let jsonString = String(data: data, encoding: .utf8) {
             suite.set(jsonString, forKey: "mytrack_active_task")
             UserDefaults.standard.set(jsonString, forKey: "mytrack_active_task")
-            let tempUrl = URL(fileURLWithPath: "/tmp/mytrack_active_task.json")
-            try? data.write(to: tempUrl)
+            try? data.write(to: URL(fileURLWithPath: "/tmp/mytrack_active_task.json"))
         }
 
         // 2. Nettoyer la sélection et le dernier arrêt
@@ -217,7 +297,7 @@ public struct StartTaskIntent: AppIntent {
         suite.removeObject(forKey: "mytrack_selected_widget_task_id")
         UserDefaults.standard.removeObject(forKey: "mytrack_selected_widget_task_id")
 
-        // 3. Lancer la Live Activity sur Dynamic Island et Lock Screen
+        // 3. Lancer la Live Activity sur Dynamic Island et Lock Screen (max 2)
         if #available(iOS 16.2, *) {
             let attributes = TaskActivityAttributes(
                 taskId: taskId,
@@ -234,10 +314,22 @@ public struct StartTaskIntent: AppIntent {
                 progress: 0.0
             )
 
-            // Clôturer les précédentes
+            // Fermer si même taskId
             for runningActivity in Activity<TaskActivityAttributes>.activities {
-                Task {
-                    await runningActivity.end(nil, dismissalPolicy: .immediate)
+                if runningActivity.attributes.taskId == taskId {
+                    Task {
+                        await runningActivity.end(nil, dismissalPolicy: .immediate)
+                    }
+                }
+            }
+
+            // Si déjà >= 2 autres activités, fermer la plus ancienne
+            let otherActivities = Activity<TaskActivityAttributes>.activities.filter { $0.attributes.taskId != taskId }
+            if otherActivities.count >= 2 {
+                for oldActivity in otherActivities.dropFirst() {
+                    Task {
+                        await oldActivity.end(nil, dismissalPolicy: .immediate)
+                    }
                 }
             }
 
@@ -307,6 +399,8 @@ public struct ResetWidgetIntent: AppIntent {
 
     public func perform() async throws -> some IntentResult {
         let suite = UserDefaults(suiteName: "group.com.mytrack.app") ?? UserDefaults.standard
+        suite.removeObject(forKey: "mytrack_active_tasks")
+        UserDefaults.standard.removeObject(forKey: "mytrack_active_tasks")
         suite.removeObject(forKey: "mytrack_active_task")
         UserDefaults.standard.removeObject(forKey: "mytrack_active_task")
         suite.removeObject(forKey: "mytrack_selected_widget_task_id")
@@ -314,8 +408,8 @@ public struct ResetWidgetIntent: AppIntent {
         suite.removeObject(forKey: "mytrack_last_stopped_task_id")
         suite.removeObject(forKey: "mytrack_widget_task_page")
 
-        let tempUrl = URL(fileURLWithPath: "/tmp/mytrack_active_task.json")
-        try? FileManager.default.removeItem(at: tempUrl)
+        try? FileManager.default.removeItem(at: URL(fileURLWithPath: "/tmp/mytrack_active_tasks.json"))
+        try? FileManager.default.removeItem(at: URL(fileURLWithPath: "/tmp/mytrack_active_task.json"))
 
         if #available(iOS 16.2, *) {
             for activity in Activity<TaskActivityAttributes>.activities {
@@ -329,5 +423,3 @@ public struct ResetWidgetIntent: AppIntent {
         return .result()
     }
 }
-
-

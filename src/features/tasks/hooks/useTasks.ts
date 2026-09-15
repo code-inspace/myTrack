@@ -67,25 +67,34 @@ export function useTasks(selectedDateStr: string) {
     const syncNativeActiveState = async () => {
       if (!LiveActivityBridge.isSupported()) return;
       try {
-        const { hasActiveTask, task: nativeTask, lastStoppedTaskId } =
+        const { hasActiveTask, task: nativeTask, activeTasks: nativeActiveTasks = [], lastStoppedTaskId } =
           await LiveActivityBridge.getActiveTask();
-        if (hasActiveTask && nativeTask?.taskId) {
+        
+        const effectiveActiveTasks = nativeActiveTasks.length > 0 
+          ? nativeActiveTasks 
+          : (hasActiveTask && nativeTask?.taskId ? [nativeTask] : []);
+
+        if (effectiveActiveTasks.length > 0) {
+          const activeTaskIds = new Set(effectiveActiveTasks.map((t) => t.taskId));
           queryClient.setQueryData<Task[]>(["tasks", userId], (old = []) => {
-            const currentActive = old.find((t) => t.id === nativeTask.taskId);
-            if (!currentActive?.isActive) {
-              return old.map((t) =>
-                t.id === nativeTask.taskId
-                  ? {
-                      ...t,
-                      isActive: true,
-                      startedAt: nativeTask.startedAtTimestamp
-                        ? new Date(nativeTask.startedAtTimestamp * 1000).toISOString()
-                        : new Date().toISOString(),
-                    }
-                  : { ...t, isActive: false },
-              );
-            }
-            return old;
+            let hasChanged = false;
+            const updated = old.map((t) => {
+              if (activeTaskIds.has(t.id)) {
+                if (!t.isActive) {
+                  hasChanged = true;
+                  const item = effectiveActiveTasks.find((at) => at.taskId === t.id);
+                  return {
+                    ...t,
+                    isActive: true,
+                    startedAt: item?.startedAtTimestamp
+                      ? new Date(item.startedAtTimestamp * 1000).toISOString()
+                      : t.startedAt || new Date().toISOString(),
+                  };
+                }
+              }
+              return t;
+            });
+            return hasChanged ? updated : old;
           });
         } else if (lastStoppedTaskId) {
           queryClient.setQueryData<Task[]>(["tasks", userId], (old = []) =>
@@ -203,35 +212,38 @@ export function useTasks(selectedDateStr: string) {
 
 
   const sortedTasks = sortTasksByPriority(filteredTasks);
-  const activeTask = allTasks.find((t) => t.isActive && !t.isArchived);
+  const activeTasksList = allTasks.filter((t) => t.isActive && !t.isArchived).slice(0, 2);
+  const activeTask = activeTasksList[0] || null;
 
   useEffect(() => {
     if (sortedTasks) {
+      const mappedActiveTasks = activeTasksList.map((t) => ({
+        taskId: t.id,
+        taskTitle: t.title || "Tâche en cours",
+        category: t.tag || t.category || "myTrack",
+        subtitle: t.description || t.category || "En cours",
+        startedAtTimestamp: t.startedAt
+          ? Math.floor(new Date(t.startedAt).getTime() / 1000)
+          : Math.floor(Date.now() / 1000),
+        totalFormattedDuration: t.targetValue
+          ? `${t.targetValue} ${t.unit || "min"}`
+          : undefined,
+      }));
+
       LiveActivityBridge.syncTasks(
         sortedTasks,
-        activeTask
-          ? {
-              taskId: activeTask.id,
-              taskTitle: activeTask.title || "Tâche en cours",
-              category: activeTask.tag || activeTask.category || "myTrack",
-              subtitle: activeTask.description || activeTask.category || "En cours",
-              startedAtTimestamp: activeTask.startedAt
-                ? Math.floor(new Date(activeTask.startedAt).getTime() / 1000)
-                : Math.floor(Date.now() / 1000),
-              totalFormattedDuration: activeTask.targetValue
-                ? `${activeTask.targetValue} ${activeTask.unit || "min"}`
-                : undefined,
-            }
-          : null
+        mappedActiveTasks[0] || null,
+        mappedActiveTasks
       );
     }
-  }, [sortedTasks, activeTask]);
+  }, [sortedTasks, activeTasksList]);
 
   return {
     tasks: sortedTasks,
     allTasks,
     allCompletions,
     activeTask,
+    activeTasks: activeTasksList,
     isLoading: false,
   };
 }

@@ -16,23 +16,26 @@ export interface TaskActivityState {
   progress?: number;
 }
 
+export interface ActiveTaskBridgeModel {
+  taskId: string;
+  taskTitle: string;
+  category?: string;
+  subtitle?: string;
+  startedAtTimestamp?: number;
+  totalFormattedDuration?: string;
+}
+
 interface LiveActivityPluginInterface {
   startActivity(options: any): Promise<{ activityId?: string; taskId?: string }>;
   updateActivity(options: any): Promise<{ success: boolean }>;
   stopActivity(options: any): Promise<{ success: boolean }>;
   getActiveTask(): Promise<{
     hasActiveTask: boolean;
-    task: {
-      taskId: string;
-      taskTitle: string;
-      category?: string;
-      startedAtTimestamp?: number;
-      subtitle?: string;
-      totalFormattedDuration?: string;
-    } | null;
+    task: ActiveTaskBridgeModel | null;
+    activeTasks?: ActiveTaskBridgeModel[];
     lastStoppedTaskId?: string | null;
   }>;
-  syncTasks(options: { tasks: any[]; activeTask?: any }): Promise<{ success: boolean }>;
+  syncTasks(options: { tasks: any[]; activeTask?: any; activeTasks?: any[] }): Promise<{ success: boolean }>;
   checkAuthorization(): Promise<{ enabled: boolean; frequentUpdatesEnabled: boolean; supported: boolean; reason?: string }>;
   openSettings(): Promise<{ success: boolean }>;
 }
@@ -106,7 +109,7 @@ export const LiveActivityBridge = {
 
     try {
       try {
-        await NativeLiveActivity.updateActivity({ activityId, ...updatedState });
+        await NativeLiveActivity.updateActivity({ activityId, taskId: activityId, ...updatedState });
       } catch {}
 
       if (typeof window !== "undefined") {
@@ -124,7 +127,7 @@ export const LiveActivityBridge = {
 
     try {
       try {
-        await NativeLiveActivity.stopActivity({ activityId });
+        await NativeLiveActivity.stopActivity({ activityId, taskId: activityId });
       } catch {}
 
       if (typeof window !== "undefined") {
@@ -138,37 +141,25 @@ export const LiveActivityBridge = {
 
   async getActiveTask(): Promise<{
     hasActiveTask: boolean;
-    task: {
-      taskId: string;
-      taskTitle: string;
-      category?: string;
-      startedAtTimestamp?: number;
-      subtitle?: string;
-      totalFormattedDuration?: string;
-    } | null;
+    task: ActiveTaskBridgeModel | null;
+    activeTasks?: ActiveTaskBridgeModel[];
     lastStoppedTaskId?: string | null;
   }> {
     if (!this.isSupported()) {
-      return { hasActiveTask: false, task: null, lastStoppedTaskId: null };
+      return { hasActiveTask: false, task: null, activeTasks: [], lastStoppedTaskId: null };
     }
     try {
       const res = await NativeLiveActivity.getActiveTask();
-      return res || { hasActiveTask: false, task: null, lastStoppedTaskId: null };
+      return res || { hasActiveTask: false, task: null, activeTasks: [], lastStoppedTaskId: null };
     } catch {
-      return { hasActiveTask: false, task: null, lastStoppedTaskId: null };
+      return { hasActiveTask: false, task: null, activeTasks: [], lastStoppedTaskId: null };
     }
   },
 
   async syncTasks(
     tasks: any[],
-    activeTask?: {
-      taskId: string;
-      taskTitle: string;
-      category?: string;
-      subtitle?: string;
-      startedAtTimestamp?: number;
-      totalFormattedDuration?: string;
-    } | null
+    activeTask?: ActiveTaskBridgeModel | null,
+    activeTasks?: ActiveTaskBridgeModel[]
   ): Promise<void> {
     if (!this.isSupported() || !Array.isArray(tasks)) return;
 
@@ -187,6 +178,7 @@ export const LiveActivityBridge = {
       await NativeLiveActivity.syncTasks({
         tasks: widgetTasks,
         activeTask: activeTask ?? null,
+        activeTasks: activeTasks ?? (activeTask ? [activeTask] : []),
       });
     } catch (err) {
       console.warn("[LiveActivity] syncTasks error:", err);

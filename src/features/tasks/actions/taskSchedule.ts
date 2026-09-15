@@ -32,12 +32,33 @@ export async function updateDbTaskActive(
 
   // 1. Immediately update localStorage for instant UI reactivity
   const tasks = getStoredTasks(targetId);
+  
+  // If activating, ensure we have at most 2 active tasks (keep the newest previous active task, deactivate older ones)
+  let deactivatedTaskIds: string[] = [];
+  if (isActive) {
+    const otherActiveTasks = tasks
+      .filter((t) => t.id !== taskId && t.isActive)
+      .sort((a, b) => new Date(b.startedAt || 0).getTime() - new Date(a.startedAt || 0).getTime());
+    
+    if (otherActiveTasks.length >= 2) {
+      deactivatedTaskIds = otherActiveTasks.slice(1).map((t) => t.id);
+    }
+  }
+
   const updated = tasks.map((t) => {
     if (t.id === taskId) {
       return {
         ...t,
         isActive,
         startedAt: isActive ? nowIso : null,
+        updatedAt: nowIso,
+      };
+    }
+    if (deactivatedTaskIds.includes(t.id)) {
+      return {
+        ...t,
+        isActive: false,
+        startedAt: null,
         updatedAt: nowIso,
       };
     }
@@ -59,6 +80,22 @@ export async function updateDbTaskActive(
         },
       }),
     }).catch((err) => console.warn("API updateDbTaskActive PATCH note:", err));
+
+    // Also deactivate any older tasks exceeding limit
+    for (const dId of deactivatedTaskIds) {
+      fetch("/api/tasks", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          taskId: dId,
+          userId: targetId,
+          updates: {
+            isActive: false,
+            startedAt: null,
+          },
+        }),
+      }).catch(() => {});
+    }
   } catch (err) {
     console.warn("updateDbTaskActive error:", err);
   }

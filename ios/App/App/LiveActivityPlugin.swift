@@ -21,23 +21,35 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
         let suite = UserDefaults(suiteName: "group.com.mytrack.app") ?? UserDefaults.standard
         let lastStoppedTaskId = suite.string(forKey: "mytrack_last_stopped_task_id")
         
-        if let rawJson = suite.string(forKey: "mytrack_active_task"),
-           let data = rawJson.data(using: .utf8),
-           let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-            call.resolve([
-                "hasActiveTask": true,
-                "task": dict,
-                "lastStoppedTaskId": lastStoppedTaskId ?? NSNull()
-            ])
-            return
+        var activeList: [[String: Any]] = []
+        if let rawListJson = suite.string(forKey: "mytrack_active_tasks"),
+           let data = rawListJson.data(using: .utf8),
+           let list = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
+            activeList = list
+        } else if let tempUrlData = try? Data(contentsOf: URL(fileURLWithPath: "/tmp/mytrack_active_tasks.json")),
+                  let list = try? JSONSerialization.jsonObject(with: tempUrlData) as? [[String: Any]] {
+            activeList = list
         }
-        
-        let tempUrl = URL(fileURLWithPath: "/tmp/mytrack_active_task.json")
-        if let data = try? Data(contentsOf: tempUrl),
-           let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+
+        var primaryTask: [String: Any]? = activeList.first
+        if primaryTask == nil {
+            if let rawJson = suite.string(forKey: "mytrack_active_task"),
+               let data = rawJson.data(using: .utf8),
+               let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                primaryTask = dict
+                activeList = [dict]
+            } else if let tempUrlData = try? Data(contentsOf: URL(fileURLWithPath: "/tmp/mytrack_active_task.json")),
+                      let dict = try? JSONSerialization.jsonObject(with: tempUrlData) as? [String: Any] {
+                primaryTask = dict
+                activeList = [dict]
+            }
+        }
+
+        if let task = primaryTask {
             call.resolve([
                 "hasActiveTask": true,
-                "task": dict,
+                "task": task,
+                "activeTasks": activeList,
                 "lastStoppedTaskId": lastStoppedTaskId ?? NSNull()
             ])
             return
@@ -46,6 +58,7 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
         call.resolve([
             "hasActiveTask": false,
             "task": NSNull(),
+            "activeTasks": [],
             "lastStoppedTaskId": lastStoppedTaskId ?? NSNull()
         ])
     }
@@ -62,28 +75,55 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
             try? data.write(to: tempUrl)
         }
 
-        // Synchronisation de la tâche active : si null ou absente, on nettoie pour éviter tout blocage
-        if let activeTaskDict = call.getObject("activeTask") as? [String: Any],
-           let taskId = activeTaskDict["taskId"] as? String, !taskId.isEmpty {
-            var normalizedDict = activeTaskDict
-            if let rawTs = activeTaskDict["startedAtTimestamp"] as? Double {
-                normalizedDict["startedAtTimestamp"] = rawTs > 10000000000 ? rawTs / 1000.0 : rawTs
-            } else {
-                normalizedDict["startedAtTimestamp"] = Date().timeIntervalSince1970
+        // Synchronisation des tâches actives (supporte jusqu'à 2 tâches)
+        var normalizedActiveList: [[String: Any]] = []
+        if let rawActiveArray = call.getArray("activeTasks") as? [[String: Any]] {
+            for rawItem in rawActiveArray.prefix(2) {
+                guard let taskId = rawItem["taskId"] as? String, !taskId.isEmpty else { continue }
+                var item = rawItem
+                if let rawTs = rawItem["startedAtTimestamp"] as? Double {
+                    item["startedAtTimestamp"] = rawTs > 10000000000 ? rawTs / 1000.0 : rawTs
+                } else {
+                    item["startedAtTimestamp"] = Date().timeIntervalSince1970
+                }
+                normalizedActiveList.append(item)
             }
-            if let activeData = try? JSONSerialization.data(withJSONObject: normalizedDict),
-               let activeJsonString = String(data: activeData, encoding: .utf8) {
-                suite.set(activeJsonString, forKey: "mytrack_active_task")
-                UserDefaults.standard.set(activeJsonString, forKey: "mytrack_active_task")
+        } else if let activeTaskDict = call.getObject("activeTask") as? [String: Any],
+                  let taskId = activeTaskDict["taskId"] as? String, !taskId.isEmpty {
+            var item = activeTaskDict
+            if let rawTs = activeTaskDict["startedAtTimestamp"] as? Double {
+                item["startedAtTimestamp"] = rawTs > 10000000000 ? rawTs / 1000.0 : rawTs
+            } else {
+                item["startedAtTimestamp"] = Date().timeIntervalSince1970
+            }
+            normalizedActiveList.append(item)
+        }
+
+        if !normalizedActiveList.isEmpty {
+            if let listData = try? JSONSerialization.data(withJSONObject: normalizedActiveList),
+               let listJsonString = String(data: listData, encoding: .utf8) {
+                suite.set(listJsonString, forKey: "mytrack_active_tasks")
+                UserDefaults.standard.set(listJsonString, forKey: "mytrack_active_tasks")
+                let tempUrl = URL(fileURLWithPath: "/tmp/mytrack_active_tasks.json")
+                try? listData.write(to: tempUrl)
+            }
+
+            if let primary = normalizedActiveList.first,
+               let primaryData = try? JSONSerialization.data(withJSONObject: primary),
+               let primaryJsonString = String(data: primaryData, encoding: .utf8) {
+                suite.set(primaryJsonString, forKey: "mytrack_active_task")
+                UserDefaults.standard.set(primaryJsonString, forKey: "mytrack_active_task")
                 let tempUrl = URL(fileURLWithPath: "/tmp/mytrack_active_task.json")
-                try? activeData.write(to: tempUrl)
+                try? primaryData.write(to: tempUrl)
             }
         } else {
-            // Aucune tâche active dans l'application -> suppression immédiate
+            // Aucune tâche active -> suppression
+            suite.removeObject(forKey: "mytrack_active_tasks")
+            UserDefaults.standard.removeObject(forKey: "mytrack_active_tasks")
             suite.removeObject(forKey: "mytrack_active_task")
             UserDefaults.standard.removeObject(forKey: "mytrack_active_task")
-            let tempUrl = URL(fileURLWithPath: "/tmp/mytrack_active_task.json")
-            try? FileManager.default.removeItem(at: tempUrl)
+            try? FileManager.default.removeItem(at: URL(fileURLWithPath: "/tmp/mytrack_active_tasks.json"))
+            try? FileManager.default.removeItem(at: URL(fileURLWithPath: "/tmp/mytrack_active_task.json"))
         }
 
         if #available(iOS 14.0, macOS 11.0, *) {
@@ -106,7 +146,7 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
 
         let normalizedTimestamp = startedAtTimestamp > 10000000000 ? startedAtTimestamp / 1000.0 : startedAtTimestamp
 
-        let dict: [String: Any] = [
+        let newDict: [String: Any] = [
             "taskId": taskId,
             "taskTitle": taskTitle,
             "category": category ?? "myTrack",
@@ -114,29 +154,97 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
             "startedAtTimestamp": normalizedTimestamp,
             "totalFormattedDuration": totalFormattedDuration ?? ""
         ]
-        if let data = try? JSONSerialization.data(withJSONObject: dict),
+
+        // Lire les tâches déjà actives et ajouter/mettre à jour celle-ci (max 2)
+        var currentActiveList: [[String: Any]] = []
+        if let rawListJson = suite.string(forKey: "mytrack_active_tasks"),
+           let data = rawListJson.data(using: .utf8),
+           let list = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
+            currentActiveList = list
+        }
+
+        // Remplacer si même ID, sinon ajouter en tête et garder au maximum 2
+        currentActiveList.removeAll { ($0["taskId"] as? String) == taskId }
+        currentActiveList.insert(newDict, at: 0)
+        let cappedList = Array(currentActiveList.prefix(2))
+
+        if let listData = try? JSONSerialization.data(withJSONObject: cappedList),
+           let listJsonString = String(data: listData, encoding: .utf8) {
+            suite.set(listJsonString, forKey: "mytrack_active_tasks")
+            UserDefaults.standard.set(listJsonString, forKey: "mytrack_active_tasks")
+            let tempUrl = URL(fileURLWithPath: "/tmp/mytrack_active_tasks.json")
+            try? listData.write(to: tempUrl)
+        }
+
+        // Garder mytrack_active_task pour rétrocompatibilité avec la tâche principale
+        if let data = try? JSONSerialization.data(withJSONObject: newDict),
            let jsonString = String(data: data, encoding: .utf8) {
             suite.set(jsonString, forKey: "mytrack_active_task")
             UserDefaults.standard.set(jsonString, forKey: "mytrack_active_task")
-            
-            // Fallback fichier partagé pour macOS (Mac Catalyst & Widget Simulator)
             let tempUrl = URL(fileURLWithPath: "/tmp/mytrack_active_task.json")
             try? data.write(to: tempUrl)
         }
+
         if #available(iOS 14.0, macOS 11.0, *) {
             WidgetCenter.shared.reloadAllTimelines()
         }
     }
 
-    private func clearActiveTaskForWidget() {
+    private func clearActiveTaskForWidget(taskId: String? = nil) {
         let suite = UserDefaults(suiteName: "group.com.mytrack.app") ?? UserDefaults.standard
-        suite.removeObject(forKey: "mytrack_active_task")
-        UserDefaults.standard.removeObject(forKey: "mytrack_active_task")
         suite.removeObject(forKey: "mytrack_selected_widget_task_id")
         UserDefaults.standard.removeObject(forKey: "mytrack_selected_widget_task_id")
-        suite.removeObject(forKey: "mytrack_last_stopped_task_id")
-        let tempUrl = URL(fileURLWithPath: "/tmp/mytrack_active_task.json")
-        try? FileManager.default.removeItem(at: tempUrl)
+
+        if let targetId = taskId, !targetId.isEmpty {
+            suite.set(targetId, forKey: "mytrack_last_stopped_task_id")
+            
+            var currentActiveList: [[String: Any]] = []
+            if let rawListJson = suite.string(forKey: "mytrack_active_tasks"),
+               let data = rawListJson.data(using: .utf8),
+               let list = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
+                currentActiveList = list
+            }
+
+            currentActiveList.removeAll { ($0["taskId"] as? String) == targetId }
+
+            if !currentActiveList.isEmpty {
+                // Il reste encore 1 tâche active !
+                if let listData = try? JSONSerialization.data(withJSONObject: currentActiveList),
+                   let listJsonString = String(data: listData, encoding: .utf8) {
+                    suite.set(listJsonString, forKey: "mytrack_active_tasks")
+                    UserDefaults.standard.set(listJsonString, forKey: "mytrack_active_tasks")
+                    let tempUrl = URL(fileURLWithPath: "/tmp/mytrack_active_tasks.json")
+                    try? listData.write(to: tempUrl)
+                }
+
+                if let remaining = currentActiveList.first,
+                   let primData = try? JSONSerialization.data(withJSONObject: remaining),
+                   let primJson = String(data: primData, encoding: .utf8) {
+                    suite.set(primJson, forKey: "mytrack_active_task")
+                    UserDefaults.standard.set(primJson, forKey: "mytrack_active_task")
+                    let tempUrl = URL(fileURLWithPath: "/tmp/mytrack_active_task.json")
+                    try? primData.write(to: tempUrl)
+                }
+            } else {
+                // Plus aucune tâche active
+                suite.removeObject(forKey: "mytrack_active_tasks")
+                UserDefaults.standard.removeObject(forKey: "mytrack_active_tasks")
+                suite.removeObject(forKey: "mytrack_active_task")
+                UserDefaults.standard.removeObject(forKey: "mytrack_active_task")
+                try? FileManager.default.removeItem(at: URL(fileURLWithPath: "/tmp/mytrack_active_tasks.json"))
+                try? FileManager.default.removeItem(at: URL(fileURLWithPath: "/tmp/mytrack_active_task.json"))
+            }
+        } else {
+            // Tout effacer
+            suite.removeObject(forKey: "mytrack_active_tasks")
+            UserDefaults.standard.removeObject(forKey: "mytrack_active_tasks")
+            suite.removeObject(forKey: "mytrack_active_task")
+            UserDefaults.standard.removeObject(forKey: "mytrack_active_task")
+            suite.removeObject(forKey: "mytrack_last_stopped_task_id")
+            try? FileManager.default.removeItem(at: URL(fileURLWithPath: "/tmp/mytrack_active_tasks.json"))
+            try? FileManager.default.removeItem(at: URL(fileURLWithPath: "/tmp/mytrack_active_task.json"))
+        }
+
         if #available(iOS 14.0, macOS 11.0, *) {
             WidgetCenter.shared.reloadAllTimelines()
         }
@@ -152,7 +260,7 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
         let totalFormattedDuration = call.getString("totalFormattedDuration") ?? "30 min"
         let progress = call.getDouble("progress") ?? 0.0
 
-        // Synchroniser immédiatement pour le Widget macOS & iOS Home Screen
+        // Synchroniser immédiatement pour le Widget macOS & iOS Home Screen (garde jusqu'à 2 tâches)
         saveActiveTaskForWidget(
             taskId: taskId,
             taskTitle: taskTitle,
@@ -184,10 +292,23 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
         )
 
         do {
-            // Clôturer les activités précédentes pour n'en garder qu'une seule active
+            // 1. Fermer l'activité si le même taskId tourne déjà
             for runningActivity in Activity<TaskActivityAttributes>.activities {
-                Task {
-                    await runningActivity.end(nil, dismissalPolicy: .immediate)
+                if runningActivity.attributes.taskId == taskId {
+                    Task {
+                        await runningActivity.end(nil, dismissalPolicy: .immediate)
+                    }
+                }
+            }
+
+            // 2. Si on a déjà 2 ou plus d'activités en cours, fermer la plus ancienne pour ne garder que 2 max
+            let currentActivities = Activity<TaskActivityAttributes>.activities.filter { $0.attributes.taskId != taskId }
+            if currentActivities.count >= 2 {
+                // Fermer les surplus (toutes sauf la plus récente)
+                for oldActivity in currentActivities.dropFirst() {
+                    Task {
+                        await oldActivity.end(nil, dismissalPolicy: .immediate)
+                    }
                 }
             }
 
@@ -197,7 +318,7 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
                 pushType: nil
             )
 
-            print("[LiveActivityPlugin] Successfully launched Live Activity with ID: \(activity.id)")
+            print("[LiveActivityPlugin] Successfully launched Live Activity with ID: \(activity.id) for task: \(taskId)")
 
             call.resolve([
                 "activityId": activity.id,
@@ -213,50 +334,72 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     @objc func updateActivity(_ call: CAPPluginCall) {
+        let taskId = call.getString("taskId")
         let rawTimestamp = call.getDouble("startedAtTimestamp")
         let subtitle = call.getString("subtitle")
         let progress = call.getDouble("progress")
 
-        // 1. Update Widget / App Group Storage if startedAtTimestamp is provided
+        // 1. Update Widget / App Group Storage
         if let rawTs = rawTimestamp {
             let startedAtTimestamp = rawTs > 10000000000 ? rawTs / 1000.0 : rawTs
             let suite = UserDefaults(suiteName: "group.com.mytrack.app") ?? UserDefaults.standard
-            if let rawJson = suite.string(forKey: "mytrack_active_task"),
-               let data = rawJson.data(using: .utf8),
-               var activeTaskDict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                activeTaskDict["startedAtTimestamp"] = startedAtTimestamp
-                if let sub = subtitle {
-                    activeTaskDict["subtitle"] = sub
+            
+            var currentActiveList: [[String: Any]] = []
+            if let rawListJson = suite.string(forKey: "mytrack_active_tasks"),
+               let data = rawListJson.data(using: .utf8),
+               let list = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
+                currentActiveList = list
+            }
+
+            let updatedList = currentActiveList.map { item -> [String: Any] in
+                var updated = item
+                if taskId == nil || (item["taskId"] as? String) == taskId {
+                    updated["startedAtTimestamp"] = startedAtTimestamp
+                    if let sub = subtitle {
+                        updated["subtitle"] = sub
+                    }
                 }
-                if let activeData = try? JSONSerialization.data(withJSONObject: activeTaskDict),
-                   let activeJsonString = String(data: activeData, encoding: .utf8) {
-                    suite.set(activeJsonString, forKey: "mytrack_active_task")
-                    UserDefaults.standard.set(activeJsonString, forKey: "mytrack_active_task")
-                    let tempUrl = URL(fileURLWithPath: "/tmp/mytrack_active_task.json")
-                    try? activeData.write(to: tempUrl)
-                }
-                if #available(iOS 14.0, macOS 11.0, *) {
-                    WidgetCenter.shared.reloadAllTimelines()
-                }
+                return updated
+            }
+
+            if let listData = try? JSONSerialization.data(withJSONObject: updatedList),
+               let listJsonString = String(data: listData, encoding: .utf8) {
+                suite.set(listJsonString, forKey: "mytrack_active_tasks")
+                UserDefaults.standard.set(listJsonString, forKey: "mytrack_active_tasks")
+                try? listData.write(to: URL(fileURLWithPath: "/tmp/mytrack_active_tasks.json"))
+            }
+
+            if let prim = updatedList.first,
+               let primData = try? JSONSerialization.data(withJSONObject: prim),
+               let primJson = String(data: primData, encoding: .utf8) {
+                suite.set(primJson, forKey: "mytrack_active_task")
+                UserDefaults.standard.set(primJson, forKey: "mytrack_active_task")
+                try? primData.write(to: URL(fileURLWithPath: "/tmp/mytrack_active_task.json"))
+            }
+
+            if #available(iOS 14.0, macOS 11.0, *) {
+                WidgetCenter.shared.reloadAllTimelines()
             }
         }
 
         // 2. Update Live Activities (Dynamic Island & Lock Screen)
         if #available(iOS 16.2, *) {
             for activity in Activity<TaskActivityAttributes>.activities {
-                var updatedState = activity.content.state
-                if let prog = progress {
-                    updatedState.progress = prog
-                }
-                if let sub = subtitle {
-                    updatedState.subtitle = sub
-                }
-                if let rawTs = rawTimestamp {
-                    let startedAtTimestamp = rawTs > 10000000000 ? rawTs / 1000.0 : rawTs
-                    updatedState.startedAtTimestamp = startedAtTimestamp
-                }
-                Task {
-                    await activity.update(.init(state: updatedState, staleDate: nil))
+                if taskId == nil || activity.attributes.taskId == taskId {
+                    var updatedState = activity.content.state
+                    if let prog = progress {
+                        updatedState.progress = prog
+                    }
+                    if let sub = subtitle {
+                        updatedState.subtitle = sub
+                    }
+                    if let rawTs = rawTimestamp {
+                        let startedAtTimestamp = rawTs > 10000000000 ? rawTs / 1000.0 : rawTs
+                        updatedState.startedAtTimestamp = startedAtTimestamp
+                    }
+                    Task {
+                        await activity.update(.init(state: updatedState, staleDate: nil))
+                    }
                 }
             }
         }
@@ -265,12 +408,16 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     @objc func stopActivity(_ call: CAPPluginCall) {
-        clearActiveTaskForWidget()
+        let taskId = call.getString("taskId") ?? call.getString("activityId")
+
+        clearActiveTaskForWidget(taskId: taskId)
 
         if #available(iOS 16.2, *) {
             for activity in Activity<TaskActivityAttributes>.activities {
-                Task {
-                    await activity.end(nil, dismissalPolicy: .immediate)
+                if taskId == nil || activity.attributes.taskId == taskId {
+                    Task {
+                        await activity.end(nil, dismissalPolicy: .immediate)
+                    }
                 }
             }
         }

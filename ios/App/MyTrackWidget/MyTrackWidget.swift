@@ -87,20 +87,24 @@ public struct TasksListApiResponse: Codable {
 
 public struct ActiveTaskEntry: TimelineEntry {
     public let date: Date
-    public let activeTask: ActiveTaskWidgetModel?
+    public let activeTasks: [ActiveTaskWidgetModel]
     public let tasks: [TaskItemWidgetModel]
     public let selectedTaskId: String?
     public let currentPage: Int
 
+    public var activeTask: ActiveTaskWidgetModel? {
+        activeTasks.first
+    }
+
     public init(
         date: Date,
-        activeTask: ActiveTaskWidgetModel?,
+        activeTasks: [ActiveTaskWidgetModel] = [],
         tasks: [TaskItemWidgetModel] = [],
         selectedTaskId: String? = nil,
         currentPage: Int = 0
     ) {
         self.date = date
-        self.activeTask = activeTask
+        self.activeTasks = activeTasks
         self.tasks = tasks
         self.selectedTaskId = selectedTaskId
         self.currentPage = currentPage
@@ -109,35 +113,48 @@ public struct ActiveTaskEntry: TimelineEntry {
 
 // MARK: - 2. Provider de données
 struct Provider: TimelineProvider {
-    private func fetchLocalActiveTask(tasks: [TaskItemWidgetModel]) -> ActiveTaskWidgetModel? {
-        var active: ActiveTaskWidgetModel? = nil
+    private func fetchLocalActiveTasks(tasks: [TaskItemWidgetModel]) -> [ActiveTaskWidgetModel] {
+        var activeList: [ActiveTaskWidgetModel] = []
 
-        if let rawJson = UserDefaults(suiteName: "group.com.mytrack.app")?.string(forKey: "mytrack_active_task")
-            ?? UserDefaults.standard.string(forKey: "mytrack_active_task"),
-           let data = rawJson.data(using: .utf8),
-           let task = try? JSONDecoder().decode(ActiveTaskWidgetModel.self, from: data) {
-            active = task
-        } else {
-            let tempUrl = URL(fileURLWithPath: "/tmp/mytrack_active_task.json")
-            if let data = try? Data(contentsOf: tempUrl),
-               let task = try? JSONDecoder().decode(ActiveTaskWidgetModel.self, from: data) {
-                active = task
+        let suite = UserDefaults(suiteName: "group.com.mytrack.app") ?? UserDefaults.standard
+
+        // 1. Lire la liste des tâches actives (supporte jusqu'à 2 tâches)
+        if let rawListJson = suite.string(forKey: "mytrack_active_tasks"),
+           let data = rawListJson.data(using: .utf8),
+           let list = try? JSONDecoder().decode([ActiveTaskWidgetModel].self, from: data),
+           !list.isEmpty {
+            activeList = list
+        } else if let tempUrlData = try? Data(contentsOf: URL(fileURLWithPath: "/tmp/mytrack_active_tasks.json")),
+                  let list = try? JSONDecoder().decode([ActiveTaskWidgetModel].self, from: tempUrlData),
+                  !list.isEmpty {
+            activeList = list
+        }
+
+        // 2. Fallback sur la tâche active unique si liste vide
+        if activeList.isEmpty {
+            if let rawJson = suite.string(forKey: "mytrack_active_task"),
+               let data = rawJson.data(using: .utf8),
+               let single = try? JSONDecoder().decode(ActiveTaskWidgetModel.self, from: data) {
+                activeList = [single]
+            } else if let tempUrlData = try? Data(contentsOf: URL(fileURLWithPath: "/tmp/mytrack_active_task.json")),
+                      let single = try? JSONDecoder().decode(ActiveTaskWidgetModel.self, from: tempUrlData) {
+                activeList = [single]
             }
         }
 
-        guard let activeTask = active else { return nil }
-
-        // Si la tâche correspondante dans la liste synchronisée est terminée, elle ne doit pas être affichée active
-        if let matching = tasks.first(where: { $0.id == activeTask.taskId }), matching.isCompleted == true {
-            return nil
+        // 3. Filtrer les tâches terminées ou démarrées depuis > 24h
+        let nowTs = Date().timeIntervalSince1970
+        let filtered = activeList.filter { activeTask in
+            if let matching = tasks.first(where: { $0.id == activeTask.taskId }), matching.isCompleted == true {
+                return false
+            }
+            if nowTs - activeTask.startedAtTimestamp > 86400 {
+                return false
+            }
+            return true
         }
 
-        // Si la tâche a démarré il y a plus de 24h, on évite le blocage
-        if Date().timeIntervalSince1970 - activeTask.startedAtTimestamp > 86400 {
-            return nil
-        }
-
-        return activeTask
+        return Array(filtered.prefix(2))
     }
 
     private func fetchLocalTasksList() -> [TaskItemWidgetModel] {
@@ -172,7 +189,7 @@ struct Provider: TimelineProvider {
     func placeholder(in context: Context) -> ActiveTaskEntry {
         ActiveTaskEntry(
             date: Date(),
-            activeTask: nil,
+            activeTasks: [],
             tasks: [],
             selectedTaskId: nil,
             currentPage: 0
@@ -183,11 +200,11 @@ struct Provider: TimelineProvider {
         let selectedId = getSelectedTaskId()
         let page = getCurrentPage()
         let localTasks = fetchLocalTasksList()
-        let localActive = fetchLocalActiveTask(tasks: localTasks)
+        let localActives = fetchLocalActiveTasks(tasks: localTasks)
 
         let entry = ActiveTaskEntry(
             date: Date(),
-            activeTask: localActive,
+            activeTasks: localActives,
             tasks: localTasks,
             selectedTaskId: selectedId,
             currentPage: page
@@ -199,11 +216,11 @@ struct Provider: TimelineProvider {
         let selectedId = getSelectedTaskId()
         let page = getCurrentPage()
         let localTasks = fetchLocalTasksList()
-        let localActive = fetchLocalActiveTask(tasks: localTasks)
+        let localActives = fetchLocalActiveTasks(tasks: localTasks)
 
         let entry = ActiveTaskEntry(
             date: Date(),
-            activeTask: localActive,
+            activeTasks: localActives,
             tasks: localTasks,
             selectedTaskId: selectedId,
             currentPage: page
@@ -225,7 +242,7 @@ struct MyTrackWidget: Widget {
             MyTrackWidgetEntryView(entry: entry)
         }
         .configurationDisplayName("myTrack — Tâches & Chrono")
-        .description("Suivez votre tâche active ou choisissez une tâche à démarrer en un clic.")
+        .description("Suivez vos tâches actives ou choisissez une tâche à démarrer en un clic.")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }
@@ -240,15 +257,26 @@ struct MyTrackWidgetEntryView: View {
 
     var body: some View {
         Group {
-            if let activeTask = entry.activeTask {
+            if entry.activeTasks.count >= 2 {
+                // 2 Tâches Actives simultanées
                 if family == .systemMedium {
-                    MediumActiveTaskView(task: activeTask, brandNeon: brandNeon, darkBg: darkBg)
+                    DualMediumActiveTasksView(tasks: entry.activeTasks, brandNeon: brandNeon, darkBg: darkBg)
                 } else if family == .systemLarge {
-                    LargeActiveTaskView(task: activeTask, brandNeon: brandNeon, darkBg: darkBg)
+                    DualLargeActiveTasksView(tasks: entry.activeTasks, brandNeon: brandNeon, darkBg: darkBg)
                 } else {
-                    SmallActiveTaskView(task: activeTask, brandNeon: brandNeon, darkBg: darkBg)
+                    SmallActiveTaskView(task: entry.activeTasks[0], brandNeon: brandNeon, darkBg: darkBg)
+                }
+            } else if let singleActive = entry.activeTasks.first {
+                // 1 Tâche Active
+                if family == .systemMedium {
+                    MediumActiveTaskView(task: singleActive, brandNeon: brandNeon, darkBg: darkBg)
+                } else if family == .systemLarge {
+                    LargeActiveTaskView(task: singleActive, brandNeon: brandNeon, darkBg: darkBg)
+                } else {
+                    SmallActiveTaskView(task: singleActive, brandNeon: brandNeon, darkBg: darkBg)
                 }
             } else {
+                // Aucune tâche active -> Liste des tâches
                 if family == .systemLarge {
                     LargeTasksListWidgetView(
                         tasks: entry.tasks,
@@ -276,7 +304,7 @@ struct MyTrackWidgetEntryView: View {
             }
         }
         .containerBackground(for: .widget) {
-            if entry.activeTask != nil {
+            if !entry.activeTasks.isEmpty {
                 brandNeon
             } else {
                 darkBg
@@ -285,7 +313,7 @@ struct MyTrackWidgetEntryView: View {
     }
 }
 
-// MARK: - 5. Vues Tâche Active (Chrono & Bouton Arrêter)
+// MARK: - 5. Vues Tâche Active Unique (Chrono & Bouton Arrêter)
 
 struct MediumActiveTaskView: View {
     let task: ActiveTaskWidgetModel
@@ -398,7 +426,7 @@ struct LargeActiveTaskView: View {
                     HStack {
                         Text("Objectif :")
                             .font(.system(size: 13, weight: .medium))
-                            .foregroundColor(darkBg.opacity(0.8))
+                        .foregroundColor(darkBg.opacity(0.8))
                         Text(total)
                             .font(.system(size: 13, weight: .bold))
                             .foregroundColor(darkBg)
@@ -462,6 +490,176 @@ struct SmallActiveTaskView: View {
             }
         }
         .padding(12)
+    }
+}
+
+// MARK: - 5b. Vues Double Tâche Active (2 Actions simultanées en cours)
+
+struct DualMediumActiveTasksView: View {
+    let tasks: [ActiveTaskWidgetModel]
+    let brandNeon: Color
+    let darkBg: Color
+
+    var body: some View {
+        HStack(spacing: 8) {
+            ForEach(Array(tasks.prefix(2).enumerated()), id: \.element.id) { index, task in
+                VStack(alignment: .leading, spacing: 5) {
+                    // Header: Logo / Tag + Bouton Arrêter
+                    HStack(alignment: .center) {
+                        AppLogoView(size: 14)
+                        
+                        Text(task.category ?? "myTrack")
+                            .font(.system(size: 9.5, weight: .bold))
+                            .foregroundColor(darkBg.opacity(0.8))
+                            .lineLimit(1)
+                        
+                        Spacer(minLength: 2)
+                        
+                        Button(intent: StopTaskIntent(taskId: task.taskId)) {
+                            HStack(spacing: 3) {
+                                Image(systemName: "square.fill")
+                                    .font(.system(size: 7, weight: .bold))
+                                Text("Stop")
+                                    .font(.system(size: 9.5, weight: .bold))
+                            }
+                            .foregroundColor(darkBg)
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 4)
+                            .background(Color.white)
+                            .clipShape(Capsule())
+                            .shadow(color: Color.black.opacity(0.12), radius: 2, x: 0, y: 1)
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    // Titre de la tâche
+                    Link(destination: URL(string: "mytrack://tasks")!) {
+                        Text(task.taskTitle)
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(darkBg)
+                            .lineLimit(2)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
+                    Spacer(minLength: 2)
+
+                    // Chronomètre en direct
+                    HStack(spacing: 3) {
+                        Text("⏱")
+                            .font(.system(size: 9))
+                        Text(timerInterval: task.safeStartedAt...Date(timeIntervalSinceNow: 86400), countsDown: false)
+                            .font(.system(size: 10.5, weight: .bold, design: .monospaced))
+                            .monospacedDigit()
+                    }
+                    .foregroundColor(brandNeon)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3.5)
+                    .background(darkBg)
+                    .cornerRadius(7)
+                }
+                .padding(9)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color.white.opacity(0.22))
+                .cornerRadius(13)
+            }
+        }
+        .padding(9)
+    }
+}
+
+struct DualLargeActiveTasksView: View {
+    let tasks: [ActiveTaskWidgetModel]
+    let brandNeon: Color
+    let darkBg: Color
+
+    var body: some View {
+        VStack(spacing: 9) {
+            HStack {
+                AppLogoView(size: 18)
+                Text("2 ACTIONS EN COURS")
+                    .font(.system(size: 11, weight: .heavy))
+                    .foregroundColor(darkBg.opacity(0.85))
+                Spacer()
+            }
+            .padding(.horizontal, 4)
+
+            ForEach(Array(tasks.prefix(2)), id: \.id) { task in
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(alignment: .top, spacing: 8) {
+                        Link(destination: URL(string: "mytrack://tasks")!) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(task.taskTitle)
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(darkBg)
+                                    .lineLimit(1)
+
+                                Text(task.subtitle ?? task.category ?? "En cours")
+                                    .font(.system(size: 11, weight: .medium))
+                                    .foregroundColor(darkBg.opacity(0.8))
+                                    .lineLimit(1)
+                            }
+                        }
+
+                        Spacer()
+
+                        Button(intent: StopTaskIntent(taskId: task.taskId)) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "square.fill")
+                                    .font(.system(size: 9, weight: .bold))
+                                Text("Arrêter")
+                                    .font(.system(size: 12, weight: .bold))
+                            }
+                            .foregroundColor(darkBg)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(Color.white)
+                            .clipShape(Capsule())
+                            .shadow(color: Color.black.opacity(0.12), radius: 2, x: 0, y: 1)
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    HStack(alignment: .center) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "clock.fill")
+                                .font(.system(size: 10))
+                            Text(task.category ?? "myTrack")
+                                .font(.system(size: 10, weight: .semibold))
+                        }
+                        .foregroundColor(darkBg.opacity(0.85))
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
+                        .background(darkBg.opacity(0.1))
+                        .cornerRadius(6)
+
+                        if let total = task.totalFormattedDuration, !total.isEmpty {
+                            Text("• \(total)")
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundColor(darkBg.opacity(0.75))
+                        }
+
+                        Spacer()
+
+                        HStack(spacing: 4) {
+                            Text("⏱")
+                                .font(.system(size: 10))
+                            Text(timerInterval: task.safeStartedAt...Date(timeIntervalSinceNow: 86400), countsDown: false)
+                                .font(.system(size: 11.5, weight: .bold, design: .monospaced))
+                                .monospacedDigit()
+                        }
+                        .foregroundColor(brandNeon)
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 4)
+                        .background(darkBg)
+                        .cornerRadius(9)
+                    }
+                }
+                .padding(12)
+                .background(Color.white.opacity(0.24))
+                .cornerRadius(15)
+            }
+        }
+        .padding(11)
     }
 }
 
