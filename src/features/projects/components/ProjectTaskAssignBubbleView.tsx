@@ -31,8 +31,22 @@ import {
   DragStartEvent,
   DragEndEvent,
   DragOverEvent,
+  pointerWithin,
+  closestCenter,
+  CollisionDetection,
 } from "@dnd-kit/core";
 import { cn } from "@/lib/utils";
+
+// Custom collision detection: exact pointer position takes precedence over bounding box intersections
+const customCollisionDetection: CollisionDetection = (args) => {
+  // 1. Check if finger / cursor pointer is directly inside a droppable bubble
+  const pointerCollisions = pointerWithin(args);
+  if (pointerCollisions.length > 0) {
+    return pointerCollisions;
+  }
+  // 2. Fallback to closest center if pointer is between bubbles
+  return closestCenter(args);
+};
 
 interface ProjectTaskAssignBubbleViewProps {
   projects: Project[];
@@ -668,6 +682,7 @@ export const ProjectTaskAssignBubbleView: React.FC<ProjectTaskAssignBubbleViewPr
   return (
     <DndContext
       sensors={sensors}
+      collisionDetection={customCollisionDetection}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
