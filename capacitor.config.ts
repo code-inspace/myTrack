@@ -11,7 +11,7 @@ const config: CapacitorConfig = {
     allowNavigation: ["mytrack-nine.vercel.app", "*.vercel.app"],
   },
   ios: {
-    contentInset: "automatic",
+    contentInset: "never",
     preferredContentMode: "mobile",
     scheme: "myTrack",
     allowsLinkPreview: false,

@@ -28,7 +28,7 @@ export const BottomNav: React.FC = () => {
         ];
 
   return (
-    <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-[#111214]/95 backdrop-blur-xl border-t border-[#23242A] px-4 pt-1.5 pb-[max(env(safe-area-inset-bottom),6px)]">
+    <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-[#111214]/95 backdrop-blur-xl border-t border-[#23242A] px-3 pt-1 pb-[env(safe-area-inset-bottom,6px)]">
       <div className="max-w-md mx-auto flex items-center justify-around">
         {navItems.map((item) => {
           const Icon = item.icon;
@@ -39,7 +39,7 @@ export const BottomNav: React.FC = () => {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex flex-col items-center justify-center py-1 px-3 rounded-2xl transition-all duration-200 min-w-[64px]",
+                "flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-all duration-200 min-w-[58px]",
                 isActive
                   ? "text-white"
                   : "text-[#8E929E] hover:text-[#D1D5DB] hover:bg-[#1C1D22]/60"
@@ -53,7 +53,7 @@ export const BottomNav: React.FC = () => {
               />
               <span
                 className={cn(
-                  "text-[11px] font-semibold tracking-tight mt-1 transition-colors",
+                  "text-[10px] font-semibold tracking-tight mt-0.5 transition-colors",
                   isActive ? "text-white font-bold" : "text-[#8E929E]"
                 )}
               >

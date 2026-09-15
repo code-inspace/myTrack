@@ -103,7 +103,7 @@ export const VoiceFab: React.FC<VoiceFabProps> = ({ selectedDate, allTasks, onNe
   return (
     <>
       {/* Floating Action Buttons: Coach IA (modern mode only), Photo Import (Camera), Voice AI (Mic), New Task (+) */}
-      <div className="fixed bottom-24 right-4 sm:right-6 z-40 flex items-center gap-2.5">
+      <div className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+3.75rem)] right-4 sm:right-6 z-40 flex items-center gap-2.5">
         {/* 0. Coach IA — only shown in "modern" display mode, where it's no longer in the bottom nav */}
         {displayMode === "modern" && (
           <Link
