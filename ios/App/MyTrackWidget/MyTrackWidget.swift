@@ -237,13 +237,21 @@ struct Provider: TimelineProvider {
 struct MyTrackWidget: Widget {
     let kind: String = "MyTrackWidget"
 
+    private static var supportedWidgetFamilies: [WidgetFamily] {
+        if #available(iOS 16.0, *) {
+            return [.systemSmall, .systemMedium, .systemLarge, .accessoryRectangular, .accessoryInline, .accessoryCircular]
+        } else {
+            return [.systemSmall, .systemMedium, .systemLarge]
+        }
+    }
+
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: Provider()) { entry in
             MyTrackWidgetEntryView(entry: entry)
         }
         .configurationDisplayName("myTrack — Tâches & Chrono")
         .description("Suivez vos tâches actives ou choisissez une tâche à démarrer en un clic.")
-        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
+        .supportedFamilies(MyTrackWidget.supportedWidgetFamilies)
     }
 }
 
@@ -257,8 +265,17 @@ struct MyTrackWidgetEntryView: View {
 
     var body: some View {
         Group {
-            if entry.activeTasks.count >= 2 {
-                // 2 Tâches Actives simultanées
+            // --- Vues Écran Verrouillé (Accessory Widgets) ---
+            if family == .accessoryRectangular {
+                LockScreenAccessoryRectangularView(entry: entry, brandNeon: brandNeon, darkBg: darkBg)
+            } else if family == .accessoryInline {
+                LockScreenAccessoryInlineView(entry: entry)
+            } else if family == .accessoryCircular {
+                LockScreenAccessoryCircularView(entry: entry, brandNeon: brandNeon, darkBg: darkBg)
+            }
+            // --- Vues Home Screen Déverrouillé ---
+            else if entry.activeTasks.count >= 2 {
+                // 2 Tâches Actives simultanées (l'une sous l'autre en Medium)
                 if family == .systemMedium {
                     DualMediumActiveTasksView(tasks: entry.activeTasks, brandNeon: brandNeon, darkBg: darkBg)
                 } else if family == .systemLarge {
@@ -276,7 +293,7 @@ struct MyTrackWidgetEntryView: View {
                     SmallActiveTaskView(task: singleActive, brandNeon: brandNeon, darkBg: darkBg)
                 }
             } else {
-                // Aucune tâche active -> Liste des tâches
+                // Aucune tâche active -> Liste des tâches avec barre de saisie
                 if family == .systemLarge {
                     LargeTasksListWidgetView(
                         tasks: entry.tasks,
@@ -304,7 +321,9 @@ struct MyTrackWidgetEntryView: View {
             }
         }
         .containerBackground(for: .widget) {
-            if !entry.activeTasks.isEmpty {
+            if family == .accessoryRectangular || family == .accessoryInline || family == .accessoryCircular {
+                Color.clear
+            } else if !entry.activeTasks.isEmpty {
                 brandNeon
             } else {
                 darkBg
@@ -313,7 +332,117 @@ struct MyTrackWidgetEntryView: View {
     }
 }
 
-// MARK: - 5. Vues Tâche Active Unique (Chrono & Bouton Arrêter)
+// MARK: - 5. Vues Écran Verrouillé (Lock Screen Widgets)
+
+struct LockScreenAccessoryRectangularView: View {
+    let entry: ActiveTaskEntry
+    let brandNeon: Color
+    let darkBg: Color
+
+    var body: some View {
+        if let active = entry.activeTasks.first {
+            // Mode Tâche Active sur Écran Verrouillé
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 4) {
+                    AppLogoView(size: 11)
+                    Text(active.taskTitle)
+                        .font(.system(size: 12, weight: .bold))
+                        .lineLimit(1)
+                }
+                
+                Text(active.subtitle ?? active.category ?? "En cours")
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+
+                HStack(spacing: 3) {
+                    Text("⏱")
+                        .font(.system(size: 9))
+                    Text(timerInterval: active.safeStartedAt...Date(timeIntervalSinceNow: 86400), countsDown: false)
+                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                }
+            }
+        } else {
+            // Mode Inactif sur Écran Verrouillé : Input / Ajouter + Prochaine tâche sur la liste
+            Link(destination: URL(string: "mytrack://tasks?action=new-task")!) {
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.system(size: 10, weight: .bold))
+                        Text("Ajouter...")
+                            .font(.system(size: 11, weight: .bold))
+                        Spacer()
+                    }
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2.5)
+                    .background(Color.white.opacity(0.15))
+                    .cornerRadius(6)
+
+                    if let nextTask = entry.tasks.first(where: { $0.isCompleted != true }) {
+                        HStack(spacing: 3) {
+                            Text("📋")
+                                .font(.system(size: 9))
+                            Text(nextTask.title)
+                                .font(.system(size: 10.5, weight: .medium))
+                                .lineLimit(1)
+                        }
+                    } else {
+                        Text("🎉 Toutes terminées")
+                            .font(.system(size: 9.5))
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+        }
+    }
+}
+
+struct LockScreenAccessoryInlineView: View {
+    let entry: ActiveTaskEntry
+
+    var body: some View {
+        if let active = entry.activeTasks.first {
+            Text("⏱ \(active.taskTitle)")
+        } else if let nextTask = entry.tasks.first(where: { $0.isCompleted != true }) {
+            Text("📋 \(nextTask.title)")
+        } else {
+            Text("myTrack • + Ajouter tâche")
+        }
+    }
+}
+
+struct LockScreenAccessoryCircularView: View {
+    let entry: ActiveTaskEntry
+    let brandNeon: Color
+    let darkBg: Color
+
+    var body: some View {
+        if let active = entry.activeTasks.first {
+            Link(destination: URL(string: "mytrack://tasks")!) {
+                ZStack {
+                    AccessoryWidgetBackground()
+                    VStack(spacing: 1) {
+                        Image(systemName: "timer")
+                            .font(.system(size: 13, weight: .bold))
+                        Text(active.taskTitle)
+                            .font(.system(size: 8, weight: .bold))
+                            .lineLimit(1)
+                    }
+                }
+            }
+        } else {
+            Link(destination: URL(string: "mytrack://tasks?action=new-task")!) {
+                ZStack {
+                    AccessoryWidgetBackground()
+                    Image(systemName: "plus")
+                        .font(.system(size: 16, weight: .heavy))
+                }
+            }
+        }
+    }
+}
+
+// MARK: - 6. Vues Tâche Active Unique (Chrono & Bouton Arrêter)
 
 struct MediumActiveTaskView: View {
     let task: ActiveTaskWidgetModel
@@ -426,7 +555,7 @@ struct LargeActiveTaskView: View {
                     HStack {
                         Text("Objectif :")
                             .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(darkBg.opacity(0.8))
+                            .foregroundColor(darkBg.opacity(0.8))
                         Text(total)
                             .font(.system(size: 13, weight: .bold))
                             .foregroundColor(darkBg)
@@ -493,7 +622,7 @@ struct SmallActiveTaskView: View {
     }
 }
 
-// MARK: - 5b. Vues Double Tâche Active (2 Actions simultanées en cours)
+// MARK: - 7. Vues Double Tâche Active (2 Actions simultanées l'une sous l'autre)
 
 struct DualMediumActiveTasksView: View {
     let tasks: [ActiveTaskWidgetModel]
@@ -501,47 +630,26 @@ struct DualMediumActiveTasksView: View {
     let darkBg: Color
 
     var body: some View {
-        HStack(spacing: 8) {
+        VStack(spacing: 6) {
             ForEach(Array(tasks.prefix(2).enumerated()), id: \.element.id) { index, task in
-                VStack(alignment: .leading, spacing: 5) {
-                    // Header: Logo / Tag + Bouton Arrêter
-                    HStack(alignment: .center) {
-                        AppLogoView(size: 14)
-                        
-                        Text(task.category ?? "myTrack")
-                            .font(.system(size: 9.5, weight: .bold))
+                HStack(alignment: .center, spacing: 8) {
+                    AppLogoView(size: 16)
+
+                    VStack(alignment: .leading, spacing: 1) {
+                        Link(destination: URL(string: "mytrack://tasks")!) {
+                            Text(task.taskTitle)
+                                .font(.system(size: 12.5, weight: .bold))
+                                .foregroundColor(darkBg)
+                                .lineLimit(1)
+                        }
+
+                        Text(task.subtitle ?? task.category ?? "En cours")
+                            .font(.system(size: 9.5, weight: .medium))
                             .foregroundColor(darkBg.opacity(0.8))
                             .lineLimit(1)
-                        
-                        Spacer(minLength: 2)
-                        
-                        Button(intent: StopTaskIntent(taskId: task.taskId)) {
-                            HStack(spacing: 3) {
-                                Image(systemName: "square.fill")
-                                    .font(.system(size: 7, weight: .bold))
-                                Text("Stop")
-                                    .font(.system(size: 9.5, weight: .bold))
-                            }
-                            .foregroundColor(darkBg)
-                            .padding(.horizontal, 7)
-                            .padding(.vertical, 4)
-                            .background(Color.white)
-                            .clipShape(Capsule())
-                            .shadow(color: Color.black.opacity(0.12), radius: 2, x: 0, y: 1)
-                        }
-                        .buttonStyle(.plain)
                     }
 
-                    // Titre de la tâche
-                    Link(destination: URL(string: "mytrack://tasks")!) {
-                        Text(task.taskTitle)
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(darkBg)
-                            .lineLimit(2)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-
-                    Spacer(minLength: 2)
+                    Spacer()
 
                     // Chronomètre en direct
                     HStack(spacing: 3) {
@@ -553,17 +661,35 @@ struct DualMediumActiveTasksView: View {
                     }
                     .foregroundColor(brandNeon)
                     .padding(.horizontal, 7)
-                    .padding(.vertical, 3.5)
+                    .padding(.vertical, 4)
                     .background(darkBg)
-                    .cornerRadius(7)
+                    .cornerRadius(8)
+                    .shadow(color: Color.black.opacity(0.12), radius: 2, x: 0, y: 1)
+
+                    // Bouton Stop
+                    Button(intent: StopTaskIntent(taskId: task.taskId)) {
+                        HStack(spacing: 3) {
+                            Image(systemName: "square.fill")
+                                .font(.system(size: 7.5, weight: .bold))
+                            Text("Stop")
+                                .font(.system(size: 10, weight: .bold))
+                        }
+                        .foregroundColor(darkBg)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 5)
+                        .background(Color.white)
+                        .clipShape(Capsule())
+                        .shadow(color: Color.black.opacity(0.12), radius: 2, x: 0, y: 1)
+                    }
+                    .buttonStyle(.plain)
                 }
-                .padding(9)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color.white.opacity(0.22))
-                .cornerRadius(13)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 7)
+                .background(Color.white.opacity(0.24))
+                .cornerRadius(12)
             }
         }
-        .padding(9)
+        .padding(8)
     }
 }
 
@@ -663,7 +789,7 @@ struct DualLargeActiveTasksView: View {
     }
 }
 
-// MARK: - 6. Vues Liste des Tâches avec Pagination & Input & Sélection Instantanée
+// MARK: - 8. Vues Liste des Tâches avec Pagination & Input & Sélection Instantanée
 
 struct MediumTasksListWidgetView: View {
     let tasks: [TaskItemWidgetModel]
@@ -947,7 +1073,7 @@ struct SmallTasksListWidgetView: View {
     }
 }
 
-// MARK: - 7. Ligne de tâche Interactive (Sélection + Bouton Play Démarrer)
+// MARK: - 9. Ligne de tâche Interactive (Sélection + Bouton Play Démarrer)
 struct TaskRowInteractiveView: View {
     let task: TaskItemWidgetModel
     let isSelected: Bool
