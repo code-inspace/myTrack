@@ -33,7 +33,7 @@ export const AuthGuard: React.FC<{ children: React.ReactNode }> = ({ children })
   // If session is loading or if user is unauthenticated and being redirected, display clean splash
   if (isLoading || (!user && !isAuthPath) || (user && isAuthPath && pathname !== "/auth/verify-email")) {
     return (
-      <div className="flex-1 min-w-0 w-full h-[100dvh] flex flex-col items-center justify-center bg-[#0E0F12] space-y-4 select-none">
+      <div className="flex-1 min-w-0 w-full h-full min-h-full flex flex-col items-center justify-center bg-[#0E0F12] space-y-4 select-none">
         <div className="animate-pulse">
           <Logo size="lg" showText={false} />
         </div>

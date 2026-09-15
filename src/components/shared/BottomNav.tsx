@@ -28,7 +28,12 @@ export const BottomNav: React.FC = () => {
         ];
 
   return (
-    <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-[#111214]/95 backdrop-blur-xl border-t border-[#23242A] px-3 pt-1 pb-[env(safe-area-inset-bottom,6px)]">
+    <nav
+      className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-[#111214] border-t border-[#23242A] px-3 pt-1.5"
+      style={{
+        paddingBottom: "max(env(safe-area-inset-bottom, 0px), 8px)",
+      }}
+    >
       <div className="max-w-md mx-auto flex items-center justify-around">
         {navItems.map((item) => {
           const Icon = item.icon;

@@ -7,6 +7,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        window?.backgroundColor = UIColor(red: 17/255, green: 18/255, blue: 20/255, alpha: 1.0)
         if let url = launchOptions?[.url] as? URL {
             notifyWebviewUrl(url: url, delay: 1.0)
         }
