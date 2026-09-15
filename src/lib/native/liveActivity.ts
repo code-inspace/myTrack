@@ -36,6 +36,12 @@ interface LiveActivityPluginInterface {
     lastStoppedTaskId?: string | null;
   }>;
   syncTasks(options: { tasks: any[]; activeTask?: any; activeTasks?: any[] }): Promise<{ success: boolean }>;
+  syncStandby(options: {
+    enabled: boolean;
+    nextTaskId?: string;
+    nextTaskTitle?: string;
+    nextTaskCategory?: string;
+  }): Promise<{ success: boolean }>;
   checkAuthorization(): Promise<{ enabled: boolean; frequentUpdatesEnabled: boolean; supported: boolean; reason?: string }>;
   openSettings(): Promise<{ success: boolean }>;
 }
@@ -182,6 +188,21 @@ export const LiveActivityBridge = {
       });
     } catch (err) {
       console.warn("[LiveActivity] syncTasks error:", err);
+    }
+  },
+
+  async syncStandby(nextTask: any | null, enabled: boolean): Promise<void> {
+    if (!this.isSupported()) return;
+
+    try {
+      await NativeLiveActivity.syncStandby({
+        enabled,
+        nextTaskId: nextTask?.id || undefined,
+        nextTaskTitle: nextTask?.title || undefined,
+        nextTaskCategory: nextTask?.tag || nextTask?.category || undefined,
+      });
+    } catch (err) {
+      console.warn("[LiveActivity] syncStandby error:", err);
     }
   },
 };

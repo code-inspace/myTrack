@@ -78,6 +78,11 @@ public struct StopTaskIntent: AppIntent {
                     }
                 }
             }
+
+            if taskId == "standby" {
+                suite.set(false, forKey: "mytrack_lockscreen_standby")
+                UserDefaults.standard.set(false, forKey: "mytrack_lockscreen_standby")
+            }
         }
 
         // 4. Recharger immédiatement les widgets
@@ -123,7 +128,7 @@ public struct StopLiveActivityIntent: LiveActivityIntent {
 
         let suite = UserDefaults(suiteName: "group.com.mytrack.app") ?? UserDefaults.standard
 
-        if !taskId.isEmpty {
+        if !taskId.isEmpty && taskId != "standby" {
             suite.set(taskId, forKey: "mytrack_last_stopped_task_id")
             suite.set(Date().timeIntervalSince1970, forKey: "mytrack_last_stopped_timestamp")
         }
@@ -171,6 +176,11 @@ public struct StopLiveActivityIntent: LiveActivityIntent {
                         await activity.end(nil, dismissalPolicy: .immediate)
                     }
                 }
+            }
+
+            if taskId == "standby" {
+                suite.set(false, forKey: "mytrack_lockscreen_standby")
+                UserDefaults.standard.set(false, forKey: "mytrack_lockscreen_standby")
             }
         }
 
@@ -314,9 +324,9 @@ public struct StartTaskIntent: AppIntent {
                 progress: 0.0
             )
 
-            // Fermer si même taskId
+            // Fermer si même taskId ou si activité standby
             for runningActivity in Activity<TaskActivityAttributes>.activities {
-                if runningActivity.attributes.taskId == taskId {
+                if runningActivity.attributes.taskId == taskId || runningActivity.attributes.taskId == "standby" {
                     Task {
                         await runningActivity.end(nil, dismissalPolicy: .immediate)
                     }
@@ -324,7 +334,7 @@ public struct StartTaskIntent: AppIntent {
             }
 
             // Si déjà >= 2 autres activités, fermer la plus ancienne
-            let otherActivities = Activity<TaskActivityAttributes>.activities.filter { $0.attributes.taskId != taskId }
+            let otherActivities = Activity<TaskActivityAttributes>.activities.filter { $0.attributes.taskId != taskId && $0.attributes.taskId != "standby" }
             if otherActivities.count >= 2 {
                 for oldActivity in otherActivities.dropFirst() {
                     Task {

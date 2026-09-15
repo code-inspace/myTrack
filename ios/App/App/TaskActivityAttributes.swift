@@ -12,6 +12,10 @@ public struct TaskActivityAttributes: ActivityAttributes {
         public var subtitle: String? // ex: "Série 1/2 - 16 répétitions" ou "Fitness • En cours"
         public var progress: Double // 0.0 -> 1.0
 
+        public var nextTaskId: String?
+        public var nextTaskTitle: String?
+        public var nextTaskCategory: String?
+
         public init(
             currentStatus: String = "IN_PROGRESS",
             startedAtTimestamp: Double,
@@ -19,7 +23,10 @@ public struct TaskActivityAttributes: ActivityAttributes {
             targetDurationSeconds: Int? = nil,
             totalFormattedDuration: String? = nil,
             subtitle: String? = nil,
-            progress: Double = 0.0
+            progress: Double = 0.0,
+            nextTaskId: String? = nil,
+            nextTaskTitle: String? = nil,
+            nextTaskCategory: String? = nil
         ) {
             self.currentStatus = currentStatus
             self.startedAtTimestamp = startedAtTimestamp
@@ -28,6 +35,9 @@ public struct TaskActivityAttributes: ActivityAttributes {
             self.totalFormattedDuration = totalFormattedDuration
             self.subtitle = subtitle
             self.progress = progress
+            self.nextTaskId = nextTaskId
+            self.nextTaskTitle = nextTaskTitle
+            self.nextTaskCategory = nextTaskCategory
         }
     }
 

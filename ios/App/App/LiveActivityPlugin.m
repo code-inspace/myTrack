@@ -7,6 +7,7 @@ CAP_PLUGIN(LiveActivityPlugin, "LiveActivityPlugin",
     CAP_PLUGIN_METHOD(stopActivity, CAPPluginReturnPromise);
     CAP_PLUGIN_METHOD(getActiveTask, CAPPluginReturnPromise);
     CAP_PLUGIN_METHOD(syncTasks, CAPPluginReturnPromise);
+    CAP_PLUGIN_METHOD(syncStandby, CAPPluginReturnPromise);
     CAP_PLUGIN_METHOD(checkAuthorization, CAPPluginReturnPromise);
     CAP_PLUGIN_METHOD(openSettings, CAPPluginReturnPromise);
 )

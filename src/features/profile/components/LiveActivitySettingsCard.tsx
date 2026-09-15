@@ -16,6 +16,12 @@ export const LiveActivitySettingsCard: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isTesting, setIsTesting] = useState(false);
   const [testCountdown, setTestCountdown] = useState(0);
+  const [isStandbyEnabled, setIsStandbyEnabled] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("mytrack_lockscreen_standby") !== "false";
+    }
+    return true;
+  });
 
   const checkStatus = async () => {
     setIsLoading(true);
@@ -41,6 +47,14 @@ export const LiveActivitySettingsCard: React.FC = () => {
 
   const handleOpenSettings = async () => {
     await LiveActivityBridge.openSettings();
+  };
+
+  const handleToggleStandby = async (newVal: boolean) => {
+    setIsStandbyEnabled(newVal);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("mytrack_lockscreen_standby", newVal ? "true" : "false");
+    }
+    await LiveActivityBridge.syncStandby(null, newVal);
   };
 
   const handleStartTest = async () => {
@@ -79,8 +93,19 @@ export const LiveActivitySettingsCard: React.FC = () => {
     }, 1000);
   };
 
+  const handleTestStandby = async () => {
+    await LiveActivityBridge.syncStandby(
+      {
+        id: "demo-next-task",
+        title: "Lecture & Routine du soir",
+        category: "Personnel",
+      },
+      true
+    );
+  };
+
   return (
-    <div className="rounded-3xl bg-[#17181F] border border-[#282B36] p-5 space-y-4 shadow-sm">
+    <div className="rounded-3xl bg-[#17181F] border border-[#282B36] p-5 space-y-5 shadow-sm">
       {/* Header with Title and Live Status Badge */}
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
@@ -89,10 +114,10 @@ export const LiveActivitySettingsCard: React.FC = () => {
           </div>
           <div>
             <h3 className="text-base font-extrabold text-white tracking-tight flex items-center gap-2">
-              <span>Activités en direct &amp; Dynamic Island</span>
+              <span>Activités en direct &amp; Écran Verrouillé</span>
             </h3>
             <p className="text-xs text-[#8E929E]">
-              Chronomètre en temps réel sur l&apos;écran verrouillé &amp; la Dynamic Island
+              Chronomètre en direct, Dynamic Island &amp; widgets de verrouillage
             </p>
           </div>
         </div>
@@ -111,22 +136,57 @@ export const LiveActivitySettingsCard: React.FC = () => {
         )}
       </div>
 
+      {/* Standby Lock Screen Toggle Option */}
+      <div className="bg-[#121317] border border-[#23252E] rounded-2xl p-4 flex items-center justify-between gap-4">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-bold text-white">
+              Widget permanent en veille (Écran verrouillé)
+            </span>
+            <span className="px-2 py-0.5 rounded-md bg-[#D4F63D]/15 border border-[#D4F63D]/30 text-[#D4F63D] font-extrabold text-[10px]">
+              NOUVEAU
+            </span>
+          </div>
+          <p className="text-xs text-[#8E929E] leading-relaxed">
+            Quand aucune tâche n&apos;est active, affiche une bannière sur l&apos;écran verrouillé avec un champ rapide pour créer une tâche et un bouton pour lancer la prochaine tâche.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          role="switch"
+          aria-checked={isStandbyEnabled}
+          onClick={() => handleToggleStandby(!isStandbyEnabled)}
+          className={cn(
+            "relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none",
+            isStandbyEnabled ? "bg-[#D4F63D]" : "bg-[#282B36]"
+          )}
+        >
+          <span
+            className={cn(
+              "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-[#111214] shadow-md ring-0 transition duration-200 ease-in-out",
+              isStandbyEnabled ? "translate-x-5" : "translate-x-0"
+            )}
+          />
+        </button>
+      </div>
+
       {/* Step by step Instructions Card */}
       <div className="bg-[#121317] border border-[#23252E] rounded-2xl p-4 space-y-3">
         <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
           <ShieldCheck className="w-3.5 h-3.5 text-[#D4F63D]" />
-          <span>Configuration requise sur votre iPhone</span>
+          <span>Configuration &amp; Astuces Écran Verrouillé</span>
         </h4>
 
-        <div className="space-y-2 text-xs text-[#C5C8D4] leading-relaxed">
+        <div className="space-y-2.5 text-xs text-[#C5C8D4] leading-relaxed">
           <div className="flex items-start gap-2.5">
             <span className="w-5 h-5 rounded-full bg-[#20222B] text-[#D4F63D] font-bold text-[11px] flex items-center justify-center flex-shrink-0 mt-0.5">
               1
             </span>
             <div>
-              <strong className="text-white font-semibold">Autoriser les Activités en direct :</strong>
+              <strong className="text-white font-semibold">Bannière en veille (Live Activity) :</strong>
               <p className="text-[#8E929E] mt-0.5">
-                Allez dans <span className="text-[#D4F63D]">Réglages</span> &gt; descendez jusqu&apos;à <span className="text-white">myTrack</span> &gt; touchez <span className="text-white">Activités en direct</span> et activez le bouton.
+                Reste affichée sur l&apos;écran verrouillé dès qu&apos;aucune tâche n&apos;est en cours avec le raccourci vers la saisie rapide et la prochaine tâche.
               </p>
             </div>
           </div>
@@ -136,9 +196,9 @@ export const LiveActivitySettingsCard: React.FC = () => {
               2
             </span>
             <div>
-              <strong className="text-white font-semibold">Autoriser sur l&apos;écran verrouillé :</strong>
+              <strong className="text-white font-semibold">Widget sous l&apos;horloge (Accessory Widget) :</strong>
               <p className="text-[#8E929E] mt-0.5">
-                Allez dans <span className="text-[#D4F63D]">Réglages</span> &gt; <span className="text-white">Face ID et code</span> &gt; descendez à <em>« Autoriser l&apos;accès en mode verrouillé »</em> &gt; activez <span className="text-white">Activités en direct</span>.
+                Sur votre écran verrouillé, faites un <span className="text-[#D4F63D]">appui long &gt; Personnaliser</span>, touchez la zone sous l&apos;horloge et ajoutez le widget <span className="text-white font-medium">myTrack</span>.
               </p>
             </div>
           </div>
@@ -148,16 +208,16 @@ export const LiveActivitySettingsCard: React.FC = () => {
               3
             </span>
             <div>
-              <strong className="text-white font-semibold">Compatibilité :</strong>
+              <strong className="text-white font-semibold">Autorisations iOS requises :</strong>
               <p className="text-[#8E929E] mt-0.5">
-                La pilule animée <span className="text-white font-medium">Dynamic Island</span> s&apos;affiche sur iPhone 14 Pro, 15 et 16. Sur les autres modèles (11, 12, 13, 14), le widget s&apos;affiche sur l&apos;écran de verrouillage.
+                Dans <span className="text-[#D4F63D]">Réglages &gt; Face ID et code</span>, vérifiez que <em>« Activités en direct »</em> est activé en mode verrouillé.
               </p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Action Buttons: Open iOS Settings & Test Live Activity */}
+      {/* Action Buttons: Open iOS Settings, Test Live Activity & Preview Standby */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 pt-1">
         <button
           type="button"
@@ -166,6 +226,15 @@ export const LiveActivitySettingsCard: React.FC = () => {
         >
           <ExternalLink className="w-4 h-4" />
           <span>Ouvrir les Réglages iOS</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={handleTestStandby}
+          className="px-4 py-3 rounded-2xl bg-[#20222B] hover:bg-[#282A36] border border-[#323644] text-white text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer"
+        >
+          <Sparkles className="w-4 h-4 text-[#D4F63D]" />
+          <span>Tester la veille Lock Screen</span>
         </button>
 
         <button
@@ -182,12 +251,12 @@ export const LiveActivitySettingsCard: React.FC = () => {
           {isTesting ? (
             <>
               <Square className="w-3.5 h-3.5 fill-current animate-pulse" />
-              <span>Test en cours ({testCountdown}s) — Quittez l&apos;app !</span>
+              <span>Test en cours ({testCountdown}s)</span>
             </>
           ) : (
             <>
-              <Sparkles className="w-4 h-4 text-[#D4F63D]" />
-              <span>Tester la Dynamic Island</span>
+              <Play className="w-3.5 h-3.5 text-[#D4F63D]" />
+              <span>Tester chrono</span>
             </>
           )}
         </button>

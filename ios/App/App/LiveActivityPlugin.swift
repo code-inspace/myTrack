@@ -13,6 +13,7 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "stopActivity", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getActiveTask", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "syncTasks", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "syncStandby", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "checkAuthorization", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "openSettings", returnType: CAPPluginReturnPromise)
     ]
@@ -292,9 +293,9 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
         )
 
         do {
-            // 1. Fermer l'activité si le même taskId tourne déjà
+            // 1. Fermer l'activité si le même taskId tourne déjà ou s'il y a une activité standby
             for runningActivity in Activity<TaskActivityAttributes>.activities {
-                if runningActivity.attributes.taskId == taskId {
+                if runningActivity.attributes.taskId == taskId || runningActivity.attributes.taskId == "standby" {
                     Task {
                         await runningActivity.end(nil, dismissalPolicy: .immediate)
                     }
@@ -302,7 +303,7 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
             }
 
             // 2. Si on a déjà 2 ou plus d'activités en cours, fermer la plus ancienne pour ne garder que 2 max
-            let currentActivities = Activity<TaskActivityAttributes>.activities.filter { $0.attributes.taskId != taskId }
+            let currentActivities = Activity<TaskActivityAttributes>.activities.filter { $0.attributes.taskId != taskId && $0.attributes.taskId != "standby" }
             if currentActivities.count >= 2 {
                 // Fermer les surplus (toutes sauf la plus récente)
                 for oldActivity in currentActivities.dropFirst() {
@@ -420,9 +421,148 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
                     }
                 }
             }
+
+            // Si le mode veille est activé et qu'aucune autre activité ne tourne, démarrer le standby
+            let suite = UserDefaults(suiteName: "group.com.mytrack.app") ?? UserDefaults.standard
+            let isStandbyEnabled = suite.object(forKey: "mytrack_lockscreen_standby") as? Bool ?? true
+            if isStandbyEnabled {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    let remaining = Activity<TaskActivityAttributes>.activities.filter {
+                        if let tId = taskId { return $0.attributes.taskId != tId }
+                        return false
+                    }
+                    if remaining.isEmpty {
+                        var nextId: String? = nil
+                        var nextTitle: String? = nil
+                        var nextCategory: String? = nil
+
+                        if let rawJson = suite.string(forKey: "mytrack_tasks_list"),
+                           let data = rawJson.data(using: .utf8),
+                           let tasks = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
+                            if let firstUncompleted = tasks.first(where: { ($0["isCompleted"] as? Bool) != true }) {
+                                nextId = firstUncompleted["id"] as? String
+                                nextTitle = firstUncompleted["title"] as? String
+                                nextCategory = firstUncompleted["category"] as? String
+                            }
+                        }
+
+                        let attributes = TaskActivityAttributes(
+                            taskId: "standby",
+                            taskTitle: "myTrack",
+                            category: "Prêt"
+                        )
+                        let contentState = TaskActivityAttributes.ContentState(
+                            currentStatus: "STANDBY",
+                            startedAtTimestamp: Date().timeIntervalSince1970,
+                            elapsedSeconds: 0,
+                            targetDurationSeconds: nil,
+                            totalFormattedDuration: nil,
+                            subtitle: "Prêt à démarrer",
+                            progress: 0.0,
+                            nextTaskId: nextId,
+                            nextTaskTitle: nextTitle,
+                            nextTaskCategory: nextCategory
+                        )
+                        _ = try? Activity<TaskActivityAttributes>.request(
+                            attributes: attributes,
+                            content: .init(state: contentState, staleDate: nil),
+                            pushType: nil
+                        )
+                    }
+                }
+            }
         }
 
         call.resolve(["success": true])
+    }
+
+    @objc func syncStandby(_ call: CAPPluginCall) {
+        let enabled = call.getBool("enabled") ?? true
+        let nextTaskId = call.getString("nextTaskId")
+        let nextTaskTitle = call.getString("nextTaskTitle")
+        let nextTaskCategory = call.getString("nextTaskCategory")
+
+        let suite = UserDefaults(suiteName: "group.com.mytrack.app") ?? UserDefaults.standard
+        suite.set(enabled, forKey: "mytrack_lockscreen_standby")
+        UserDefaults.standard.set(enabled, forKey: "mytrack_lockscreen_standby")
+
+        guard #available(iOS 16.2, *) else {
+            call.resolve(["success": true, "note": "iOS 16.2+ required for Live Activity"])
+            return
+        }
+
+        if !enabled {
+            // Fermer toute activité standby
+            for activity in Activity<TaskActivityAttributes>.activities {
+                if activity.attributes.taskId == "standby" {
+                    Task {
+                        await activity.end(nil, dismissalPolicy: .immediate)
+                    }
+                }
+            }
+            call.resolve(["success": true, "standby": false])
+            return
+        }
+
+        // Si activé : vérifier si des tâches réelles sont déjà en cours
+        let nonStandbyActivities = Activity<TaskActivityAttributes>.activities.filter { $0.attributes.taskId != "standby" }
+        if !nonStandbyActivities.isEmpty {
+            call.resolve(["success": true, "note": "Active task already running"])
+            return
+        }
+
+        // Si une activité standby existe déjà, mettre à jour son contenu
+        if let existingStandby = Activity<TaskActivityAttributes>.activities.first(where: { $0.attributes.taskId == "standby" }) {
+            let updatedState = TaskActivityAttributes.ContentState(
+                currentStatus: "STANDBY",
+                startedAtTimestamp: Date().timeIntervalSince1970,
+                elapsedSeconds: 0,
+                targetDurationSeconds: nil,
+                totalFormattedDuration: nil,
+                subtitle: "Prêt à démarrer",
+                progress: 0.0,
+                nextTaskId: nextTaskId,
+                nextTaskTitle: nextTaskTitle,
+                nextTaskCategory: nextTaskCategory
+            )
+            Task {
+                await existingStandby.update(.init(state: updatedState, staleDate: nil))
+            }
+            call.resolve(["success": true, "updated": true])
+            return
+        }
+
+        // Créer une nouvelle activité de veille
+        let attributes = TaskActivityAttributes(
+            taskId: "standby",
+            taskTitle: "myTrack",
+            category: "Prêt"
+        )
+        let contentState = TaskActivityAttributes.ContentState(
+            currentStatus: "STANDBY",
+            startedAtTimestamp: Date().timeIntervalSince1970,
+            elapsedSeconds: 0,
+            targetDurationSeconds: nil,
+            totalFormattedDuration: nil,
+            subtitle: "Prêt à démarrer",
+            progress: 0.0,
+            nextTaskId: nextTaskId,
+            nextTaskTitle: nextTaskTitle,
+            nextTaskCategory: nextTaskCategory
+        )
+
+        do {
+            let activity = try Activity<TaskActivityAttributes>.request(
+                attributes: attributes,
+                content: .init(state: contentState, staleDate: nil),
+                pushType: nil
+            )
+            print("[LiveActivityPlugin] Standby Live Activity launched with ID: \(activity.id)")
+            call.resolve(["success": true, "activityId": activity.id])
+        } catch {
+            print("[LiveActivityPlugin] Standby Live Activity request failed: \(error.localizedDescription)")
+            call.resolve(["success": false, "error": error.localizedDescription])
+        }
     }
 
     @objc func checkAuthorization(_ call: CAPPluginCall) {

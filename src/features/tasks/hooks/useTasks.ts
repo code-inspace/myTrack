@@ -235,6 +235,20 @@ export function useTasks(selectedDateStr: string) {
         mappedActiveTasks[0] || null,
         mappedActiveTasks
       );
+
+      // Si aucune tâche n'est active, synchroniser le mode veille Lock Screen
+      if (mappedActiveTasks.length === 0) {
+        const isStandbyEnabled =
+          typeof window !== "undefined"
+            ? localStorage.getItem("mytrack_lockscreen_standby") !== "false"
+            : true;
+
+        const firstUncompleted = sortedTasks.find(
+          (t) => !t.isCompletedToday && !t.completion?.completed
+        );
+
+        LiveActivityBridge.syncStandby(firstUncompleted || null, isStandbyEnabled);
+      }
     }
   }, [sortedTasks, activeTasksList]);
 
