@@ -22,10 +22,10 @@ export function useProjects() {
     },
     placeholderData: () => getStoredProjects(userId),
     enabled: Boolean(userId),
-    staleTime: 0,
-    refetchOnMount: "always",
+    staleTime: 30000,
+    refetchOnMount: false,
     refetchOnWindowFocus: true,
-    refetchInterval: 3000,
+    refetchInterval: 60000, // Background fallback only
   });
 
   const isInitialLoading = projectsLoading && projects.length === 0;

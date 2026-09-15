@@ -16,7 +16,20 @@ interface ProjectFormModalProps {
   onDelete?: (projectId: string) => void;
 }
 
-const COLOR_OPTIONS = ["#D4F63D", "#34D399", "#60A5FA", "#F472B6", "#A78BFA", "#F59E0B"];
+const COLOR_OPTIONS = [
+  "#D4F63D", // Lime signature
+  "#EF4444", // Rouge vif
+  "#FACC15", // Jaune éclatant
+  "#3B82F6", // Bleu royal
+  "#10B981", // Vert émeraude
+  "#F97316", // Orange vif
+  "#EC4899", // Rose fuchsia
+  "#8B5CF6", // Violet électrique
+  "#06B6D4", // Cyan
+  "#F43F5E", // Rose framboise
+  "#84CC16", // Vert citron
+  "#64748B", // Ardoise / Anthracite
+];
 
 export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
   isOpen,
@@ -159,15 +172,15 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
             <label className="block text-xs font-semibold uppercase tracking-wider text-[#8E929E]">
               Couleur
             </label>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2.5 p-2 rounded-2xl bg-[#252830] border border-[#343740]">
               {COLOR_OPTIONS.map((c) => (
                 <button
                   type="button"
                   key={c}
                   onClick={() => setColor(c)}
                   className={cn(
-                    "w-8 h-8 rounded-full transition-all cursor-pointer",
-                    color === c ? "ring-2 ring-offset-2 ring-offset-[#1C1D22] ring-white scale-110" : ""
+                    "w-7 h-7 rounded-full transition-all cursor-pointer hover:scale-110",
+                    color === c ? "ring-2 ring-offset-2 ring-offset-[#252830] ring-white scale-110 shadow-lg" : "opacity-85 hover:opacity-100"
                   )}
                   style={{ backgroundColor: c }}
                 />

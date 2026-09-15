@@ -132,10 +132,10 @@ export function useTasks(selectedDateStr: string) {
     },
     placeholderData: () => getStoredTasks(userId),
     enabled: Boolean(userId),
-    staleTime: 0,
-    refetchOnMount: "always",
+    staleTime: 30000,
+    refetchOnMount: false,
     refetchOnWindowFocus: true,
-    refetchInterval: 3000,
+    refetchInterval: 60000, // Background fallback only, Supabase Realtime WebSocket handles instant sync
   });
 
   const {
@@ -151,10 +151,10 @@ export function useTasks(selectedDateStr: string) {
     },
     placeholderData: () => getStoredCompletions(userId),
     enabled: Boolean(userId),
-    staleTime: 0,
-    refetchOnMount: "always",
+    staleTime: 30000,
+    refetchOnMount: false,
     refetchOnWindowFocus: true,
-    refetchInterval: 3000,
+    refetchInterval: 60000, // Background fallback only
   });
 
   const selectedDate = parseISO(selectedDateStr);

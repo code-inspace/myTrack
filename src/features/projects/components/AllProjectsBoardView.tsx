@@ -153,7 +153,7 @@ export const AllProjectsBoardView: React.FC<AllProjectsBoardViewProps> = ({
       </div>
 
       <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-        <div className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden px-4 pb-28">
+        <div className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden px-4 pb-36 md:pb-8">
           <div className="flex items-start gap-3 h-full">
             {columns.map((col) => (
               <BoardColumn

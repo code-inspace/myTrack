@@ -35,7 +35,7 @@ export const ProjectsListView: React.FC<ProjectsListViewProps> = ({
   const unassignedTasksCount = tasks.filter((t) => !t.projectId && !t.isArchived).length;
 
   return (
-    <div className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-4 pt-3 pb-36 space-y-3 max-w-md mx-auto w-full">
+    <div className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-4 pt-3 pb-44 space-y-3 max-w-md mx-auto w-full">
       <div className="flex items-center justify-between px-1">
         <h2 className="text-xl font-bold text-white tracking-tight">Projets</h2>
         <button

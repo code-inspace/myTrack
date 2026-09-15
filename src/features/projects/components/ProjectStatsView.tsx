@@ -322,7 +322,7 @@ export const ProjectStatsView: React.FC<ProjectStatsViewProps> = ({
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 max-w-5xl mx-auto w-full">
+      <div className="flex-1 overflow-y-auto px-4 pt-4 pb-44 md:p-6 md:pb-12 space-y-6 max-w-5xl mx-auto w-full overscroll-y-contain">
         {selectedProject ? (
           /* ================= DETAIL DRILL-DOWN VIEW FOR A PROJECT ================= */
           <div className="space-y-6 animate-in fade-in duration-300">

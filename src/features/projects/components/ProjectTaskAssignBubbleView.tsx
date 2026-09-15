@@ -918,7 +918,7 @@ export const ProjectTaskAssignBubbleView: React.FC<ProjectTaskAssignBubbleViewPr
             </div>
 
             {/* Task list */}
-            <div className="flex-1 overflow-y-auto space-y-2 pr-0.5 pb-24 md:pb-4">
+            <div className="flex-1 overflow-y-auto space-y-2 pr-0.5 pb-44 md:pb-6 overscroll-y-contain">
               {filteredTasks.length === 0 ? (
                 <div className="h-44 flex flex-col items-center justify-center text-center p-4 bg-[#16171C]/40 border border-[#282A30] rounded-2xl">
                   <CheckCircle2 className="w-6 h-6 text-[#D4F63D] mb-1.5" />
