@@ -109,10 +109,20 @@ export const BoardCard: React.FC<{
               <span className="truncate">{projectBadge.name}</span>
             </span>
           )}
-          {task.projectCategory && (
+          {task.projectCategory ? (
             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-semibold bg-[#818CF8]/15 border border-[#818CF8]/30 text-[#A5B4FC]">
               <Tag className="w-2.5 h-2.5 flex-shrink-0" />
               <span className="truncate">{task.projectCategory}</span>
+            </span>
+          ) : (task.tag || task.category) ? (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-medium bg-white/5 border border-white/10 text-[#A0A5B5]">
+              <Tag className="w-2.5 h-2.5 flex-shrink-0 text-[#6B7280]" />
+              <span className="truncate">{task.tag || task.category}</span>
+            </span>
+          ) : null}
+          {task.projectCategory && (task.tag || task.category) && (task.tag || task.category) !== task.projectCategory && (task.tag || task.category) !== "General" && (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-medium bg-white/5 border border-white/10 text-[#8E929E]">
+              <span className="truncate">{task.tag || task.category}</span>
             </span>
           )}
         </div>
