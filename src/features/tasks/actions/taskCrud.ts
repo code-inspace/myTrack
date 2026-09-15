@@ -7,7 +7,6 @@ import { createClient } from "@/utils/supabase/client";
 import { encryptText, decryptText, isEncrypted } from "@/lib/crypto/encryption";
 import {
   getTodayDateString,
-  convertLocalTimeToUtc,
   createUtcIsoFromLocalDateTime,
 } from "@/lib/dates";
 import {
@@ -219,13 +218,9 @@ export async function updateDbTask(
     dbUpdates.category = updates.category;
   }
   if (updates.startTime !== undefined)
-    dbUpdates.start_time = updates.startTime
-      ? convertLocalTimeToUtc(updates.startTime, updates.date)
-      : null;
+    dbUpdates.start_time = updates.startTime || null;
   if (updates.endTime !== undefined)
-    dbUpdates.end_time = updates.endTime
-      ? convertLocalTimeToUtc(updates.endTime, updates.date)
-      : null;
+    dbUpdates.end_time = updates.endTime || null;
   if (updates.deadline !== undefined)
     dbUpdates.deadline = updates.deadline || null;
   if (updates.priority !== undefined)

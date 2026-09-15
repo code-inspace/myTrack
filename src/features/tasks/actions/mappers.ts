@@ -1,5 +1,4 @@
 import { Task, TaskCompletion } from "../types";
-import { convertUtcTimeToLocal } from "@/lib/dates";
 import { isEncrypted, decryptText } from "@/lib/crypto/encryption";
 
 export const TASKS_STORAGE_PREFIX = "mytrack_tasks_";
@@ -16,8 +15,8 @@ export function mapDbTaskToModel(row: any): Task {
     } else if (v && typeof v === "object") {
       dateOverrides[k] = {
         ...(v as any),
-        startTime: (v as any).startTime ? convertUtcTimeToLocal((v as any).startTime, k) : null,
-        endTime: (v as any).endTime ? convertUtcTimeToLocal((v as any).endTime, k) : null,
+        startTime: (v as any).startTime || null,
+        endTime: (v as any).endTime || null,
       };
     }
   }
@@ -29,8 +28,8 @@ export function mapDbTaskToModel(row: any): Task {
     description: row.description || null,
     tag: row.tag || row.category || rawOverrides._tag || "General",
     category: row.tag || row.category || rawOverrides._tag || "General",
-    startTime: row.start_time ? convertUtcTimeToLocal(row.start_time) : null,
-    endTime: row.end_time ? convertUtcTimeToLocal(row.end_time) : null,
+    startTime: row.start_time || null,
+    endTime: row.end_time || null,
     deadline: row.deadline || null,
     priority: row.priority || "NORMAL",
     recurrence: row.recurrence,
@@ -87,7 +86,6 @@ export async function decryptTaskModel(task: Task): Promise<Task> {
   };
 }
 
-// Convert Supabase snake_case completion row to camelCase TaskCompletion with local timezone conversion
 export function mapDbCompletionToModel(row: any): TaskCompletion {
   return {
     id: row.id,
@@ -98,10 +96,10 @@ export function mapDbCompletionToModel(row: any): TaskCompletion {
     value: row.value !== null && row.value !== undefined ? parseFloat(row.value) : null,
     duration: row.duration || null,
     notes: row.notes || null,
-    scheduledStartTime: row.scheduled_start_time ? convertUtcTimeToLocal(row.scheduled_start_time, row.date) : null,
-    scheduledEndTime: row.scheduled_end_time ? convertUtcTimeToLocal(row.scheduled_end_time, row.date) : null,
-    actualStartTime: row.actual_start_time ? convertUtcTimeToLocal(row.actual_start_time, row.date) : null,
-    actualEndTime: row.actual_end_time ? convertUtcTimeToLocal(row.actual_end_time, row.date) : null,
+    scheduledStartTime: row.scheduled_start_time || null,
+    scheduledEndTime: row.scheduled_end_time || null,
+    actualStartTime: row.actual_start_time || null,
+    actualEndTime: row.actual_end_time || null,
     createdAt: row.created_at || new Date().toISOString(),
     updatedAt: row.updated_at || new Date().toISOString(),
   };

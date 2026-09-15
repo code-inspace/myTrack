@@ -10,7 +10,6 @@ import { updateDbTask } from "./taskCrud";
 import { updateTaskSchedule } from "./taskSchedule";
 import { createClient } from "@/utils/supabase/client";
 import {
-  convertLocalTimeToUtc,
   subtractMinutesFromTime,
 } from "@/lib/dates";
 import { getStoredProjects } from "@/features/projects/actions";
