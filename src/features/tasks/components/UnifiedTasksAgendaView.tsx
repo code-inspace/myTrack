@@ -38,7 +38,12 @@ import { SortableContext, verticalListSortingStrategy, arrayMove } from "@dnd-ki
 import { DAY_DROP_ID_PREFIX } from "@/features/tasks/components/HorizontalDatePicker";
 
 import { TaskCardSkeleton } from "@/features/tasks/components/TaskCardSkeleton";
-import { buildAndSortUnifiedStream, UnifiedStreamItem } from "@/features/tasks/unifiedStream";
+import {
+  buildAndSortUnifiedStream,
+  UnifiedStreamItem,
+  getStoredStreamOrder,
+  saveStoredStreamOrder,
+} from "@/features/tasks/unifiedStream";
 
 import { useCalendarEvents } from "@/features/calendar/hooks/useCalendarEvents";
 import { ExternalCalendarEvent } from "@/features/calendar/types";
@@ -150,15 +155,24 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
   );
   const [activeDragTaskId, setActiveDragTaskId] = useState<string | null>(null);
 
+  const [streamOrder, setStreamOrder] = useState<string[]>(() => {
+    return getStoredStreamOrder(selectedDate);
+  });
+
+  useEffect(() => {
+    setStreamOrder(getStoredStreamOrder(selectedDate));
+  }, [selectedDate]);
+
   const unifiedStream = useMemo(() => {
     return buildAndSortUnifiedStream(
       tasks,
       externalEvents,
       selectedDate,
       manualCompletedEvents,
-      showCalendar
+      showCalendar,
+      streamOrder
     );
-  }, [tasks, externalEvents, selectedDate, manualCompletedEvents, showCalendar]);
+  }, [tasks, externalEvents, selectedDate, manualCompletedEvents, showCalendar, streamOrder]);
 
   const handleHabitDragStart = (event: DragStartEvent) => {
     setActiveDragTaskId(String(event.active.id));
@@ -185,6 +199,10 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
     if (oldIndex === -1 || newIndex === -1) return;
 
     const reordered = arrayMove(unifiedStream, oldIndex, newIndex);
+    const newOrderedIds = reordered.map((item) => item.id);
+    setStreamOrder(newOrderedIds);
+    saveStoredStreamOrder(selectedDate, newOrderedIds);
+
     const taskIds = reordered
       .filter((item): item is { type: "task"; id: string; data: TaskWithCompletion } => item.type === "task")
       .map((item) => item.data.id);

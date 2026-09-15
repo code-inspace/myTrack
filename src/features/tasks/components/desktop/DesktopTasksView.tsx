@@ -8,7 +8,12 @@ import { getExternalEventStatus, isExternalEventDone, isExternalEventInProgress 
 import { TaskCard } from "../TaskCard";
 import { ActiveTaskBanner } from "../ActiveTaskBanner";
 import { TaskCardSkeleton } from "../TaskCardSkeleton";
-import { buildAndSortUnifiedStream, UnifiedStreamItem } from "@/features/tasks/unifiedStream";
+import {
+  buildAndSortUnifiedStream,
+  UnifiedStreamItem,
+  getStoredStreamOrder,
+  saveStoredStreamOrder,
+} from "@/features/tasks/unifiedStream";
 import { DesktopWidgetsPane } from "./DesktopWidgetsPane";
 import { DesktopDatePicker } from "./DesktopDatePicker";
 import { CheckCircle2, Plus, Flame, Inbox, Calendar, RefreshCw, Play } from "lucide-react";
@@ -213,15 +218,24 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
 
   const orderedTasks = filteredTasks.filter((t) => !t.isActive);
 
+  const [streamOrder, setStreamOrder] = useState<string[]>(() => {
+    return getStoredStreamOrder(selectedDate);
+  });
+
+  React.useEffect(() => {
+    setStreamOrder(getStoredStreamOrder(selectedDate));
+  }, [selectedDate]);
+
   const unifiedStream = useMemo(() => {
     return buildAndSortUnifiedStream(
       filteredTasks,
       filteredExternalEvents,
       selectedDate,
       manualCompletedEvents,
-      showCalendar
+      showCalendar,
+      streamOrder
     );
-  }, [filteredTasks, filteredExternalEvents, selectedDate, manualCompletedEvents, showCalendar]);
+  }, [filteredTasks, filteredExternalEvents, selectedDate, manualCompletedEvents, showCalendar, streamOrder]);
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -232,6 +246,10 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
     if (oldIndex === -1 || newIndex === -1) return;
 
     const reordered = arrayMove(unifiedStream, oldIndex, newIndex);
+    const newOrderedIds = reordered.map((item) => item.id);
+    setStreamOrder(newOrderedIds);
+    saveStoredStreamOrder(selectedDate, newOrderedIds);
+
     const taskIds = reordered
       .filter((item): item is { type: "task"; id: string; data: TaskWithCompletion } => item.type === "task")
       .map((item) => item.data.id);

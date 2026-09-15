@@ -497,5 +497,32 @@ describe("Tasks Feature Logic", () => {
       expect(ids.indexOf("event_evt-upcoming")).toBeLessThan(ids.indexOf("event_evt-passed"));
       expect(ids.indexOf("event_evt-upcoming")).toBeLessThan(ids.indexOf("task-done"));
     });
+
+    it("places an external event in the middle of tasks when dragged and reordered", async () => {
+      const { buildAndSortUnifiedStream } = await import("./unifiedStream");
+
+      const taskA: any = { id: "task-A", title: "Tâche A", isCompletedToday: false };
+      const taskB: any = { id: "task-B", title: "Tâche B", isCompletedToday: false };
+      const eventMiddle: any = {
+        id: "evt-mid",
+        title: "Événement au milieu",
+        date: "2026-09-15",
+      };
+
+      // Custom drag order: Task A -> Event Mid -> Task B
+      const customOrder = ["task-A", "event_evt-mid", "task-B"];
+
+      const stream = buildAndSortUnifiedStream(
+        [taskA, taskB],
+        [eventMiddle],
+        "2026-09-15",
+        { "evt-mid": false },
+        true,
+        customOrder
+      );
+
+      const ids = stream.map((s) => s.id);
+      expect(ids).toEqual(["task-A", "event_evt-mid", "task-B"]);
+    });
   });
 });
