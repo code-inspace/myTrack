@@ -10,6 +10,7 @@ import { updateDbTask } from "./taskCrud";
 import { updateTaskSchedule } from "./taskSchedule";
 import { createClient } from "@/utils/supabase/client";
 import {
+  convertLocalTimeToUtc,
   subtractMinutesFromTime,
 } from "@/lib/dates";
 import { getStoredProjects } from "@/features/projects/actions";
@@ -39,8 +40,9 @@ export async function fetchCompletions(
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data.completions)) {
-        saveStoredCompletions(data.completions, targetId);
-        return data.completions;
+        const mapped = data.completions.map((c: any) => mapDbCompletionToModel(c));
+        saveStoredCompletions(mapped, targetId);
+        return mapped;
       }
     }
   } catch (err) {
@@ -116,10 +118,26 @@ export async function upsertDbCompletion(
 
   // 2. Persist to API endpoint
   try {
+    const dbPayload = {
+      ...completion,
+      scheduledStartTime: completion.scheduledStartTime
+        ? convertLocalTimeToUtc(completion.scheduledStartTime, completion.date)
+        : null,
+      scheduledEndTime: completion.scheduledEndTime
+        ? convertLocalTimeToUtc(completion.scheduledEndTime, completion.date)
+        : null,
+      actualStartTime: completion.actualStartTime
+        ? convertLocalTimeToUtc(completion.actualStartTime, completion.date)
+        : null,
+      actualEndTime: completion.actualEndTime
+        ? convertLocalTimeToUtc(completion.actualEndTime, completion.date)
+        : null,
+    };
+
     await fetch("/api/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ completion, userId: targetId }),
+      body: JSON.stringify({ completion: dbPayload, userId: targetId }),
     });
   } catch (err) {
     console.warn("API upsertDbCompletion error:", err);

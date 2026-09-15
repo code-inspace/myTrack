@@ -9,6 +9,7 @@ import { updateDbTask } from "./taskCrud";
 import { createClient } from "@/utils/supabase/client";
 import {
   getTodayDateString,
+  convertLocalTimeToUtc,
   createUtcIsoFromLocalDateTime,
 } from "@/lib/dates";
 import {
@@ -100,13 +101,18 @@ export async function updateDbTaskStartedAt(
     provisionalEndTime = `${String(endH).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
   }
 
+  const utcStartTime = convertLocalTimeToUtc(startedAtTime, todayStr);
+  const utcProvisionalEndTime = provisionalEndTime
+    ? convertLocalTimeToUtc(provisionalEndTime, todayStr)
+    : null;
+
   const currentOverrides = target?.dateOverrides || {};
   const updatedOverrides = {
     ...currentOverrides,
     [todayStr]: {
       ...(currentOverrides[todayStr] || {}),
-      startTime: startedAtTime,
-      endTime: provisionalEndTime,
+      startTime: utcStartTime,
+      endTime: utcProvisionalEndTime,
     },
   };
 
@@ -155,8 +161,8 @@ export async function updateDbTaskStartedAt(
     dateOverrides: updatedOverrides,
   };
   if (!isRecurring) {
-    serverUpdates.startTime = startedAtTime;
-    serverUpdates.endTime = provisionalEndTime;
+    serverUpdates.startTime = utcStartTime;
+    serverUpdates.endTime = utcProvisionalEndTime;
   }
   try {
     fetch("/api/tasks", {
@@ -183,8 +189,8 @@ export async function updateDbTaskStartedAt(
           userId: targetId,
           date: todayStr,
           completed: false,
-          scheduledStartTime: startedAtTime,
-          actualStartTime: startedAtTime,
+          scheduledStartTime: utcStartTime,
+          actualStartTime: utcStartTime,
         },
         userId: targetId,
       }),
@@ -234,6 +240,8 @@ export async function updateTaskSchedule({
   const nowIso = new Date().toISOString();
 
   const isRecurring = target?.recurrence && target.recurrence !== "ONCE";
+  const utcStart = startTime ? convertLocalTimeToUtc(startTime, date) : null;
+  const utcEnd = endTime ? convertLocalTimeToUtc(endTime, date) : null;
 
   if (!isRecurring) {
     // For a ONCE task, updating schedule for a date also moves the task occurrence to that target date!
@@ -246,8 +254,8 @@ export async function updateTaskSchedule({
           taskId,
           userId: targetId,
           updates: {
-            startTime,
-            endTime,
+            startTime: utcStart,
+            endTime: utcEnd,
             createdAt: createdIso,
           },
         }),
@@ -276,7 +284,7 @@ export async function updateTaskSchedule({
     const currentOverrides = target?.dateOverrides || {};
     const updatedOverrides = {
       ...currentOverrides,
-      [date]: { startTime, endTime },
+      [date]: { startTime: utcStart, endTime: utcEnd },
     };
 
     try {
@@ -318,8 +326,8 @@ export async function updateTaskSchedule({
           taskId,
           userId: targetId,
           updates: {
-            startTime,
-            endTime,
+            startTime: utcStart,
+            endTime: utcEnd,
           },
         }),
       }).catch((err) => console.warn("API updateTaskSchedule global PATCH note:", err));

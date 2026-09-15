@@ -7,6 +7,7 @@ import { createClient } from "@/utils/supabase/client";
 import { encryptText, decryptText, isEncrypted } from "@/lib/crypto/encryption";
 import {
   getTodayDateString,
+  convertLocalTimeToUtc,
   createUtcIsoFromLocalDateTime,
 } from "@/lib/dates";
 import {
@@ -36,20 +37,35 @@ export async function fetchTasks(userId?: string): Promise<Task[]> {
     // 1. First push any local tasks to server sync endpoint if present
     const localCompletions = getStoredCompletions(targetId);
     if (local.length > 0) {
+      const syncTasks = local.map((t) => ({
+        ...t,
+        startTime: t.startTime ? convertLocalTimeToUtc(t.startTime, t.createdAt?.split("T")[0]) : null,
+        endTime: t.endTime ? convertLocalTimeToUtc(t.endTime, t.createdAt?.split("T")[0]) : null,
+      }));
+      const syncCompletions = localCompletions.map((c) => ({
+        ...c,
+        scheduledStartTime: c.scheduledStartTime ? convertLocalTimeToUtc(c.scheduledStartTime, c.date) : null,
+        scheduledEndTime: c.scheduledEndTime ? convertLocalTimeToUtc(c.scheduledEndTime, c.date) : null,
+        actualStartTime: c.actualStartTime ? convertLocalTimeToUtc(c.actualStartTime, c.date) : null,
+        actualEndTime: c.actualEndTime ? convertLocalTimeToUtc(c.actualEndTime, c.date) : null,
+      }));
       fetch("/api/tasks/sync", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ localTasks: local, localCompletions, userId: targetId }),
+        body: JSON.stringify({ localTasks: syncTasks, localCompletions: syncCompletions, userId: targetId }),
       }).catch(() => {});
     }
 
-    // 2. Fetch all fresh tasks from API route
+    // 2. Fetch all fresh tasks from API route and map them to local device timezone
     const res = await fetch(`/api/tasks?userId=${encodeURIComponent(targetId)}`);
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data.tasks)) {
-        saveStoredTasks(data.tasks, targetId);
-        return data.tasks;
+        const mappedTasks = await Promise.all(
+          data.tasks.map((t: any) => mapDbTaskToModelAsync(t))
+        );
+        saveStoredTasks(mappedTasks, targetId);
+        return mappedTasks;
       }
     }
   } catch (err) {
@@ -80,15 +96,21 @@ export async function createDbTask(
   const taskDate = (task as any).date || getTodayDateString();
 
   try {
+    const taskPayload = {
+      ...task,
+      startTime: task.startTime ? convertLocalTimeToUtc(task.startTime, taskDate) : null,
+      endTime: task.endTime ? convertLocalTimeToUtc(task.endTime, taskDate) : null,
+    };
     const res = await fetch("/api/tasks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ task, userId: targetId }),
+      body: JSON.stringify({ task: taskPayload, userId: targetId }),
     });
 
     if (res.ok) {
-      const { task: created } = await res.json();
-      if (created) {
+      const { task: rawCreated } = await res.json();
+      if (rawCreated) {
+        const created = mapDbTaskToModel(rawCreated);
         const current = getStoredTasks(targetId);
         const updated = [
           created,
@@ -218,9 +240,13 @@ export async function updateDbTask(
     dbUpdates.category = updates.category;
   }
   if (updates.startTime !== undefined)
-    dbUpdates.start_time = updates.startTime || null;
+    dbUpdates.start_time = updates.startTime
+      ? convertLocalTimeToUtc(updates.startTime, updates.date)
+      : null;
   if (updates.endTime !== undefined)
-    dbUpdates.end_time = updates.endTime || null;
+    dbUpdates.end_time = updates.endTime
+      ? convertLocalTimeToUtc(updates.endTime, updates.date)
+      : null;
   if (updates.deadline !== undefined)
     dbUpdates.deadline = updates.deadline || null;
   if (updates.priority !== undefined)
