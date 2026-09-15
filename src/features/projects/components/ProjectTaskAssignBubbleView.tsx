@@ -63,7 +63,7 @@ const CATEGORY_COLORS = [
   "#4ADE80",
 ];
 
-// Project Droppable Bubble with 1-second hover countdown circle
+// Project Droppable Bubble with conditional 1-second hover countdown circle
 function ProjectDroppableBubble({
   project,
   index,
@@ -71,6 +71,7 @@ function ProjectDroppableBubble({
   isOverTarget,
   hoverProgress, // 0 to 1
   isDraggingActive,
+  hasCategories,
   onClick,
 }: {
   project: Project;
@@ -79,11 +80,12 @@ function ProjectDroppableBubble({
   isOverTarget: boolean;
   hoverProgress: number;
   isDraggingActive: boolean;
+  hasCategories: boolean;
   onClick: () => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `project-${project.id}`,
-    data: { project },
+    data: { project, type: "project" },
   });
 
   const activeIsOver = isOver || isOverTarget;
@@ -114,8 +116,8 @@ function ProjectDroppableBubble({
           : `0 4px 20px rgba(0,0,0,0.5)`,
       }}
     >
-      {/* 1-Second Circular Hover Countdown Ring when dragging over */}
-      {isDraggingActive && activeIsOver && (
+      {/* 1-Second Circular Hover Countdown Ring (ONLY IF PROJECT HAS CATEGORIES) */}
+      {hasCategories && isDraggingActive && activeIsOver && (
         <svg
           className="absolute -inset-2 w-[calc(100%+16px)] h-[calc(100%+16px)] -rotate-90 pointer-events-none z-30"
           viewBox="0 0 100 100"
@@ -168,7 +170,7 @@ function ProjectDroppableBubble({
           className="mt-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold text-black flex items-center gap-1 animate-pulse"
           style={{ backgroundColor: project.color }}
         >
-          {hoverProgress > 0 && hoverProgress < 1 ? (
+          {hasCategories && hoverProgress > 0 && hoverProgress < 1 ? (
             <span>Maintiens 1s...</span>
           ) : (
             <span>Déposer ici</span>
@@ -186,20 +188,23 @@ function ProjectDroppableBubble({
 // Category Droppable Bubble inside a project
 function CategoryDroppableBubble({
   categoryName,
+  projectId,
   color,
   taskCount,
   index,
   isOverTarget,
 }: {
   categoryName: string;
+  projectId: string;
   color: string;
   taskCount: number;
   index: number;
   isOverTarget: boolean;
 }) {
+  const droppableId = `cat__${projectId}__${encodeURIComponent(categoryName)}`;
   const { setNodeRef, isOver } = useDroppable({
-    id: `category-${categoryName}`,
-    data: { categoryName },
+    id: droppableId,
+    data: { categoryName, projectId, type: "category" },
   });
 
   const activeIsOver = isOver || isOverTarget;
@@ -431,6 +436,11 @@ export const ProjectTaskAssignBubbleView: React.FC<ProjectTaskAssignBubbleViewPr
     categoryName?: string | null;
   } | null>(null);
 
+  // Helper to check if project has categories defined
+  const projectHasCategories = (p?: Project | null): boolean => {
+    return Boolean(p && Array.isArray(p.categories) && p.categories.length > 0);
+  };
+
   // All tasks without a project and not archived
   const unassignedTasks = useMemo(() => {
     return tasks.filter((t) => !t.projectId && !t.isArchived);
@@ -451,14 +461,13 @@ export const ProjectTaskAssignBubbleView: React.FC<ProjectTaskAssignBubbleViewPr
   // Categories for the currently zoomed project
   const currentProjectCategories = useMemo(() => {
     if (!zoomedProject) return [];
-    const catSet = new Set<string>(["Général", ...(zoomedProject.categories || [])]);
-    tasks.forEach((t) => {
-      if (t.projectId === zoomedProject.id && t.projectCategory) {
-        catSet.add(t.projectCategory);
-      }
-    });
-    return Array.from(catSet);
-  }, [zoomedProject, tasks]);
+    const catList = Array.isArray(zoomedProject.categories) ? [...zoomedProject.categories] : [];
+    // Ensure "Général" is present
+    if (!catList.includes("Général")) {
+      catList.unshift("Général");
+    }
+    return catList;
+  }, [zoomedProject]);
 
   // Task count by category in zoomed project
   const taskCountByCategory = useMemo(() => {
@@ -532,8 +541,7 @@ export const ProjectTaskAssignBubbleView: React.FC<ProjectTaskAssignBubbleViewPr
     if (!project || !task) return;
 
     const firstColumnId = project.columns && project.columns.length > 0 ? project.columns[0].id : "TODO";
-
-    const cleanCategory = categoryName === "Général" ? null : categoryName || null;
+    const cleanCategory = !categoryName || categoryName === "Général" ? null : categoryName.trim();
 
     updateTask.mutate({
       taskId,
@@ -585,27 +593,32 @@ export const ProjectTaskAssignBubbleView: React.FC<ProjectTaskAssignBubbleViewPr
     // If we are on the main project bubble list and hovering over a project
     if (!zoomedProject && overId && overId.startsWith("project-")) {
       const pId = overId.replace("project-", "");
+      const targetProj = projects.find((p) => p.id === pId);
 
-      if (hoverProjectIdRef.current !== pId) {
-        clearHoverTimer();
-        hoverProjectIdRef.current = pId;
-        hoverStartTimeRef.current = Date.now();
+      // ONLY trigger 1-second countdown if this project actually has categories!
+      if (projectHasCategories(targetProj)) {
+        if (hoverProjectIdRef.current !== pId) {
+          clearHoverTimer();
+          hoverProjectIdRef.current = pId;
+          hoverStartTimeRef.current = Date.now();
 
-        hoverIntervalRef.current = setInterval(() => {
-          if (!hoverStartTimeRef.current) return;
-          const elapsed = Date.now() - hoverStartTimeRef.current;
-          const progress = Math.min(elapsed / 1000, 1);
-          setHoverProgress(progress);
+          hoverIntervalRef.current = setInterval(() => {
+            if (!hoverStartTimeRef.current) return;
+            const elapsed = Date.now() - hoverStartTimeRef.current;
+            const progress = Math.min(elapsed / 1000, 1);
+            setHoverProgress(progress);
 
-          if (progress >= 1) {
-            // 1 second elapsed! Zoom into project categories
-            const targetProj = projects.find((p) => p.id === pId);
-            if (targetProj) {
-              setZoomedProject(targetProj);
+            if (progress >= 1) {
+              // 1 second elapsed! Zoom into project categories
+              if (targetProj) {
+                setZoomedProject(targetProj);
+              }
+              clearHoverTimer();
             }
-            clearHoverTimer();
-          }
-        }, 30);
+          }, 30);
+        }
+      } else {
+        clearHoverTimer();
       }
     } else {
       if (!zoomedProject) {
@@ -616,27 +629,39 @@ export const ProjectTaskAssignBubbleView: React.FC<ProjectTaskAssignBubbleViewPr
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-    const currentHoveredPId = hoverProjectIdRef.current;
     clearHoverTimer();
 
     setActiveTask(null);
     setOverTargetId(null);
 
-    if (!over) return;
+    if (!over) {
+      // Returned / dropped outside -> restore project bubbles view
+      setZoomedProject(null);
+      return;
+    }
 
     const overId = String(over.id);
     const taskId = String(active.id).replace("task-", "");
+    const overData = over.data?.current;
 
-    if (overId.startsWith("category-")) {
-      // Dropped on a category bubble inside a zoomed project
-      if (zoomedProject) {
-        const catName = overId.replace("category-", "");
-        handleAssignToProject(taskId, zoomedProject.id, catName);
+    if (overId.startsWith("cat__") || overData?.type === "category") {
+      // Dropped on a category bubble
+      const catName = overData?.categoryName || decodeURIComponent(overId.split("__")[2] || "");
+      const projId = overData?.projectId || (zoomedProject ? zoomedProject.id : overId.split("__")[1]);
+
+      if (projId) {
+        handleAssignToProject(taskId, projId, catName);
       }
-    } else if (overId.startsWith("project-")) {
-      // Dropped directly on a project bubble (without waiting for 1s completion)
-      const targetProjectId = overId.replace("project-", "");
+      // Re-display the main project bubbles immediately
+      setZoomedProject(null);
+    } else if (overId.startsWith("project-") || overData?.type === "project") {
+      // Dropped directly on a project bubble (without waiting or on a project with no categories)
+      const targetProjectId = overData?.project?.id || overId.replace("project-", "");
       handleAssignToProject(taskId, targetProjectId, null);
+      // Re-display the main project bubbles immediately
+      setZoomedProject(null);
+    } else {
+      setZoomedProject(null);
     }
   };
 
@@ -675,8 +700,8 @@ export const ProjectTaskAssignBubbleView: React.FC<ProjectTaskAssignBubbleViewPr
               </h1>
               <p className="text-xs text-[#8E929E]">
                 {zoomedProject
-                  ? "Dépose sur une catégorie ou clique sur 'Tous les projets'"
-                  : "Survole un projet 1s pour choisir sa catégorie, ou dépose directement"}
+                  ? "Dépose sur une catégorie pour l'affecter précisément"
+                  : "Glisse et dépose les tâches sur les bulles de projet"}
               </p>
             </div>
           </div>
@@ -758,16 +783,20 @@ export const ProjectTaskAssignBubbleView: React.FC<ProjectTaskAssignBubbleViewPr
 
                 {/* Category Bubbles cluster */}
                 <div className="flex flex-wrap items-center justify-center gap-3 md:gap-4 py-3 min-h-[180px] md:min-h-[300px]">
-                  {currentProjectCategories.map((catName, idx) => (
-                    <CategoryDroppableBubble
-                      key={catName}
-                      categoryName={catName}
-                      color={CATEGORY_COLORS[idx % CATEGORY_COLORS.length]}
-                      taskCount={taskCountByCategory[catName] || 0}
-                      index={idx}
-                      isOverTarget={overTargetId === `category-${catName}`}
-                    />
-                  ))}
+                  {currentProjectCategories.map((catName, idx) => {
+                    const droppableId = `cat__${zoomedProject.id}__${encodeURIComponent(catName)}`;
+                    return (
+                      <CategoryDroppableBubble
+                        key={catName}
+                        categoryName={catName}
+                        projectId={zoomedProject.id}
+                        color={CATEGORY_COLORS[idx % CATEGORY_COLORS.length]}
+                        taskCount={taskCountByCategory[catName] || 0}
+                        index={idx}
+                        isOverTarget={overTargetId === droppableId}
+                      />
+                    );
+                  })}
                 </div>
               </div>
             ) : (
@@ -778,22 +807,32 @@ export const ProjectTaskAssignBubbleView: React.FC<ProjectTaskAssignBubbleViewPr
                     <FolderKanban className="w-3.5 h-3.5 text-[#D4F63D]" />
                     Projets ({projects.length})
                   </span>
-                  <span className="text-[10px] text-[#6B7280]">Survol 1s = Catégories</span>
+                  <span className="text-[10px] text-[#6B7280]">
+                    Survol 1s = Catégories
+                  </span>
                 </div>
 
                 <div className="flex flex-wrap items-center justify-center gap-3 md:gap-4 py-2 min-h-[160px] md:min-h-[300px]">
-                  {projects.map((project, idx) => (
-                    <ProjectDroppableBubble
-                      key={project.id}
-                      project={project}
-                      index={idx}
-                      taskCount={taskCountByProjectId[project.id] || 0}
-                      isOverTarget={overTargetId === `project-${project.id}`}
-                      hoverProgress={hoverProjectIdRef.current === project.id ? hoverProgress : 0}
-                      isDraggingActive={Boolean(activeTask)}
-                      onClick={() => setZoomedProject(project)}
-                    />
-                  ))}
+                  {projects.map((project, idx) => {
+                    const hasCats = projectHasCategories(project);
+                    return (
+                      <ProjectDroppableBubble
+                        key={project.id}
+                        project={project}
+                        index={idx}
+                        taskCount={taskCountByProjectId[project.id] || 0}
+                        isOverTarget={overTargetId === `project-${project.id}`}
+                        hoverProgress={hoverProjectIdRef.current === project.id ? hoverProgress : 0}
+                        isDraggingActive={Boolean(activeTask)}
+                        hasCategories={hasCats}
+                        onClick={() => {
+                          if (hasCats) {
+                            setZoomedProject(project);
+                          }
+                        }}
+                      />
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -911,7 +950,7 @@ export const ProjectTaskAssignBubbleView: React.FC<ProjectTaskAssignBubbleViewPr
               )}
             </div>
             <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#D4F63D] text-black font-extrabold">
-              {zoomedProject ? "Déposer sur une catégorie" : "Déposer ou maintenir 1s"}
+              {zoomedProject ? "Déposer sur une catégorie" : "Déposer sur un projet"}
             </span>
           </div>
         ) : null}
