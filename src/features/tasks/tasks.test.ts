@@ -451,5 +451,51 @@ describe("Tasks Feature Logic", () => {
       expect(mapped.isActive).toBe(false);
       expect(mapped.isCompletedToday).toBe(true);
     });
+
+    it("builds and sorts unified stream with events: upcoming/non-done before passed/done", async () => {
+      const { buildAndSortUnifiedStream } = await import("./unifiedStream");
+
+      const taskTodo: any = {
+        id: "task-todo",
+        title: "Tâche à faire",
+        isCompletedToday: false,
+        startTime: "10:00",
+      };
+      const taskDone: any = {
+        id: "task-done",
+        title: "Tâche terminée",
+        isCompletedToday: true,
+        startTime: "08:00",
+      };
+
+      const eventUpcoming: any = {
+        id: "evt-upcoming",
+        title: "Réunion future",
+        date: "2026-09-15",
+        startTime: "23:59",
+        endTime: "23:59",
+      };
+      const eventPassed: any = {
+        id: "evt-passed",
+        title: "RDV passé",
+        date: "2026-09-15",
+        startTime: "07:00",
+        endTime: "08:00",
+      };
+
+      const stream = buildAndSortUnifiedStream(
+        [taskDone, taskTodo],
+        [eventPassed, eventUpcoming],
+        "2026-09-15",
+        { "evt-passed": true, "evt-upcoming": false }
+      );
+
+      // Verify IDs ordering
+      const ids = stream.map((s) => s.id);
+      // Non-done items come first (task-todo and event-upcoming)
+      expect(ids.indexOf("task-todo")).toBeLessThan(ids.indexOf("task-done"));
+      expect(ids.indexOf("event_evt-upcoming")).toBeLessThan(ids.indexOf("event_evt-passed"));
+      expect(ids.indexOf("event_evt-upcoming")).toBeLessThan(ids.indexOf("task-done"));
+    });
   });
 });

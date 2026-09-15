@@ -38,6 +38,7 @@ import { SortableContext, verticalListSortingStrategy, arrayMove } from "@dnd-ki
 import { DAY_DROP_ID_PREFIX } from "@/features/tasks/components/HorizontalDatePicker";
 
 import { TaskCardSkeleton } from "@/features/tasks/components/TaskCardSkeleton";
+import { buildAndSortUnifiedStream, UnifiedStreamItem } from "@/features/tasks/unifiedStream";
 
 import { useCalendarEvents } from "@/features/calendar/hooks/useCalendarEvents";
 import { ExternalCalendarEvent } from "@/features/calendar/types";
@@ -149,6 +150,16 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
   );
   const [activeDragTaskId, setActiveDragTaskId] = useState<string | null>(null);
 
+  const unifiedStream = useMemo(() => {
+    return buildAndSortUnifiedStream(
+      tasks,
+      externalEvents,
+      selectedDate,
+      manualCompletedEvents,
+      showCalendar
+    );
+  }, [tasks, externalEvents, selectedDate, manualCompletedEvents, showCalendar]);
+
   const handleHabitDragStart = (event: DragStartEvent) => {
     setActiveDragTaskId(String(event.active.id));
   };
@@ -159,21 +170,28 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
     if (!over || active.id === over.id) return;
 
     const overId = String(over.id);
+    const activeId = String(active.id);
 
     if (overId.startsWith(DAY_DROP_ID_PREFIX)) {
       const toDate = overId.slice(DAY_DROP_ID_PREFIX.length);
-      if (toDate && toDate !== selectedDate) {
-        moveOccurrence.mutate({ taskId: String(active.id), fromDate: selectedDate, toDate });
+      if (toDate && toDate !== selectedDate && !activeId.startsWith("event_")) {
+        moveOccurrence.mutate({ taskId: activeId, fromDate: selectedDate, toDate });
       }
       return;
     }
 
-    const oldIndex = orderedTasks.findIndex((t) => t.id === active.id);
-    const newIndex = orderedTasks.findIndex((t) => t.id === over.id);
+    const oldIndex = unifiedStream.findIndex((item) => item.id === active.id);
+    const newIndex = unifiedStream.findIndex((item) => item.id === over.id);
     if (oldIndex === -1 || newIndex === -1) return;
 
-    const reordered = arrayMove(orderedTasks, oldIndex, newIndex);
-    reorderTasks.mutate(reordered.map((t) => t.id));
+    const reordered = arrayMove(unifiedStream, oldIndex, newIndex);
+    const taskIds = reordered
+      .filter((item): item is { type: "task"; id: string; data: TaskWithCompletion } => item.type === "task")
+      .map((item) => item.data.id);
+
+    if (taskIds.length > 0) {
+      reorderTasks.mutate(taskIds);
+    }
   };
 
   // Active tasks for Habits view (shows active task banner regardless of selected date filter)
@@ -477,30 +495,11 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
                   </div>
                 )}
 
-                {/* Tasks & External Calendar Events Stream */}
+                {/* Unified Tasks & External Calendar Events Stream */}
                 <div className="space-y-2.5 pt-1">
-                  {/* External calendar events for this specific date */}
-                  {showCalendar &&
-                    dayExternalEvents.map((evt) => (
-                      <ExternalEventTaskCard
-                        key={evt.id}
-                        event={evt}
-                        selectedDate={selectedDate}
-                        isManuallyCompleted={manualCompletedEvents[evt.id]}
-                        onToggleComplete={() => {
-                          setManualCompletedEvents((prev) => {
-                            const current = prev[evt.id];
-                            const defaultDone = isExternalEventDone(evt, selectedDate);
-                            return { ...prev, [evt.id]: current !== undefined ? !current : !defaultDone };
-                          });
-                        }}
-                        onClick={() => setSelectedExternalEvent(evt)}
-                      />
-                    ))}
-
-                  {isTasksInitialLoading && orderedTasks.length === 0 ? (
+                  {isTasksInitialLoading && unifiedStream.length === 0 ? (
                     <TaskCardSkeleton count={3} />
-                  ) : orderedTasks.length === 0 && (!showCalendar || dayExternalEvents.length === 0) ? (
+                  ) : unifiedStream.length === 0 ? (
                     <div className="p-8 text-center bg-[#1C1D22] border border-[#282A30] rounded-3xl my-4">
                       <Inbox className="w-10 h-10 text-[#6B7280] mx-auto mb-2" />
                       <h4 className="text-base font-bold text-white">Aucun élément programmé</h4>
@@ -519,27 +518,45 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
                       </button>
                     </div>
                   ) : (
-                    <SortableContext items={orderedTasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
-                      {orderedTasks.map((task) => (
-                        <TaskCard
-                          key={task.id}
-                          task={task}
-                          sortable
-                          onToggleActive={(id) => toggleTaskActive.mutate({ taskId: id, date: selectedDate })}
-                          onToggleComplete={(id) => toggleCompletion.mutate({ taskId: id, date: selectedDate })}
-                          onToggleReminder={(id) => {
-                            const target = tasks.find((t) => t.id === id);
-                            const newEnable = target ? !(target.enableReminders !== false) : true;
-                            updateTask.mutate({ taskId: id, values: { enableReminders: newEnable } });
-                          }}
-                          onOpenLogModal={(t) => setSelectedLoggingTask(t)}
-                          onEditTask={(t) => {
-                            setEditingTask(t);
-                            setIsTaskModalOpen(true);
-                          }}
-                          onDeleteTask={(id) => deleteTask.mutate(id)}
-                        />
-                      ))}
+                    <SortableContext items={unifiedStream.map((item) => item.id)} strategy={verticalListSortingStrategy}>
+                      {unifiedStream.map((item) =>
+                        item.type === "task" ? (
+                          <TaskCard
+                            key={item.id}
+                            task={item.data}
+                            sortable
+                            onToggleActive={(id) => toggleTaskActive.mutate({ taskId: id, date: selectedDate })}
+                            onToggleComplete={(id) => toggleCompletion.mutate({ taskId: id, date: selectedDate })}
+                            onToggleReminder={(id) => {
+                              const target = tasks.find((t) => t.id === id);
+                              const newEnable = target ? !(target.enableReminders !== false) : true;
+                              updateTask.mutate({ taskId: id, values: { enableReminders: newEnable } });
+                            }}
+                            onOpenLogModal={(t) => setSelectedLoggingTask(t)}
+                            onEditTask={(t) => {
+                              setEditingTask(t);
+                              setIsTaskModalOpen(true);
+                            }}
+                            onDeleteTask={(id) => deleteTask.mutate(id)}
+                          />
+                        ) : (
+                          <ExternalEventTaskCard
+                            key={item.id}
+                            event={item.data}
+                            selectedDate={selectedDate}
+                            sortable
+                            isManuallyCompleted={manualCompletedEvents[item.data.id]}
+                            onToggleComplete={() => {
+                              setManualCompletedEvents((prev) => {
+                                const current = prev[item.data.id];
+                                const defaultDone = isExternalEventDone(item.data, selectedDate);
+                                return { ...prev, [item.data.id]: current !== undefined ? !current : !defaultDone };
+                              });
+                            }}
+                            onClick={() => setSelectedExternalEvent(item.data)}
+                          />
+                        )
+                      )}
                     </SortableContext>
                   )}
                 </div>

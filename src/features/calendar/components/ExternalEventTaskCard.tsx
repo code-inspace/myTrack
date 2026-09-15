@@ -3,14 +3,17 @@
 import React from "react";
 import { ExternalCalendarEvent } from "../types";
 import { getExternalEventStatus } from "../lib/status";
-import { Check, Calendar, MapPin, Clock, Radio } from "lucide-react";
+import { Check, Calendar, MapPin, Clock, GripVertical } from "lucide-react";
 import { cn } from "@/lib/utils";
 import confetti from "canvas-confetti";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 interface ExternalEventTaskCardProps {
   event: ExternalCalendarEvent;
   selectedDate: string;
   isManuallyCompleted?: boolean;
+  sortable?: boolean;
   onToggleComplete?: () => void;
   onClick?: () => void;
 }
@@ -19,9 +22,20 @@ export const ExternalEventTaskCard: React.FC<ExternalEventTaskCardProps> = ({
   event,
   selectedDate,
   isManuallyCompleted,
+  sortable = false,
   onToggleComplete,
   onClick,
 }) => {
+  const sortableId = event.id.startsWith("event_") ? event.id : `event_${event.id}`;
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: sortableId, disabled: !sortable });
+
   const status = getExternalEventStatus(event, selectedDate, isManuallyCompleted);
   const isDone = status === "DONE";
   const isInProgress = status === "IN_PROGRESS";
@@ -42,10 +56,18 @@ export const ExternalEventTaskCard: React.FC<ExternalEventTaskCardProps> = ({
 
   return (
     <div
+      ref={setNodeRef}
+      style={{
+        touchAction: "pan-y",
+        transform: CSS.Transform.toString(transform),
+        transition,
+      }}
       onClick={onClick}
       className={cn(
-        "group relative flex items-start justify-between gap-3 p-3.5 sm:p-4 rounded-2xl border transition-all select-none cursor-pointer",
-        isInProgress
+        "group relative flex items-start justify-between gap-3 p-3.5 sm:p-4 rounded-2xl border transition-all duration-200 select-none cursor-pointer touch-pan-y shadow-sm",
+        isDragging
+          ? "opacity-40 border-[#D4F63D] scale-[0.98] ring-2 ring-[#D4F63D]/50 bg-[#22242B]"
+          : isInProgress
           ? "bg-[#181C26] border-[#3B82F6]/60 shadow-[0_0_20px_rgba(59,130,246,0.15)] ring-1 ring-[#3B82F6]/40"
           : isDone
           ? "bg-[#121316]/70 border-[#202229] opacity-70"
@@ -58,10 +80,25 @@ export const ExternalEventTaskCard: React.FC<ExternalEventTaskCardProps> = ({
         style={{ backgroundColor: calColor }}
       />
 
-      <div className="flex items-start gap-3 min-w-0 flex-1 pl-1.5">
+      <div className="flex items-start gap-2.5 min-w-0 flex-1 pl-1">
+        {/* Reordering Drag Handle */}
+        {sortable && (
+          <div
+            {...attributes}
+            {...listeners}
+            onClick={(e) => e.stopPropagation()}
+            className="p-1 -ml-1 text-[#6B7280] hover:text-[#D4F63D] cursor-grab active:cursor-grabbing flex-shrink-0 transition-colors mt-0.5 touch-none"
+            title="Glisser pour réorganiser"
+          >
+            <GripVertical className="w-4 h-4" />
+          </div>
+        )}
+
         {/* Checkbox circle */}
         <button
           type="button"
+          onPointerDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
           onClick={handleCircleClick}
           aria-label={isDone ? "Marquer comme à faire" : "Marquer comme fait"}
           className={cn(

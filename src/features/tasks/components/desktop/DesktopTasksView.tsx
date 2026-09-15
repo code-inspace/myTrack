@@ -8,6 +8,7 @@ import { getExternalEventStatus, isExternalEventDone, isExternalEventInProgress 
 import { TaskCard } from "../TaskCard";
 import { ActiveTaskBanner } from "../ActiveTaskBanner";
 import { TaskCardSkeleton } from "../TaskCardSkeleton";
+import { buildAndSortUnifiedStream, UnifiedStreamItem } from "@/features/tasks/unifiedStream";
 import { DesktopWidgetsPane } from "./DesktopWidgetsPane";
 import { DesktopDatePicker } from "./DesktopDatePicker";
 import { CheckCircle2, Plus, Flame, Inbox, Calendar, RefreshCw, Play } from "lucide-react";
@@ -212,16 +213,32 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
 
   const orderedTasks = filteredTasks.filter((t) => !t.isActive);
 
+  const unifiedStream = useMemo(() => {
+    return buildAndSortUnifiedStream(
+      filteredTasks,
+      filteredExternalEvents,
+      selectedDate,
+      manualCompletedEvents,
+      showCalendar
+    );
+  }, [filteredTasks, filteredExternalEvents, selectedDate, manualCompletedEvents, showCalendar]);
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
-    const oldIndex = orderedTasks.findIndex((t) => t.id === active.id);
-    const newIndex = orderedTasks.findIndex((t) => t.id === over.id);
+    const oldIndex = unifiedStream.findIndex((item) => item.id === active.id);
+    const newIndex = unifiedStream.findIndex((item) => item.id === over.id);
     if (oldIndex === -1 || newIndex === -1) return;
 
-    const reordered = arrayMove(orderedTasks, oldIndex, newIndex);
-    onReorderTasks(reordered.map((t) => t.id));
+    const reordered = arrayMove(unifiedStream, oldIndex, newIndex);
+    const taskIds = reordered
+      .filter((item): item is { type: "task"; id: string; data: TaskWithCompletion } => item.type === "task")
+      .map((item) => item.data.id);
+
+    if (taskIds.length > 0) {
+      onReorderTasks(taskIds);
+    }
   };
 
   const formattedDate = useMemo(() => {
@@ -444,11 +461,11 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
             </div>
           )}
 
-          {/* Tasks & External Calendar Events Stream */}
+          {/* Unified Tasks & External Calendar Events Stream */}
           <div className="space-y-3 pb-16">
-            {isInitialLoading && orderedTasks.length === 0 && filteredExternalEvents.length === 0 && activeTasks.length === 0 ? (
+            {isInitialLoading && unifiedStream.length === 0 && activeTasks.length === 0 ? (
               <TaskCardSkeleton count={4} />
-            ) : orderedTasks.length === 0 && filteredExternalEvents.length === 0 && activeTasks.length === 0 ? (
+            ) : unifiedStream.length === 0 && activeTasks.length === 0 ? (
               <div className="p-12 text-center bg-[#15161B] border border-[#242630] rounded-3xl my-4 space-y-3">
                 <div className="w-12 h-12 rounded-2xl bg-[#20222B] border border-[#2E313D] flex items-center justify-center text-[#8E929E] mx-auto">
                   <Inbox className="w-6 h-6" />
@@ -470,42 +487,37 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
                 </button>
               </div>
             ) : (
-              <div className="space-y-2.5">
-                {/* External Calendar Events for this date */}
-                {filteredExternalEvents.map((evt) => (
-                  <ExternalEventTaskCard
-                    key={evt.id}
-                    event={evt}
-                    selectedDate={selectedDate}
-                    isManuallyCompleted={manualCompletedEvents[evt.id]}
-                    onToggleComplete={() => toggleEventCompleted(evt.id)}
-                    onClick={() => onSelectExternalEvent?.(evt)}
-                  />
-                ))}
-
-                {/* Tasks List with Drag & Drop */}
-                {orderedTasks.length > 0 && (
-                  <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                    <SortableContext items={orderedTasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
-                      <div className="space-y-2.5">
-                        {orderedTasks.map((task) => (
-                          <TaskCard
-                            key={task.id}
-                            task={task}
-                            sortable
-                            onToggleActive={onToggleActive}
-                            onToggleComplete={onToggleComplete}
-                            onToggleReminder={onToggleReminder}
-                            onOpenLogModal={onOpenLogModal}
-                            onEditTask={onEditTask}
-                            onDeleteTask={onDeleteTask}
-                          />
-                        ))}
-                      </div>
-                    </SortableContext>
-                  </DndContext>
-                )}
-              </div>
+              <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <SortableContext items={unifiedStream.map((i) => i.id)} strategy={verticalListSortingStrategy}>
+                  <div className="space-y-2.5">
+                    {unifiedStream.map((item) =>
+                      item.type === "task" ? (
+                        <TaskCard
+                          key={item.id}
+                          task={item.data}
+                          sortable
+                          onToggleActive={onToggleActive}
+                          onToggleComplete={onToggleComplete}
+                          onToggleReminder={onToggleReminder}
+                          onOpenLogModal={onOpenLogModal}
+                          onEditTask={onEditTask}
+                          onDeleteTask={onDeleteTask}
+                        />
+                      ) : (
+                        <ExternalEventTaskCard
+                          key={item.id}
+                          event={item.data}
+                          selectedDate={selectedDate}
+                          sortable
+                          isManuallyCompleted={manualCompletedEvents[item.data.id]}
+                          onToggleComplete={() => toggleEventCompleted(item.data.id)}
+                          onClick={() => onSelectExternalEvent?.(item.data)}
+                        />
+                      )
+                    )}
+                  </div>
+                </SortableContext>
+              </DndContext>
             )}
           </div>
         </div>
