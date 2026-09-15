@@ -20,7 +20,7 @@ import { getNightSleepDuration } from "@/features/sleep/actions";
 import { useTasks, useTaskMutations } from "@/features/tasks/hooks";
 import { Task, TaskWithCompletion, TaskFormValues } from "@/features/tasks/types";
 import { getTodayDateString } from "@/lib/dates";
-import { CheckCircle2, Inbox, CalendarDays } from "lucide-react";
+import { CheckCircle2, Inbox, CalendarDays, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   DndContext,
@@ -182,8 +182,8 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
   const allDayTasks = tasks.filter(isTaskAllDay);
   const timedTasks = tasks.filter((t) => !isTaskAllDay(t));
 
-  const handleQuickAdd = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleQuickAdd = (e?: React.FormEvent, autoStart = false) => {
+    if (e) e.preventDefault();
     if (!quickTitle.trim()) return;
 
     createTask.mutate({
@@ -193,7 +193,8 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
       trackingType: "BOOLEAN",
       recurrence: "ONCE",
       date: selectedDate,
-    });
+      autoStart,
+    } as any);
     setQuickTitle("");
   };
 
@@ -414,7 +415,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
                 </div>
 
                 {/* Quick Task Input Bar */}
-                <form onSubmit={handleQuickAdd} className="w-full relative">
+                <form onSubmit={(e) => handleQuickAdd(e, false)} className="w-full relative">
                   <div className="relative flex items-center">
                     <div className="absolute left-4 text-[#D4F63D]">
                       <CheckCircle2 className="w-4 h-4" />
@@ -425,8 +426,28 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
                       placeholder="Nom de la tâche"
                       value={quickTitle}
                       onChange={(e) => setQuickTitle(e.target.value)}
-                      className="w-full pl-11 pr-4 py-3 rounded-2xl bg-[#1C1D22] border border-[#282A30] text-sm text-white focus:border-[#D4F63D] outline-none placeholder-[#6B7280] shadow-sm transition-all"
+                      className={cn(
+                        "w-full pl-11 py-3 rounded-2xl bg-[#1C1D22] border border-[#282A30] text-sm text-white focus:border-[#D4F63D] outline-none placeholder-[#6B7280] shadow-sm transition-all",
+                        quickTitle.trim() ? "pr-28" : "pr-4"
+                      )}
                     />
+                    {quickTitle.trim() && (
+                      <div className="absolute right-2 flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleQuickAdd(undefined, true);
+                          }}
+                          title="Créer et démarrer la tâche"
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[#D4F63D] hover:bg-[#c2e42f] text-black font-extrabold text-xs shadow-md transition-all active:scale-95 cursor-pointer"
+                        >
+                          <Play className="w-3.5 h-3.5 fill-current" />
+                          <span>Démarrer</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </form>
 
@@ -545,7 +566,8 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
                   onSelectExternalEvent={(evt) => setSelectedExternalEvent(evt)}
                   quickTitle={quickTitle}
                   onQuickTitleChange={setQuickTitle}
-                  onQuickAdd={handleQuickAdd}
+                  onQuickAdd={(e) => handleQuickAdd(e, false)}
+                  onQuickAddAndStart={() => handleQuickAdd(undefined, true)}
                   onSelectTab={handleTabChange}
                   sleepDurationText={sleepDurationText}
                 />

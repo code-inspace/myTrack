@@ -22,7 +22,7 @@ import { useAuth } from "@/providers/AuthProvider";
 import { getStoredProjects } from "@/features/projects/actions";
 import { getProjectColumns, DEFAULT_PROJECT_COLUMNS } from "@/features/projects/types";
 import { addHoursToTimeString, getTodayDateString } from "@/lib/dates";
-import { format } from "date-fns";
+import { format, addMinutes } from "date-fns";
 import { LiveActivityBridge } from "@/lib/native/liveActivity";
 
 export function useTaskMutations() {
@@ -32,30 +32,93 @@ export function useTaskMutations() {
 
   // --- CRUD Mutations ---
   const createTask = useMutation({
-    mutationFn: async (values: TaskFormValues & { userId?: string }) => {
+    mutationFn: async (
+      values: TaskFormValues & { userId?: string; autoStart?: boolean },
+    ) => {
       const targetUserId = values.userId || userId;
-      return createDbTask({
+      const now = new Date();
+      const nowIso = now.toISOString();
+      const nowTime = format(now, "HH:mm");
+      const isAutoStart = Boolean(values.autoStart);
+      const taskDate = values.date || getTodayDateString();
+
+      const created = await createDbTask({
         userId: targetUserId,
         title: values.title,
         description: values.description || null,
         category: values.category || "General",
-        startTime: values.startTime || null,
+        startTime: values.startTime || (isAutoStart ? nowTime : null),
         endTime: values.endTime || null,
-        recurrence: values.recurrence || "DAILY",
+        recurrence: values.recurrence || "ONCE",
         recurrenceConfig: values.recurrenceConfig || null,
         dateOverrides: {},
         trackingType: values.trackingType || "BOOLEAN",
         targetValue: values.targetValue || null,
         unit: values.unit || null,
-        isActive: false,
+        isActive: isAutoStart,
+        startedAt: isAutoStart ? nowIso : null,
         isArchived: false,
         projectId: values.projectId || null,
         projectStatus: values.projectStatus || null,
         enableReminders: values.enableReminders,
         reminderOffsetMinutes: values.reminderOffsetMinutes,
         reminderTimes: values.reminderTimes,
-        ...(values.date ? { date: values.date } : {}),
+        date: taskDate,
       } as Omit<Task, "id" | "createdAt" | "updatedAt"> & { date?: string });
+
+      if (isAutoStart) {
+        const duration = (created.targetValue as number) || 30;
+        const provisionalEndTime = format(addMinutes(now, duration), "HH:mm");
+
+        try {
+          await updateTaskSchedule({
+            taskId: created.id,
+            date: taskDate,
+            startTime: nowTime,
+            endTime: provisionalEndTime,
+            applyToAll: created.recurrence === "ONCE",
+            userId: targetUserId,
+          });
+        } catch (err) {
+          console.warn("createTask autoStart updateTaskSchedule error:", err);
+        }
+
+        try {
+          await upsertDbCompletion({
+            taskId: created.id,
+            userId: targetUserId,
+            date: taskDate,
+            completed: false,
+            scheduledStartTime: nowTime,
+            scheduledEndTime: provisionalEndTime,
+            actualStartTime: nowTime,
+            actualEndTime: null,
+          });
+        } catch (err) {
+          console.warn("createTask autoStart upsertDbCompletion error:", err);
+        }
+
+        try {
+          await LiveActivityBridge.startActivity(
+            {
+              taskId: created.id,
+              taskTitle: created.title,
+              category: created.category,
+            },
+            {
+              currentStatus: "IN_PROGRESS",
+              startedAtTimestamp: Math.floor(Date.now() / 1000),
+              elapsedSeconds: 0,
+              targetDurationSeconds: ((created.targetValue || 30) as number) * 60,
+              totalFormattedDuration: `${created.targetValue || 30} min`,
+              subtitle: created.category || "En cours",
+              progress: 0,
+            },
+          );
+        } catch {}
+      }
+
+      return created;
     },
     onSuccess: (newTask) => {
       queryClient.setQueryData<Task[]>(["tasks", userId], (old = []) => [
@@ -704,6 +767,7 @@ export function useTaskMutations() {
 
       let actualStart = nowTime;
       let durationMinutes = 1;
+      let targetDate = date || getTodayDateString();
 
       if (targetTask?.startedAt) {
         const startDate = new Date(targetTask.startedAt);
@@ -713,13 +777,14 @@ export function useTaskMutations() {
             (now.getTime() - startDate.getTime()) / 60000,
           );
           durationMinutes = Math.max(1, diffMinutes);
+          targetDate = date || format(startDate, "yyyy-MM-dd");
         }
       } else {
         const completions =
           queryClient.getQueryData<TaskCompletion[]>(["completions", userId]) ||
           getStoredCompletions(userId);
         const existing = completions.find(
-          (c) => c.taskId === taskId && c.date === date,
+          (c) => c.taskId === taskId && c.date === targetDate,
         );
         if (existing?.actualStartTime) {
           actualStart = existing.actualStartTime;
@@ -740,7 +805,7 @@ export function useTaskMutations() {
       try {
         await updateTaskSchedule({
           taskId,
-          date,
+          date: targetDate,
           startTime: actualStart,
           endTime: nowTime,
           applyToAll: !isRecurring,
@@ -750,12 +815,12 @@ export function useTaskMutations() {
         console.warn("finishTaskExecution updateTaskSchedule error:", err);
       }
 
-      // 4. Log completion with full elapsed duration (e.g. 26h = 1560 min)
+      // 4. Log completion with exact start time, end time, and duration
       try {
         await upsertDbCompletion({
           taskId,
           userId,
-          date,
+          date: targetDate,
           completed: true,
           duration: durationMinutes,
           actualStartTime: actualStart,
@@ -774,29 +839,84 @@ export function useTaskMutations() {
         console.warn("finishTaskExecution syncProjectStatusToDoneColumn error:", err);
       }
     },
-    onMutate: async ({ taskId }) => {
+    onMutate: async ({ taskId, date }) => {
       await queryClient.cancelQueries({ queryKey: ["tasks"] });
+      await queryClient.cancelQueries({ queryKey: ["completions"] });
+
       const previousTasks =
         queryClient.getQueryData<Task[]>(["tasks", userId]) ||
         queryClient.getQueryData<Task[]>(["tasks"]);
+      const previousCompletions =
+        queryClient.getQueryData<TaskCompletion[]>(["completions", userId]) ||
+        queryClient.getQueryData<TaskCompletion[]>(["completions"]);
 
-      const updater = (old: any) => {
+      const now = new Date();
+      const nowTime = format(now, "HH:mm");
+      const targetTask = previousTasks?.find((t) => t.id === taskId);
+      let actualStart = nowTime;
+      let durationMinutes = 1;
+      let targetDate = date || getTodayDateString();
+
+      if (targetTask?.startedAt) {
+        const startDate = new Date(targetTask.startedAt);
+        if (!isNaN(startDate.getTime())) {
+          actualStart = format(startDate, "HH:mm");
+          durationMinutes = Math.max(1, Math.round((now.getTime() - startDate.getTime()) / 60000));
+          targetDate = date || format(startDate, "yyyy-MM-dd");
+        }
+      } else if (targetTask?.startTime) {
+        actualStart = targetTask.startTime;
+      }
+
+      // 1. Optimistically update tasks
+      const taskUpdater = (old: any) => {
         if (!Array.isArray(old)) return old;
         return old.map((t) => (t.id === taskId ? { ...t, isActive: false, startedAt: null } : t));
       };
+      queryClient.setQueryData<Task[]>(["tasks", userId], taskUpdater);
+      queryClient.setQueryData<Task[]>(["tasks"], taskUpdater);
 
-      queryClient.setQueryData<Task[]>(["tasks", userId], updater);
-      queryClient.setQueryData<Task[]>(["tasks"], updater);
+      // 2. Optimistically update completions
+      const completionUpdater = (old: any) => {
+        const list = Array.isArray(old) ? [...old] : [];
+        const existingIdx = list.findIndex((c) => c.taskId === taskId && c.date === targetDate);
+        const completionItem: TaskCompletion = {
+          id: existingIdx >= 0 ? list[existingIdx].id : `comp-${Date.now()}`,
+          taskId,
+          userId,
+          date: targetDate,
+          completed: true,
+          duration: durationMinutes,
+          actualStartTime: actualStart,
+          actualEndTime: nowTime,
+          scheduledStartTime: actualStart,
+          scheduledEndTime: nowTime,
+          createdAt: existingIdx >= 0 ? list[existingIdx].createdAt : now.toISOString(),
+          updatedAt: now.toISOString(),
+        };
+        if (existingIdx >= 0) {
+          list[existingIdx] = { ...list[existingIdx], ...completionItem };
+        } else {
+          list.unshift(completionItem);
+        }
+        return list;
+      };
+      queryClient.setQueryData<TaskCompletion[]>(["completions", userId], completionUpdater);
+      queryClient.setQueryData<TaskCompletion[]>(["completions"], completionUpdater);
 
-      return { previousTasks };
+      return { previousTasks, previousCompletions };
     },
     onError: (_err, _vars, context) => {
       if (context?.previousTasks) {
         queryClient.setQueryData(["tasks", userId], context.previousTasks);
         queryClient.setQueryData(["tasks"], context.previousTasks);
       }
+      if (context?.previousCompletions) {
+        queryClient.setQueryData(["completions", userId], context.previousCompletions);
+        queryClient.setQueryData(["completions"], context.previousCompletions);
+      }
     },
-    onSuccess: () => {
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       queryClient.invalidateQueries({ queryKey: ["completions"] });
     },

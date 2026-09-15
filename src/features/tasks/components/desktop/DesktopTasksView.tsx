@@ -9,7 +9,7 @@ import { TaskCard } from "../TaskCard";
 import { ActiveTaskBanner } from "../ActiveTaskBanner";
 import { DesktopWidgetsPane } from "./DesktopWidgetsPane";
 import { DesktopDatePicker } from "./DesktopDatePicker";
-import { CheckCircle2, Plus, Flame, Inbox, Calendar, RefreshCw } from "lucide-react";
+import { CheckCircle2, Plus, Flame, Inbox, Calendar, RefreshCw, Play } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -47,6 +47,7 @@ interface DesktopTasksViewProps {
   quickTitle: string;
   onQuickTitleChange: (title: string) => void;
   onQuickAdd: (e: React.FormEvent) => void;
+  onQuickAddAndStart?: () => void;
   onSelectTab?: (tab: any) => void;
   sleepDurationText?: string;
 }
@@ -72,6 +73,7 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
   quickTitle,
   onQuickTitleChange,
   onQuickAdd,
+  onQuickAddAndStart,
   onSelectTab,
   sleepDurationText,
 }) => {
@@ -386,15 +388,35 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
                 placeholder="Ajouter rapidement une tâche et appuyer sur Entrée..."
                 value={quickTitle}
                 onChange={(e) => onQuickTitleChange(e.target.value)}
-                className="w-full pl-11 pr-24 py-3.5 rounded-2xl bg-[#17181F] border border-[#282B36] text-sm text-white focus:border-[#D4F63D] outline-none placeholder-[#6B7280] shadow-sm transition-all"
+                className={cn(
+                  "w-full pl-11 py-3.5 rounded-2xl bg-[#17181F] border border-[#282B36] text-sm text-white focus:border-[#D4F63D] outline-none placeholder-[#6B7280] shadow-sm transition-all",
+                  quickTitle.trim() ? "pr-48" : "pr-24"
+                )}
               />
-              <button
-                type="submit"
-                disabled={!quickTitle.trim()}
-                className="absolute right-3 px-3 py-1.5 rounded-xl bg-[#D4F63D] text-black font-bold text-xs disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#c2e42f] transition-all cursor-pointer"
-              >
-                Ajouter
-              </button>
+              <div className="absolute right-2.5 flex items-center gap-1.5">
+                {quickTitle.trim() && onQuickAddAndStart && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onQuickAddAndStart();
+                    }}
+                    title="Créer et démarrer immédiatement"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#D4F63D] hover:bg-[#c2e42f] text-black font-extrabold text-xs shadow-md transition-all active:scale-95 cursor-pointer"
+                  >
+                    <Play className="w-3.5 h-3.5 fill-current" />
+                    <span>Démarrer</span>
+                  </button>
+                )}
+                <button
+                  type="submit"
+                  disabled={!quickTitle.trim()}
+                  className="px-3 py-1.5 rounded-xl bg-[#252830] border border-[#383C48] text-[#E5E7EB] font-bold text-xs disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#343740] transition-all cursor-pointer"
+                >
+                  Ajouter
+                </button>
+              </div>
             </div>
           </form>
 
