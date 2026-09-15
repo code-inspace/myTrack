@@ -66,7 +66,7 @@ export const TasksHeaderWithNav: React.FC<TasksHeaderWithNavProps> = ({
       : "habits");
 
   return (
-    <div className="sticky top-0 z-40 w-full bg-[#111214] border-b border-[#23242A] select-none shadow-md md:hidden">
+    <div className="sticky top-0 z-40 w-full bg-black border-b border-[#1C1D22] select-none shadow-md md:hidden">
       {/* 1. App Header with Profile Icon Top Right */}
       <AppHeader
         title={title}

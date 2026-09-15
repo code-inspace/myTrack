@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 :root {
-  --background: #111214;
+  --background: #000000;
   --foreground: #f3f4f6;
   --card: #1c1d22;
   --card-foreground: #ffffff;
@@ -38,7 +38,7 @@
 
 html,
 body {
-  background-color: #0e0f12;
+  background-color: #000000;
   color: #f3f4f6;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   height: 100%;
