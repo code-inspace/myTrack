@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { Task } from "@/features/tasks/types";
 import { Project } from "../types";
 import { useTaskMutations } from "@/features/tasks/hooks";
+import { useProjectMutations } from "@/features/projects/hooks";
 import { getTodayDateString } from "@/lib/dates";
 import {
   ArrowLeft,
@@ -14,9 +15,10 @@ import {
   CheckCircle2,
   Clock,
   Calendar,
-  AlertCircle,
   Plus,
   Layers,
+  Tag,
+  ChevronLeft,
 } from "lucide-react";
 import {
   DndContext,
@@ -28,6 +30,7 @@ import {
   useSensors,
   DragStartEvent,
   DragEndEvent,
+  DragOverEvent,
 } from "@dnd-kit/core";
 import { cn } from "@/lib/utils";
 
@@ -48,17 +51,35 @@ const BUBBLE_SIZES = [
   { sizeClass: "w-30 h-30 md:w-34 md:h-34", minDim: 120, labelClass: "text-xs", countClass: "text-[10px]" },
 ];
 
-// Project Droppable Bubble
+const CATEGORY_COLORS = [
+  "#D4F63D",
+  "#60A5FA",
+  "#F472B6",
+  "#34D399",
+  "#A78BFA",
+  "#F59E0B",
+  "#38BDF8",
+  "#FB7185",
+  "#4ADE80",
+];
+
+// Project Droppable Bubble with 1-second hover countdown circle
 function ProjectDroppableBubble({
   project,
   index,
   taskCount,
   isOverTarget,
+  hoverProgress, // 0 to 1
+  isDraggingActive,
+  onClick,
 }: {
   project: Project;
   index: number;
   taskCount: number;
   isOverTarget: boolean;
+  hoverProgress: number;
+  isDraggingActive: boolean;
+  onClick: () => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `project-${project.id}`,
@@ -68,9 +89,15 @@ function ProjectDroppableBubble({
   const activeIsOver = isOver || isOverTarget;
   const config = BUBBLE_SIZES[index % BUBBLE_SIZES.length];
 
+  // SVG dimensions for progress circle
+  const radius = 46;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - hoverProgress * circumference;
+
   return (
     <div
       ref={setNodeRef}
+      onClick={onClick}
       className={cn(
         "relative rounded-full flex flex-col items-center justify-center text-center p-3 transition-all duration-300 select-none cursor-pointer flex-shrink-0 group",
         config.sizeClass,
@@ -87,6 +114,30 @@ function ProjectDroppableBubble({
           : `0 4px 20px rgba(0,0,0,0.5)`,
       }}
     >
+      {/* 1-Second Circular Hover Countdown Ring when dragging over */}
+      {isDraggingActive && activeIsOver && (
+        <svg
+          className="absolute -inset-2 w-[calc(100%+16px)] h-[calc(100%+16px)] -rotate-90 pointer-events-none z-30"
+          viewBox="0 0 100 100"
+        >
+          <circle
+            cx="50"
+            cy="50"
+            r={radius}
+            fill="transparent"
+            stroke={project.color}
+            strokeWidth="5"
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            strokeDashoffset={strokeDashoffset}
+            className="transition-all duration-75"
+            style={{
+              filter: `drop-shadow(0 0 6px ${project.color})`,
+            }}
+          />
+        </svg>
+      )}
+
       {/* Background glow subtle gradient */}
       <div
         className="absolute inset-0 rounded-full opacity-20 pointer-events-none group-hover:opacity-35 transition-opacity"
@@ -114,8 +165,87 @@ function ProjectDroppableBubble({
       {/* Task count or Drop prompt */}
       {activeIsOver ? (
         <span
-          className="mt-1 px-2 py-0.5 rounded-full text-[11px] font-extrabold text-black flex items-center gap-1 animate-bounce"
+          className="mt-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold text-black flex items-center gap-1 animate-pulse"
           style={{ backgroundColor: project.color }}
+        >
+          {hoverProgress > 0 && hoverProgress < 1 ? (
+            <span>Maintiens 1s...</span>
+          ) : (
+            <span>Déposer ici</span>
+          )}
+        </span>
+      ) : (
+        <span className={cn("text-[#8E929E] mt-0.5", config.countClass)}>
+          {taskCount} tâche{taskCount !== 1 ? "s" : ""}
+        </span>
+      )}
+    </div>
+  );
+}
+
+// Category Droppable Bubble inside a project
+function CategoryDroppableBubble({
+  categoryName,
+  color,
+  taskCount,
+  index,
+  isOverTarget,
+}: {
+  categoryName: string;
+  color: string;
+  taskCount: number;
+  index: number;
+  isOverTarget: boolean;
+}) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `category-${categoryName}`,
+    data: { categoryName },
+  });
+
+  const activeIsOver = isOver || isOverTarget;
+  const config = BUBBLE_SIZES[(index + 1) % BUBBLE_SIZES.length];
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        "relative rounded-full flex flex-col items-center justify-center text-center p-3 transition-all duration-300 select-none cursor-pointer flex-shrink-0 group",
+        config.sizeClass,
+        activeIsOver
+          ? "scale-110 shadow-2xl z-20"
+          : "hover:scale-105 shadow-lg hover:shadow-xl"
+      )}
+      style={{
+        backgroundColor: activeIsOver ? `${color}44` : "#16181D",
+        borderColor: activeIsOver ? color : `${color}66`,
+        borderWidth: activeIsOver ? "3px" : "2px",
+        boxShadow: activeIsOver
+          ? `0 0 35px ${color}88, 0 0 10px ${color}`
+          : `0 4px 20px rgba(0,0,0,0.5)`,
+      }}
+    >
+      <div
+        className="absolute inset-0 rounded-full opacity-20 pointer-events-none group-hover:opacity-35 transition-opacity"
+        style={{
+          background: `radial-gradient(circle at 30% 30%, ${color}, transparent 70%)`,
+        }}
+      />
+
+      <Tag className="w-3.5 h-3.5 mb-1 flex-shrink-0" style={{ color }} />
+
+      <span
+        className={cn(
+          "text-white font-bold leading-tight line-clamp-2 px-1 text-center drop-shadow-sm",
+          config.labelClass
+        )}
+      >
+        {categoryName}
+      </span>
+
+      {activeIsOver ? (
+        <span
+          className="mt-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold text-black flex items-center gap-1 animate-bounce"
+          style={{ backgroundColor: color }}
         >
           <Plus className="w-3 h-3" />
           Déposer ici
@@ -138,7 +268,7 @@ function DraggableTaskCard({
 }: {
   task: Task;
   projects: Project[];
-  onAssignToProject: (taskId: string, projectId: string) => void;
+  onAssignToProject: (taskId: string, projectId: string, category?: string | null) => void;
   onEditTask: (task: Task) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
@@ -242,7 +372,7 @@ function DraggableTaskCard({
                     key={p.id}
                     type="button"
                     onClick={() => {
-                      onAssignToProject(task.id, p.id);
+                      onAssignToProject(task.id, p.id, null);
                       setShowQuickMenu(false);
                     }}
                     className="w-full text-left px-3 py-2 text-xs text-white hover:bg-white/10 flex items-center gap-2 cursor-pointer"
@@ -271,6 +401,7 @@ export const ProjectTaskAssignBubbleView: React.FC<ProjectTaskAssignBubbleViewPr
 }) => {
   const todayStr = getTodayDateString();
   const { updateTask } = useTaskMutations();
+  const { updateProject } = useProjectMutations();
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -281,10 +412,24 @@ export const ProjectTaskAssignBubbleView: React.FC<ProjectTaskAssignBubbleViewPr
   );
 
   const [activeTask, setActiveTask] = useState<Task | null>(null);
-  const [overProjectId, setOverProjectId] = useState<string | null>(null);
+  const [overTargetId, setOverTargetId] = useState<string | null>(null);
+  const [zoomedProject, setZoomedProject] = useState<Project | null>(null);
+
+  // 1-second countdown hover tracking state
+  const [hoverProgress, setHoverProgress] = useState(0);
+  const hoverStartTimeRef = useRef<number | null>(null);
+  const hoverProjectIdRef = useRef<string | null>(null);
+  const hoverIntervalRef = useRef<any>(null);
+
   const [filterType, setFilterType] = useState<"ALL" | "CURRENT" | "UPCOMING" | "PAST">("ALL");
   const [searchQuery, setSearchQuery] = useState("");
-  const [assignedToast, setAssignedToast] = useState<{ taskTitle: string; projectName: string } | null>(null);
+  const [newCatInput, setNewCatInput] = useState("");
+  const [showAddCat, setShowAddCat] = useState(false);
+  const [assignedToast, setAssignedToast] = useState<{
+    taskTitle: string;
+    projectName: string;
+    categoryName?: string | null;
+  } | null>(null);
 
   // All tasks without a project and not archived
   const unassignedTasks = useMemo(() => {
@@ -302,6 +447,32 @@ export const ProjectTaskAssignBubbleView: React.FC<ProjectTaskAssignBubbleViewPr
     }
     return counts;
   }, [projects, tasks]);
+
+  // Categories for the currently zoomed project
+  const currentProjectCategories = useMemo(() => {
+    if (!zoomedProject) return [];
+    const catSet = new Set<string>(["Général", ...(zoomedProject.categories || [])]);
+    tasks.forEach((t) => {
+      if (t.projectId === zoomedProject.id && t.projectCategory) {
+        catSet.add(t.projectCategory);
+      }
+    });
+    return Array.from(catSet);
+  }, [zoomedProject, tasks]);
+
+  // Task count by category in zoomed project
+  const taskCountByCategory = useMemo(() => {
+    if (!zoomedProject) return {};
+    const counts: Record<string, number> = {};
+    for (const c of currentProjectCategories) counts[c] = 0;
+    for (const t of tasks) {
+      if (t.projectId === zoomedProject.id && !t.isArchived) {
+        const cat = t.projectCategory || "Général";
+        counts[cat] = (counts[cat] || 0) + 1;
+      }
+    }
+    return counts;
+  }, [zoomedProject, currentProjectCategories, tasks]);
 
   // Filtered unassigned tasks
   const filteredTasks = useMemo(() => {
@@ -334,28 +505,69 @@ export const ProjectTaskAssignBubbleView: React.FC<ProjectTaskAssignBubbleViewPr
     return list;
   }, [unassignedTasks, filterType, searchQuery, todayStr]);
 
-  const handleAssignToProject = (taskId: string, projectId: string) => {
+  // Clear timer helper
+  const clearHoverTimer = () => {
+    if (hoverIntervalRef.current) {
+      clearInterval(hoverIntervalRef.current);
+      hoverIntervalRef.current = null;
+    }
+    hoverStartTimeRef.current = null;
+    hoverProjectIdRef.current = null;
+    setHoverProgress(0);
+  };
+
+  useEffect(() => {
+    return () => {
+      clearHoverTimer();
+    };
+  }, []);
+
+  const handleAssignToProject = (
+    taskId: string,
+    projectId: string,
+    categoryName?: string | null
+  ) => {
     const project = projects.find((p) => p.id === projectId);
     const task = tasks.find((t) => t.id === taskId);
     if (!project || !task) return;
 
     const firstColumnId = project.columns && project.columns.length > 0 ? project.columns[0].id : "TODO";
 
+    const cleanCategory = categoryName === "Général" ? null : categoryName || null;
+
     updateTask.mutate({
       taskId,
       values: {
         projectId: project.id,
         projectStatus: firstColumnId,
+        projectCategory: cleanCategory,
       },
     });
 
     setAssignedToast({
       taskTitle: task.title,
       projectName: project.name,
+      categoryName: cleanCategory,
     });
     setTimeout(() => {
       setAssignedToast(null);
-    }, 3000);
+    }, 3500);
+  };
+
+  const handleAddCategory = () => {
+    if (!zoomedProject || !newCatInput.trim()) return;
+    const cat = newCatInput.trim();
+    const existing = zoomedProject.categories || [];
+    if (!existing.includes(cat)) {
+      const updated = [...existing, cat];
+      updateProject.mutate({
+        projectId: zoomedProject.id,
+        updates: { categories: updated },
+      });
+      setZoomedProject({ ...zoomedProject, categories: updated });
+    }
+    setNewCatInput("");
+    setShowAddCat(false);
   };
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -363,29 +575,68 @@ export const ProjectTaskAssignBubbleView: React.FC<ProjectTaskAssignBubbleViewPr
     if (task) {
       setActiveTask(task);
     }
+    clearHoverTimer();
   };
 
-  const handleDragOver = (event: any) => {
+  const handleDragOver = (event: DragOverEvent) => {
     const overId = event.over?.id ? String(event.over.id) : null;
-    if (overId && overId.startsWith("project-")) {
-      setOverProjectId(overId.replace("project-", ""));
+    setOverTargetId(overId);
+
+    // If we are on the main project bubble list and hovering over a project
+    if (!zoomedProject && overId && overId.startsWith("project-")) {
+      const pId = overId.replace("project-", "");
+
+      if (hoverProjectIdRef.current !== pId) {
+        clearHoverTimer();
+        hoverProjectIdRef.current = pId;
+        hoverStartTimeRef.current = Date.now();
+
+        hoverIntervalRef.current = setInterval(() => {
+          if (!hoverStartTimeRef.current) return;
+          const elapsed = Date.now() - hoverStartTimeRef.current;
+          const progress = Math.min(elapsed / 1000, 1);
+          setHoverProgress(progress);
+
+          if (progress >= 1) {
+            // 1 second elapsed! Zoom into project categories
+            const targetProj = projects.find((p) => p.id === pId);
+            if (targetProj) {
+              setZoomedProject(targetProj);
+            }
+            clearHoverTimer();
+          }
+        }, 30);
+      }
     } else {
-      setOverProjectId(null);
+      if (!zoomedProject) {
+        clearHoverTimer();
+      }
     }
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
+    const currentHoveredPId = hoverProjectIdRef.current;
+    clearHoverTimer();
+
     setActiveTask(null);
-    setOverProjectId(null);
+    setOverTargetId(null);
 
     if (!over) return;
 
     const overId = String(over.id);
-    if (overId.startsWith("project-")) {
+    const taskId = String(active.id).replace("task-", "");
+
+    if (overId.startsWith("category-")) {
+      // Dropped on a category bubble inside a zoomed project
+      if (zoomedProject) {
+        const catName = overId.replace("category-", "");
+        handleAssignToProject(taskId, zoomedProject.id, catName);
+      }
+    } else if (overId.startsWith("project-")) {
+      // Dropped directly on a project bubble (without waiting for 1s completion)
       const targetProjectId = overId.replace("project-", "");
-      const taskId = String(active.id).replace("task-", "");
-      handleAssignToProject(taskId, targetProjectId);
+      handleAssignToProject(taskId, targetProjectId, null);
     }
   };
 
@@ -398,11 +649,17 @@ export const ProjectTaskAssignBubbleView: React.FC<ProjectTaskAssignBubbleViewPr
     >
       <div className="flex-1 flex flex-col min-h-0 w-full bg-[#0E0F12] text-white">
         {/* Top Header */}
-        <div className="p-4 border-b border-[#202228] bg-[#111214] flex items-center justify-between flex-shrink-0">
+        <div className="p-4 border-b border-[#202228] bg-[#111214] flex items-center justify-between flex-shrink-0 select-none">
           <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={onBack}
+              onClick={() => {
+                if (zoomedProject) {
+                  setZoomedProject(null);
+                } else {
+                  onBack();
+                }
+              }}
               className="p-2 rounded-xl bg-[#1C1D22] hover:bg-[#282A30] text-[#8E929E] hover:text-white transition-colors cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -410,18 +667,35 @@ export const ProjectTaskAssignBubbleView: React.FC<ProjectTaskAssignBubbleViewPr
             <div>
               <h1 className="text-base md:text-lg font-bold text-white flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-[#D4F63D]" />
-                <span>Affecter les tâches à un projet</span>
+                <span>
+                  {zoomedProject
+                    ? `Affecter à ${zoomedProject.name} (Catégories)`
+                    : "Affecter les tâches à un projet"}
+                </span>
               </h1>
               <p className="text-xs text-[#8E929E]">
-                Glisse et dépose les tâches sur les bulles de projet ci-dessous
+                {zoomedProject
+                  ? "Dépose sur une catégorie ou clique sur 'Tous les projets'"
+                  : "Survole un projet 1s pour choisir sa catégorie, ou dépose directement"}
               </p>
             </div>
           </div>
 
-          <div className="px-3 py-1.5 rounded-xl bg-[#D4F63D]/10 border border-[#D4F63D]/20 text-[#D4F63D] text-xs font-bold flex items-center gap-1.5">
-            <Layers className="w-3.5 h-3.5" />
-            <span>{unassignedTasks.length} sans projet</span>
-          </div>
+          {zoomedProject ? (
+            <button
+              type="button"
+              onClick={() => setZoomedProject(null)}
+              className="px-3 py-1.5 rounded-xl bg-[#202228] hover:bg-[#2A2C34] text-xs font-semibold text-[#D4F63D] flex items-center gap-1 cursor-pointer transition-colors"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+              <span>Tous les projets</span>
+            </button>
+          ) : (
+            <div className="px-3 py-1.5 rounded-xl bg-[#D4F63D]/10 border border-[#D4F63D]/20 text-[#D4F63D] text-xs font-bold flex items-center gap-1.5">
+              <Layers className="w-3.5 h-3.5" />
+              <span>{unassignedTasks.length} sans projet</span>
+            </div>
+          )}
         </div>
 
         {/* Assigned success toast banner */}
@@ -429,35 +703,100 @@ export const ProjectTaskAssignBubbleView: React.FC<ProjectTaskAssignBubbleViewPr
           <div className="bg-[#D4F63D] text-black px-4 py-2 text-xs font-bold flex items-center justify-center gap-2 shadow-lg animate-in slide-in-from-top-2">
             <CheckCircle2 className="w-4 h-4" />
             <span>
-              &ldquo;{assignedToast.taskTitle}&rdquo; a été affectée au projet &ldquo;{assignedToast.projectName}&rdquo; !
+              &ldquo;{assignedToast.taskTitle}&rdquo; a été affectée au projet &ldquo;{assignedToast.projectName}&rdquo;
+              {assignedToast.categoryName ? ` (Catégorie : ${assignedToast.categoryName})` : " sans catégorie"} !
             </span>
           </div>
         )}
 
-        {/* Main Content Area: Floating Project Bubbles (Top) + Unassigned Tasks List (Bottom) */}
+        {/* Main Content Area: Floating Bubbles (Top / Left) + Tasks List (Bottom / Right) */}
         <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
-          {/* Project Bubbles Orbit Area */}
+          {/* Bubbles Orbit Area */}
           <div className="p-4 md:p-6 border-b md:border-b-0 md:border-r border-[#202228] bg-[#121318] flex flex-col md:w-5/12 lg:w-4/12 flex-shrink-0 overflow-y-auto">
-            <div className="flex items-center justify-between mb-3 px-1">
-              <span className="text-xs font-bold uppercase tracking-wider text-[#8E929E] flex items-center gap-1.5">
-                <FolderKanban className="w-3.5 h-3.5 text-[#D4F63D]" />
-                Projets ({projects.length})
-              </span>
-              <span className="text-[10px] text-[#6B7280]">Zones de dépôt</span>
-            </div>
+            {zoomedProject ? (
+              /* CATEGORIES OF ZOOMED PROJECT */
+              <div className="space-y-3 animate-in fade-in zoom-in-95 duration-300">
+                <div className="flex items-center justify-between px-1">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="w-3 h-3 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: zoomedProject.color }}
+                    />
+                    <span className="text-xs font-bold uppercase tracking-wider text-white">
+                      {zoomedProject.name}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddCat(!showAddCat)}
+                    className="text-[11px] text-[#D4F63D] hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>Catégorie</span>
+                  </button>
+                </div>
 
-            {/* Bubble cluster with unequal sizes */}
-            <div className="flex flex-wrap items-center justify-center gap-3 md:gap-4 py-2 min-h-[160px] md:min-h-[300px]">
-              {projects.map((project, idx) => (
-                <ProjectDroppableBubble
-                  key={project.id}
-                  project={project}
-                  index={idx}
-                  taskCount={taskCountByProjectId[project.id] || 0}
-                  isOverTarget={overProjectId === project.id}
-                />
-              ))}
-            </div>
+                {showAddCat && (
+                  <div className="p-2.5 rounded-2xl bg-[#1C1D22] border border-[#383C48] flex items-center gap-2 animate-in fade-in">
+                    <input
+                      type="text"
+                      placeholder="Nom de catégorie..."
+                      value={newCatInput}
+                      onChange={(e) => setNewCatInput(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && handleAddCategory()}
+                      className="flex-1 px-3 py-1.5 rounded-xl bg-[#252830] text-xs text-white outline-none border border-transparent focus:border-[#D4F63D]"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddCategory}
+                      className="px-3 py-1.5 rounded-xl bg-[#D4F63D] text-black font-bold text-xs cursor-pointer"
+                    >
+                      Ajouter
+                    </button>
+                  </div>
+                )}
+
+                {/* Category Bubbles cluster */}
+                <div className="flex flex-wrap items-center justify-center gap-3 md:gap-4 py-3 min-h-[180px] md:min-h-[300px]">
+                  {currentProjectCategories.map((catName, idx) => (
+                    <CategoryDroppableBubble
+                      key={catName}
+                      categoryName={catName}
+                      color={CATEGORY_COLORS[idx % CATEGORY_COLORS.length]}
+                      taskCount={taskCountByCategory[catName] || 0}
+                      index={idx}
+                      isOverTarget={overTargetId === `category-${catName}`}
+                    />
+                  ))}
+                </div>
+              </div>
+            ) : (
+              /* ALL PROJECTS BUBBLES CLUSTER */
+              <div className="space-y-2">
+                <div className="flex items-center justify-between mb-2 px-1">
+                  <span className="text-xs font-bold uppercase tracking-wider text-[#8E929E] flex items-center gap-1.5">
+                    <FolderKanban className="w-3.5 h-3.5 text-[#D4F63D]" />
+                    Projets ({projects.length})
+                  </span>
+                  <span className="text-[10px] text-[#6B7280]">Survol 1s = Catégories</span>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-center gap-3 md:gap-4 py-2 min-h-[160px] md:min-h-[300px]">
+                  {projects.map((project, idx) => (
+                    <ProjectDroppableBubble
+                      key={project.id}
+                      project={project}
+                      index={idx}
+                      taskCount={taskCountByProjectId[project.id] || 0}
+                      isOverTarget={overTargetId === `project-${project.id}`}
+                      hoverProgress={hoverProjectIdRef.current === project.id ? hoverProgress : 0}
+                      isDraggingActive={Boolean(activeTask)}
+                      onClick={() => setZoomedProject(project)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Unassigned Tasks List Section */}
@@ -572,7 +911,7 @@ export const ProjectTaskAssignBubbleView: React.FC<ProjectTaskAssignBubbleViewPr
               )}
             </div>
             <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#D4F63D] text-black font-extrabold">
-              Déposer sur une bulle
+              {zoomedProject ? "Déposer sur une catégorie" : "Déposer ou maintenir 1s"}
             </span>
           </div>
         ) : null}
