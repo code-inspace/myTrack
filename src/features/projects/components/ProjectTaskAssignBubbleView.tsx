@@ -41,14 +41,14 @@ interface ProjectTaskAssignBubbleViewProps {
   onEditTask: (task: Task) => void;
 }
 
-// Unequal bubble dimension variations
+// Unequal compact bubble dimension variations (capped to fit within 1/3 screen)
 const BUBBLE_SIZES = [
-  { sizeClass: "w-36 h-36 md:w-40 md:h-40", minDim: 144, labelClass: "text-sm", countClass: "text-xs" },
-  { sizeClass: "w-28 h-28 md:w-32 md:h-32", minDim: 112, labelClass: "text-xs", countClass: "text-[10px]" },
-  { sizeClass: "w-44 h-44 md:w-48 md:h-48", minDim: 176, labelClass: "text-base font-bold", countClass: "text-xs" },
-  { sizeClass: "w-32 h-32 md:w-36 md:h-36", minDim: 128, labelClass: "text-xs", countClass: "text-[11px]" },
-  { sizeClass: "w-40 h-40 md:w-44 md:h-44", minDim: 160, labelClass: "text-sm font-semibold", countClass: "text-xs" },
-  { sizeClass: "w-30 h-30 md:w-34 md:h-34", minDim: 120, labelClass: "text-xs", countClass: "text-[10px]" },
+  { sizeClass: "w-20 h-20 md:w-28 md:h-28", minDim: 80, labelClass: "text-[11px]", countClass: "text-[9px]" },
+  { sizeClass: "w-16 h-16 md:w-22 md:h-22", minDim: 64, labelClass: "text-[10px]", countClass: "text-[8px]" },
+  { sizeClass: "w-22 h-22 md:w-32 md:h-32", minDim: 88, labelClass: "text-xs font-bold", countClass: "text-[9px]" },
+  { sizeClass: "w-18 h-18 md:w-24 md:h-24", minDim: 72, labelClass: "text-[10px]", countClass: "text-[8px]" },
+  { sizeClass: "w-21 h-21 md:w-28 md:h-28", minDim: 84, labelClass: "text-[11px] font-semibold", countClass: "text-[9px]" },
+  { sizeClass: "w-17 h-17 md:w-22 md:h-22", minDim: 68, labelClass: "text-[10px]", countClass: "text-[8px]" },
 ];
 
 const CATEGORY_COLORS = [
@@ -92,7 +92,7 @@ function ProjectDroppableBubble({
   const config = BUBBLE_SIZES[index % BUBBLE_SIZES.length];
 
   // SVG dimensions for progress circle
-  const radius = 46;
+  const radius = 42;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - hoverProgress * circumference;
 
@@ -101,25 +101,25 @@ function ProjectDroppableBubble({
       ref={setNodeRef}
       onClick={onClick}
       className={cn(
-        "relative rounded-full flex flex-col items-center justify-center text-center p-3 transition-all duration-300 select-none cursor-pointer flex-shrink-0 group",
+        "relative rounded-full flex flex-col items-center justify-center text-center p-1.5 transition-all duration-300 select-none cursor-pointer flex-shrink-0 group",
         config.sizeClass,
         activeIsOver
           ? "scale-110 shadow-2xl z-20"
-          : "hover:scale-105 shadow-lg hover:shadow-xl"
+          : "hover:scale-105 shadow-md hover:shadow-lg"
       )}
       style={{
         backgroundColor: activeIsOver ? `${project.color}33` : "#16181D",
         borderColor: activeIsOver ? project.color : `${project.color}55`,
-        borderWidth: activeIsOver ? "3px" : "2px",
+        borderWidth: activeIsOver ? "2.5px" : "1.5px",
         boxShadow: activeIsOver
-          ? `0 0 35px ${project.color}66, 0 0 10px ${project.color}`
-          : `0 4px 20px rgba(0,0,0,0.5)`,
+          ? `0 0 25px ${project.color}66, 0 0 8px ${project.color}`
+          : `0 3px 12px rgba(0,0,0,0.4)`,
       }}
     >
       {/* 1-Second Circular Hover Countdown Ring (ONLY IF PROJECT HAS CATEGORIES) */}
       {hasCategories && isDraggingActive && activeIsOver && (
         <svg
-          className="absolute -inset-2 w-[calc(100%+16px)] h-[calc(100%+16px)] -rotate-90 pointer-events-none z-30"
+          className="absolute -inset-1.5 w-[calc(100%+12px)] h-[calc(100%+12px)] -rotate-90 pointer-events-none z-30"
           viewBox="0 0 100 100"
         >
           <circle
@@ -134,7 +134,7 @@ function ProjectDroppableBubble({
             strokeDashoffset={strokeDashoffset}
             className="transition-all duration-75"
             style={{
-              filter: `drop-shadow(0 0 6px ${project.color})`,
+              filter: `drop-shadow(0 0 5px ${project.color})`,
             }}
           />
         </svg>
@@ -150,7 +150,7 @@ function ProjectDroppableBubble({
 
       {/* Floating indicator icon */}
       <div
-        className="w-3 h-3 rounded-full mb-1.5 shadow-sm flex-shrink-0"
+        className="w-2 h-2 rounded-full mb-0.5 shadow-sm flex-shrink-0"
         style={{ backgroundColor: project.color }}
       />
 
@@ -167,13 +167,13 @@ function ProjectDroppableBubble({
       {/* Task count or Drop prompt */}
       {activeIsOver ? (
         <span
-          className="mt-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold text-black flex items-center gap-1 animate-pulse"
+          className="mt-0.5 px-1.5 py-0.2 rounded-full text-[9px] font-extrabold text-black flex items-center gap-1 animate-pulse"
           style={{ backgroundColor: project.color }}
         >
           {hasCategories && hoverProgress > 0 && hoverProgress < 1 ? (
-            <span>Maintiens 1s...</span>
+            <span>1s...</span>
           ) : (
-            <span>Déposer ici</span>
+            <span>Déposer</span>
           )}
         </span>
       ) : (
@@ -214,19 +214,19 @@ function CategoryDroppableBubble({
     <div
       ref={setNodeRef}
       className={cn(
-        "relative rounded-full flex flex-col items-center justify-center text-center p-3 transition-all duration-300 select-none cursor-pointer flex-shrink-0 group",
+        "relative rounded-full flex flex-col items-center justify-center text-center p-1.5 transition-all duration-300 select-none cursor-pointer flex-shrink-0 group",
         config.sizeClass,
         activeIsOver
           ? "scale-110 shadow-2xl z-20"
-          : "hover:scale-105 shadow-lg hover:shadow-xl"
+          : "hover:scale-105 shadow-md hover:shadow-lg"
       )}
       style={{
         backgroundColor: activeIsOver ? `${color}44` : "#16181D",
         borderColor: activeIsOver ? color : `${color}66`,
-        borderWidth: activeIsOver ? "3px" : "2px",
+        borderWidth: activeIsOver ? "2.5px" : "1.5px",
         boxShadow: activeIsOver
-          ? `0 0 35px ${color}88, 0 0 10px ${color}`
-          : `0 4px 20px rgba(0,0,0,0.5)`,
+          ? `0 0 25px ${color}88, 0 0 8px ${color}`
+          : `0 3px 12px rgba(0,0,0,0.4)`,
       }}
     >
       <div
@@ -236,7 +236,7 @@ function CategoryDroppableBubble({
         }}
       />
 
-      <Tag className="w-3.5 h-3.5 mb-1 flex-shrink-0" style={{ color }} />
+      <Tag className="w-2.5 h-2.5 mb-0.5 flex-shrink-0" style={{ color }} />
 
       <span
         className={cn(
@@ -249,11 +249,11 @@ function CategoryDroppableBubble({
 
       {activeIsOver ? (
         <span
-          className="mt-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold text-black flex items-center gap-1 animate-bounce"
+          className="mt-0.5 px-1.5 py-0.2 rounded-full text-[9px] font-extrabold text-black flex items-center gap-1 animate-bounce"
           style={{ backgroundColor: color }}
         >
-          <Plus className="w-3 h-3" />
-          Déposer ici
+          <Plus className="w-2.5 h-2.5" />
+          Déposer
         </span>
       ) : (
         <span className={cn("text-[#8E929E] mt-0.5", config.countClass)}>
@@ -673,9 +673,9 @@ export const ProjectTaskAssignBubbleView: React.FC<ProjectTaskAssignBubbleViewPr
       onDragEnd={handleDragEnd}
     >
       <div className="flex-1 flex flex-col min-h-0 w-full bg-[#0E0F12] text-white">
-        {/* Top Header */}
-        <div className="p-4 border-b border-[#202228] bg-[#111214] flex items-center justify-between flex-shrink-0 select-none">
-          <div className="flex items-center gap-3">
+        {/* Top Header - Compact & Sleek */}
+        <div className="px-3 py-2 md:px-4 md:py-2.5 border-b border-[#202228] bg-[#111214] flex items-center justify-between flex-shrink-0 select-none">
+          <div className="flex items-center gap-2.5 min-w-0">
             <button
               type="button"
               onClick={() => {
@@ -685,96 +685,92 @@ export const ProjectTaskAssignBubbleView: React.FC<ProjectTaskAssignBubbleViewPr
                   onBack();
                 }
               }}
-              className="p-2 rounded-xl bg-[#1C1D22] hover:bg-[#282A30] text-[#8E929E] hover:text-white transition-colors cursor-pointer"
+              className="p-1.5 rounded-lg bg-[#1C1D22] hover:bg-[#282A30] text-[#8E929E] hover:text-white transition-colors cursor-pointer flex-shrink-0"
+              title="Retour"
             >
-              <ArrowLeft className="w-4 h-4" />
+              <ArrowLeft className="w-3.5 h-3.5" />
             </button>
-            <div>
-              <h1 className="text-base md:text-lg font-bold text-white flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-[#D4F63D]" />
-                <span>
+            <div className="min-w-0">
+              <h1 className="text-xs md:text-sm font-bold text-white flex items-center gap-1.5 truncate">
+                <Sparkles className="w-3.5 h-3.5 text-[#D4F63D] flex-shrink-0" />
+                <span className="truncate">
                   {zoomedProject
-                    ? `Affecter à ${zoomedProject.name} (Catégories)`
+                    ? `Affecter à ${zoomedProject.name}`
                     : "Affecter les tâches à un projet"}
                 </span>
               </h1>
-              <p className="text-xs text-[#8E929E]">
+              <p className="text-[10px] text-[#8E929E] truncate">
                 {zoomedProject
-                  ? "Dépose sur une catégorie pour l'affecter précisément"
-                  : "Glisse et dépose les tâches sur les bulles de projet"}
+                  ? "Dépose sur une catégorie pour l'affecter"
+                  : "Survole 1s pour les catégories ou dépose directement"}
               </p>
             </div>
           </div>
 
-          {zoomedProject ? (
+          {zoomedProject && (
             <button
               type="button"
               onClick={() => setZoomedProject(null)}
-              className="px-3 py-1.5 rounded-xl bg-[#202228] hover:bg-[#2A2C34] text-xs font-semibold text-[#D4F63D] flex items-center gap-1 cursor-pointer transition-colors"
+              className="px-2.5 py-1 rounded-lg bg-[#202228] hover:bg-[#2A2C34] text-[11px] font-semibold text-[#D4F63D] flex items-center gap-1 cursor-pointer transition-colors flex-shrink-0 ml-2"
             >
-              <ChevronLeft className="w-3.5 h-3.5" />
-              <span>Tous les projets</span>
+              <ChevronLeft className="w-3 h-3" />
+              <span>Projets</span>
             </button>
-          ) : (
-            <div className="px-3 py-1.5 rounded-xl bg-[#D4F63D]/10 border border-[#D4F63D]/20 text-[#D4F63D] text-xs font-bold flex items-center gap-1.5">
-              <Layers className="w-3.5 h-3.5" />
-              <span>{unassignedTasks.length} sans projet</span>
-            </div>
           )}
         </div>
 
         {/* Assigned success toast banner */}
         {assignedToast && (
-          <div className="bg-[#D4F63D] text-black px-4 py-2 text-xs font-bold flex items-center justify-center gap-2 shadow-lg animate-in slide-in-from-top-2">
-            <CheckCircle2 className="w-4 h-4" />
-            <span>
-              &ldquo;{assignedToast.taskTitle}&rdquo; a été affectée au projet &ldquo;{assignedToast.projectName}&rdquo;
-              {assignedToast.categoryName ? ` (Catégorie : ${assignedToast.categoryName})` : " sans catégorie"} !
+          <div className="bg-[#D4F63D] text-black px-3 py-1.5 text-[11px] font-bold flex items-center justify-center gap-1.5 shadow-lg animate-in slide-in-from-top-2">
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            <span className="truncate">
+              &ldquo;{assignedToast.taskTitle}&rdquo; &rarr; &ldquo;{assignedToast.projectName}&rdquo;
+              {assignedToast.categoryName ? ` (${assignedToast.categoryName})` : ""} !
             </span>
           </div>
         )}
 
-        {/* Main Content Area: Floating Bubbles (Top / Left) + Tasks List (Bottom / Right) */}
+        {/* Main Content Area: Floating Bubbles (Top / Left max 1/3 screen) + Tasks List (Bottom / Right) */}
         <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
-          {/* Bubbles Orbit Area */}
-          <div className="p-4 md:p-6 border-b md:border-b-0 md:border-r border-[#202228] bg-[#121318] flex flex-col md:w-5/12 lg:w-4/12 flex-shrink-0 overflow-y-auto">
+          {/* Bubbles Orbit Area - Capped to 1/3 screen height max on mobile */}
+          <div className="p-2.5 md:p-5 border-b md:border-b-0 md:border-r border-[#202228] bg-[#121318] flex flex-col max-h-[30vh] md:max-h-none md:w-5/12 lg:w-4/12 flex-shrink-0 overflow-y-auto overscroll-contain">
             {zoomedProject ? (
               /* CATEGORIES OF ZOOMED PROJECT */
-              <div className="space-y-3 animate-in fade-in zoom-in-95 duration-300">
-                <div className="flex items-center justify-between px-1">
-                  <div className="flex items-center gap-2">
+              <div className="space-y-2 animate-in fade-in zoom-in-95 duration-300">
+                <div className="flex items-center justify-between px-0.5">
+                  <div className="flex items-center gap-1.5">
                     <span
-                      className="w-3 h-3 rounded-full flex-shrink-0"
+                      className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                       style={{ backgroundColor: zoomedProject.color }}
                     />
-                    <span className="text-xs font-bold uppercase tracking-wider text-white">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-white truncate max-w-[160px]">
                       {zoomedProject.name}
                     </span>
                   </div>
                   <button
                     type="button"
                     onClick={() => setShowAddCat(!showAddCat)}
-                    className="text-[11px] text-[#D4F63D] hover:underline flex items-center gap-1 cursor-pointer"
+                    className="text-[10px] text-[#D4F63D] hover:underline flex items-center gap-1 cursor-pointer"
                   >
-                    <Plus className="w-3 h-3" />
+                    <Plus className="w-2.5 h-2.5" />
                     <span>Catégorie</span>
                   </button>
                 </div>
 
                 {showAddCat && (
-                  <div className="p-2.5 rounded-2xl bg-[#1C1D22] border border-[#383C48] flex items-center gap-2 animate-in fade-in">
+                  <div className="p-2 rounded-xl bg-[#1C1D22] border border-[#383C48] flex items-center gap-2 animate-in fade-in">
                     <input
                       type="text"
                       placeholder="Nom de catégorie..."
                       value={newCatInput}
                       onChange={(e) => setNewCatInput(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && handleAddCategory()}
-                      className="flex-1 px-3 py-1.5 rounded-xl bg-[#252830] text-xs text-white outline-none border border-transparent focus:border-[#D4F63D]"
+                      className="flex-1 px-2.5 py-1 rounded-lg bg-[#252830] text-[11px] text-white outline-none border border-transparent focus:border-[#D4F63D]"
                     />
                     <button
                       type="button"
                       onClick={handleAddCategory}
-                      className="px-3 py-1.5 rounded-xl bg-[#D4F63D] text-black font-bold text-xs cursor-pointer"
+                      className="px-2.5 py-1 rounded-lg bg-[#D4F63D] text-black font-bold text-[11px] cursor-pointer"
                     >
                       Ajouter
                     </button>
@@ -782,7 +778,7 @@ export const ProjectTaskAssignBubbleView: React.FC<ProjectTaskAssignBubbleViewPr
                 )}
 
                 {/* Category Bubbles cluster */}
-                <div className="flex flex-wrap items-center justify-center gap-3 md:gap-4 py-3 min-h-[180px] md:min-h-[300px]">
+                <div className="flex flex-wrap items-center justify-center gap-2 md:gap-3 py-1 min-h-[90px] md:min-h-[260px]">
                   {currentProjectCategories.map((catName, idx) => {
                     const droppableId = `cat__${zoomedProject.id}__${encodeURIComponent(catName)}`;
                     return (
@@ -801,18 +797,18 @@ export const ProjectTaskAssignBubbleView: React.FC<ProjectTaskAssignBubbleViewPr
               </div>
             ) : (
               /* ALL PROJECTS BUBBLES CLUSTER */
-              <div className="space-y-2">
-                <div className="flex items-center justify-between mb-2 px-1">
-                  <span className="text-xs font-bold uppercase tracking-wider text-[#8E929E] flex items-center gap-1.5">
-                    <FolderKanban className="w-3.5 h-3.5 text-[#D4F63D]" />
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between mb-1 px-0.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#8E929E] flex items-center gap-1">
+                    <FolderKanban className="w-3 h-3 text-[#D4F63D]" />
                     Projets ({projects.length})
                   </span>
-                  <span className="text-[10px] text-[#6B7280]">
+                  <span className="text-[9px] text-[#6B7280]">
                     Survol 1s = Catégories
                   </span>
                 </div>
 
-                <div className="flex flex-wrap items-center justify-center gap-3 md:gap-4 py-2 min-h-[160px] md:min-h-[300px]">
+                <div className="flex flex-wrap items-center justify-center gap-2 md:gap-3 py-1 min-h-[90px] md:min-h-[260px]">
                   {projects.map((project, idx) => {
                     const hasCats = projectHasCategories(project);
                     return (
@@ -839,15 +835,15 @@ export const ProjectTaskAssignBubbleView: React.FC<ProjectTaskAssignBubbleViewPr
           </div>
 
           {/* Unassigned Tasks List Section */}
-          <div className="flex-1 flex flex-col min-h-0 bg-[#0E0F12] p-4 md:p-6 overflow-hidden">
+          <div className="flex-1 flex flex-col min-h-0 bg-[#0E0F12] p-3 md:p-5 overflow-hidden">
             {/* Filter Tabs & Search */}
-            <div className="space-y-3 mb-4 flex-shrink-0">
-              <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+            <div className="space-y-2.5 mb-3 flex-shrink-0">
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar">
                 <button
                   type="button"
                   onClick={() => setFilterType("ALL")}
                   className={cn(
-                    "px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer",
+                    "px-2.5 py-1 rounded-lg text-[11px] font-semibold whitespace-nowrap transition-all cursor-pointer",
                     filterType === "ALL"
                       ? "bg-[#D4F63D] text-black"
                       : "bg-[#1C1D22] text-[#8E929E] hover:text-white hover:bg-[#282A30]"
@@ -859,7 +855,7 @@ export const ProjectTaskAssignBubbleView: React.FC<ProjectTaskAssignBubbleViewPr
                   type="button"
                   onClick={() => setFilterType("CURRENT")}
                   className={cn(
-                    "px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer",
+                    "px-2.5 py-1 rounded-lg text-[11px] font-semibold whitespace-nowrap transition-all cursor-pointer",
                     filterType === "CURRENT"
                       ? "bg-[#D4F63D] text-black"
                       : "bg-[#1C1D22] text-[#8E929E] hover:text-white hover:bg-[#282A30]"
@@ -871,7 +867,7 @@ export const ProjectTaskAssignBubbleView: React.FC<ProjectTaskAssignBubbleViewPr
                   type="button"
                   onClick={() => setFilterType("UPCOMING")}
                   className={cn(
-                    "px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer",
+                    "px-2.5 py-1 rounded-lg text-[11px] font-semibold whitespace-nowrap transition-all cursor-pointer",
                     filterType === "UPCOMING"
                       ? "bg-[#D4F63D] text-black"
                       : "bg-[#1C1D22] text-[#8E929E] hover:text-white hover:bg-[#282A30]"
@@ -883,7 +879,7 @@ export const ProjectTaskAssignBubbleView: React.FC<ProjectTaskAssignBubbleViewPr
                   type="button"
                   onClick={() => setFilterType("PAST")}
                   className={cn(
-                    "px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer",
+                    "px-2.5 py-1 rounded-lg text-[11px] font-semibold whitespace-nowrap transition-all cursor-pointer",
                     filterType === "PAST"
                       ? "bg-[#D4F63D] text-black"
                       : "bg-[#1C1D22] text-[#8E929E] hover:text-white hover:bg-[#282A30]"
@@ -895,28 +891,28 @@ export const ProjectTaskAssignBubbleView: React.FC<ProjectTaskAssignBubbleViewPr
 
               {/* Search bar */}
               <div className="relative">
-                <Search className="w-4 h-4 text-[#6B7280] absolute left-3 top-1/2 -translate-y-1/2" />
+                <Search className="w-3.5 h-3.5 text-[#6B7280] absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
-                  placeholder="Rechercher une tâche non assignée..."
+                  placeholder="Rechercher une tâche..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-[#16171C] border border-[#282A30] focus:border-[#D4F63D] rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-[#6B7280] outline-none transition-all"
+                  className="w-full bg-[#16171C] border border-[#282A30] focus:border-[#D4F63D] rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-[#6B7280] outline-none transition-all"
                 />
               </div>
             </div>
 
             {/* Task list */}
-            <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
+            <div className="flex-1 overflow-y-auto space-y-2 pr-0.5 pb-24 md:pb-4">
               {filteredTasks.length === 0 ? (
-                <div className="h-64 flex flex-col items-center justify-center text-center p-6 bg-[#16171C]/40 border border-[#282A30] rounded-2xl">
-                  <CheckCircle2 className="w-8 h-8 text-[#D4F63D] mb-2" />
-                  <p className="text-sm font-semibold text-white">
+                <div className="h-44 flex flex-col items-center justify-center text-center p-4 bg-[#16171C]/40 border border-[#282A30] rounded-2xl">
+                  <CheckCircle2 className="w-6 h-6 text-[#D4F63D] mb-1.5" />
+                  <p className="text-xs font-semibold text-white">
                     {unassignedTasks.length === 0
                       ? "Toutes les tâches sont affectées à un projet !"
                       : "Aucune tâche trouvée pour ce filtre."}
                   </p>
-                  <p className="text-xs text-[#8E929E] mt-1">
+                  <p className="text-[10px] text-[#8E929E] mt-0.5">
                     {unassignedTasks.length === 0
                       ? "Ton espace de travail est parfaitement organisé."
                       : "Essaie un autre filtre ou réinitialise ta recherche."}
