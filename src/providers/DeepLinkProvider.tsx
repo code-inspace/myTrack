@@ -199,8 +199,17 @@ export function DeepLinkProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
+    // Global window scroll lockdown for iOS WebKit
+    const lockWindowScroll = () => {
+      if (window.scrollY !== 0 || window.scrollX !== 0) {
+        window.scrollTo(0, 0);
+      }
+    };
+    window.addEventListener("scroll", lockWindowScroll, { passive: true });
+
     return () => {
       cleanupNotifs();
+      window.removeEventListener("scroll", lockWindowScroll);
       document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("focus", onVisibilityChange);
       window.removeEventListener("appUrlOpen", onAppUrlOpen);
