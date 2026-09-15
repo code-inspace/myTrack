@@ -37,6 +37,8 @@ import {
 import { SortableContext, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
 import { DAY_DROP_ID_PREFIX } from "@/features/tasks/components/HorizontalDatePicker";
 
+import { TaskCardSkeleton } from "@/features/tasks/components/TaskCardSkeleton";
+
 import { useCalendarEvents } from "@/features/calendar/hooks/useCalendarEvents";
 import { ExternalCalendarEvent } from "@/features/calendar/types";
 import { ExternalEventTaskCard } from "@/features/calendar/components/ExternalEventTaskCard";
@@ -108,8 +110,10 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
     };
   }, []);
 
-  const { tasks, allTasks, allCompletions } = useTasks(selectedDate);
-  const { events: externalEvents } = useCalendarEvents(selectedDate);
+  const { tasks, allTasks, allCompletions, isInitialLoading: isTasksInitialLoading, isSyncing: isTasksSyncing } = useTasks(selectedDate);
+  const { events: externalEvents, isSyncing: isCalSyncing } = useCalendarEvents(selectedDate);
+
+  const isGlobalSyncing = isTasksSyncing || isCalSyncing;
 
   const dayExternalEvents = useMemo(() => {
     return externalEvents.filter((e) => e.date === selectedDate);
@@ -321,6 +325,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
               activeTab={activeTab}
               onChangeTab={handleTabChange}
               isDragActive={Boolean(activeDragTaskId)}
+              isSyncing={isGlobalSyncing}
               onDropDate={(dateStr, taskId) =>
                 moveOccurrence.mutate({ taskId, fromDate: selectedDate, toDate: dateStr })
               }
@@ -493,7 +498,9 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
                       />
                     ))}
 
-                  {orderedTasks.length === 0 && (!showCalendar || dayExternalEvents.length === 0) ? (
+                  {isTasksInitialLoading && orderedTasks.length === 0 ? (
+                    <TaskCardSkeleton count={3} />
+                  ) : orderedTasks.length === 0 && (!showCalendar || dayExternalEvents.length === 0) ? (
                     <div className="p-8 text-center bg-[#1C1D22] border border-[#282A30] rounded-3xl my-4">
                       <Inbox className="w-10 h-10 text-[#6B7280] mx-auto mb-2" />
                       <h4 className="text-base font-bold text-white">Aucun élément programmé</h4>
@@ -548,6 +555,8 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
                   onSelectDate={setSelectedDate}
                   searchQuery={searchQuery}
                   onNewTask={handleNewTask}
+                  isInitialLoading={isTasksInitialLoading}
+                  isSyncing={isGlobalSyncing}
                   onEditTask={(t) => {
                     setEditingTask(t);
                     setIsTaskModalOpen(true);

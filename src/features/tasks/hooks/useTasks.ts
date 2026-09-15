@@ -119,7 +119,11 @@ export function useTasks(selectedDateStr: string) {
     };
   }, [userId, queryClient]);
 
-  const { data: allTasks = getStoredTasks(userId) } = useQuery({
+  const {
+    data: allTasks = getStoredTasks(userId),
+    isLoading: tasksLoading,
+    isRefetching: tasksRefetching,
+  } = useQuery({
     queryKey: ["tasks", userId],
     queryFn: async () => fetchTasks(userId),
     placeholderData: () => getStoredTasks(userId),
@@ -130,7 +134,11 @@ export function useTasks(selectedDateStr: string) {
     refetchInterval: 3000,
   });
 
-  const { data: allCompletions = getStoredCompletions(userId) } = useQuery({
+  const {
+    data: allCompletions = getStoredCompletions(userId),
+    isLoading: completionsLoading,
+    isRefetching: completionsRefetching,
+  } = useQuery({
     queryKey: ["completions", userId],
     queryFn: async () => fetchCompletions(userId),
     placeholderData: () => getStoredCompletions(userId),
@@ -252,12 +260,17 @@ export function useTasks(selectedDateStr: string) {
     }
   }, [sortedTasks, activeTasksList]);
 
+  const isInitialLoading = (tasksLoading && allTasks.length === 0);
+  const isLoading = isInitialLoading || (completionsLoading && allCompletions.length === 0);
+
   return {
     tasks: sortedTasks,
     allTasks,
     allCompletions,
     activeTask,
     activeTasks: activeTasksList,
-    isLoading: false,
+    isLoading,
+    isInitialLoading,
+    isSyncing: tasksRefetching || completionsRefetching,
   };
 }

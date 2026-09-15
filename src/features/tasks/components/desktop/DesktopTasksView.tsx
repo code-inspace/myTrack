@@ -7,6 +7,7 @@ import { ExternalEventTaskCard } from "@/features/calendar/components/ExternalEv
 import { getExternalEventStatus, isExternalEventDone, isExternalEventInProgress } from "@/features/calendar/lib/status";
 import { TaskCard } from "../TaskCard";
 import { ActiveTaskBanner } from "../ActiveTaskBanner";
+import { TaskCardSkeleton } from "../TaskCardSkeleton";
 import { DesktopWidgetsPane } from "./DesktopWidgetsPane";
 import { DesktopDatePicker } from "./DesktopDatePicker";
 import { CheckCircle2, Plus, Flame, Inbox, Calendar, RefreshCw, Play } from "lucide-react";
@@ -50,6 +51,8 @@ interface DesktopTasksViewProps {
   onQuickAddAndStart?: () => void;
   onSelectTab?: (tab: any) => void;
   sleepDurationText?: string;
+  isInitialLoading?: boolean;
+  isSyncing?: boolean;
 }
 
 export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
@@ -76,6 +79,8 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
   onQuickAddAndStart,
   onSelectTab,
   sleepDurationText,
+  isInitialLoading = false,
+  isSyncing = false,
 }) => {
   const queryClient = useQueryClient();
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -441,7 +446,9 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
 
           {/* Tasks & External Calendar Events Stream */}
           <div className="space-y-3 pb-16">
-            {orderedTasks.length === 0 && filteredExternalEvents.length === 0 && activeTasks.length === 0 ? (
+            {isInitialLoading && orderedTasks.length === 0 && filteredExternalEvents.length === 0 && activeTasks.length === 0 ? (
+              <TaskCardSkeleton count={4} />
+            ) : orderedTasks.length === 0 && filteredExternalEvents.length === 0 && activeTasks.length === 0 ? (
               <div className="p-12 text-center bg-[#15161B] border border-[#242630] rounded-3xl my-4 space-y-3">
                 <div className="w-12 h-12 rounded-2xl bg-[#20222B] border border-[#2E313D] flex items-center justify-center text-[#8E929E] mx-auto">
                   <Inbox className="w-6 h-6" />

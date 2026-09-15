@@ -4,7 +4,12 @@ import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/providers/AuthProvider";
 import { CalendarSubscription, ExternalCalendarEvent } from "../types";
-import { getStoredCalendarSubscriptions, saveStoredCalendarSubscriptions } from "../actions/storage";
+import {
+  getStoredCalendarSubscriptions,
+  saveStoredCalendarSubscriptions,
+  getStoredExternalEvents,
+  saveStoredExternalEvents,
+} from "../actions/storage";
 import {
   fetchCalendarSubscriptions,
   createDbCalendarSubscription,
@@ -85,9 +90,9 @@ export function useCalendarEvents(focusedDateStr?: string) {
   const safeSubscriptions = Array.isArray(subscriptions) ? subscriptions : [];
   const enabledSubs = safeSubscriptions.filter((s) => s && s.enabled && s.url?.trim());
 
-  // 2. External Events Fetch Query
+  // 2. External Events Fetch Query with Local-First Persistence
   const {
-    data: queryResult = { events: [], errors: {} },
+    data: queryResult = { events: getStoredExternalEvents(userId), errors: {} },
     isLoading,
     isRefetching,
     refetch,
@@ -119,12 +124,17 @@ export function useCalendarEvents(focusedDateStr?: string) {
           throw new Error("Failed to fetch external calendars");
         }
 
-        return await res.json();
+        const data = await res.json();
+        if (data?.events && Array.isArray(data.events)) {
+          saveStoredExternalEvents(data.events, userId);
+        }
+        return data;
       } catch (err) {
         console.warn("External calendar fetch failed:", err);
-        return { events: [], errors: {} };
+        return { events: getStoredExternalEvents(userId), errors: {} };
       }
     },
+    placeholderData: () => ({ events: getStoredExternalEvents(userId), errors: {} }),
     enabled: enabledSubs.length > 0,
     staleTime: 1000 * 60 * 5, // 5 minutes
     refetchOnWindowFocus: false,
@@ -292,6 +302,7 @@ export function useCalendarEvents(focusedDateStr?: string) {
     errors: queryResult?.errors || {},
     isLoading,
     isRefetching,
+    isSyncing: isLoading || isRefetching,
     refetch,
     syncNow,
     syncSummary,

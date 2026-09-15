@@ -9,7 +9,11 @@ export interface CalDavFetchResult {
   error?: string;
   statusCode?: number;
   preview?: string;
+  workingUrl?: string;
 }
+
+// In-memory working URL cache for fast-path retrieval (persists across API requests in server runtime)
+const workingUrlCache = new Map<string, string>();
 
 function unescapeXmlEntities(str: string): string {
   return str
@@ -129,6 +133,83 @@ export function generateCandidateUrls(rawUrl: string, username?: string | null):
   return candidates;
 }
 
+async function tryGetCandidate(
+  candidateUrl: string,
+  baseHeaders: Record<string, string>,
+  subscription: CalendarSubscription,
+  rangeStart: Date,
+  rangeEnd: Date,
+  timeoutMs = 3500
+): Promise<CalDavFetchResult | null> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    const res = await fetch(candidateUrl, {
+      method: "GET",
+      headers: baseHeaders,
+      signal: controller.signal,
+      cache: "no-store",
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!res.ok) {
+      return null;
+    }
+
+    const text = await res.text();
+
+    // Check if direct valid iCalendar
+    if (text.includes("BEGIN:VCALENDAR")) {
+      const events = parseIcsContent(
+        text,
+        subscription.id || "sub",
+        subscription.name || "Agenda",
+        subscription.color || "#3B82F6",
+        rangeStart,
+        rangeEnd
+      );
+
+      return {
+        success: true,
+        icsContent: text,
+        events,
+        statusCode: res.status,
+        workingUrl: candidateUrl,
+      };
+    }
+
+    // Check if Multi-Status XML containing calendar-data
+    if (text.includes("calendar-data") || text.includes("<multistatus") || text.includes("<d:multistatus")) {
+      const extracted = extractCalendarDataFromXml(text);
+      if (extracted.length > 0) {
+        const combinedIcs = extracted.join("\n");
+        const events = parseIcsContent(
+          combinedIcs,
+          subscription.id || "sub",
+          subscription.name || "Agenda",
+          subscription.color || "#3B82F6",
+          rangeStart,
+          rangeEnd
+        );
+
+        return {
+          success: true,
+          icsContent: combinedIcs,
+          events,
+          statusCode: res.status,
+          workingUrl: candidateUrl,
+        };
+      }
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchCalDavOrIcs(
   subscription: CalendarSubscription,
   rangeStart: Date = subDays(new Date(), 60),
@@ -139,8 +220,8 @@ export async function fetchCalDavOrIcs(
     return { success: false, error: "URL manquante" };
   }
 
+  const cacheKey = subscription.id || url;
   const authHeader = buildBasicAuthHeader(subscription.username, subscription.password);
-  const candidates = generateCandidateUrls(url, subscription.username);
 
   const baseHeaders: Record<string, string> = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 MyTrack/1.0",
@@ -151,84 +232,49 @@ export async function fetchCalDavOrIcs(
     baseHeaders["Authorization"] = authHeader;
   }
 
-  let lastError = "Impossible de récupérer le calendrier";
-  let lastStatus: number | undefined = undefined;
-  let lastHtmlPreview: string | undefined = undefined;
+  let lastStatus: number | undefined;
+  let lastError = "Impossible de récupérer les événements de l'agenda.";
+  let lastHtmlPreview: string | undefined;
 
-  // Phase 1: Try HTTP GET on candidates
-  for (const candidateUrl of candidates) {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 9000);
+  // 1. FAST PATH: Check previously working URL from in-memory cache or subscription
+  const cachedUrl = workingUrlCache.get(cacheKey);
+  if (cachedUrl) {
+    const fastResult = await tryGetCandidate(
+      cachedUrl,
+      baseHeaders,
+      subscription,
+      rangeStart,
+      rangeEnd,
+      3500
+    );
+    if (fastResult && fastResult.success) {
+      return fastResult;
+    }
+  }
 
-      const res = await fetch(candidateUrl, {
-        method: "GET",
-        headers: baseHeaders,
-        signal: controller.signal,
-        cache: "no-store",
-      });
+  // 2. PARALLEL CANDIDATE PROBES (batches of 4 candidates with 3.5s timeout)
+  const candidates = generateCandidateUrls(url, subscription.username);
 
-      clearTimeout(timeoutId);
-      lastStatus = res.status;
+  // Put cached URL at top if exists
+  if (cachedUrl && !candidates.includes(cachedUrl)) {
+    candidates.unshift(cachedUrl);
+  }
 
-      if (!res.ok) {
-        if (res.status === 401 || res.status === 403) {
-          lastError = `Erreur d'authentification (${res.status}). Vérifiez votre identifiant et mot de passe d'application.`;
-        }
-        continue;
+  // Run candidate probes in parallel chunks of 4
+  const chunkSize = 4;
+  for (let i = 0; i < candidates.length; i += chunkSize) {
+    const chunk = candidates.slice(i, i + chunkSize);
+    const probePromises = chunk.map((cand) =>
+      tryGetCandidate(cand, baseHeaders, subscription, rangeStart, rangeEnd, 3500)
+    );
+
+    const results = await Promise.all(probePromises);
+    const successful = results.find((r) => r !== null && r.success && r.events);
+    if (successful) {
+      if (successful.workingUrl) {
+        workingUrlCache.set(cacheKey, successful.workingUrl);
       }
-
-      const text = await res.text();
-
-      // Check if direct valid iCalendar
-      if (text.includes("BEGIN:VCALENDAR")) {
-        const events = parseIcsContent(
-          text,
-          subscription.id || "sub",
-          subscription.name || "Agenda",
-          subscription.color || "#3B82F6",
-          rangeStart,
-          rangeEnd
-        );
-
-        return {
-          success: true,
-          icsContent: text,
-          events,
-          statusCode: res.status,
-        };
-      }
-
-      // Check if Multi-Status XML containing calendar-data
-      if (text.includes("calendar-data") || text.includes("<multistatus") || text.includes("<d:multistatus")) {
-        const extracted = extractCalendarDataFromXml(text);
-        if (extracted.length > 0) {
-          const combinedIcs = extracted.join("\n");
-          const events = parseIcsContent(
-            combinedIcs,
-            subscription.id || "sub",
-            subscription.name || "Agenda",
-            subscription.color || "#3B82F6",
-            rangeStart,
-            rangeEnd
-          );
-
-          return {
-            success: true,
-            icsContent: combinedIcs,
-            events,
-            statusCode: res.status,
-          };
-        }
-      }
-
-      if (text.toLowerCase().includes("<!doctype html") || text.toLowerCase().includes("<html")) {
-        lastHtmlPreview = text.slice(0, 160);
-      }
-    } catch (err: any) {
-      if (err?.name === "AbortError") {
-        lastError = "Délai de connexion dépassé (timeout).";
-      }
+      return successful;
     }
   }
 

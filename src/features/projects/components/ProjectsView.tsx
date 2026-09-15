@@ -31,7 +31,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
 }) => {
   const todayStr = getTodayDateString();
 
-  const { projects } = useProjects();
+  const { projects, isInitialLoading: isProjectsInitialLoading } = useProjects();
   const { createProject, updateProject } = useProjectMutations();
   const { updateTask, closeTask, reopenTask } = useTaskMutations();
 
@@ -117,6 +117,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
           <ProjectsListView
             projects={projects}
             tasks={allTasks}
+            isInitialLoading={isProjectsInitialLoading}
             onSelectProject={(id) => {
               setSelectedProjectId(id);
               setShowAllProjectsBoard(false);
@@ -178,7 +179,22 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
               </div>
             </button>
 
-            {projects.length === 0 ? (
+            {isProjectsInitialLoading && projects.length === 0 ? (
+              <div className="space-y-1 pt-2 border-t border-[#202228]">
+                {[1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    className="w-full flex items-center gap-2.5 p-2 rounded-xl border border-transparent bg-white/5 animate-pulse"
+                  >
+                    <div className="w-2.5 h-2.5 rounded-full bg-white/10 flex-shrink-0" />
+                    <div className="flex-1 space-y-1.5">
+                      <div className="h-3 bg-white/10 rounded w-1/2" />
+                      <div className="h-2 bg-white/5 rounded w-1/4" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : projects.length === 0 ? (
               <div className="p-6 text-center bg-[#1C1D22]/50 border border-[#282A30] rounded-2xl my-2">
                 <p className="text-xs text-[#8E929E]">Aucun projet créé pour le moment.</p>
               </div>

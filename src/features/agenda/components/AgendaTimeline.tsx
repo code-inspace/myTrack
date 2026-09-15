@@ -154,6 +154,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
     events: externalEvents,
     errors: calendarErrors,
     isRefetching: isCalendarRefetching,
+    isSyncing: isCalendarSyncing,
     refetch: refetchCalendarEvents,
     syncNow,
     syncSummary,
@@ -451,7 +452,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
                   {enabledSubsCount}
                 </span>
               )}
-              {isCalendarRefetching && (
+              {(isCalendarSyncing || isCalendarRefetching) && (
                 <RefreshCw className="w-3 h-3 animate-spin text-[#D4F63D] ml-0.5" />
               )}
             </button>

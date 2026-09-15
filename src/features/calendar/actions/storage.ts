@@ -61,3 +61,37 @@ export function saveStoredCalendarSubscriptions(
     console.warn("Failed to save stored calendars:", err);
   }
 }
+
+export const EXTERNAL_EVENTS_STORAGE_PREFIX = "mytrack_external_events_";
+
+export function getStoredExternalEvents(userId?: string): import("../types").ExternalCalendarEvent[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const key = userId ? EXTERNAL_EVENTS_STORAGE_PREFIX + userId : "mytrack_external_events";
+    const raw = localStorage.getItem(key) || localStorage.getItem("mytrack_external_events");
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed;
+      }
+    }
+    return [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveStoredExternalEvents(
+  events: import("../types").ExternalCalendarEvent[],
+  userId?: string
+): void {
+  if (typeof window === "undefined") return;
+  try {
+    const json = JSON.stringify(events);
+    if (userId) {
+      localStorage.setItem(EXTERNAL_EVENTS_STORAGE_PREFIX + userId, json);
+    }
+    localStorage.setItem("mytrack_external_events", json);
+  } catch {}
+}
+

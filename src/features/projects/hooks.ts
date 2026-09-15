@@ -9,7 +9,11 @@ export function useProjects() {
   const { user } = useAuth();
   const userId = user?.id || "";
 
-  const { data: projects = getStoredProjects(userId) } = useQuery({
+  const {
+    data: projects = getStoredProjects(userId),
+    isLoading: projectsLoading,
+    isRefetching: projectsRefetching,
+  } = useQuery({
     queryKey: ["projects", userId],
     queryFn: async () => fetchProjects(userId),
     placeholderData: () => getStoredProjects(userId),
@@ -20,7 +24,14 @@ export function useProjects() {
     refetchInterval: 3000,
   });
 
-  return { projects };
+  const isInitialLoading = projectsLoading && projects.length === 0;
+
+  return {
+    projects,
+    isLoading: projectsLoading,
+    isInitialLoading,
+    isSyncing: projectsRefetching,
+  };
 }
 
 export function useProjectMutations() {

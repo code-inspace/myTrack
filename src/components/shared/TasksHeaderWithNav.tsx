@@ -35,6 +35,7 @@ interface TasksHeaderWithNavProps {
   onSelectDate: (date: string) => void;
   activeTab?: TasksTab;
   onChangeTab?: (tab: TasksTab) => void;
+  isSyncing?: boolean;
   /** true while a habit card is being dragged, to hint that the day strip accepts drops */
   isDragActive?: boolean;
   onDropDate?: (dateStr: string, taskId: string) => void;
@@ -46,6 +47,7 @@ export const TasksHeaderWithNav: React.FC<TasksHeaderWithNavProps> = ({
   onSelectDate,
   activeTab,
   onChangeTab,
+  isSyncing,
   isDragActive,
   onDropDate,
 }) => {
@@ -70,6 +72,7 @@ export const TasksHeaderWithNav: React.FC<TasksHeaderWithNavProps> = ({
       {/* 1. App Header with Profile Icon Top Right */}
       <AppHeader
         title={title}
+        isSyncing={isSyncing}
         leftAction={
           displayMode === "modern"
             ? { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" }

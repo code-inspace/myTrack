@@ -14,6 +14,7 @@ interface ProjectsListViewProps {
   onOpenNewProject: () => void;
   onEditProject: (project: Project) => void;
   onEditTask: (task: Task) => void;
+  isInitialLoading?: boolean;
 }
 
 export const ProjectsListView: React.FC<ProjectsListViewProps> = ({
@@ -24,6 +25,7 @@ export const ProjectsListView: React.FC<ProjectsListViewProps> = ({
   onOpenNewProject,
   onEditProject,
   onEditTask,
+  isInitialLoading = false,
 }) => {
   const tasksByProject = (projectId: string) => tasks.filter((t) => t.projectId === projectId && !t.isArchived);
 
@@ -56,7 +58,22 @@ export const ProjectsListView: React.FC<ProjectsListViewProps> = ({
         <ChevronRight className="w-4 h-4 text-[#6B7280] flex-shrink-0" />
       </button>
 
-      {projects.length === 0 ? (
+      {isInitialLoading && projects.length === 0 ? (
+        <div className="space-y-2.5">
+          {[1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className="w-full flex items-center gap-3 p-4 rounded-2xl bg-[#1C1D22] border border-[#282A30] animate-pulse"
+            >
+              <div className="w-3 h-3 rounded-full bg-white/10 flex-shrink-0" />
+              <div className="flex-1 space-y-2">
+                <div className="h-3.5 bg-white/10 rounded w-1/3" />
+                <div className="h-2.5 bg-white/5 rounded w-1/5" />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : projects.length === 0 ? (
         <div className="p-8 text-center bg-[#1C1D22] border border-[#282A30] rounded-3xl my-4">
           <FolderKanban className="w-10 h-10 text-[#6B7280] mx-auto mb-2" />
           <h4 className="text-base font-bold text-white">Aucun projet</h4>

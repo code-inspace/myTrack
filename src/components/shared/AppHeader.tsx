@@ -19,6 +19,8 @@ interface HeaderAvatarAction {
 interface AppHeaderProps {
   title?: string;
   subtitle?: string;
+  /** True when background sync is in progress */
+  isSyncing?: boolean;
   /** Icon button shown top-left (e.g. Dashboard access in "modern" display mode) */
   leftAction?: HeaderAction | null;
   /** Initial-letter avatar shown top-right (e.g. Profile access in "modern" display mode) */
@@ -28,6 +30,7 @@ interface AppHeaderProps {
 export const AppHeader: React.FC<AppHeaderProps> = ({
   title = "Mes Tâches",
   subtitle,
+  isSyncing,
   leftAction,
   rightAction,
 }) => {
@@ -35,8 +38,14 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     return (
       <header className="w-full flex items-center justify-center py-3 px-1">
         <div className="text-center">
-          <h1 className="text-lg font-extrabold text-white tracking-tight">
-            {title}
+          <h1 className="text-lg font-extrabold text-white tracking-tight inline-flex items-center gap-1.5">
+            <span>{title}</span>
+            {isSyncing && (
+              <span
+                title="Synchronisation en arrière-plan..."
+                className="w-2 h-2 rounded-full bg-[#D4F63D] animate-ping"
+              />
+            )}
           </h1>
           {subtitle && (
             <p className="text-[11px] font-medium text-[#8E929E] -mt-0.5">
@@ -64,8 +73,14 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
       </div>
 
       <div className="text-center flex-1 min-w-0">
-        <h1 className="text-lg font-extrabold text-white tracking-tight truncate">
-          {title}
+        <h1 className="text-lg font-extrabold text-white tracking-tight truncate inline-flex items-center justify-center gap-1.5">
+          <span>{title}</span>
+          {isSyncing && (
+            <span
+              title="Synchronisation en cours..."
+              className="w-2 h-2 rounded-full bg-[#D4F63D] animate-pulse flex-shrink-0"
+            />
+          )}
         </h1>
         {subtitle && (
           <p className="text-[11px] font-medium text-[#8E929E] -mt-0.5 truncate">
