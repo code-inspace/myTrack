@@ -16,6 +16,7 @@ import {
   scheduleTaskPushNotification,
   cancelTaskPushNotifications,
 } from "@/lib/onesignal/client";
+import { LiveActivityBridge } from "@/lib/native/liveActivity";
 
 export async function updateDbTaskActive(
   taskId: string,
@@ -68,13 +69,9 @@ export async function updateDbTaskStartedAt(
   startedAtTime: string,
   userId?: string,
 ): Promise<{ startedAt: string }> {
-  const supabase = createClient();
   let targetId = userId;
   if (!targetId) {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    targetId = session?.user?.id || getEffectiveUserId();
+    targetId = getEffectiveUserId();
   }
 
   const now = new Date();
@@ -120,38 +117,7 @@ export async function updateDbTaskStartedAt(
     },
   };
 
-  const dbUpdates: any = {
-    started_at: newStartedAtIso,
-    updated_at: nowIso,
-    date_overrides: updatedOverrides,
-  };
-
-  if (!isRecurring) {
-    dbUpdates.start_time = utcStartTime;
-    dbUpdates.end_time = utcProvisionalEndTime;
-  }
-
-  try {
-    await supabase.from("tasks").update(dbUpdates).eq("id", taskId);
-  } catch (err) {
-    console.warn("Supabase updateDbTaskStartedAt error:", err);
-  }
-
-  // Update completions actualStartTime as well
-  try {
-    await supabase
-      .from("task_completions")
-      .update({
-        actual_start_time: utcStartTime,
-        scheduled_start_time: utcStartTime,
-        updated_at: nowIso,
-      })
-      .eq("task_id", taskId)
-      .eq("date", todayStr);
-  } catch (err) {
-    console.warn("Supabase updateDbTaskStartedAt completion error:", err);
-  }
-
+  // 1. Synchronously update local tasks storage
   const updated = tasks.map((t) => {
     if (t.id === taskId) {
       return {
@@ -174,7 +140,7 @@ export async function updateDbTaskStartedAt(
   });
   saveStoredTasks(updated, targetId);
 
-  // Update localStorage completions too
+  // 2. Synchronously update local completions storage
   const completions = getStoredCompletions(targetId);
   const compIdx = completions.findIndex(
     (c) => c.taskId === taskId && c.date === todayStr,
@@ -189,6 +155,59 @@ export async function updateDbTaskStartedAt(
     };
     saveStoredCompletions(nextCompletions, targetId);
   }
+
+  // 3. Persist to server via /api/tasks PATCH endpoint
+  const serverUpdates: any = {
+    startedAt: newStartedAtIso,
+    dateOverrides: updatedOverrides,
+  };
+  if (!isRecurring) {
+    serverUpdates.startTime = utcStartTime;
+    serverUpdates.endTime = utcProvisionalEndTime;
+  }
+  try {
+    fetch("/api/tasks", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        taskId,
+        userId: targetId,
+        updates: serverUpdates,
+      }),
+    }).catch((err) => console.warn("API updateDbTaskStartedAt PATCH note:", err));
+  } catch (err) {
+    console.warn("updateDbTaskStartedAt fetch error:", err);
+  }
+
+  // 4. Persist to server /api/completions endpoint
+  try {
+    fetch("/api/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        completion: {
+          taskId,
+          userId: targetId,
+          date: todayStr,
+          completed: false,
+          scheduledStartTime: startedAtTime,
+          actualStartTime: startedAtTime,
+        },
+        userId: targetId,
+      }),
+    }).catch((err) => console.warn("API updateDbTaskStartedAt completion POST note:", err));
+  } catch (err) {
+    console.warn("updateDbTaskStartedAt completion error:", err);
+  }
+
+  // 5. Update Live Activity on iOS with recalculated elapsed time
+  try {
+    const elapsedSeconds = Math.max(0, Math.floor((now.getTime() - newStartDate.getTime()) / 1000));
+    LiveActivityBridge.updateActivity(taskId, {
+      startedAtTimestamp: Math.floor(newStartDate.getTime() / 1000),
+      elapsedSeconds,
+    }).catch(() => {});
+  } catch {}
 
   return { startedAt: newStartedAtIso };
 }
@@ -212,13 +231,9 @@ export async function updateTaskSchedule({
   applyToAll?: boolean;
   userId?: string;
 }): Promise<void> {
-  const supabase = createClient();
   let targetId = userId;
   if (!targetId) {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    targetId = session?.user?.id || getEffectiveUserId();
+    targetId = getEffectiveUserId();
   }
 
   const tasks = getStoredTasks(targetId);
@@ -233,17 +248,21 @@ export async function updateTaskSchedule({
     // For a ONCE task, updating schedule for a date also moves the task occurrence to that target date!
     const createdIso = `${date}T12:00:00.000Z`;
     try {
-      await supabase
-        .from("tasks")
-        .update({
-          start_time: utcStart,
-          end_time: utcEnd,
-          created_at: createdIso,
-          updated_at: nowIso,
-        })
-        .eq("id", taskId);
+      fetch("/api/tasks", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          taskId,
+          userId: targetId,
+          updates: {
+            startTime: utcStart,
+            endTime: utcEnd,
+            createdAt: createdIso,
+          },
+        }),
+      }).catch((err) => console.warn("API updateTaskSchedule ONCE PATCH note:", err));
     } catch (err) {
-      console.warn("Supabase updateTaskSchedule ONCE error:", err);
+      console.warn("updateTaskSchedule ONCE error:", err);
     }
 
     const updated = tasks.map((t) =>
@@ -270,12 +289,19 @@ export async function updateTaskSchedule({
     };
 
     try {
-      await supabase
-        .from("tasks")
-        .update({ date_overrides: updatedOverrides, updated_at: nowIso })
-        .eq("id", taskId);
+      fetch("/api/tasks", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          taskId,
+          userId: targetId,
+          updates: {
+            dateOverrides: updatedOverrides,
+          },
+        }),
+      }).catch((err) => console.warn("API updateTaskSchedule override PATCH note:", err));
     } catch (err) {
-      console.warn("Supabase updateTaskSchedule override error:", err);
+      console.warn("updateTaskSchedule override error:", err);
     }
 
     const updated = tasks.map((t) =>
@@ -294,12 +320,20 @@ export async function updateTaskSchedule({
   } else {
     // Global schedule update
     try {
-      await supabase
-        .from("tasks")
-        .update({ start_time: utcStart, end_time: utcEnd, updated_at: nowIso })
-        .eq("id", taskId);
+      fetch("/api/tasks", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          taskId,
+          userId: targetId,
+          updates: {
+            startTime: utcStart,
+            endTime: utcEnd,
+          },
+        }),
+      }).catch((err) => console.warn("API updateTaskSchedule global PATCH note:", err));
     } catch (err) {
-      console.warn("Supabase updateTaskSchedule global error:", err);
+      console.warn("updateTaskSchedule global error:", err);
     }
 
     const updated = tasks.map((t) =>

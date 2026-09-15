@@ -186,9 +186,23 @@ export async function PATCH(req: NextRequest) {
     }
     if (updates.startTime !== undefined) {
       dbPayload.start_time = updates.startTime;
+    } else if (updates.start_time !== undefined) {
+      dbPayload.start_time = updates.start_time;
     }
     if (updates.endTime !== undefined) {
       dbPayload.end_time = updates.endTime;
+    } else if (updates.end_time !== undefined) {
+      dbPayload.end_time = updates.end_time;
+    }
+    if (updates.dateOverrides !== undefined) {
+      dbPayload.date_overrides = updates.dateOverrides;
+    } else if (updates.date_overrides !== undefined) {
+      dbPayload.date_overrides = updates.date_overrides;
+    }
+    if (updates.createdAt !== undefined) {
+      dbPayload.created_at = updates.createdAt;
+    } else if (updates.created_at !== undefined) {
+      dbPayload.created_at = updates.created_at;
     }
     if (updates.title !== undefined) {
       dbPayload.title = await encryptText(updates.title);

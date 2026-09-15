@@ -52,19 +52,28 @@ export const ActiveTaskBanner: React.FC<ActiveTaskBannerProps> = ({
 
   useEffect(() => {
     setElapsedSeconds(calculateElapsed(task.startedAt));
-    setInputStartTime(getInitialTimeStr());
+    if (!isEditingStartTime) {
+      setInputStartTime(getInitialTimeStr());
+    }
 
     const timer = setInterval(() => {
       setElapsedSeconds(calculateElapsed(task.startedAt));
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [task.startedAt, task.id]);
+  }, [task.startedAt, task.id, isEditingStartTime]);
 
   const handleChangeStartTime = (newTime: string) => {
     setInputStartTime(newTime);
     if (!newTime || !newTime.includes(":")) return;
     onUpdateStartTime?.(task.id, newTime);
+  };
+
+  const handleBlurOrSubmit = () => {
+    setIsEditingStartTime(false);
+    if (inputStartTime && inputStartTime.includes(":")) {
+      onUpdateStartTime?.(task.id, inputStartTime);
+    }
   };
 
   const formatTimer = (totalSec: number) => {
@@ -152,9 +161,15 @@ export const ActiveTaskBanner: React.FC<ActiveTaskBannerProps> = ({
                 type="time"
                 value={inputStartTime}
                 onChange={(e) => handleChangeStartTime(e.target.value)}
-                onBlur={() => setIsEditingStartTime(false)}
+                onBlur={handleBlurOrSubmit}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleBlurOrSubmit();
+                  }
+                }}
                 autoFocus
-                className="h-7 px-2 rounded-lg bg-black text-[#D4F63D] text-xs font-mono font-bold outline-none text-center box-border"
+                className="h-7 px-2 rounded-lg bg-black text-[#D4F63D] text-xs font-mono font-bold outline-none text-center box-border cursor-pointer"
               />
             </div>
           ) : (
