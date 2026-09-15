@@ -12,6 +12,7 @@ interface ProjectsListViewProps {
   onSelectProject: (projectId: string) => void;
   onOpenAllProjectsBoard: () => void;
   onOpenTaskAssignment: () => void;
+  onOpenProjectStats: () => void;
   onOpenNewProject: () => void;
   onEditProject: (project: Project) => void;
   onEditTask: (task: Task) => void;
@@ -24,6 +25,7 @@ export const ProjectsListView: React.FC<ProjectsListViewProps> = ({
   onSelectProject,
   onOpenAllProjectsBoard,
   onOpenTaskAssignment,
+  onOpenProjectStats,
   onOpenNewProject,
   onEditProject,
   onEditTask,
@@ -63,29 +65,42 @@ export const ProjectsListView: React.FC<ProjectsListViewProps> = ({
         </button>
 
         {projects.length >= 1 && (
-          <button
-            type="button"
-            onClick={onOpenTaskAssignment}
-            className="w-full flex items-center gap-3 p-4 rounded-2xl bg-gradient-to-r from-[#1C1D22] to-[#242630] hover:from-[#22242B] hover:to-[#2B2D38] border border-[#383C48] hover:border-[#D4F63D]/40 transition-all cursor-pointer text-left shadow-lg group"
-          >
-            <div className="w-9 h-9 rounded-xl bg-[#D4F63D] flex items-center justify-center text-black flex-shrink-0 shadow-sm group-hover:scale-105 transition-transform">
-              <Sparkles className="w-4 h-4" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-bold text-white flex items-center gap-2">
-                <span>Affecter les tâches</span>
-                {unassignedTasksCount > 0 && (
-                  <span className="px-1.5 py-0.5 rounded-full bg-[#D4F63D]/20 text-[#D4F63D] text-[10px] font-extrabold">
-                    {unassignedTasksCount}
-                  </span>
-                )}
+          <div className="grid grid-cols-2 gap-2.5">
+            <button
+              type="button"
+              onClick={onOpenTaskAssignment}
+              className="flex items-center gap-2.5 p-3.5 rounded-2xl bg-gradient-to-r from-[#1C1D22] to-[#242630] hover:from-[#22242B] hover:to-[#2B2D38] border border-[#383C48] hover:border-[#D4F63D]/40 transition-all cursor-pointer text-left shadow-lg group"
+            >
+              <div className="w-8 h-8 rounded-xl bg-[#D4F63D] flex items-center justify-center text-black flex-shrink-0 shadow-sm group-hover:scale-105 transition-transform">
+                <Sparkles className="w-3.5 h-3.5" />
               </div>
-              <div className="text-[11px] text-[#8E929E]">
-                Glisser-déposer sur les bulles de projet
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-bold text-white flex items-center gap-1.5 truncate">
+                  <span>Affecter</span>
+                  {unassignedTasksCount > 0 && (
+                    <span className="px-1.5 py-0.2 rounded-full bg-[#D4F63D]/20 text-[#D4F63D] text-[9px] font-extrabold">
+                      {unassignedTasksCount}
+                    </span>
+                  )}
+                </div>
+                <div className="text-[10px] text-[#8E929E] truncate">Bulles de projet</div>
               </div>
-            </div>
-            <ChevronRight className="w-4 h-4 text-[#D4F63D] flex-shrink-0 group-hover:translate-x-0.5 transition-transform" />
-          </button>
+            </button>
+
+            <button
+              type="button"
+              onClick={onOpenProjectStats}
+              className="flex items-center gap-2.5 p-3.5 rounded-2xl bg-gradient-to-r from-[#1C1D22] to-[#242630] hover:from-[#22242B] hover:to-[#2B2D38] border border-[#383C48] hover:border-[#60A5FA]/40 transition-all cursor-pointer text-left shadow-lg group"
+            >
+              <div className="w-8 h-8 rounded-xl bg-[#60A5FA]/20 border border-[#60A5FA]/30 flex items-center justify-center text-[#60A5FA] flex-shrink-0 shadow-sm group-hover:scale-105 transition-transform">
+                <LayoutGrid className="w-3.5 h-3.5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-bold text-white truncate">Statistiques</div>
+                <div className="text-[10px] text-[#8E929E] truncate">Camembert & catégories</div>
+              </div>
+            </button>
+          </div>
         )}
       </div>
 

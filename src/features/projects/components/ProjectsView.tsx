@@ -10,8 +10,9 @@ import { ProjectsListView } from "./ProjectsListView";
 import { ProjectBoardView } from "./ProjectBoardView";
 import { AllProjectsBoardView } from "./AllProjectsBoardView";
 import { ProjectTaskAssignBubbleView } from "./ProjectTaskAssignBubbleView";
+import { ProjectStatsView } from "./ProjectStatsView";
 import { ProjectFormModal } from "./ProjectFormModal";
-import { ChevronRight, FolderKanban, Plus, Pencil, LayoutGrid, Sparkles } from "lucide-react";
+import { ChevronRight, FolderKanban, Plus, Pencil, LayoutGrid, Sparkles, PieChart } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 import { ExternalCalendarEvent } from "@/features/calendar/types";
@@ -33,12 +34,13 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
   const todayStr = getTodayDateString();
 
   const { projects, isInitialLoading: isProjectsInitialLoading } = useProjects();
-  const { createProject, updateProject } = useProjectMutations();
+  const { createProject, updateProject, deleteProject } = useProjectMutations();
   const { updateTask, closeTask, reopenTask } = useTaskMutations();
 
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [showAllProjectsBoard, setShowAllProjectsBoard] = useState(true); // Default to true on desktop
   const [showTaskAssignment, setShowTaskAssignment] = useState(false);
+  const [showProjectStats, setShowProjectStats] = useState(false);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [selectedExternalEvent, setSelectedExternalEvent] = useState<ExternalCalendarEvent | null>(null);
@@ -49,6 +51,27 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
   const closeProjectModal = () => {
     setIsProjectModalOpen(false);
     setEditingProject(null);
+  };
+
+  const handleDeleteProject = (projectId: string) => {
+    // Unassign all tasks associated with this project
+    const associatedTasks = allTasks.filter((t) => t.projectId === projectId);
+    for (const t of associatedTasks) {
+      updateTask.mutate({
+        taskId: t.id,
+        values: {
+          projectId: null,
+          projectStatus: null,
+          projectCategory: null,
+        },
+      });
+    }
+
+    deleteProject.mutate(projectId);
+    if (selectedProjectId === projectId) {
+      setSelectedProjectId(null);
+      setShowAllProjectsBoard(true);
+    }
   };
 
   const handleChangeStatus = (
@@ -82,7 +105,15 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
     <div className="flex-1 flex flex-col min-h-0 w-full relative">
       {/* MOBILE VERSION: Back-and-forth screens (hidden on desktop) */}
       <div className="flex-1 flex flex-col min-h-0 md:hidden">
-        {showTaskAssignment && projects.length >= 1 ? (
+        {showProjectStats ? (
+          <ProjectStatsView
+            projects={projects}
+            tasks={allTasks}
+            completions={completions}
+            onBack={() => setShowProjectStats(false)}
+            onEditTask={onEditTask}
+          />
+        ) : showTaskAssignment && projects.length >= 1 ? (
           <ProjectTaskAssignBubbleView
             projects={projects}
             tasks={allTasks}
@@ -132,15 +163,24 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
               setSelectedProjectId(id);
               setShowAllProjectsBoard(false);
               setShowTaskAssignment(false);
+              setShowProjectStats(false);
             }}
             onOpenAllProjectsBoard={() => {
               setShowAllProjectsBoard(true);
               setShowTaskAssignment(false);
+              setShowProjectStats(false);
             }}
             onOpenTaskAssignment={() => {
               setShowTaskAssignment(true);
               setSelectedProjectId(null);
               setShowAllProjectsBoard(false);
+              setShowProjectStats(false);
+            }}
+            onOpenProjectStats={() => {
+              setShowProjectStats(true);
+              setSelectedProjectId(null);
+              setShowAllProjectsBoard(false);
+              setShowTaskAssignment(false);
             }}
             onOpenNewProject={() => {
               setEditingProject(null);
@@ -185,10 +225,11 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                 setSelectedProjectId(null);
                 setShowAllProjectsBoard(true);
                 setShowTaskAssignment(false);
+                setShowProjectStats(false);
               }}
               className={cn(
                 "w-full flex items-center gap-3 p-3 rounded-xl transition-all cursor-pointer text-left border",
-                showAllProjectsBoard && !selectedProjectId && !showTaskAssignment
+                showAllProjectsBoard && !selectedProjectId && !showTaskAssignment && !showProjectStats
                   ? "bg-[#1E2027] border-[#383C48] text-white shadow-sm"
                   : "bg-transparent border-transparent text-[#8E929E] hover:text-white hover:bg-[#16171C]/50"
               )}
@@ -207,6 +248,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                   setSelectedProjectId(null);
                   setShowAllProjectsBoard(false);
                   setShowTaskAssignment(true);
+                  setShowProjectStats(false);
                 }}
                 className={cn(
                   "w-full flex items-center justify-between p-3 rounded-xl transition-all cursor-pointer text-left border",
@@ -224,6 +266,30 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                     {unassignedTasksCount}
                   </span>
                 )}
+              </button>
+            )}
+
+            {/* Option: Project Statistics */}
+            {projects.length >= 1 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedProjectId(null);
+                  setShowAllProjectsBoard(false);
+                  setShowTaskAssignment(false);
+                  setShowProjectStats(true);
+                }}
+                className={cn(
+                  "w-full flex items-center gap-3 p-3 rounded-xl transition-all cursor-pointer text-left border",
+                  showProjectStats
+                    ? "bg-[#1E2027] border-[#60A5FA]/40 text-white shadow-sm"
+                    : "bg-transparent border-transparent text-[#8E929E] hover:text-white hover:bg-[#16171C]/50"
+                )}
+              >
+                <PieChart className="w-4 h-4 text-[#60A5FA]" />
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-semibold">Statistiques</div>
+                </div>
               </button>
             )}
 
@@ -250,7 +316,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
               <div className="space-y-1 pt-2 border-t border-[#202228]">
                 {projects.map((project) => {
                   const projectTasks = tasksByProject(project.id);
-                  const isSelected = selectedProjectId === project.id && !showAllProjectsBoard && !showTaskAssignment;
+                  const isSelected = selectedProjectId === project.id && !showAllProjectsBoard && !showTaskAssignment && !showProjectStats;
 
                   return (
                     <div
@@ -268,6 +334,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                           setSelectedProjectId(project.id);
                           setShowAllProjectsBoard(false);
                           setShowTaskAssignment(false);
+                          setShowProjectStats(false);
                         }}
                         className="flex-1 min-w-0 flex items-center gap-2.5 cursor-pointer text-left"
                       >
@@ -305,7 +372,18 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
 
         {/* Right main board pane */}
         <div className="flex-1 min-w-0 h-full flex flex-col bg-[#0E0F12]">
-          {showTaskAssignment && projects.length >= 1 ? (
+          {showProjectStats ? (
+            <ProjectStatsView
+              projects={projects}
+              tasks={allTasks}
+              completions={completions}
+              onBack={() => {
+                setShowProjectStats(false);
+                setShowAllProjectsBoard(true);
+              }}
+              onEditTask={onEditTask}
+            />
+          ) : showTaskAssignment && projects.length >= 1 ? (
             <ProjectTaskAssignBubbleView
               projects={projects}
               tasks={allTasks}
@@ -362,6 +440,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
             createProject.mutate(data);
           }
         }}
+        onDelete={(projectId) => handleDeleteProject(projectId)}
       />
 
       {/* External Calendar Event Detail Modal */}

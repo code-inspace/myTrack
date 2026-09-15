@@ -65,4 +65,24 @@ describe("Projects Logic", () => {
     expect(unassigned.length).toBe(2);
     expect(unassigned.map((t) => t.id)).toEqual(["t1", "t3"]);
   });
+
+  it("unassigns all associated tasks when a project is deleted", () => {
+    let tasks: { id: string; title: string; projectId: string | null; projectStatus: string | null; projectCategory: string | null }[] = [
+      { id: "t1", title: "Task 1", projectId: "proj-1", projectStatus: "TODO", projectCategory: "Dev" },
+      { id: "t2", title: "Task 2", projectId: "proj-2", projectStatus: "DONE", projectCategory: "Design" },
+      { id: "t3", title: "Task 3", projectId: "proj-1", projectStatus: "IN_PROGRESS", projectCategory: "Dev" },
+    ];
+
+    const targetProjectId = "proj-1";
+    // Simulate deletion unassignment
+    tasks = tasks.map((t) =>
+      t.projectId === targetProjectId
+        ? { ...t, projectId: null, projectStatus: null, projectCategory: null }
+        : t
+    );
+
+    expect(tasks.filter((t) => t.projectId === "proj-1").length).toBe(0);
+    expect(tasks.filter((t) => !t.projectId).length).toBe(2);
+    expect(tasks.find((t) => t.id === "t2")?.projectId).toBe("proj-2");
+  });
 });

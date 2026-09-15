@@ -10,6 +10,7 @@ interface ProjectFormModalProps {
   initialProject?: Project | null;
   onClose: () => void;
   onSubmit: (data: { name: string; color: string; columns: ProjectColumn[] }, projectId?: string) => void;
+  onDelete?: (projectId: string) => void;
 }
 
 const COLOR_OPTIONS = ["#D4F63D", "#34D399", "#60A5FA", "#F472B6", "#A78BFA", "#F59E0B"];
@@ -19,16 +20,19 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
   initialProject,
   onClose,
   onSubmit,
+  onDelete,
 }) => {
   const isEditing = Boolean(initialProject);
   const [name, setName] = useState("");
   const [color, setColor] = useState(COLOR_OPTIONS[0]);
   const [columns, setColumns] = useState<ProjectColumn[]>(getProjectColumns({ columns: [] }));
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const prevIsOpenRef = useRef(false);
 
   useEffect(() => {
     if (isOpen && !prevIsOpenRef.current) {
+      setConfirmDelete(false);
       if (initialProject) {
         setName(initialProject.name);
         setColor(initialProject.color);
@@ -59,6 +63,13 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
 
     onSubmit({ name: trimmed, color, columns: cleanColumns }, initialProject?.id);
     onClose();
+  };
+
+  const handleDelete = () => {
+    if (initialProject && onDelete) {
+      onDelete(initialProject.id);
+      onClose();
+    }
   };
 
   const addColumn = () => {
@@ -193,6 +204,43 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
           >
             {isEditing ? "Enregistrer" : "Créer le projet"}
           </button>
+
+          {isEditing && onDelete && (
+            <div className="pt-2 border-t border-[#282A30]">
+              {confirmDelete ? (
+                <div className="p-3 rounded-2xl bg-red-500/10 border border-red-500/30 space-y-2">
+                  <p className="text-xs text-red-300 font-medium">
+                    Supprimer ce projet ? Toutes les tâches associées seront désaffectées et conservées.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleDelete}
+                      className="flex-1 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs transition-all cursor-pointer"
+                    >
+                      Confirmer la suppression
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDelete(false)}
+                      className="px-3 py-2 rounded-xl bg-[#252830] hover:bg-[#343740] text-[#8E929E] hover:text-white text-xs font-semibold transition-all cursor-pointer"
+                    >
+                      Annuler
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirmDelete(true)}
+                  className="w-full py-2.5 rounded-2xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 font-semibold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Supprimer ce projet</span>
+                </button>
+              )}
+            </div>
+          )}
         </form>
       </div>
     </div>
