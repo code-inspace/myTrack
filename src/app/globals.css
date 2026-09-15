@@ -53,15 +53,15 @@ body {
 
 /* Safe area padding utilities for iOS / PWA standalone mode */
 .safe-top {
-  padding-top: max(env(safe-area-inset-top), 1rem);
+  padding-top: env(safe-area-inset-top, 0px);
 }
 
 .safe-bottom {
-  padding-bottom: max(env(safe-area-inset-bottom), 1.25rem);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 .safe-bottom-nav {
-  padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
+  padding-bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
 }
 
 /* Hide scrollbars on mobile / touch devices for native iOS app feel */

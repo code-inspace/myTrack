@@ -31,32 +31,14 @@ interface ProjectBoardViewProps {
 export const ProjectBoardView: React.FC<ProjectBoardViewProps> = ({
   project,
   tasks,
-  externalEvents = [],
   completions,
   onBack,
   onEditTask,
   onAddTask,
   onChangeStatus,
-  onSelectExternalEvent,
 }) => {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
   const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
-  const [showCalendar, setShowCalendar] = useState<boolean>(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("mytrack_show_calendar_in_projects") !== "false";
-    }
-    return true;
-  });
-
-  const toggleCalendarVisibility = () => {
-    setShowCalendar((prev) => {
-      const next = !prev;
-      if (typeof window !== "undefined") {
-        localStorage.setItem("mytrack_show_calendar_in_projects", String(next));
-      }
-      return next;
-    });
-  };
 
   const projectCategories = useMemo(() => {
     const cats = new Set<string>(project.categories || []);
@@ -105,20 +87,9 @@ export const ProjectBoardView: React.FC<ProjectBoardViewProps> = ({
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={toggleCalendarVisibility}
-          title={showCalendar ? "Masquer les événements d'agenda externe" : "Afficher les événements d'agenda externe"}
-          className={cn(
-            "h-9 px-3 rounded-xl flex items-center gap-1.5 text-xs font-semibold transition-all cursor-pointer border",
-            showCalendar
-              ? "bg-[#3B82F6]/15 border-[#3B82F6]/40 text-[#60A5FA]"
-              : "bg-[#17181F] border-[#282B36] text-[#6B7280] hover:text-[#9CA3AF]"
-          )}
-        >
-          <Calendar className="w-3.5 h-3.5" />
-          <span>Agenda {showCalendar ? "ON" : "OFF"}</span>
-        </button>
+        <div className="text-xs font-semibold text-[#8E929E] bg-[#17181F] px-3 py-1.5 rounded-xl border border-[#282B36]">
+          {filteredTasks.length} tâche{filteredTasks.length !== 1 ? "s" : ""}
+        </div>
       </div>
 
       {/* Project Categories Filter Bar */}
@@ -168,11 +139,10 @@ export const ProjectBoardView: React.FC<ProjectBoardViewProps> = ({
                 key={col.id}
                 column={col}
                 tasks={tasksByColumn.get(col.id) || []}
-                externalEvents={showCalendar ? externalEvents : []}
+                externalEvents={[]}
                 onEditTask={onEditTask}
                 onAddTask={onAddTask}
                 completions={completions}
-                onSelectExternalEvent={onSelectExternalEvent}
               />
             ))}
           </div>
