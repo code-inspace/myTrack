@@ -30,22 +30,34 @@ export const AuthGuard: React.FC<{ children: React.ReactNode }> = ({ children })
     }
   }, [user, isLoading, pathname, isAuthPath, router]);
 
-  if (isLoading) {
+  // If session is loading or if user is unauthenticated and being redirected, display clean splash
+  if (isLoading || (!user && !isAuthPath) || (user && isAuthPath && pathname !== "/auth/verify-email")) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+      <div className="flex-1 min-w-0 w-full h-[100dvh] flex flex-col items-center justify-center bg-[#0E0F12] space-y-4 select-none">
         <div className="animate-pulse">
           <Logo size="lg" showText={false} />
         </div>
-        <div className="text-center space-y-1">
-          <p className="text-sm font-bold text-white tracking-tight">My<span className="text-[#D4F63D]">Track</span></p>
-          <p className="text-xs text-[#8E929E] font-medium">Chargement...</p>
+        <div className="text-center space-y-1.5">
+          <p className="text-base font-extrabold text-white tracking-tight">
+            My<span className="text-[#D4F63D]">Track</span>
+          </p>
+          <div className="flex items-center justify-center gap-1.5">
+            <span
+              className="w-1.5 h-1.5 rounded-full bg-[#D4F63D] animate-bounce"
+              style={{ animationDuration: "1s", animationDelay: "0ms" }}
+            />
+            <span
+              className="w-1.5 h-1.5 rounded-full bg-[#D4F63D] animate-bounce"
+              style={{ animationDuration: "1s", animationDelay: "150ms" }}
+            />
+            <span
+              className="w-1.5 h-1.5 rounded-full bg-[#D4F63D] animate-bounce"
+              style={{ animationDuration: "1s", animationDelay: "300ms" }}
+            />
+          </div>
         </div>
       </div>
     );
-  }
-
-  if (!user && !isAuthPath) {
-    return <LoginPage />;
   }
 
   return <>{children}</>;
