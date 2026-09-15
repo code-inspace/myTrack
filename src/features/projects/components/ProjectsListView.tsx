@@ -3,7 +3,7 @@
 import React from "react";
 import { Task } from "@/features/tasks/types";
 import { Project } from "../types";
-import { ChevronRight, FolderKanban, Plus, Pencil, LayoutGrid } from "lucide-react";
+import { ChevronRight, FolderKanban, Plus, Pencil, LayoutGrid, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ProjectsListViewProps {
@@ -11,6 +11,7 @@ interface ProjectsListViewProps {
   tasks: Task[];
   onSelectProject: (projectId: string) => void;
   onOpenAllProjectsBoard: () => void;
+  onOpenTaskAssignment: () => void;
   onOpenNewProject: () => void;
   onEditProject: (project: Project) => void;
   onEditTask: (task: Task) => void;
@@ -22,12 +23,14 @@ export const ProjectsListView: React.FC<ProjectsListViewProps> = ({
   tasks,
   onSelectProject,
   onOpenAllProjectsBoard,
+  onOpenTaskAssignment,
   onOpenNewProject,
   onEditProject,
   onEditTask,
   isInitialLoading = false,
 }) => {
   const tasksByProject = (projectId: string) => tasks.filter((t) => t.projectId === projectId && !t.isArchived);
+  const unassignedTasksCount = tasks.filter((t) => !t.projectId && !t.isArchived).length;
 
   return (
     <div className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-4 pt-3 pb-36 space-y-3 max-w-md mx-auto w-full">
@@ -43,20 +46,48 @@ export const ProjectsListView: React.FC<ProjectsListViewProps> = ({
         </button>
       </div>
 
-      <button
-        type="button"
-        onClick={onOpenAllProjectsBoard}
-        className="w-full flex items-center gap-3 p-4 rounded-2xl bg-[#1C1D22] hover:bg-[#22242B] border border-[#282A30] hover:border-[#383C48] transition-all cursor-pointer text-left"
-      >
-        <div className="w-9 h-9 rounded-xl bg-[#D4F63D]/10 border border-[#D4F63D]/20 flex items-center justify-center text-[#D4F63D] flex-shrink-0">
-          <LayoutGrid className="w-4 h-4" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="text-sm font-bold text-white">Tous les projets</div>
-          <div className="text-[11px] text-[#8E929E]">Toutes les tâches, filtrables par catégorie ou projet</div>
-        </div>
-        <ChevronRight className="w-4 h-4 text-[#6B7280] flex-shrink-0" />
-      </button>
+      <div className="grid grid-cols-1 gap-2.5">
+        <button
+          type="button"
+          onClick={onOpenAllProjectsBoard}
+          className="w-full flex items-center gap-3 p-4 rounded-2xl bg-[#1C1D22] hover:bg-[#22242B] border border-[#282A30] hover:border-[#383C48] transition-all cursor-pointer text-left"
+        >
+          <div className="w-9 h-9 rounded-xl bg-[#D4F63D]/10 border border-[#D4F63D]/20 flex items-center justify-center text-[#D4F63D] flex-shrink-0">
+            <LayoutGrid className="w-4 h-4" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-bold text-white">Tous les projets</div>
+            <div className="text-[11px] text-[#8E929E]">Toutes les tâches, filtrables par catégorie ou projet</div>
+          </div>
+          <ChevronRight className="w-4 h-4 text-[#6B7280] flex-shrink-0" />
+        </button>
+
+        {projects.length >= 1 && (
+          <button
+            type="button"
+            onClick={onOpenTaskAssignment}
+            className="w-full flex items-center gap-3 p-4 rounded-2xl bg-gradient-to-r from-[#1C1D22] to-[#242630] hover:from-[#22242B] hover:to-[#2B2D38] border border-[#383C48] hover:border-[#D4F63D]/40 transition-all cursor-pointer text-left shadow-lg group"
+          >
+            <div className="w-9 h-9 rounded-xl bg-[#D4F63D] flex items-center justify-center text-black flex-shrink-0 shadow-sm group-hover:scale-105 transition-transform">
+              <Sparkles className="w-4 h-4" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-bold text-white flex items-center gap-2">
+                <span>Affecter les tâches</span>
+                {unassignedTasksCount > 0 && (
+                  <span className="px-1.5 py-0.5 rounded-full bg-[#D4F63D]/20 text-[#D4F63D] text-[10px] font-extrabold">
+                    {unassignedTasksCount}
+                  </span>
+                )}
+              </div>
+              <div className="text-[11px] text-[#8E929E]">
+                Glisser-déposer sur les bulles de projet
+              </div>
+            </div>
+            <ChevronRight className="w-4 h-4 text-[#D4F63D] flex-shrink-0 group-hover:translate-x-0.5 transition-transform" />
+          </button>
+        )}
+      </div>
 
       {isInitialLoading && projects.length === 0 ? (
         <div className="space-y-2.5">

@@ -67,6 +67,26 @@ export async function fetchProjects(userId?: string): Promise<Project[]> {
     targetId = session?.user?.id || getEffectiveUserId();
   }
 
+  const finalUserId = targetId || "";
+
+  // 1. Try server API route (bypasses RLS issues)
+  try {
+    const res = await fetch(`/api/projects?userId=${encodeURIComponent(finalUserId)}`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    });
+    if (res.ok) {
+      const json = await res.json();
+      if (Array.isArray(json.projects)) {
+        saveStoredProjects(json.projects, targetId);
+        return json.projects;
+      }
+    }
+  } catch (apiErr) {
+    console.warn("fetchProjects API route error, falling back to Supabase client:", apiErr);
+  }
+
+  // 2. Fallback to Supabase client
   try {
     const { data, error } = await supabase
       .from("projects")
@@ -101,9 +121,35 @@ export async function createDbProject(
   }
 
   const projectCategories = categories || [];
-  const encryptedName = await encryptText(name);
 
+  // 1. Try server API route
   try {
+    const res = await fetch("/api/projects", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userId: targetId,
+        name,
+        color,
+        columns,
+        categories: projectCategories,
+      }),
+    });
+    if (res.ok) {
+      const json = await res.json();
+      if (json.project) {
+        const current = getStoredProjects(targetId);
+        saveStoredProjects([json.project, ...current.filter((p) => p.id !== json.project.id)], targetId);
+        return json.project;
+      }
+    }
+  } catch (apiErr) {
+    console.warn("createDbProject API route error, falling back to client:", apiErr);
+  }
+
+  // 2. Fallback to Supabase client
+  try {
+    const encryptedName = await encryptText(name);
     const { data, error } = await supabase
       .from("projects")
       .insert([{ user_id: targetId, name: encryptedName, color, columns, categories: projectCategories }])
@@ -113,13 +159,14 @@ export async function createDbProject(
     if (!error && data) {
       const created = await mapDbProjectToModelAsync(data);
       const current = getStoredProjects(targetId);
-      saveStoredProjects([created, ...current], targetId);
+      saveStoredProjects([created, ...current.filter((p) => p.id !== created.id)], targetId);
       return created;
     }
   } catch (err) {
     console.warn("Supabase createDbProject error:", err);
   }
 
+  // 3. Fallback to local
   const nowIso = new Date().toISOString();
   const createdLocal: Project = {
     id: "project-" + Date.now(),
@@ -149,6 +196,29 @@ export async function updateDbProject(
   }
 
   const nowIso = new Date().toISOString();
+  const current = getStoredProjects(targetId);
+  saveStoredProjects(
+    current.map((p) => (p.id === projectId ? { ...p, ...updates, updatedAt: nowIso } : p)),
+    targetId
+  );
+
+  // 1. Try server API route
+  try {
+    const res = await fetch("/api/projects", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: projectId,
+        userId: targetId,
+        ...updates,
+      }),
+    });
+    if (res.ok) return;
+  } catch (apiErr) {
+    console.warn("updateDbProject API route error, falling back to client:", apiErr);
+  }
+
+  // 2. Fallback to Supabase client
   const dbUpdates: any = { ...updates, updated_at: nowIso };
   if (updates.name !== undefined) {
     dbUpdates.name = await encryptText(updates.name);
@@ -162,12 +232,6 @@ export async function updateDbProject(
   } catch (err) {
     console.warn("Supabase updateDbProject error:", err);
   }
-
-  const current = getStoredProjects(targetId);
-  saveStoredProjects(
-    current.map((p) => (p.id === projectId ? { ...p, ...updates, updatedAt: nowIso } : p)),
-    targetId
-  );
 }
 
 export async function deleteDbProject(projectId: string, userId?: string): Promise<void> {
@@ -178,12 +242,25 @@ export async function deleteDbProject(projectId: string, userId?: string): Promi
     targetId = session?.user?.id || getEffectiveUserId();
   }
 
+  const current = getStoredProjects(targetId);
+  saveStoredProjects(current.filter((p) => p.id !== projectId), targetId);
+
+  const finalUserId = targetId || "";
+
+  // 1. Try server API route
+  try {
+    const res = await fetch(`/api/projects?id=${encodeURIComponent(projectId)}&userId=${encodeURIComponent(finalUserId)}`, {
+      method: "DELETE",
+    });
+    if (res.ok) return;
+  } catch (apiErr) {
+    console.warn("deleteDbProject API route error, falling back to client:", apiErr);
+  }
+
+  // 2. Fallback to Supabase client
   try {
     await supabase.from("projects").delete().eq("id", projectId);
   } catch (err) {
     console.warn("Supabase deleteDbProject error:", err);
   }
-
-  const current = getStoredProjects(targetId);
-  saveStoredProjects(current.filter((p) => p.id !== projectId), targetId);
 }
