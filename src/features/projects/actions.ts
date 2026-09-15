@@ -30,12 +30,16 @@ export async function mapDbProjectToModelAsync(row: any): Promise<Project> {
 }
 
 export function getStoredProjects(userId?: string): Project[] {
-  const targetId = getEffectiveUserId(userId);
   if (typeof window === "undefined") return [];
-
+  const targetId = getEffectiveUserId(userId);
   const key = PROJECTS_STORAGE_PREFIX + targetId;
-  const stored = localStorage.getItem(key);
+
+  let stored = localStorage.getItem(key);
+  if (!stored) {
+    stored = localStorage.getItem("mytrack_cached_projects") || localStorage.getItem(PROJECTS_STORAGE_PREFIX);
+  }
   if (!stored) return [];
+
   try {
     const parsed = JSON.parse(stored);
     if (Array.isArray(parsed)) {
@@ -50,7 +54,9 @@ export function getStoredProjects(userId?: string): Project[] {
 export function saveStoredProjects(projects: Project[], userId?: string): void {
   if (typeof window === "undefined") return;
   const targetId = getEffectiveUserId(userId);
-  localStorage.setItem(PROJECTS_STORAGE_PREFIX + targetId, JSON.stringify(projects));
+  const serialized = JSON.stringify(projects.filter((p) => !p.id.startsWith("00000000-0000-0000-0000-")));
+  localStorage.setItem(PROJECTS_STORAGE_PREFIX + targetId, serialized);
+  localStorage.setItem("mytrack_cached_projects", serialized);
 }
 
 export async function fetchProjects(userId?: string): Promise<Project[]> {

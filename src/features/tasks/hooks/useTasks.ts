@@ -126,6 +126,10 @@ export function useTasks(selectedDateStr: string) {
   } = useQuery({
     queryKey: ["tasks", userId],
     queryFn: async () => fetchTasks(userId),
+    initialData: () => {
+      const stored = getStoredTasks(userId);
+      return stored.length > 0 ? stored : undefined;
+    },
     placeholderData: () => getStoredTasks(userId),
     enabled: Boolean(userId),
     staleTime: 0,
@@ -141,6 +145,10 @@ export function useTasks(selectedDateStr: string) {
   } = useQuery({
     queryKey: ["completions", userId],
     queryFn: async () => fetchCompletions(userId),
+    initialData: () => {
+      const stored = getStoredCompletions(userId);
+      return stored.length > 0 ? stored : undefined;
+    },
     placeholderData: () => getStoredCompletions(userId),
     enabled: Boolean(userId),
     staleTime: 0,

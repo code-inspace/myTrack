@@ -16,6 +16,10 @@ export function useProjects() {
   } = useQuery({
     queryKey: ["projects", userId],
     queryFn: async () => fetchProjects(userId),
+    initialData: () => {
+      const stored = getStoredProjects(userId);
+      return stored.length > 0 ? stored : undefined;
+    },
     placeholderData: () => getStoredProjects(userId),
     enabled: Boolean(userId),
     staleTime: 0,

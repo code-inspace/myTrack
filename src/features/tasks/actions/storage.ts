@@ -13,12 +13,18 @@ function safeParseJson<T>(raw: string | null, fallback: T): T {
 }
 
 export function getStoredTasks(userId?: string): Task[] {
-  const targetId = getEffectiveUserId(userId);
   if (typeof window === "undefined") return [];
+  const targetId = getEffectiveUserId(userId);
   const key = TASKS_STORAGE_PREFIX + targetId;
 
-  const stored = localStorage.getItem(key);
-  const parsed = safeParseJson<Task[]>(stored, []);
+  let parsed = safeParseJson<Task[]>(localStorage.getItem(key), []);
+  if (parsed.length === 0) {
+    const fallback = localStorage.getItem("mytrack_cached_tasks") || localStorage.getItem(TASKS_STORAGE_PREFIX);
+    if (fallback) {
+      parsed = safeParseJson<Task[]>(fallback, []);
+    }
+  }
+
   return parsed.filter((t) => !t.id.startsWith("00000000-0000-0000-0000-"));
 }
 
@@ -27,16 +33,24 @@ export function saveStoredTasks(tasks: Task[], userId?: string): void {
   const targetId = getEffectiveUserId(userId);
   const key = TASKS_STORAGE_PREFIX + targetId;
   const cleanTasks = tasks.filter((t) => !t.id.startsWith("00000000-0000-0000-0000-"));
-  localStorage.setItem(key, JSON.stringify(cleanTasks));
+  const serialized = JSON.stringify(cleanTasks);
+  localStorage.setItem(key, serialized);
+  localStorage.setItem("mytrack_cached_tasks", serialized);
 }
 
 export function getStoredCompletions(userId?: string): TaskCompletion[] {
-  const targetId = getEffectiveUserId(userId);
   if (typeof window === "undefined") return [];
+  const targetId = getEffectiveUserId(userId);
   const key = COMPLETIONS_STORAGE_PREFIX + targetId;
 
-  const stored = localStorage.getItem(key);
-  const parsed = safeParseJson<TaskCompletion[]>(stored, []);
+  let parsed = safeParseJson<TaskCompletion[]>(localStorage.getItem(key), []);
+  if (parsed.length === 0) {
+    const fallback = localStorage.getItem("mytrack_cached_completions") || localStorage.getItem(COMPLETIONS_STORAGE_PREFIX);
+    if (fallback) {
+      parsed = safeParseJson<TaskCompletion[]>(fallback, []);
+    }
+  }
+
   return parsed.filter((c) => !c.taskId?.startsWith("00000000-0000-0000-0000-"));
 }
 
@@ -45,5 +59,7 @@ export function saveStoredCompletions(completions: TaskCompletion[], userId?: st
   const targetId = getEffectiveUserId(userId);
   const key = COMPLETIONS_STORAGE_PREFIX + targetId;
   const cleanComps = completions.filter((c) => !c.taskId?.startsWith("00000000-0000-0000-0000-"));
-  localStorage.setItem(key, JSON.stringify(cleanComps));
+  const serialized = JSON.stringify(cleanComps);
+  localStorage.setItem(key, serialized);
+  localStorage.setItem("mytrack_cached_completions", serialized);
 }
