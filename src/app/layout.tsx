@@ -64,7 +64,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#000000",
+  themeColor: "#111214",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -81,8 +81,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="fr" className="dark bg-black">
-      <body className="bg-black text-[#F3F4F6] h-screen max-h-screen min-h-screen antialiased flex flex-row items-stretch overflow-hidden w-full">
+    <html lang="fr" className="dark">
+      <body className="bg-[#0E0F12] text-[#F3F4F6] h-screen max-h-screen min-h-screen antialiased flex flex-row items-stretch overflow-hidden w-full">
         <QueryProvider>
           <AuthProvider>
             <OfflineProvider>
@@ -97,7 +97,7 @@ export default function RootLayout({
                             <DesktopSidebar />
 
                             {/* Main App Container: full width on mobile, flex-1 on desktop */}
-                            <main className="flex-1 min-w-0 w-full h-[100dvh] max-h-[100dvh] flex flex-col safe-top relative overflow-hidden bg-black">
+                            <main className="flex-1 min-w-0 w-full h-[100dvh] max-h-[100dvh] flex flex-col safe-top relative overflow-hidden">
                               {children}
                             </main>
 
