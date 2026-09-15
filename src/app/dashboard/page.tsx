@@ -104,7 +104,15 @@ export default function DashboardPage() {
         );
 
       case "PROJECT_STATS":
-        return <DashboardProjectStatsWidget key="PROJECT_STATS" tasks={allTasks} />;
+        return (
+          <DashboardProjectStatsWidget
+            key="PROJECT_STATS"
+            tasks={allTasks}
+            completions={allCompletions}
+            period={period}
+            referenceDate={referenceDate}
+          />
+        );
 
       case "SLEEP_WAVE":
         return (
