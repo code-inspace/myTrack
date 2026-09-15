@@ -220,13 +220,21 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
         // 1. Update Widget / App Group Storage if startedAtTimestamp is provided
         if let rawTs = rawTimestamp {
             let startedAtTimestamp = rawTs > 10000000000 ? rawTs / 1000.0 : rawTs
-            if var activeTaskDict = getSharedDefaults()?.dictionary(forKey: "active_task") {
+            let suite = UserDefaults(suiteName: "group.com.mytrack.app") ?? UserDefaults.standard
+            if let rawJson = suite.string(forKey: "mytrack_active_task"),
+               let data = rawJson.data(using: .utf8),
+               var activeTaskDict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
                 activeTaskDict["startedAtTimestamp"] = startedAtTimestamp
                 if let sub = subtitle {
                     activeTaskDict["subtitle"] = sub
                 }
-                getSharedDefaults()?.set(activeTaskDict, forKey: "active_task")
-                getSharedDefaults()?.synchronize()
+                if let activeData = try? JSONSerialization.data(withJSONObject: activeTaskDict),
+                   let activeJsonString = String(data: activeData, encoding: .utf8) {
+                    suite.set(activeJsonString, forKey: "mytrack_active_task")
+                    UserDefaults.standard.set(activeJsonString, forKey: "mytrack_active_task")
+                    let tempUrl = URL(fileURLWithPath: "/tmp/mytrack_active_task.json")
+                    try? activeData.write(to: tempUrl)
+                }
                 if #available(iOS 14.0, macOS 11.0, *) {
                     WidgetCenter.shared.reloadAllTimelines()
                 }
