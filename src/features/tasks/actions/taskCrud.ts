@@ -325,7 +325,18 @@ export async function updateDbTask(
       return updated;
     }
   } catch (err) {
-    console.warn("Supabase updateDbTask error:", err);
+    console.warn("Supabase client updateDbTask error, attempting /api/tasks PATCH fallback:", err);
+  }
+
+  // Server Admin API fallback for reliable persistence
+  try {
+    await fetch("/api/tasks", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ taskId, updates, userId: targetId }),
+    });
+  } catch (apiErr) {
+    console.warn("API updateDbTask PATCH error:", apiErr);
   }
 
   // Local fallback

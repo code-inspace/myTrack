@@ -150,11 +150,27 @@ export function useTaskMutations() {
           return {
             ...t,
             ...values,
+            projectId: values.projectId !== undefined ? values.projectId || null : t.projectId,
+            projectStatus:
+              values.projectId !== undefined
+                ? values.projectId
+                  ? values.projectStatus || t.projectStatus || "TODO"
+                  : null
+                : values.projectStatus !== undefined
+                ? values.projectStatus || null
+                : t.projectStatus,
+            projectCategory:
+              values.projectCategory !== undefined
+                ? values.projectCategory || null
+                : t.projectCategory,
             ...(values.date ? { createdAt: `${values.date}T12:00:00.000Z` } : {}),
             dateOverrides: {
               ...(t.dateOverrides || {}),
               ...(values.enableReminders !== undefined
                 ? { _enableReminders: values.enableReminders }
+                : {}),
+              ...(values.projectCategory !== undefined
+                ? { _projectCategory: values.projectCategory || null }
                 : {}),
             },
           };

@@ -178,32 +178,140 @@ export async function PATCH(req: NextRequest) {
       updated_at: new Date().toISOString(),
     };
 
+    const isValidUuid = (id?: string | null) =>
+      Boolean(id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id));
+
     if (updates.isActive !== undefined) {
-      dbPayload.is_active = updates.isActive;
+      dbPayload.is_active = Boolean(updates.isActive);
+    } else if (updates.is_active !== undefined) {
+      dbPayload.is_active = Boolean(updates.is_active);
     }
+
     if (updates.startedAt !== undefined) {
       dbPayload.started_at = updates.startedAt;
+    } else if (updates.started_at !== undefined) {
+      dbPayload.started_at = updates.started_at;
     }
+
     if (updates.startTime !== undefined) {
       dbPayload.start_time = updates.startTime;
     } else if (updates.start_time !== undefined) {
       dbPayload.start_time = updates.start_time;
     }
+
     if (updates.endTime !== undefined) {
       dbPayload.end_time = updates.endTime;
     } else if (updates.end_time !== undefined) {
       dbPayload.end_time = updates.end_time;
     }
+
+    if (updates.deadline !== undefined) {
+      dbPayload.deadline = updates.deadline || null;
+    }
+
+    if (updates.priority !== undefined) {
+      dbPayload.priority = updates.priority || "NORMAL";
+    }
+
+    if (updates.recurrence !== undefined) {
+      dbPayload.recurrence = updates.recurrence;
+    }
+
+    if (updates.recurrenceConfig !== undefined) {
+      dbPayload.recurrence_config = updates.recurrenceConfig;
+    } else if (updates.recurrence_config !== undefined) {
+      dbPayload.recurrence_config = updates.recurrence_config;
+    }
+
+    if (updates.trackingType !== undefined) {
+      dbPayload.tracking_type = updates.trackingType;
+    } else if (updates.tracking_type !== undefined) {
+      dbPayload.tracking_type = updates.tracking_type;
+    }
+
+    if (updates.targetValue !== undefined) {
+      dbPayload.target_value = updates.targetValue !== null ? Number(updates.targetValue) : null;
+    } else if (updates.target_value !== undefined) {
+      dbPayload.target_value = updates.target_value !== null ? Number(updates.target_value) : null;
+    }
+
+    if (updates.unit !== undefined) {
+      dbPayload.unit = updates.unit || null;
+    }
+
+    if (updates.tag !== undefined) {
+      dbPayload.tag = updates.tag;
+      dbPayload.category = updates.tag;
+    } else if (updates.category !== undefined) {
+      dbPayload.tag = updates.category;
+      dbPayload.category = updates.category;
+    }
+
+    if (updates.projectId !== undefined) {
+      dbPayload.project_id = isValidUuid(updates.projectId) ? updates.projectId : null;
+      dbPayload.project_status = updates.projectId
+        ? updates.projectStatus !== undefined
+          ? updates.projectStatus
+          : "TODO"
+        : null;
+      dbPayload.project_category = updates.projectId
+        ? updates.projectCategory !== undefined
+          ? updates.projectCategory
+          : null
+        : null;
+    } else if (updates.project_id !== undefined) {
+      dbPayload.project_id = isValidUuid(updates.project_id) ? updates.project_id : null;
+      if (updates.project_status !== undefined) {
+        dbPayload.project_status = updates.project_status;
+      }
+      if (updates.project_category !== undefined) {
+        dbPayload.project_category = updates.project_category;
+      }
+    } else {
+      if (updates.projectStatus !== undefined) {
+        dbPayload.project_status = updates.projectStatus || null;
+      } else if (updates.project_status !== undefined) {
+        dbPayload.project_status = updates.project_status || null;
+      }
+      if (updates.projectCategory !== undefined) {
+        dbPayload.project_category = updates.projectCategory || null;
+      } else if (updates.project_category !== undefined) {
+        dbPayload.project_category = updates.project_category || null;
+      }
+    }
+
     if (updates.dateOverrides !== undefined) {
       dbPayload.date_overrides = updates.dateOverrides;
     } else if (updates.date_overrides !== undefined) {
       dbPayload.date_overrides = updates.date_overrides;
     }
+
+    if (updates.projectCategory !== undefined || updates.project_category !== undefined) {
+      const cat = updates.projectCategory !== undefined ? updates.projectCategory : updates.project_category;
+      dbPayload.date_overrides = {
+        ...(dbPayload.date_overrides || {}),
+        _projectCategory: cat || null,
+      };
+    }
+
     if (updates.createdAt !== undefined) {
       dbPayload.created_at = updates.createdAt;
     } else if (updates.created_at !== undefined) {
       dbPayload.created_at = updates.created_at;
     }
+
+    if (updates.isArchived !== undefined) {
+      dbPayload.is_archived = Boolean(updates.isArchived);
+    } else if (updates.is_archived !== undefined) {
+      dbPayload.is_archived = Boolean(updates.is_archived);
+    }
+
+    if (updates.sortOrder !== undefined) {
+      dbPayload.sort_order = updates.sortOrder;
+    } else if (updates.sort_order !== undefined) {
+      dbPayload.sort_order = updates.sort_order;
+    }
+
     if (updates.title !== undefined) {
       dbPayload.title = await encryptText(updates.title);
     }
