@@ -62,6 +62,54 @@ export function useTasks(selectedDateStr: string) {
     };
   }, [userId, queryClient]);
 
+  // Two-way synchronization with native iOS Widget & Live Activity
+  useEffect(() => {
+    const syncNativeActiveState = async () => {
+      if (!LiveActivityBridge.isSupported()) return;
+      try {
+        const { hasActiveTask, task: nativeTask, lastStoppedTaskId } =
+          await LiveActivityBridge.getActiveTask();
+        if (hasActiveTask && nativeTask?.taskId) {
+          queryClient.setQueryData<Task[]>(["tasks", userId], (old = []) => {
+            const currentActive = old.find((t) => t.id === nativeTask.taskId);
+            if (!currentActive?.isActive) {
+              return old.map((t) =>
+                t.id === nativeTask.taskId
+                  ? {
+                      ...t,
+                      isActive: true,
+                      startedAt: nativeTask.startedAtTimestamp
+                        ? new Date(nativeTask.startedAtTimestamp * 1000).toISOString()
+                        : new Date().toISOString(),
+                    }
+                  : { ...t, isActive: false },
+              );
+            }
+            return old;
+          });
+        } else if (lastStoppedTaskId) {
+          queryClient.setQueryData<Task[]>(["tasks", userId], (old = []) =>
+            old.map((t) =>
+              t.id === lastStoppedTaskId && t.isActive
+                ? { ...t, isActive: false, startedAt: null }
+                : t,
+            ),
+          );
+        }
+      } catch {}
+    };
+
+    syncNativeActiveState();
+    window.addEventListener("focus", syncNativeActiveState);
+    document.addEventListener("visibilitychange", syncNativeActiveState);
+    window.addEventListener("mytrack:tasks-sync-needed", syncNativeActiveState);
+    return () => {
+      window.removeEventListener("focus", syncNativeActiveState);
+      document.removeEventListener("visibilitychange", syncNativeActiveState);
+      window.removeEventListener("mytrack:tasks-sync-needed", syncNativeActiveState);
+    };
+  }, [userId, queryClient]);
+
   const { data: allTasks = getStoredTasks(userId) } = useQuery({
     queryKey: ["tasks", userId],
     queryFn: async () => fetchTasks(userId),

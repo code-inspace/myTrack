@@ -19,6 +19,7 @@ import { DesktopDatePicker } from "@/features/tasks/components/desktop/DesktopDa
 import { getNightSleepDuration } from "@/features/sleep/actions";
 import { useTasks, useTaskMutations } from "@/features/tasks/hooks";
 import { Task, TaskWithCompletion, TaskFormValues } from "@/features/tasks/types";
+import { mapTaskWithCompletion } from "@/features/tasks/mappers";
 import { getTodayDateString } from "@/lib/dates";
 import { CheckCircle2, Inbox, CalendarDays, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -171,8 +172,10 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
     reorderTasks.mutate(reordered.map((t) => t.id));
   };
 
-  // Active tasks for Habits view (shows all tasks scheduled for the date)
-  const activeTasksMapped = tasks.filter((t) => t.isActive);
+  // Active tasks for Habits view (shows active task banner regardless of selected date filter)
+  const activeTasksMapped = allTasks
+    .filter((t) => t.isActive && !t.isArchived)
+    .map((t) => mapTaskWithCompletion(t, allCompletions, selectedDate));
 
   // Separate all-day tasks vs timed tasks for Agenda view
   const isTaskAllDay = (t: TaskWithCompletion) => {

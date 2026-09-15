@@ -5,9 +5,9 @@ import { isEncrypted, decryptText } from "@/lib/crypto/encryption";
 export const TASKS_STORAGE_PREFIX = "mytrack_tasks_";
 export const COMPLETIONS_STORAGE_PREFIX = "mytrack_completions_";
 
-// Convert Supabase snake_case task row to camelCase Task with local timezone conversion
+// Convert Supabase snake_case or camelCase task row to Task with local timezone conversion
 export function mapDbTaskToModel(row: any): Task {
-  const rawOverrides = row.date_overrides || {};
+  const rawOverrides = row.dateOverrides || row.date_overrides || {};
   const dateOverrides: Record<string, any> = {};
 
   for (const [k, v] of Object.entries(rawOverrides)) {
@@ -22,7 +22,7 @@ export function mapDbTaskToModel(row: any): Task {
     }
   }
 
-  const taskDate = row.created_at ? String(row.created_at).split("T")[0] : undefined;
+  const taskDate = (row.createdAt || row.created_at) ? String(row.createdAt || row.created_at).split("T")[0] : undefined;
 
   return {
     id: row.id,
@@ -31,44 +31,50 @@ export function mapDbTaskToModel(row: any): Task {
     description: row.description || null,
     tag: row.tag || row.category || rawOverrides._tag || "General",
     category: row.tag || row.category || rawOverrides._tag || "General",
-    startTime: row.start_time
-      ? convertUtcTimeToLocal(row.start_time, taskDate)
-      : row.startTime
+    startTime: row.startTime
       ? convertUtcTimeToLocal(row.startTime, taskDate)
+      : row.start_time
+      ? convertUtcTimeToLocal(row.start_time, taskDate)
       : null,
-    endTime: row.end_time
-      ? convertUtcTimeToLocal(row.end_time, taskDate)
-      : row.endTime
+    endTime: row.endTime
       ? convertUtcTimeToLocal(row.endTime, taskDate)
+      : row.end_time
+      ? convertUtcTimeToLocal(row.end_time, taskDate)
       : null,
     deadline: row.deadline || null,
     priority: row.priority || "NORMAL",
-    recurrence: row.recurrence,
-    recurrenceConfig: row.recurrence_config || null,
+    recurrence: row.recurrence || "ONCE",
+    recurrenceConfig: row.recurrenceConfig || row.recurrence_config || null,
     dateOverrides,
-    trackingType: row.tracking_type,
-    targetValue: row.target_value !== null && row.target_value !== undefined ? parseFloat(row.target_value) : null,
+    trackingType: row.trackingType || row.tracking_type || "BOOLEAN",
+    targetValue: row.targetValue !== undefined && row.targetValue !== null
+      ? parseFloat(row.targetValue)
+      : (row.target_value !== null && row.target_value !== undefined ? parseFloat(row.target_value) : null),
     unit: row.unit || null,
     enableReminders:
-      row.enable_reminders !== undefined && row.enable_reminders !== null
+      row.enableReminders !== undefined && row.enableReminders !== null
+        ? Boolean(row.enableReminders)
+        : row.enable_reminders !== undefined && row.enable_reminders !== null
         ? Boolean(row.enable_reminders)
         : rawOverrides._enableReminders !== undefined
         ? Boolean(rawOverrides._enableReminders)
         : true,
     reminderOffsetMinutes:
-      row.reminder_offset_minutes !== undefined && row.reminder_offset_minutes !== null
+      row.reminderOffsetMinutes !== undefined && row.reminderOffsetMinutes !== null
+        ? row.reminderOffsetMinutes
+        : row.reminder_offset_minutes !== undefined && row.reminder_offset_minutes !== null
         ? row.reminder_offset_minutes
         : (rawOverrides._reminderOffsetMinutes ?? 10),
-    reminderTimes: row.reminder_times || rawOverrides._reminderTimes || ["11:00", "18:00"],
-    isActive: Boolean(row.is_active),
-    startedAt: row.started_at || null,
-    isArchived: Boolean(row.is_archived),
-    sortOrder: row.sort_order !== undefined && row.sort_order !== null ? row.sort_order : null,
-    projectId: row.project_id || null,
-    projectStatus: row.project_status || null,
-    projectCategory: row.project_category || rawOverrides._projectCategory || null,
-    createdAt: row.created_at || new Date().toISOString(),
-    updatedAt: row.updated_at || new Date().toISOString(),
+    reminderTimes: row.reminderTimes || row.reminder_times || rawOverrides._reminderTimes || ["11:00", "18:00"],
+    isActive: row.isActive !== undefined ? Boolean(row.isActive) : Boolean(row.is_active),
+    startedAt: row.startedAt || row.started_at || null,
+    isArchived: row.isArchived !== undefined ? Boolean(row.isArchived) : Boolean(row.is_archived),
+    sortOrder: row.sortOrder !== undefined ? row.sortOrder : (row.sort_order !== undefined && row.sort_order !== null ? row.sort_order : null),
+    projectId: row.projectId || row.project_id || null,
+    projectStatus: row.projectStatus || row.project_status || null,
+    projectCategory: row.projectCategory || row.project_category || rawOverrides._projectCategory || null,
+    createdAt: row.createdAt || row.created_at || new Date().toISOString(),
+    updatedAt: row.updatedAt || row.updated_at || new Date().toISOString(),
   };
 }
 
@@ -100,34 +106,34 @@ export async function decryptTaskModel(task: Task): Promise<Task> {
 export function mapDbCompletionToModel(row: any): TaskCompletion {
   return {
     id: row.id,
-    taskId: row.task_id || row.taskId,
-    userId: row.user_id || row.userId,
+    taskId: row.taskId || row.task_id,
+    userId: row.userId || row.user_id,
     date: row.date,
     completed: Boolean(row.completed),
     value: row.value !== null && row.value !== undefined ? parseFloat(row.value) : null,
     duration: row.duration || null,
     notes: row.notes || null,
-    scheduledStartTime: row.scheduled_start_time
-      ? convertUtcTimeToLocal(row.scheduled_start_time, row.date)
-      : row.scheduledStartTime
+    scheduledStartTime: row.scheduledStartTime
       ? convertUtcTimeToLocal(row.scheduledStartTime, row.date)
+      : row.scheduled_start_time
+      ? convertUtcTimeToLocal(row.scheduled_start_time, row.date)
       : null,
-    scheduledEndTime: row.scheduled_end_time
-      ? convertUtcTimeToLocal(row.scheduled_end_time, row.date)
-      : row.scheduledEndTime
+    scheduledEndTime: row.scheduledEndTime
       ? convertUtcTimeToLocal(row.scheduledEndTime, row.date)
+      : row.scheduled_end_time
+      ? convertUtcTimeToLocal(row.scheduled_end_time, row.date)
       : null,
-    actualStartTime: row.actual_start_time
-      ? convertUtcTimeToLocal(row.actual_start_time, row.date)
-      : row.actualStartTime
+    actualStartTime: row.actualStartTime
       ? convertUtcTimeToLocal(row.actualStartTime, row.date)
+      : row.actual_start_time
+      ? convertUtcTimeToLocal(row.actual_start_time, row.date)
       : null,
-    actualEndTime: row.actual_end_time
-      ? convertUtcTimeToLocal(row.actual_end_time, row.date)
-      : row.actualEndTime
+    actualEndTime: row.actualEndTime
       ? convertUtcTimeToLocal(row.actualEndTime, row.date)
+      : row.actual_end_time
+      ? convertUtcTimeToLocal(row.actual_end_time, row.date)
       : null,
-    createdAt: row.created_at || row.createdAt || new Date().toISOString(),
-    updatedAt: row.updated_at || row.updatedAt || new Date().toISOString(),
+    createdAt: row.createdAt || row.created_at || new Date().toISOString(),
+    updatedAt: row.updatedAt || row.updated_at || new Date().toISOString(),
   };
 }
