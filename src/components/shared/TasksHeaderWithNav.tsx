@@ -63,24 +63,10 @@ export const TasksHeaderWithNav: React.FC<TasksHeaderWithNavProps> = ({
 
   return (
     <div className="sticky top-0 z-40 w-full bg-[#111214] border-b border-[#23242A] select-none shadow-md md:hidden">
-      {/* 1. App Header with Profile Icon Top Right */}
+      {/* 1. App Header (Clean centered title, no extra header buttons) */}
       <AppHeader
         title={title}
         isSyncing={isSyncing}
-        leftAction={
-          displayMode === "modern"
-            ? { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" }
-            : undefined
-        }
-        rightAction={
-          displayMode === "modern" && user
-            ? {
-                href: "/profile",
-                initial: (user?.name?.[0] || user?.email?.[0] || "A").toUpperCase(),
-                label: "Mon profil",
-              }
-            : undefined
-        }
       />
 
       {/* 2. Horizontal Date Picker Day Strip (always visible on Tasks/Agenda/Projects) */}

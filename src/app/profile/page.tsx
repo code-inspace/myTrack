@@ -26,6 +26,7 @@ import { CalendarSubscriptionsModal } from "@/features/calendar/components/Calen
 import { useOffline } from "@/providers/OfflineProvider";
 import { User, Flame, Trophy, Award, RotateCcw, ShieldCheck, LogOut, Sparkles, UserPlus, Bell, ChevronRight, LayoutPanelTop, PanelsTopLeft, Check, Moon, Calendar, Wifi, WifiOff, Zap } from "lucide-react";
 import Link from "next/link";
+import { AppHeader } from "@/components/shared/AppHeader";
 
 const DISPLAY_MODE_OPTIONS: Array<{
   id: DisplayMode;
@@ -119,8 +120,15 @@ export default function ProfilePage() {
 
   return (
     <div className="flex-1 flex flex-col overflow-y-auto pb-28 md:pb-10 space-y-4 max-w-md md:max-w-5xl mx-auto w-full px-4 md:px-8 pt-2 md:pt-6">
-      {/* Profile Header */}
-      <header className="w-full text-center md:text-left py-1 pb-3">
+      {/* Mobile Sticky Header conforming to the other pages */}
+      <div className="sticky top-0 z-40 w-full bg-[#111214] border-b border-[#23242A] select-none shadow-md md:hidden -mx-4 px-4 -mt-2">
+        <AppHeader
+          title="Mon Profil"
+        />
+      </div>
+
+      {/* Desktop Header */}
+      <header className="hidden md:block w-full text-left py-1 pb-2 select-none flex-shrink-0">
         <h1 className="text-2xl lg:text-3xl font-extrabold text-white tracking-tight">
           Mon Profil
         </h1>

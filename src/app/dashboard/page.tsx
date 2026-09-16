@@ -208,24 +208,10 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Mobile Title Header */}
-      <div className="md:hidden">
+      {/* Mobile Sticky Header conforming to the other pages */}
+      <div className="sticky top-0 z-40 w-full bg-[#111214] border-b border-[#23242A] select-none shadow-md md:hidden -mx-4 px-4 -mt-2">
         <AppHeader
           title="Dashboard"
-          leftAction={{
-            onClick: () => setIsConfigModalOpen(true),
-            icon: Sliders,
-            label: "Personnaliser le dashboard",
-          }}
-          rightAction={
-            displayMode === "modern" && user
-              ? {
-                  href: "/profile",
-                  initial: (user?.name?.[0] || user?.email?.[0] || "A").toUpperCase(),
-                  label: "Profil",
-                }
-              : undefined
-          }
         />
       </div>
 
