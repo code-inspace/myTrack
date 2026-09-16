@@ -2,13 +2,13 @@
  * Calculates snapped duration and resulting start / end times for task resizing.
  * - 1px = 1 minute
  * - Snaps to 5-minute intervals
- * - Minimum duration: 10 minutes
+ * - Minimum duration: 1 minute (or minDurationMins)
  * - Maximum end time: 23:55 (1435 minutes)
  */
 export function calculateResizedDuration(
   initialDurationMins: number,
   deltaYPixels: number,
-  minDurationMins: number = 10
+  minDurationMins: number = 5
 ): number {
   const rawHeight = initialDurationMins + deltaYPixels;
   const snapped = Math.round(rawHeight / 5) * 5;
@@ -31,10 +31,27 @@ export function parseTimeToMinutes(timeStr?: string | null): number {
 export function calculateResizedEndMinutes(
   startMins: number,
   initialDurationMins: number,
-  deltaYPixels: number
+  deltaYPixels: number,
+  minDurationMins: number = 5
 ): { duration: number; endMins: number; endTimeStr: string } {
-  const duration = calculateResizedDuration(initialDurationMins, deltaYPixels);
+  const duration = calculateResizedDuration(initialDurationMins, deltaYPixels, minDurationMins);
   const endMins = Math.min(23 * 60 + 55, startMins + duration);
   const endTimeStr = formatMinutesToTime(endMins);
   return { duration, endMins, endTimeStr };
 }
+
+export function calculateTopResizedStartMinutes(
+  initialStartMins: number,
+  fixedEndMins: number,
+  deltaYPixels: number,
+  minDurationMins: number = 5
+): { startMins: number; startTimeStr: string; duration: number } {
+  const rawStart = initialStartMins + deltaYPixels;
+  const snappedStart = Math.round(rawStart / 5) * 5;
+  const maxStart = fixedEndMins - minDurationMins;
+  const startMins = Math.max(0, Math.min(maxStart, snappedStart));
+  const startTimeStr = formatMinutesToTime(startMins);
+  const duration = fixedEndMins - startMins;
+  return { startMins, startTimeStr, duration };
+}
+

@@ -64,7 +64,9 @@ import {
   formatMinutesToTime,
   calculateResizedDuration,
   calculateResizedEndMinutes,
+  calculateTopResizedStartMinutes,
 } from "../lib/resize";
+import { AgendaTaskDetailModal } from "./AgendaTaskDetailModal";
 
 const HOUR_ROW_HEIGHT = 60; // 60px per hour -> 1px per minute
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
@@ -136,6 +138,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
   const [isAllDayExpanded, setIsAllDayExpanded] = useState(false);
   const [isCalendarModalOpen, setIsCalendarModalOpen] = useState(false);
   const [selectedExternalEvent, setSelectedExternalEvent] = useState<ExternalCalendarEvent | null>(null);
+  const [selectedTaskForDetail, setSelectedTaskForDetail] = useState<TaskWithCompletion | null>(null);
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [dragHoverInfo, setDragHoverInfo] = useState<{ date: string; minute: number } | null>(null);
@@ -143,7 +146,11 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
   const [resizingState, setResizingState] = useState<{
     taskId: string;
     date: string;
-    startMins: number;
+    edge: "top" | "bottom";
+    initialStartMins: number;
+    initialEndMins: number;
+    currentStartMins: number;
+    currentEndMins: number;
     currentHeight: number;
   } | null>(null);
 
@@ -318,10 +325,10 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
     if (startTimeStr && endTimeStr) {
       const s = parseTimeToMinutes(startTimeStr);
       const end = parseTimeToMinutes(endTimeStr);
-      durationMins = Math.max(15, end - s);
+      durationMins = Math.max(1, end - s);
     }
 
-    const snappedEndMins = snappedStartMins + durationMins;
+    const snappedEndMins = Math.min(23 * 60 + 55, snappedStartMins + durationMins);
 
     onMoveTaskToTime(
       taskId,
@@ -331,14 +338,21 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
     );
   };
 
-  // Interactive Duration Resize Pointer Handler (5-min precision with iOS & mobile touch capture)
-  const handleStartResize = (e: React.PointerEvent, task: TaskWithCompletion, dayDate: string) => {
+  // Interactive Duration Resize Pointer Handler (Supports both Top handle for start time and Bottom handle for end time)
+  const handleStartResize = (
+    e: React.PointerEvent,
+    task: TaskWithCompletion,
+    edge: "top" | "bottom",
+    dayDate: string
+  ) => {
     e.preventDefault();
     e.stopPropagation();
 
     const startMins = parseTimeToMinutes(task.effectiveStartTime || task.startTime || "09:00");
     const endMins = parseTimeToMinutes(task.effectiveEndTime || task.endTime || "10:00");
-    const initialDuration = Math.max(15, endMins - startMins);
+    const initialStartMins = startMins;
+    const initialEndMins = endMins;
+    const initialDuration = Math.max(1, endMins - startMins);
 
     const startY = e.clientY;
     const pointerId = e.pointerId;
@@ -347,16 +361,59 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
     try {
       targetElement.setPointerCapture(pointerId);
     } catch {
-      // Ignore if pointer capture fails on certain virtual environments
+      // Ignore if pointer capture fails on certain environments
     }
 
-    setResizingState({ taskId: task.id, date: dayDate, startMins, currentHeight: initialDuration });
+    setResizingState({
+      taskId: task.id,
+      date: dayDate,
+      edge,
+      initialStartMins,
+      initialEndMins,
+      currentStartMins: startMins,
+      currentEndMins: endMins,
+      currentHeight: initialDuration,
+    });
 
     const handlePointerMove = (moveEvent: PointerEvent) => {
       moveEvent.preventDefault();
       const deltaY = moveEvent.clientY - startY;
-      const snappedDuration = calculateResizedDuration(initialDuration, deltaY);
-      setResizingState({ taskId: task.id, date: dayDate, startMins, currentHeight: snappedDuration });
+
+      if (edge === "top") {
+        const { startMins: newStart, duration } = calculateTopResizedStartMinutes(
+          initialStartMins,
+          initialEndMins,
+          deltaY,
+          1
+        );
+        setResizingState({
+          taskId: task.id,
+          date: dayDate,
+          edge: "top",
+          initialStartMins,
+          initialEndMins,
+          currentStartMins: newStart,
+          currentEndMins: initialEndMins,
+          currentHeight: duration,
+        });
+      } else {
+        const { endMins: newEnd, duration } = calculateResizedEndMinutes(
+          initialStartMins,
+          initialDuration,
+          deltaY,
+          1
+        );
+        setResizingState({
+          taskId: task.id,
+          date: dayDate,
+          edge: "bottom",
+          initialStartMins,
+          initialEndMins,
+          currentStartMins: initialStartMins,
+          currentEndMins: newEnd,
+          currentHeight: duration,
+        });
+      }
     };
 
     const handlePointerUp = (upEvent: PointerEvent) => {
@@ -369,12 +426,31 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
       window.removeEventListener("pointercancel", handlePointerUp);
 
       const deltaY = upEvent.clientY - startY;
-      const { endTimeStr } = calculateResizedEndMinutes(startMins, initialDuration, deltaY);
+      let finalStartMins = initialStartMins;
+      let finalEndMins = initialEndMins;
+
+      if (edge === "top") {
+        const { startMins: newStart } = calculateTopResizedStartMinutes(
+          initialStartMins,
+          initialEndMins,
+          deltaY,
+          1
+        );
+        finalStartMins = newStart;
+      } else {
+        const { endMins: newEnd } = calculateResizedEndMinutes(
+          initialStartMins,
+          initialDuration,
+          deltaY,
+          1
+        );
+        finalEndMins = newEnd;
+      }
 
       onMoveTaskToTime(
         task.id,
-        formatMinutesToTime(startMins),
-        endTimeStr,
+        formatMinutesToTime(finalStartMins),
+        formatMinutesToTime(finalEndMins),
         dayDate
       );
 
@@ -388,11 +464,10 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
 
   const handleBackgroundClick = () => {
     if (resizingState) {
-      const finalEndMins = resizingState.startMins + resizingState.currentHeight;
       onMoveTaskToTime(
         resizingState.taskId,
-        formatMinutesToTime(resizingState.startMins),
-        formatMinutesToTime(finalEndMins),
+        formatMinutesToTime(resizingState.currentStartMins),
+        formatMinutesToTime(resizingState.currentEndMins),
         resizingState.date
       );
       setResizingState(null);
@@ -793,8 +868,11 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
                   onEditTask={onEditTask}
                   onDragStartTask={onDragStartTask}
                   onSelectTask={(t) => {
-                    setSelectedTaskId(t.id);
+                    setSelectedTaskForDetail(t);
                     onSelectTask?.(t);
+                  }}
+                  onSelectForResize={(t) => {
+                    setSelectedTaskId(t.id);
                   }}
                   onSelectExternalEvent={(ext) => setSelectedExternalEvent(ext)}
                   onSelectSleepSession={(session) => {
@@ -832,6 +910,23 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
         onClose={() => setSelectedExternalEvent(null)}
       />
 
+      {/* Task Details & Edit Modal (Apple Calendar style) */}
+      <AgendaTaskDetailModal
+        task={selectedTaskForDetail}
+        isOpen={Boolean(selectedTaskForDetail)}
+        selectedDate={selectedDate}
+        onClose={() => setSelectedTaskForDetail(null)}
+        onToggleComplete={onToggleComplete}
+        onToggleReminder={onToggleReminder}
+        onEditTask={(t) => {
+          setSelectedTaskForDetail(null);
+          onEditTask?.(t);
+        }}
+        onUpdateTimes={(taskId, start, end, date) => {
+          onMoveTaskToTime(taskId, start, end, date);
+        }}
+      />
+
       {/* Sleep Session Edit Modal (Dodo & Siestes) */}
       <SleepEditModal
         isOpen={isSleepModalOpen}
@@ -856,7 +951,13 @@ interface DayGridColumnProps {
   currentTimeMinutes: number;
   dragHoverMinute: number | null;
   selectedTaskId: string | null;
-  resizingState: { taskId: string; startMins: number; currentHeight: number } | null;
+  resizingState: {
+    taskId: string;
+    edge: "top" | "bottom";
+    currentStartMins: number;
+    currentEndMins: number;
+    currentHeight: number;
+  } | null;
   onGridDragOver: (e: React.DragEvent, dayDate: string, el: HTMLDivElement) => void;
   onGridDragLeave: () => void;
   onGridDrop: (e: React.DragEvent, dayDate: string, el: HTMLDivElement) => void;
@@ -865,9 +966,10 @@ interface DayGridColumnProps {
   onEditTask?: (task: TaskWithCompletion) => void;
   onDragStartTask: (e: React.DragEvent, task: TaskWithCompletion) => void;
   onSelectTask?: (task: TaskWithCompletion) => void;
+  onSelectForResize?: (task: TaskWithCompletion) => void;
   onSelectExternalEvent?: (event: ExternalCalendarEvent) => void;
   onSelectSleepSession?: (session: SleepSessionData) => void;
-  onStartResize: (e: React.PointerEvent, task: TaskWithCompletion, dayDate: string) => void;
+  onStartResize: (e: React.PointerEvent, task: TaskWithCompletion, edge: "top" | "bottom", dayDate: string) => void;
   sleepSyncVersion?: number;
 }
 
@@ -960,29 +1062,30 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
           totalColumns: number;
         }
 
-        // 1. Map MyTrack tasks
+        // 1. Map MyTrack tasks - Exact real proportional height matching Apple Calendar
         const taskItems: TimedLayoutItem[] = tasks
           .map((task) => {
             const startTimeStr = task.effectiveStartTime !== undefined ? task.effectiveStartTime : task.startTime;
             if (!startTimeStr) return null;
 
-            const startMins = parseTimeToMinutes(startTimeStr);
+            const isCurrentlyResizing = resizingState?.taskId === task.id;
+            const startMins = isCurrentlyResizing
+              ? resizingState.currentStartMins
+              : parseTimeToMinutes(startTimeStr);
+
             const endTimeStr = task.effectiveEndTime !== undefined ? task.effectiveEndTime : task.endTime;
             const isRunningNow = isToday && Boolean(task.isActive);
 
-            const endMins = isRunningNow
-              ? Math.max(startMins + 10, currentTimeMinutes)
+            const endMins = isCurrentlyResizing
+              ? resizingState.currentEndMins
+              : isRunningNow
+              ? Math.max(startMins + 5, currentTimeMinutes)
               : endTimeStr
               ? parseTimeToMinutes(endTimeStr)
               : startMins + 60;
 
-            const defaultDuration = Math.max(
-              20,
-              isRunningNow ? currentTimeMinutes - startMins : endMins - startMins
-            );
-            const stableHeight = Math.max(24, defaultDuration);
-            const isCurrentlyResizing = resizingState?.taskId === task.id;
-            const activeHeight = isCurrentlyResizing ? resizingState.currentHeight : stableHeight;
+            const duration = Math.max(1, endMins - startMins);
+            const activeHeight = isCurrentlyResizing ? resizingState.currentHeight : duration;
 
             const displayTask: TaskWithCompletion = isRunningNow
               ? {
@@ -996,7 +1099,7 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
               task: displayTask,
               id: `task-${task.id}`,
               startMins,
-              layoutEndMins: startMins + stableHeight,
+              layoutEndMins: startMins + activeHeight,
               height: activeHeight,
               column: 0,
               totalColumns: 1,
@@ -1010,7 +1113,7 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
             if (!ext.startTime) return null;
             const startMins = parseTimeToMinutes(ext.startTime);
             const endMins = ext.endTime ? parseTimeToMinutes(ext.endTime) : startMins + 60;
-            const duration = Math.max(20, endMins - startMins);
+            const duration = Math.max(1, endMins - startMins);
 
             return {
               type: "external" as const,
@@ -1051,7 +1154,7 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
                 startMins = bedMins;
               }
 
-              const duration = Math.max(20, wakeMins - startMins);
+              const duration = Math.max(15, wakeMins - startMins);
               const subLabel = durationText
                 ? `${durationText} • Réveil ${todayLog.wakeTime}`
                 : `Réveil ${todayLog.wakeTime}`;
@@ -1110,7 +1213,7 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
                 id: `sleep-evening-${dayDate}`,
                 startMins: bedMins,
                 layoutEndMins: 1440,
-                height: Math.max(20, duration),
+                height: Math.max(15, duration),
                 column: 0,
                 totalColumns: 1,
               });
@@ -1129,7 +1232,7 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
 
                 const startMins = parseTimeToMinutes(nap.startTime);
                 const endMins = nap.endTime ? parseTimeToMinutes(nap.endTime) : startMins + 45;
-                const duration = Math.max(20, endMins - startMins);
+                const duration = Math.max(15, endMins - startMins);
                 sleepItems.push({
                   type: "sleep",
                   sleepItem: {
@@ -1257,12 +1360,14 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
                 leftPercent={leftPercent}
                 widthPercent={widthPercent}
                 isSelected={selectedTaskId === item.task.id || resizingState?.taskId === item.task.id}
-                onToggleComplete={onToggleComplete}
-                onToggleReminder={onToggleReminder}
-                onEditTask={onEditTask}
                 onDragStart={onDragStartTask}
-                onClick={() => onSelectTask?.(item.task!)}
-                onStartResize={(e, t) => onStartResize(e, t, dayDate)}
+                onClick={() => {
+                  onSelectTask?.(item.task!);
+                }}
+                onSelectForResize={(t) => {
+                  onSelectTask?.(t);
+                }}
+                onStartResize={(e, t, edge) => onStartResize(e, t, edge, dayDate)}
               />
             );
           }

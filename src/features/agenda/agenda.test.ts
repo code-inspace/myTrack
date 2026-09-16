@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   calculateResizedDuration,
   calculateResizedEndMinutes,
+  calculateTopResizedStartMinutes,
   formatMinutesToTime,
   parseTimeToMinutes,
 } from "./lib/resize";
@@ -32,12 +33,12 @@ describe("Agenda Task Resizing Logic (Mobile & Desktop)", () => {
     expect(duration).toBe(40);
   });
 
-  it("enforces minimum duration of 10 minutes even on extreme upward drag", () => {
-    const duration = calculateResizedDuration(60, -100);
-    expect(duration).toBe(10);
+  it("enforces minimum duration even on extreme compression", () => {
+    const duration = calculateResizedDuration(60, -100, 5);
+    expect(duration).toBe(5);
   });
 
-  it("calculates accurate end time string after resizing", () => {
+  it("calculates accurate end time string after bottom resizing", () => {
     const startMins = parseTimeToMinutes("14:00"); // 840 mins
     const initialDuration = 60; // 14:00 to 15:00
     const deltaY = 30; // +30 mins drag
@@ -46,6 +47,28 @@ describe("Agenda Task Resizing Logic (Mobile & Desktop)", () => {
     expect(result.duration).toBe(90);
     expect(result.endMins).toBe(930);
     expect(result.endTimeStr).toBe("15:30");
+  });
+
+  it("calculates accurate start time string after top resizing (stretching earlier)", () => {
+    const initialStartMins = parseTimeToMinutes("14:00"); // 840 mins
+    const fixedEndMins = parseTimeToMinutes("15:00"); // 900 mins
+    const deltaY = -30; // -30 mins drag up (starts earlier at 13:30)
+
+    const result = calculateTopResizedStartMinutes(initialStartMins, fixedEndMins, deltaY, 5);
+    expect(result.startMins).toBe(810);
+    expect(result.startTimeStr).toBe("13:30");
+    expect(result.duration).toBe(90);
+  });
+
+  it("calculates accurate start time string after top resizing (compressing later)", () => {
+    const initialStartMins = parseTimeToMinutes("14:00"); // 840 mins
+    const fixedEndMins = parseTimeToMinutes("15:00"); // 900 mins
+    const deltaY = 20; // +20 mins drag down (starts later at 14:20)
+
+    const result = calculateTopResizedStartMinutes(initialStartMins, fixedEndMins, deltaY, 5);
+    expect(result.startMins).toBe(860);
+    expect(result.startTimeStr).toBe("14:20");
+    expect(result.duration).toBe(40);
   });
 
   it("caps maximum end time at 23:55 to prevent overflow past midnight", () => {
