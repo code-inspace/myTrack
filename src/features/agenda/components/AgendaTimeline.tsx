@@ -3,7 +3,7 @@
 import React, { useRef, useEffect, useState, useMemo } from "react";
 import { Task, TaskWithCompletion, TaskCompletion } from "@/features/tasks/types";
 import { AgendaTaskBlock } from "./AgendaTaskBlock";
-import { isSameDay, parseISO, addDays, startOfWeek, format } from "date-fns";
+import { isSameDay, parseISO, addDays, subDays, startOfWeek, format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { isTaskScheduledForDate, getTodayDateString } from "@/lib/dates";
@@ -18,6 +18,7 @@ import {
   ChevronDown,
   Calendar as CalendarIcon,
   RefreshCw,
+  Moon,
 } from "lucide-react";
 import { DesktopDatePicker } from "@/features/tasks/components/desktop/DesktopDatePicker";
 import { useCalendarEvents } from "@/features/calendar/hooks/useCalendarEvents";
@@ -25,6 +26,8 @@ import { CalendarSubscriptionsModal } from "@/features/calendar/components/Calen
 import { ExternalEventBlock } from "@/features/calendar/components/ExternalEventBlock";
 import { ExternalEventDetailModal } from "@/features/calendar/components/ExternalEventDetailModal";
 import { ExternalCalendarEvent } from "@/features/calendar/types";
+import { AgendaSleepBlock } from "./AgendaSleepBlock";
+import { getStoredSleepLog, computeSleepDuration } from "@/features/sleep/actions";
 
 export type AgendaViewMode = "day" | "3days" | "week";
 
@@ -147,6 +150,15 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
 
   const parsedSelectedDate = parseISO(selectedDate);
   const isSelectedDateToday = isSameDay(parsedSelectedDate, new Date());
+  const [sleepSyncVersion, setSleepSyncVersion] = useState(0);
+
+  useEffect(() => {
+    const handleSleepAutoDetected = () => {
+      setSleepSyncVersion((v) => v + 1);
+    };
+    window.addEventListener("mytrack:sleep-auto-detected", handleSleepAutoDetected);
+    return () => window.removeEventListener("mytrack:sleep-auto-detected", handleSleepAutoDetected);
+  }, []);
 
   // External Calendar Subscriptions & Events
   const {
@@ -760,6 +772,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
                   }}
                   onSelectExternalEvent={(ext) => setSelectedExternalEvent(ext)}
                   onStartResize={handleStartResize}
+                  sleepSyncVersion={sleepSyncVersion}
                 />
               );
             })}
@@ -811,6 +824,7 @@ interface DayGridColumnProps {
   onSelectTask?: (task: TaskWithCompletion) => void;
   onSelectExternalEvent?: (event: ExternalCalendarEvent) => void;
   onStartResize: (e: React.PointerEvent, task: TaskWithCompletion, dayDate: string) => void;
+  sleepSyncVersion?: number;
 }
 
 const DayGridColumn: React.FC<DayGridColumnProps> = ({
@@ -832,6 +846,7 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
   onSelectTask,
   onSelectExternalEvent,
   onStartResize,
+  sleepSyncVersion,
 }) => {
   const colRef = useRef<HTMLDivElement>(null);
 
@@ -879,12 +894,18 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
         </div>
       )}
 
-      {/* Timed Task Blocks & External Events Unified Clustering */}
+      {/* Timed Task Blocks, External Events & Dodo Sleep Blocks Unified Clustering */}
       {(() => {
         interface TimedLayoutItem {
-          type: "task" | "external";
+          type: "task" | "external" | "sleep";
           task?: TaskWithCompletion;
           externalEvent?: ExternalCalendarEvent;
+          sleepItem?: {
+            id: string;
+            label: string;
+            subLabel?: string;
+            isNap?: boolean;
+          };
           id: string;
           startMins: number;
           layoutEndMins: number;
@@ -958,16 +979,117 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
           })
           .filter(Boolean) as TimedLayoutItem[];
 
-        const allItems = [...taskItems, ...externalItems];
+        // 3. Map Auto-detected Dodo Sleep & Nap Blocks
+        const sleepItems: TimedLayoutItem[] = [];
+        try {
+          const d = parseISO(dayDate);
+          const yesterdayDateStr = format(subDays(d, 1), "yyyy-MM-dd");
+          const yesterdayLog = getStoredSleepLog(yesterdayDateStr);
+          const todayLog = getStoredSleepLog(dayDate);
+
+          // 3a. Morning Sleep (night leading into dayDate)
+          if (todayLog.wakeTime) {
+            const wakeMins = parseTimeToMinutes(todayLog.wakeTime);
+            if (wakeMins > 0) {
+              const yesterdayBedtime = yesterdayLog.bedtime;
+              let startMins = 0;
+              let durationText = "";
+
+              if (yesterdayBedtime) {
+                const dur = computeSleepDuration(yesterdayBedtime, todayLog.wakeTime);
+                if (dur) durationText = dur.text;
+
+                const bedMins = parseTimeToMinutes(yesterdayBedtime);
+                if (bedMins < 12 * 60 && bedMins < wakeMins) {
+                  startMins = bedMins;
+                }
+              }
+
+              const duration = Math.max(20, wakeMins - startMins);
+              const subLabel = durationText
+                ? `${durationText} • Réveil ${todayLog.wakeTime}`
+                : `Réveil ${todayLog.wakeTime}`;
+
+              sleepItems.push({
+                type: "sleep",
+                sleepItem: {
+                  id: `sleep-morning-${dayDate}`,
+                  label: "Dodo",
+                  subLabel,
+                  isNap: false,
+                },
+                id: `sleep-morning-${dayDate}`,
+                startMins,
+                layoutEndMins: startMins + duration,
+                height: duration,
+                column: 0,
+                totalColumns: 1,
+              });
+            }
+          }
+
+          // 3b. Evening Bedtime Onset
+          if (todayLog.bedtime) {
+            const bedMins = parseTimeToMinutes(todayLog.bedtime);
+            if (bedMins >= 19 * 60 && bedMins < 1440) {
+              const duration = 1440 - bedMins;
+              sleepItems.push({
+                type: "sleep",
+                sleepItem: {
+                  id: `sleep-evening-${dayDate}`,
+                  label: "Dodo",
+                  subLabel: `Coucher ${todayLog.bedtime}`,
+                  isNap: false,
+                },
+                id: `sleep-evening-${dayDate}`,
+                startMins: bedMins,
+                layoutEndMins: 1440,
+                height: Math.max(20, duration),
+                column: 0,
+                totalColumns: 1,
+              });
+            }
+          }
+
+          // 3c. Daytime Naps
+          if (todayLog.naps && todayLog.naps.length > 0) {
+            todayLog.naps.forEach((nap, idx) => {
+              if (nap.startTime) {
+                const startMins = parseTimeToMinutes(nap.startTime);
+                const endMins = nap.endTime ? parseTimeToMinutes(nap.endTime) : startMins + 45;
+                const duration = Math.max(20, endMins - startMins);
+                sleepItems.push({
+                  type: "sleep",
+                  sleepItem: {
+                    id: `sleep-nap-${dayDate}-${nap.id || idx}`,
+                    label: "Sieste",
+                    subLabel: `${nap.startTime} - ${nap.endTime || "..."}`,
+                    isNap: true,
+                  },
+                  id: `sleep-nap-${dayDate}-${nap.id || idx}`,
+                  startMins,
+                  layoutEndMins: startMins + duration,
+                  height: duration,
+                  column: 0,
+                  totalColumns: 1,
+                });
+              }
+            });
+          }
+        } catch (e) {
+          console.warn("Error calculating sleep items for timeline:", e);
+        }
+
+        const allItems = [...taskItems, ...externalItems, ...sleepItems];
         if (allItems.length === 0) return null;
 
-        // 3. Sort by start time ascending
+        // 4. Sort by start time ascending
         allItems.sort((a, b) => {
           if (a.startMins !== b.startMins) return a.startMins - b.startMins;
           return (b.layoutEndMins - b.startMins) - (a.layoutEndMins - a.startMins);
         });
 
-        // 4. Group into clusters
+        // 5. Group into clusters
         const clusters: TimedLayoutItem[][] = [];
         let currentCluster: TimedLayoutItem[] = [];
         let clusterEnd = 0;
@@ -989,7 +1111,7 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
           clusters.push(currentCluster);
         }
 
-        // 5. Allocate columns
+        // 6. Allocate columns
         for (const cluster of clusters) {
           const cols: TimedLayoutItem[][] = [];
           for (const item of cluster) {
@@ -1014,10 +1136,25 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
           }
         }
 
-        // 6. Render blocks
+        // 7. Render blocks
         return allItems.map((item) => {
           const widthPercent = 100 / (item.totalColumns || 1);
           const leftPercent = (item.column || 0) * widthPercent;
+
+          if (item.type === "sleep" && item.sleepItem) {
+            return (
+              <AgendaSleepBlock
+                key={item.id}
+                label={item.sleepItem.label}
+                subLabel={item.sleepItem.subLabel}
+                topOffsetPx={item.startMins}
+                heightPx={item.height}
+                leftPercent={leftPercent}
+                widthPercent={widthPercent}
+                isNap={item.sleepItem.isNap}
+              />
+            );
+          }
 
           if (item.type === "external" && item.externalEvent) {
             return (
