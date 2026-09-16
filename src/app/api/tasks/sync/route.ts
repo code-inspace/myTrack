@@ -32,10 +32,12 @@ export async function POST(req: NextRequest) {
     const isValidUuid = (id?: string) =>
       Boolean(id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id));
 
-    // 2. Insert any tasks missing in DB
+    // 2. Insert any genuinely newly created offline tasks missing in DB
     for (const task of localTasks) {
       if (!task || !task.title) continue;
       if (dbIds.has(task.id)) continue;
+      // Do not recreate tasks that already had a UUID and were deleted from DB
+      if (isValidUuid(task.id)) continue;
 
       const encryptedTitle = await encryptText(task.title);
       const encryptedDescription = task.description ? await encryptText(task.description) : null;

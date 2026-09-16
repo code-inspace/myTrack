@@ -39,10 +39,11 @@ export async function fetchTasks(userId?: string): Promise<Task[]> {
   const local = getStoredTasks(targetId);
 
   try {
-    // 1. First push any local tasks to server sync endpoint if present
+    // 1. Only push newly created offline tasks to server sync endpoint (ignore existing UUID tasks to prevent resurrecting deleted ones)
     const localCompletions = getStoredCompletions(targetId);
-    if (local.length > 0) {
-      const syncTasks = local.map((t) => ({
+    const offlineTasks = local.filter((t) => t.id && t.id.startsWith("task-"));
+    if (offlineTasks.length > 0) {
+      const syncTasks = offlineTasks.map((t) => ({
         ...t,
         startTime: t.startTime ? convertLocalTimeToUtc(t.startTime, t.createdAt?.split("T")[0]) : null,
         endTime: t.endTime ? convertLocalTimeToUtc(t.endTime, t.createdAt?.split("T")[0]) : null,
@@ -569,44 +570,12 @@ export async function deleteDbTask(
     targetId = session?.user?.id || getEffectiveUserId();
   }
 
-  // Cancel any pending push notifications for this task before removing it
-  await cancelTaskPushNotifications({
-    taskId,
-    userId: targetId,
-  }).catch(() => {});
-
-  // Stop any active Live Activity for this task
-  try {
-    await LiveActivityBridge.stopActivity(taskId);
-  } catch {}
-
-  // Remove corresponding nap from sleep log if any
-  removeTaskFromSleepNaps(taskId, undefined, targetId).catch(() => {});
-
-  // 1. Delete from Supabase client directly
-  try {
-    await supabase.from("task_completions").delete().eq("task_id", taskId);
-    await supabase.from("reminders").delete().eq("task_id", taskId);
-    await supabase.from("tasks").delete().eq("id", taskId);
-  } catch (supabaseErr) {
-    console.warn("Supabase client deleteDbTask note:", supabaseErr);
-  }
-
-  // 2. Delete from server admin endpoint for reliable backend persistence
-  try {
-    await fetch(`/api/tasks?id=${encodeURIComponent(taskId)}&userId=${encodeURIComponent(targetId || "")}`, {
-      method: "DELETE",
-    });
-  } catch (err) {
-    console.warn("API deleteDbTask error:", err);
-  }
-
-  // 3. Clean local tasks storage across all keys
+  // 1. Clean local tasks storage across all keys immediately to prevent race condition resurrection
   const tasks = getStoredTasks(targetId);
   const updatedTasks = tasks.filter((t) => t.id !== taskId);
   saveStoredTasks(updatedTasks, targetId);
 
-  // 4. Clean local completions
+  // 2. Clean local completions
   const comps = getStoredCompletions(targetId);
   const updatedComps = comps.filter((c) => c.taskId !== taskId);
   saveStoredCompletions(updatedComps, targetId);
@@ -633,5 +602,38 @@ export async function deleteDbTask(
         } catch {}
       }
     }
+  }
+
+  // 3. Cancel any pending push notifications for this task before removing it
+  await cancelTaskPushNotifications({
+    taskId,
+    userId: targetId,
+  }).catch(() => {});
+
+  // Stop any active Live Activity for this task
+  try {
+    await LiveActivityBridge.stopActivity(taskId);
+  } catch {}
+
+  // Remove corresponding nap from sleep log if any
+  removeTaskFromSleepNaps(taskId, undefined, targetId).catch(() => {});
+
+  // 4. Delete from server admin endpoint for reliable backend persistence (bypasses any RLS constraints)
+  try {
+    await fetch(`/api/tasks?id=${encodeURIComponent(taskId)}&userId=${encodeURIComponent(targetId || "")}`, {
+      method: "DELETE",
+    });
+  } catch (err) {
+    console.warn("API deleteDbTask error:", err);
+  }
+
+  // 5. Delete from Supabase client directly
+  try {
+    await supabase.from("task_completions").delete().eq("task_id", taskId);
+    await supabase.from("reminders").delete().eq("task_id", taskId);
+    await supabase.from("notification_schedules").delete().eq("task_id", taskId);
+    await supabase.from("tasks").delete().eq("id", taskId);
+  } catch (supabaseErr) {
+    console.warn("Supabase client deleteDbTask note:", supabaseErr);
   }
 }

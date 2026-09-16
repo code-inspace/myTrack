@@ -358,14 +358,17 @@ export async function DELETE(req: NextRequest) {
     const supabase = getAdminClient();
     await supabase.from("task_completions").delete().eq("task_id", id);
     await supabase.from("reminders").delete().eq("task_id", id);
+    await supabase.from("notification_schedules").delete().eq("task_id", id);
     const { error } = await supabase.from("tasks").delete().eq("id", id);
 
     if (error) {
+      console.error("API /api/tasks DELETE error:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, id });
   } catch (err: any) {
+    console.error("API /api/tasks DELETE exception:", err);
     return NextResponse.json({ error: err?.message || "Internal server error" }, { status: 500 });
   }
 }
