@@ -6,7 +6,7 @@ import { AgendaTaskBlock } from "./AgendaTaskBlock";
 import { isSameDay, parseISO, addDays, subDays, startOfWeek, format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { isTaskScheduledForDate, getTodayDateString } from "@/lib/dates";
+import { isTaskScheduledForDate, getTodayDateString, isOvernightTimeRange, addHoursToTimeString } from "@/lib/dates";
 import { mapTaskWithCompletion } from "@/features/tasks/mappers";
 import {
   CheckCircle2,
@@ -29,7 +29,6 @@ import { ExternalCalendarEvent } from "@/features/calendar/types";
 import { AgendaSleepBlock } from "./AgendaSleepBlock";
 import { getStoredSleepLog, computeSleepDuration } from "@/features/sleep/actions";
 import { SleepEditModal, SleepSessionData } from "@/features/sleep/components/SleepEditModal";
-import { addHoursToTimeString } from "@/lib/dates";
 import { useProjects } from "@/features/projects/hooks";
 
 export type AgendaViewMode = "day" | "3days" | "week";
@@ -83,44 +82,86 @@ export function computeTasksForDate(
 ): TaskWithCompletion[] {
   const date = parseISO(dateStr);
   const todayStr = getTodayDateString();
+  const yesterdayStr = format(subDays(date, 1), "yyyy-MM-dd");
+  const yesterdayDate = subDays(date, 1);
 
-  return allTasks
-    .filter((task) => !task.isArchived)
-    .filter((task) => {
-      if (task.recurrence === "ONCE") {
-        const originalDate = task.createdAt
-          ? task.createdAt.split("T")[0]
-          : todayStr;
+  const result: TaskWithCompletion[] = [];
 
-        const isCompletedOnThisDate = allCompletions.some(
-          (c) => c.taskId === task.id && c.date === dateStr && c.completed
+  const isScheduledOn = (task: Task, targetDate: Date, targetDateStr: string) => {
+    if (task.recurrence === "ONCE") {
+      const originalDate = task.createdAt
+        ? task.createdAt.split("T")[0]
+        : todayStr;
+
+      const isCompletedOnTarget = allCompletions.some(
+        (c) => c.taskId === task.id && c.date === targetDateStr && c.completed
+      );
+      if (isCompletedOnTarget) return true;
+
+      const isCompletedOnOther = allCompletions.some(
+        (c) => c.taskId === task.id && c.completed && c.date !== targetDateStr
+      );
+      if (isCompletedOnOther) return false;
+
+      if (targetDateStr < todayStr) return false;
+      if (targetDateStr === todayStr) return originalDate <= todayStr;
+      return originalDate === targetDateStr;
+    }
+
+    const scheduled = isTaskScheduledForDate(
+      task.recurrence,
+      task.recurrenceConfig,
+      targetDate,
+      task.createdAt,
+      task.dateOverrides
+    );
+    if (scheduled) return true;
+
+    return allCompletions.some(
+      (c) => c.taskId === task.id && c.date === targetDateStr && c.completed
+    );
+  };
+
+  for (const task of allTasks) {
+    if (task.isArchived) continue;
+
+    // 1. Overnight task originating from yesterday
+    const isYesterdayScheduled = isScheduledOn(task, yesterdayDate, yesterdayStr);
+    if (isYesterdayScheduled) {
+      const yesterdayOverride = task.dateOverrides?.[yesterdayStr];
+      const sTime = yesterdayOverride?.startTime !== undefined ? yesterdayOverride.startTime : task.startTime;
+      const eTime = yesterdayOverride?.endTime !== undefined ? yesterdayOverride.endTime : task.endTime;
+
+      if (isOvernightTimeRange(sTime, eTime)) {
+        const mapped = mapTaskWithCompletion(task, allCompletions, dateStr);
+        const isComp = mapped.isCompletedToday || allCompletions.some(
+          (c) => c.taskId === task.id && c.date === yesterdayStr && c.completed
         );
-        if (isCompletedOnThisDate) return true;
-
-        const isCompletedOnOtherDate = allCompletions.some(
-          (c) => c.taskId === task.id && c.completed && c.date !== dateStr
-        );
-        if (isCompletedOnOtherDate) return false;
-
-        if (dateStr < todayStr) return false;
-        if (dateStr === todayStr) return originalDate <= todayStr;
-        return originalDate === dateStr;
+        result.push({
+          ...mapped,
+          isCompletedToday: isComp,
+          effectiveStartTime: sTime,
+          effectiveEndTime: eTime,
+          overnightPart: "end",
+          overnightOriginDate: yesterdayStr,
+        });
       }
+    }
 
-      const scheduled = isTaskScheduledForDate(
-        task.recurrence,
-        task.recurrenceConfig,
-        date,
-        task.createdAt,
-        task.dateOverrides
-      );
-      if (scheduled) return true;
+    // 2. Tasks scheduled on target date (dateStr)
+    const isTodayScheduled = isScheduledOn(task, date, dateStr);
+    if (isTodayScheduled) {
+      const mapped = mapTaskWithCompletion(task, allCompletions, dateStr);
+      const isOvernight = isOvernightTimeRange(mapped.effectiveStartTime, mapped.effectiveEndTime);
+      result.push({
+        ...mapped,
+        overnightPart: isOvernight ? "start" : undefined,
+        overnightOriginDate: isOvernight ? dateStr : undefined,
+      });
+    }
+  }
 
-      return allCompletions.some(
-        (c) => c.taskId === task.id && c.date === dateStr && c.completed
-      );
-    })
-    .map((task) => mapTaskWithCompletion(task, allCompletions, dateStr));
+  return result;
 }
 
 export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
@@ -266,15 +307,41 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
     return map;
   }, [displayedDays, selectedDate, tasks, allTasks, allCompletions]);
 
-  // Timed external events by day
+  // Timed external events by day (including overnight events from yesterday)
   const externalTimedEventsByDay = useMemo(() => {
     const map = new Map<string, ExternalCalendarEvent[]>();
     const safeList = Array.isArray(externalEvents) ? externalEvents : [];
     for (const d of displayedDays) {
-      map.set(
-        d,
-        safeList.filter((e) => e && e.date === d && !e.isAllDay)
-      );
+      const dayDate = parseISO(d);
+      const yesterdayStr = format(subDays(dayDate, 1), "yyyy-MM-dd");
+
+      // 1. Overnight events from yesterday
+      const yesterdayOvernight = safeList
+        .filter(
+          (e) =>
+            e &&
+            e.date === yesterdayStr &&
+            !e.isAllDay &&
+            isOvernightTimeRange(e.startTime, e.endTime)
+        )
+        .map((e) => ({
+          ...e,
+          id: `${e.id}-nextday`,
+          overnightPart: "end" as const,
+        }));
+
+      // 2. Events scheduled on d
+      const todayEvents = safeList
+        .filter((e) => e && e.date === d && !e.isAllDay)
+        .map((e) => {
+          const isOvernight = isOvernightTimeRange(e.startTime, e.endTime);
+          return {
+            ...e,
+            overnightPart: isOvernight ? ("start" as const) : undefined,
+          };
+        });
+
+      map.set(d, [...yesterdayOvernight, ...todayEvents]);
     }
     return map;
   }, [displayedDays, externalEvents]);
@@ -1169,29 +1236,55 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
           totalColumns: number;
         }
 
-        // 1. Map MyTrack tasks - Exact real proportional height matching Apple Calendar
+        // 1. Map MyTrack tasks - Exact real proportional height matching Apple Calendar (with multi-day overnight splitting)
         const taskItems: TimedLayoutItem[] = tasks
           .map((task) => {
             const startTimeStr = task.effectiveStartTime !== undefined ? task.effectiveStartTime : task.startTime;
             if (!startTimeStr) return null;
 
             const isCurrentlyResizing = resizingState?.taskId === task.id;
-            const startMins = isCurrentlyResizing
-              ? resizingState.currentStartMins
-              : parseTimeToMinutes(startTimeStr);
-
             const endTimeStr = task.effectiveEndTime !== undefined ? task.effectiveEndTime : task.endTime;
             const isRunningNow = isToday && Boolean(task.isActive);
 
-            const endMins = isCurrentlyResizing
-              ? resizingState.currentEndMins
-              : isRunningNow
-              ? Math.max(startMins + 5, currentTimeMinutes)
-              : endTimeStr
-              ? parseTimeToMinutes(endTimeStr)
-              : startMins + 60;
+            let startMins = 0;
+            let endMins = 0;
+            let duration = 0;
 
-            const duration = Math.max(1, endMins - startMins);
+            if (task.overnightPart === "start") {
+              // Day 1 of overnight task: starts at startTime, ends at 24:00 (1440)
+              startMins = isCurrentlyResizing
+                ? resizingState.currentStartMins
+                : parseTimeToMinutes(startTimeStr);
+              endMins = isCurrentlyResizing
+                ? resizingState.currentEndMins
+                : 1440;
+              duration = Math.max(15, endMins - startMins);
+            } else if (task.overnightPart === "end") {
+              // Day 2 of overnight task: starts at 00:00 (0), ends at endTime
+              startMins = 0;
+              endMins = isCurrentlyResizing
+                ? resizingState.currentEndMins
+                : isRunningNow
+                ? Math.max(5, currentTimeMinutes)
+                : endTimeStr
+                ? parseTimeToMinutes(endTimeStr)
+                : 120;
+              duration = Math.max(15, endMins - startMins);
+            } else {
+              // Standard same-day task
+              startMins = isCurrentlyResizing
+                ? resizingState.currentStartMins
+                : parseTimeToMinutes(startTimeStr);
+              endMins = isCurrentlyResizing
+                ? resizingState.currentEndMins
+                : isRunningNow
+                ? Math.max(startMins + 5, currentTimeMinutes)
+                : endTimeStr
+                ? parseTimeToMinutes(endTimeStr)
+                : startMins + 60;
+              duration = Math.max(1, endMins - startMins);
+            }
+
             const activeHeight = isCurrentlyResizing ? resizingState.currentHeight : duration;
 
             const displayTask: TaskWithCompletion = isRunningNow
@@ -1204,7 +1297,7 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
             return {
               type: "task" as const,
               task: displayTask,
-              id: `task-${task.id}`,
+              id: `task-${task.id}${task.overnightPart ? `-${task.overnightPart}` : ""}`,
               startMins,
               layoutEndMins: startMins + activeHeight,
               height: activeHeight,
@@ -1214,18 +1307,32 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
           })
           .filter(Boolean) as TimedLayoutItem[];
 
-        // 2. Map External Events
+        // 2. Map External Events (with multi-day overnight splitting)
         const externalItems: TimedLayoutItem[] = externalEvents
           .map((ext) => {
             if (!ext.startTime) return null;
-            const startMins = parseTimeToMinutes(ext.startTime);
-            const endMins = ext.endTime ? parseTimeToMinutes(ext.endTime) : startMins + 60;
-            const duration = Math.max(1, endMins - startMins);
+            let startMins = 0;
+            let endMins = 0;
+            let duration = 0;
+
+            if (ext.overnightPart === "start") {
+              startMins = parseTimeToMinutes(ext.startTime);
+              endMins = 1440;
+              duration = Math.max(15, endMins - startMins);
+            } else if (ext.overnightPart === "end") {
+              startMins = 0;
+              endMins = ext.endTime ? parseTimeToMinutes(ext.endTime) : 60;
+              duration = Math.max(15, endMins - startMins);
+            } else {
+              startMins = parseTimeToMinutes(ext.startTime);
+              endMins = ext.endTime ? parseTimeToMinutes(ext.endTime) : startMins + 60;
+              duration = Math.max(1, endMins - startMins);
+            }
 
             return {
               type: "external" as const,
               externalEvent: ext,
-              id: `ext-${ext.id}`,
+              id: `ext-${ext.id}${ext.overnightPart ? `-${ext.overnightPart}` : ""}`,
               startMins,
               layoutEndMins: startMins + duration,
               height: duration,

@@ -172,4 +172,43 @@ describe("Agenda Multi-Day Task Distribution & Moving Logic", () => {
     expect(mappedResized.effectiveEndTime).toBe("11:30");
     expect(mappedResized.isCompletedToday).toBe(true);
   });
+
+  it("handles cross-day overnight tasks appearing on both start and end days", async () => {
+    const { computeTasksForDate } = await import("./components/AgendaTimeline");
+    const { isOvernightTimeRange, formatCrossDayTimeLabel } = await import("@/lib/dates");
+
+    expect(isOvernightTimeRange("23:00", "02:00")).toBe(true);
+    expect(isOvernightTimeRange("22:30", "06:00")).toBe(true);
+    expect(isOvernightTimeRange("09:00", "17:00")).toBe(false);
+
+    expect(formatCrossDayTimeLabel("23:00", "02:00", "start")).toBe("23:00 → 02:00 (+1j)");
+    expect(formatCrossDayTimeLabel("23:00", "02:00", "end")).toBe("(Veille 23:00) → 02:00");
+    expect(formatCrossDayTimeLabel("09:00", "10:00")).toBe("09:00 - 10:00");
+
+    const overnightTask: any = {
+      id: "t-overnight",
+      userId: "u1",
+      title: "Night Shift Vigil",
+      startTime: "23:00",
+      endTime: "02:00",
+      recurrence: "ONCE",
+      createdAt: "2099-05-10T12:00:00.000Z",
+      trackingType: "BOOLEAN",
+      isActive: false,
+      isArchived: false,
+    };
+
+    // 1. Day 1 (2099-05-10): Must be present as "start" part
+    const day1Tasks = computeTasksForDate("2099-05-10", [overnightTask], []);
+    const day1Found = day1Tasks.find((t) => t.id === "t-overnight");
+    expect(day1Found).toBeDefined();
+    expect(day1Found?.overnightPart).toBe("start");
+
+    // 2. Day 2 (2099-05-11): Must be present as "end" part (carried over from yesterday)
+    const day2Tasks = computeTasksForDate("2099-05-11", [overnightTask], []);
+    const day2Found = day2Tasks.find((t) => t.id === "t-overnight");
+    expect(day2Found).toBeDefined();
+    expect(day2Found?.overnightPart).toBe("end");
+    expect(day2Found?.overnightOriginDate).toBe("2099-05-10");
+  });
 });

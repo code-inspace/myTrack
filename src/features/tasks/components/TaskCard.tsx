@@ -2,12 +2,12 @@
 
 import React from "react";
 import { TaskWithCompletion } from "../types";
-import { Clock, Repeat, Play, Check, Plus, Trash2, Edit3, GripVertical, Bell, BellOff, Flag, Flame } from "lucide-react";
+import { Clock, Repeat, Play, Check, Plus, Trash2, Edit3, GripVertical, Bell, BellOff, Flag, Flame, Moon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import confetti from "canvas-confetti";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { getTodayDateString } from "@/lib/dates";
+import { getTodayDateString, isOvernightTimeRange, formatCrossDayTimeLabel } from "@/lib/dates";
 import { getPriorityCardClass, getPriorityTitleClass, getPriorityIconColorClass } from "../priority";
 import { useProjects } from "@/features/projects/hooks";
 
@@ -295,18 +295,39 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             </span>
           )}
 
-          {hasTime ? (
-            <span className="inline-flex items-center gap-1 bg-[#141518] px-2.5 py-1 rounded-lg border border-[#252830] font-semibold text-white text-[11px] whitespace-nowrap">
-              <Clock className="w-3 h-3 text-[#D4F63D]" />
-              <span>
-                {displayStart}
-                {displayEnd ? ` - ${displayEnd}` : ""}
+          {(() => {
+            const isOvernight = isOvernightTimeRange(displayStart, displayEnd);
+            const timeLabel = formatCrossDayTimeLabel(displayStart, displayEnd, task.overnightPart);
+
+            if (hasTime) {
+              return (
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-1 bg-[#141518] px-2.5 py-1 rounded-lg border font-semibold text-white text-[11px] whitespace-nowrap",
+                    isOvernight ? "border-[#7C3AED]/40 text-[#DDD6FE]" : "border-[#252830]"
+                  )}
+                >
+                  {isOvernight ? (
+                    <Moon className="w-3 h-3 text-[#C4B5FD]" />
+                  ) : (
+                    <Clock className="w-3 h-3 text-[#D4F63D]" />
+                  )}
+                  <span>{timeLabel}</span>
+                </span>
+              );
+            }
+            return (
+              <span className="inline-flex items-center gap-1 bg-[#141518] px-2 py-1 rounded-lg border border-[#252830] text-[#8E929E] text-[11px] font-medium whitespace-nowrap">
+                <Clock className="w-3 h-3 text-[#6B7280]" />
+                <span>Jour entier</span>
               </span>
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1 bg-[#141518] px-2 py-1 rounded-lg border border-[#252830] text-[#8E929E] text-[11px] font-medium whitespace-nowrap">
-              <Clock className="w-3 h-3 text-[#6B7280]" />
-              <span>Jour entier</span>
+            );
+          })()}
+
+          {isOvernightTimeRange(displayStart, displayEnd) && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#7C3AED]/20 text-[#DDD6FE] text-[10px] font-bold border border-[#7C3AED]/35 whitespace-nowrap">
+              <Moon className="w-2.5 h-2.5 text-[#C4B5FD]" />
+              <span>{task.overnightPart === "end" ? "Débuté la veille" : "Nuit (+1j)"}</span>
             </span>
           )}
 

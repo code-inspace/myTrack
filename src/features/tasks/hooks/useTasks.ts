@@ -13,11 +13,12 @@ import {
   isTaskScheduledForDate,
   isOnceTaskCarriedOver,
   getTodayDateString,
+  isOvernightTimeRange,
 } from "@/lib/dates";
 import { mapTaskWithCompletion, sortTasksByPriority } from "../mappers";
 import { useAuth } from "@/providers/AuthProvider";
 import { createClient } from "@/utils/supabase/client";
-import { parseISO } from "date-fns";
+import { parseISO, subDays, format } from "date-fns";
 import { LiveActivityBridge } from "@/lib/native/liveActivity";
 import { getStoredExternalEvents } from "@/features/calendar/actions/storage";
 import { getStoredProjects } from "@/features/projects/actions";
@@ -170,72 +171,84 @@ export function useTasks(selectedDateStr: string) {
 
   const selectedDate = parseISO(selectedDateStr);
   const todayStr = getTodayDateString();
+  const yesterdayStr = format(subDays(selectedDate, 1), "yyyy-MM-dd");
+  const yesterdayDate = subDays(selectedDate, 1);
 
-  // Filter tasks scheduled for the selected date
-  const filteredTasks: TaskWithCompletion[] = allTasks
-    .filter((task) => !task.isArchived)
-    .filter((task) => {
-      // 1. One-shot tasks (ONCE)
-      if (task.recurrence === "ONCE") {
-        const originalDate = task.createdAt
-          ? task.createdAt.split("T")[0]
-          : todayStr;
+  // Filter tasks scheduled for the selected date, including cross-day overnight tasks
+  const isScheduledOn = (task: Task, targetDate: Date, targetDateStr: string) => {
+    if (task.recurrence === "ONCE") {
+      const originalDate = task.createdAt
+        ? task.createdAt.split("T")[0]
+        : todayStr;
 
-        // Was it completed on this exact viewed date?
-        const isCompletedOnThisDate = allCompletions.some(
-          (c) =>
-            c.taskId === task.id &&
-            c.date === selectedDateStr &&
-            c.completed,
-        );
-        if (isCompletedOnThisDate) return true;
-
-        // Was it completed on any other date?
-        const isCompletedOnOtherDate = allCompletions.some(
-          (c) =>
-            c.taskId === task.id &&
-            c.completed &&
-            c.date !== selectedDateStr,
-        );
-        if (isCompletedOnOtherDate) return false;
-
-        // Task is NOT completed:
-        // If viewing a past day (day is finished), it is removed from that past day
-        if (selectedDateStr < todayStr) {
-          return false;
-        }
-
-        // If viewing today: it carries over to today if originally scheduled on or before today
-        if (selectedDateStr === todayStr) {
-          return originalDate <= todayStr;
-        }
-
-        // If viewing a future date: only show if originally scheduled for that future date
-        return originalDate === selectedDateStr;
-      }
-
-      // 2. Recurring tasks (DAILY, WEEKDAYS, WEEKLY, CUSTOM)
-      const scheduled = isTaskScheduledForDate(
-        task.recurrence,
-        task.recurrenceConfig,
-        selectedDate,
-        task.createdAt,
-        task.dateOverrides,
+      const isCompletedOnTarget = allCompletions.some(
+        (c) => c.taskId === task.id && c.date === targetDateStr && c.completed
       );
-      if (scheduled) return true;
+      if (isCompletedOnTarget) return true;
 
-      // Always show if completed on this date
-      const isCompletedOnThisDate = allCompletions.some(
-        (c) =>
-          c.taskId === task.id &&
-          c.date === selectedDateStr &&
-          c.completed,
+      const isCompletedOnOther = allCompletions.some(
+        (c) => c.taskId === task.id && c.completed && c.date !== targetDateStr
       );
-      return isCompletedOnThisDate;
-    })
-    .map((task) =>
-      mapTaskWithCompletion(task, allCompletions, selectedDateStr),
+      if (isCompletedOnOther) return false;
+
+      if (targetDateStr < todayStr) return false;
+      if (targetDateStr === todayStr) return originalDate <= todayStr;
+      return originalDate === targetDateStr;
+    }
+
+    const scheduled = isTaskScheduledForDate(
+      task.recurrence,
+      task.recurrenceConfig,
+      targetDate,
+      task.createdAt,
+      task.dateOverrides
     );
+    if (scheduled) return true;
+
+    return allCompletions.some(
+      (c) => c.taskId === task.id && c.date === targetDateStr && c.completed
+    );
+  };
+
+  const filteredTasks: TaskWithCompletion[] = [];
+  for (const task of allTasks) {
+    if (task.isArchived) continue;
+
+    // 1. Overnight task originating from yesterday
+    const isYesterdayScheduled = isScheduledOn(task, yesterdayDate, yesterdayStr);
+    if (isYesterdayScheduled) {
+      const yesterdayOverride = task.dateOverrides?.[yesterdayStr];
+      const sTime = yesterdayOverride?.startTime !== undefined ? yesterdayOverride.startTime : task.startTime;
+      const eTime = yesterdayOverride?.endTime !== undefined ? yesterdayOverride.endTime : task.endTime;
+
+      if (isOvernightTimeRange(sTime, eTime)) {
+        const mapped = mapTaskWithCompletion(task, allCompletions, selectedDateStr);
+        const isComp = mapped.isCompletedToday || allCompletions.some(
+          (c) => c.taskId === task.id && c.date === yesterdayStr && c.completed
+        );
+        filteredTasks.push({
+          ...mapped,
+          isCompletedToday: isComp,
+          effectiveStartTime: sTime,
+          effectiveEndTime: eTime,
+          overnightPart: "end",
+          overnightOriginDate: yesterdayStr,
+        });
+      }
+    }
+
+    // 2. Tasks scheduled on target date
+    const isTodayScheduled = isScheduledOn(task, selectedDate, selectedDateStr);
+    if (isTodayScheduled) {
+      const mapped = mapTaskWithCompletion(task, allCompletions, selectedDateStr);
+      const isOvernight = isOvernightTimeRange(mapped.effectiveStartTime, mapped.effectiveEndTime);
+      filteredTasks.push({
+        ...mapped,
+        overnightPart: isOvernight ? "start" : undefined,
+        overnightOriginDate: isOvernight ? selectedDateStr : undefined,
+      });
+    }
+  }
 
 
   const sortedTasks = sortTasksByPriority(filteredTasks);

@@ -2,9 +2,10 @@
 
 import React from "react";
 import { ExternalCalendarEvent } from "../types";
-import { MapPin, Calendar, AlignLeft } from "lucide-react";
+import { MapPin, Calendar, AlignLeft, Moon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProjects } from "@/features/projects/hooks";
+import { isOvernightTimeRange, formatCrossDayTimeLabel } from "@/lib/dates";
 
 interface ExternalEventBlockProps {
   event: ExternalCalendarEvent;
@@ -28,6 +29,8 @@ export const ExternalEventBlock: React.FC<ExternalEventBlockProps> = ({
 
   const isShort = heightPx < 40;
   const calColor = project?.color || event.calendarColor || "#3B82F6";
+  const isOvernight = isOvernightTimeRange(event.startTime, event.endTime);
+  const timeLabel = formatCrossDayTimeLabel(event.startTime, event.endTime, event.overnightPart);
 
   return (
     <div
@@ -59,6 +62,9 @@ export const ExternalEventBlock: React.FC<ExternalEventBlockProps> = ({
             className="w-1.5 h-1.5 rounded-full flex-shrink-0"
             style={{ backgroundColor: calColor }}
           />
+          {isOvernight && (
+            <Moon className="w-2.5 h-2.5 text-[#A78BFA] flex-shrink-0" />
+          )}
           <h5 className="text-xs font-bold text-white truncate leading-tight">
             {event.title}
           </h5>
@@ -76,8 +82,7 @@ export const ExternalEventBlock: React.FC<ExternalEventBlockProps> = ({
             className="text-[10px] font-mono font-semibold flex-shrink-0 px-1 py-0.2 rounded"
             style={{ color: calColor, backgroundColor: `${calColor}20` }}
           >
-            {event.startTime}
-            {event.endTime ? ` - ${event.endTime}` : ""}
+            {timeLabel}
           </span>
         )}
       </div>

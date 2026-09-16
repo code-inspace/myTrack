@@ -233,3 +233,43 @@ export function isOnceTaskCarriedOver(
   if (!originalDate || hasBeenCompleted) return false;
   return viewDateStr > originalDate && viewDateStr <= todayStr;
 }
+
+/**
+ * Returns true if a time range crosses midnight (e.g. 23:00 -> 02:00)
+ */
+export function isOvernightTimeRange(
+  startTime?: string | null,
+  endTime?: string | null
+): boolean {
+  if (!startTime || !endTime) return false;
+  const [sh, sm] = startTime.split(":").map(Number);
+  const [eh, em] = endTime.split(":").map(Number);
+  const startMins = (sh || 0) * 60 + (sm || 0);
+  const endMins = (eh || 0) * 60 + (em || 0);
+  return endMins < startMins;
+}
+
+/**
+ * Formats a cross-day time label with clear visual indicators (+1j / Veille)
+ */
+export function formatCrossDayTimeLabel(
+  startTime?: string | null,
+  endTime?: string | null,
+  overnightPart?: "start" | "end"
+): string {
+  if (!startTime && !endTime) return "";
+  if (!endTime) return startTime || "";
+  if (!startTime) return endTime;
+
+  const isOvernight = isOvernightTimeRange(startTime, endTime);
+  if (!isOvernight) {
+    return `${startTime} - ${endTime}`;
+  }
+
+  if (overnightPart === "end") {
+    return `(Veille ${startTime}) → ${endTime}`;
+  }
+  return `${startTime} → ${endTime} (+1j)`;
+}
+
+

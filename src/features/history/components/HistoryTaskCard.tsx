@@ -2,10 +2,11 @@
 
 import React from "react";
 import { TaskWithCompletion } from "@/features/tasks/types";
-import { CheckCircle2, Circle, Clock, Play, Check, AlertCircle, ArrowRight, Flame } from "lucide-react";
+import { CheckCircle2, Circle, Clock, Play, Check, AlertCircle, ArrowRight, Flame, Moon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getPriorityCardClass, getPriorityTitleClass, getPriorityIconColorClass } from "@/features/tasks/priority";
 import { useProjects } from "@/features/projects/hooks";
+import { isOvernightTimeRange, formatCrossDayTimeLabel } from "@/lib/dates";
 
 interface HistoryTaskCardProps {
   task: TaskWithCompletion;
@@ -35,6 +36,9 @@ export const HistoryTaskCard: React.FC<HistoryTaskCardProps> = ({
 
   const actualStart = completion?.actualStartTime;
   const actualEnd = completion?.actualEndTime;
+
+  const isOvernight = isOvernightTimeRange(scheduledStart, scheduledEnd);
+  const scheduledTimeLabel = formatCrossDayTimeLabel(scheduledStart, scheduledEnd, task.overnightPart);
 
   const hasScheduledTime = Boolean(scheduledStart);
   const hasActualTime = Boolean(actualStart || actualEnd);
@@ -144,14 +148,21 @@ export const HistoryTaskCard: React.FC<HistoryTaskCardProps> = ({
         {/* 1. Temps Prévu */}
         <div className="bg-[#121316] p-2.5 rounded-xl border border-[#202228]">
           <div className="flex items-center gap-1.5 text-[#8E929E] font-semibold mb-1">
-            <Clock className="w-3.5 h-3.5 text-[#60A5FA]" />
+            {isOvernight ? (
+              <Moon className="w-3.5 h-3.5 text-[#A78BFA]" />
+            ) : (
+              <Clock className="w-3.5 h-3.5 text-[#60A5FA]" />
+            )}
             <span>Prévu</span>
+            {isOvernight && (
+              <span className="text-[9px] font-bold text-[#C4B5FD] bg-[#7C3AED]/20 px-1 py-0.2 rounded border border-[#7C3AED]/30">
+                {task.overnightPart === "end" ? "Veille" : "+1j"}
+              </span>
+            )}
           </div>
           <div className="text-white font-medium">
             {hasScheduledTime ? (
-              <span>
-                {scheduledStart} {scheduledEnd ? `→ ${scheduledEnd}` : ""}
-              </span>
+              <span>{scheduledTimeLabel}</span>
             ) : (
               <span className="text-[#8E929E] italic">Journée entière</span>
             )}

@@ -17,11 +17,13 @@ import {
   Sparkles,
   ChevronDown,
   Copy,
+  Moon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProjects } from "@/features/projects/hooks";
 import { getPriorityTitleClass, getPriorityIconColorClass } from "@/features/tasks/priority";
 import confetti from "canvas-confetti";
+import { isOvernightTimeRange } from "@/lib/dates";
 
 interface AgendaTaskDetailModalProps {
   task: TaskWithCompletion | null;
@@ -278,6 +280,15 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
                 />
               </div>
             </div>
+
+            {isOvernightTimeRange(startTime, endTime) && (
+              <div className="flex items-center gap-2 p-2.5 rounded-xl bg-[#7C3AED]/20 border border-[#7C3AED]/40 text-[#DDD6FE] text-xs font-medium animate-in fade-in duration-150">
+                <Moon className="w-4 h-4 text-[#C4B5FD] flex-shrink-0" />
+                <span>
+                  Tâche à cheval sur 2 jours : visible le soir dès <strong>{startTime}</strong> et le lendemain matin jusqu'à <strong>{endTime}</strong>.
+                </span>
+              </div>
+            )}
 
             {isRecurring && (
               <div className="flex items-center gap-1.5 text-xs text-[#94A3B8] pt-1.5 border-t border-white/5">

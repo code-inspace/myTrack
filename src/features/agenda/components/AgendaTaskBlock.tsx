@@ -2,10 +2,11 @@
 
 import React, { useRef } from "react";
 import { TaskWithCompletion } from "@/features/tasks/types";
-import { Flame, Repeat, Clock } from "lucide-react";
+import { Flame, Repeat, Clock, Moon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getPriorityTitleClass, getPriorityIconColorClass } from "@/features/tasks/priority";
 import { useProjects } from "@/features/projects/hooks";
+import { isOvernightTimeRange, formatCrossDayTimeLabel } from "@/lib/dates";
 
 interface AgendaTaskBlockProps {
   task: TaskWithCompletion;
@@ -86,6 +87,12 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
   const isRecurring = Boolean(task.recurrence && task.recurrence !== "ONCE");
   const startTime = (task.effectiveStartTime !== undefined ? task.effectiveStartTime : task.startTime) || "09:00";
   const endTime = task.effectiveEndTime !== undefined ? task.effectiveEndTime : task.endTime;
+
+  const isOvernight = isOvernightTimeRange(task.effectiveStartTime || task.startTime, task.effectiveEndTime || task.endTime);
+  const isOvernightStart = task.overnightPart === "start" || (isOvernight && !task.overnightPart);
+  const isOvernightEnd = task.overnightPart === "end";
+
+  const timeLabel = formatCrossDayTimeLabel(startTime, endTime, task.overnightPart);
 
   const activeLeftPercent = isSelected ? 0 : leftPercent;
   const activeWidthPercent = isSelected ? 100 : widthPercent;
@@ -269,6 +276,9 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
             {task.isActive && (
               <span className="w-1.5 h-1.5 rounded-full bg-[#D4F63D] animate-pulse flex-shrink-0" />
             )}
+            {isOvernight && (
+              <Moon className="w-2.5 h-2.5 text-[#A78BFA] flex-shrink-0" />
+            )}
             <span
               className={cn(
                 "text-[9px] font-semibold text-white truncate leading-none",
@@ -287,6 +297,9 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
               {task.isActive && (
                 <span className="w-1.5 h-1.5 rounded-full bg-[#D4F63D] animate-pulse flex-shrink-0" />
               )}
+              {isOvernight && (
+                <Moon className="w-2.5 h-2.5 text-[#A78BFA] flex-shrink-0" />
+              )}
               {project && (
                 <span
                   className="w-1.5 h-1.5 rounded-full flex-shrink-0 shadow-sm"
@@ -302,8 +315,13 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
                 {task.title}
               </h4>
             </div>
-            <span className="text-[9px] font-mono text-[#94A3B8] flex-shrink-0">
-              {startTime}
+            <span className="text-[9px] font-mono text-[#94A3B8] flex-shrink-0 flex items-center gap-0.5">
+              {isOvernightEnd ? `→ ${endTime}` : isOvernightStart ? `${startTime} →` : startTime}
+              {isOvernight && (
+                <span className="text-[8px] text-[#A78BFA] font-bold">
+                  {isOvernightEnd ? "(Veille)" : "(+1j)"}
+                </span>
+              )}
             </span>
           </div>
         )}
@@ -314,6 +332,12 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
             <div className="flex items-center gap-1 min-w-0 truncate">
               {task.isActive && (
                 <span className="w-1.5 h-1.5 rounded-full bg-[#D4F63D] animate-pulse flex-shrink-0" />
+              )}
+              {isOvernight && (
+                <span className="inline-flex items-center gap-0.5 px-1 py-0.2 rounded bg-[#7C3AED]/20 text-[#C4B5FD] text-[8px] font-bold border border-[#7C3AED]/30 flex-shrink-0">
+                  <Moon className="w-2 h-2" />
+                  <span>{isOvernightEnd ? "Veille" : "+1j"}</span>
+                </span>
               )}
               {task.priority && task.priority !== "NORMAL" && !task.isCompletedToday && (
                 <Flame className={cn("w-2.5 h-2.5 flex-shrink-0", getPriorityIconColorClass(task.priority))} />
@@ -328,7 +352,7 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
               </h4>
             </div>
             <div className="flex items-center gap-1.5 text-[9px] text-[#94A3B8] font-mono truncate">
-              <span>{startTime}{endTime ? ` - ${endTime}` : ""}</span>
+              <span>{timeLabel}</span>
               {project && (
                 <span className="inline-flex items-center gap-0.5 truncate text-white/90 font-medium">
                   <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: project.color || "#D4F63D" }} />
@@ -346,6 +370,12 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
               <div className="flex items-center gap-1.5 min-w-0 truncate">
                 {task.isActive && (
                   <span className="w-2 h-2 rounded-full bg-[#D4F63D] animate-pulse flex-shrink-0" />
+                )}
+                {isOvernight && (
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-[#7C3AED]/25 text-[#DDD6FE] text-[9px] font-bold border border-[#7C3AED]/40 flex-shrink-0">
+                    <Moon className="w-2.5 h-2.5 text-[#C4B5FD]" />
+                    <span>{isOvernightEnd ? "Débuté la veille" : "Nuit (+1j)"}</span>
+                  </span>
                 )}
                 {task.priority && task.priority !== "NORMAL" && !task.isCompletedToday && (
                   <Flame className={cn("w-3 h-3 flex-shrink-0", getPriorityIconColorClass(task.priority))} />
@@ -370,7 +400,7 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
 
             <div className="flex items-center justify-between gap-1 text-[10px] text-[#94A3B8] font-medium pt-1 border-t border-white/5 mt-0.5">
               <span className="font-mono text-[9px] text-[#CBD5E1]">
-                {startTime}{endTime ? ` - ${endTime}` : ""}
+                {timeLabel}
               </span>
               {project && (
                 <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-black/40 text-white font-medium text-[9px] border border-white/10 truncate max-w-[90px]">

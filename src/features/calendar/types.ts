@@ -28,6 +28,7 @@ export interface ExternalCalendarEvent {
   endIso: string;
   projectId?: string | null;
   projectCategory?: string | null;
+  overnightPart?: "start" | "end";
 }
 
 export const DEFAULT_CALENDAR_COLORS = [

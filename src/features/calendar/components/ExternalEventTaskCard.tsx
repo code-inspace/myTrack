@@ -3,12 +3,13 @@
 import React from "react";
 import { ExternalCalendarEvent } from "../types";
 import { getExternalEventStatus } from "../lib/status";
-import { Check, Calendar, MapPin, Clock, GripVertical } from "lucide-react";
+import { Check, Calendar, MapPin, Clock, GripVertical, Moon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import confetti from "canvas-confetti";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useProjects } from "@/features/projects/hooks";
+import { isOvernightTimeRange, formatCrossDayTimeLabel } from "@/lib/dates";
 
 interface ExternalEventTaskCardProps {
   event: ExternalCalendarEvent;
@@ -193,13 +194,27 @@ export const ExternalEventTaskCard: React.FC<ExternalEventTaskCardProps> = ({
           <div className="flex items-center gap-2 flex-wrap mt-1.5 text-[11px] text-[#8E929E]">
             {/* Time badge */}
             {event.startTime ? (
-              <span className="inline-flex items-center gap-1 font-mono font-semibold px-2 py-0.5 rounded-lg bg-[#20222B] text-white border border-[#2D303E]">
-                <Clock className="w-3 h-3 text-[#D4F63D]" />
-                <span>
-                  {event.startTime}
-                  {event.endTime ? ` - ${event.endTime}` : ""}
-                </span>
-              </span>
+              (() => {
+                const isOvernight = isOvernightTimeRange(event.startTime, event.endTime);
+                const timeLabel = formatCrossDayTimeLabel(event.startTime, event.endTime, event.overnightPart);
+                return (
+                  <span
+                    className={cn(
+                      "inline-flex items-center gap-1 font-mono font-semibold px-2 py-0.5 rounded-lg border",
+                      isOvernight
+                        ? "bg-[#7C3AED]/20 text-[#DDD6FE] border-[#7C3AED]/35"
+                        : "bg-[#20222B] text-white border-[#2D303E]"
+                    )}
+                  >
+                    {isOvernight ? (
+                      <Moon className="w-3 h-3 text-[#C4B5FD]" />
+                    ) : (
+                      <Clock className="w-3 h-3 text-[#D4F63D]" />
+                    )}
+                    <span>{timeLabel}</span>
+                  </span>
+                );
+              })()
             ) : (
               <span className="inline-flex items-center gap-1 font-semibold px-2 py-0.5 rounded-lg bg-[#20222B] text-[#9CA3AF] border border-[#2D303E]">
                 Jour entier

@@ -70,6 +70,10 @@ export interface TaskWithCompletion extends Task {
   currentValue?: number;
   effectiveStartTime?: string | null;
   effectiveEndTime?: string | null;
+  /** "start" if viewed on start day (e.g. 23:00 -> 24:00), "end" if viewed on following day (00:00 -> 02:00) */
+  overnightPart?: "start" | "end";
+  /** The origin date if this is an overnight task carried into the following day */
+  overnightOriginDate?: string;
 }
 
 export * from "./schema";
