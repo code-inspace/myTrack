@@ -229,6 +229,15 @@ export async function updateDbTask(
       : {}),
   };
 
+  const taskDate = updates.date || (target?.createdAt ? target.createdAt.split("T")[0] : getTodayDateString());
+
+  const utcStart = updates.startTime !== undefined
+    ? (updates.startTime ? convertLocalTimeToUtc(updates.startTime, taskDate) : null)
+    : undefined;
+  const utcEnd = updates.endTime !== undefined
+    ? (updates.endTime ? convertLocalTimeToUtc(updates.endTime, taskDate) : null)
+    : undefined;
+
   const dbUpdates: any = {
     updated_at: nowIso,
     date_overrides: newOverrides,
@@ -247,14 +256,8 @@ export async function updateDbTask(
     dbUpdates.tag = updates.category;
     dbUpdates.category = updates.category;
   }
-  if (updates.startTime !== undefined)
-    dbUpdates.start_time = updates.startTime
-      ? convertLocalTimeToUtc(updates.startTime, updates.date)
-      : null;
-  if (updates.endTime !== undefined)
-    dbUpdates.end_time = updates.endTime
-      ? convertLocalTimeToUtc(updates.endTime, updates.date)
-      : null;
+  if (utcStart !== undefined) dbUpdates.start_time = utcStart;
+  if (utcEnd !== undefined) dbUpdates.end_time = utcEnd;
   if (updates.deadline !== undefined)
     dbUpdates.deadline = updates.deadline || null;
   if (updates.priority !== undefined)
@@ -340,12 +343,18 @@ export async function updateDbTask(
     console.warn("Supabase client updateDbTask error, attempting /api/tasks PATCH fallback:", err);
   }
 
-  // Server Admin API fallback for reliable persistence
+  // Server Admin API fallback for reliable persistence with UTC times
   try {
+    const serverUpdates: any = {
+      ...updates,
+    };
+    if (utcStart !== undefined) serverUpdates.startTime = utcStart;
+    if (utcEnd !== undefined) serverUpdates.endTime = utcEnd;
+
     await fetch("/api/tasks", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ taskId, updates, userId: targetId }),
+      body: JSON.stringify({ taskId, updates: serverUpdates, userId: targetId }),
     });
   } catch (apiErr) {
     console.warn("API updateDbTask PATCH error:", apiErr);

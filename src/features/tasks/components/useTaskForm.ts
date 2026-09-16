@@ -116,13 +116,19 @@ export function useTaskForm({
         setTrackingType(initialTask.trackingType || "BOOLEAN");
         setTargetValue(initialTask.targetValue || undefined);
         setUnit(initialTask.unit || "");
-        const taskHasTime = Boolean(initialTask.startTime);
+        const initialStartTime = (initialTask as TaskWithCompletion).effectiveStartTime !== undefined
+          ? (initialTask as TaskWithCompletion).effectiveStartTime
+          : initialTask.startTime;
+        const initialEndTime = (initialTask as TaskWithCompletion).effectiveEndTime !== undefined
+          ? (initialTask as TaskWithCompletion).effectiveEndTime
+          : initialTask.endTime;
+        const taskHasTime = Boolean(initialStartTime);
         setHasScheduledTime(taskHasTime);
-        setStartTime(initialTask.startTime || "09:00");
+        setStartTime(initialStartTime || "09:00");
         setEndTime(
-          initialTask.endTime ||
-            (initialTask.startTime
-              ? addHoursToTimeString(initialTask.startTime, 1)
+          initialEndTime ||
+            (initialStartTime
+              ? addHoursToTimeString(initialStartTime, 1)
               : "10:00"),
         );
         setTargetDate(
