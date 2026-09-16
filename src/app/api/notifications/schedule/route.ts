@@ -102,6 +102,14 @@ export async function POST(req: NextRequest) {
       timezoneOffsetMinutes = 0,
     } = body;
 
+    // Block all sleep/bedtime notifications
+    if (type === "bedtime" || category === "Sleep" || (typeof taskId === "string" && taskId.startsWith("sleep_"))) {
+      if (taskId) {
+        await cancelExistingNotifications(taskId, userId);
+      }
+      return NextResponse.json({ success: true, skipped: true, message: "Sleep notifications are disabled" });
+    }
+
     // 1. If replaceExisting flag is set, cancel previous notifications for this task/routine
     if (replaceExisting && taskId) {
       await cancelExistingNotifications(taskId, userId);
@@ -112,6 +120,31 @@ export async function POST(req: NextRequest) {
     }
 
     const scheduledDateStr = date || new Date().toISOString().split("T")[0];
+
+    // Check if task is already completed for this date
+    if (taskId) {
+      const supabase = createClient();
+      try {
+        let compQuery = supabase
+          .from("task_completions")
+          .select("completed")
+          .eq("task_id", taskId)
+          .eq("date", scheduledDateStr);
+
+        if (userId && userId !== "00000000-0000-0000-0000-000000000001") {
+          compQuery = compQuery.eq("user_id", userId);
+        }
+
+        const { data: compData } = await compQuery.maybeSingle();
+        if (compData?.completed) {
+          console.log(`[API /api/notifications/schedule] Task ${taskId} is completed on ${scheduledDateStr}. Skipping push.`);
+          await cancelExistingNotifications(taskId, userId);
+          return NextResponse.json({ success: true, skipped: true, message: "Task already completed" });
+        }
+      } catch (e) {
+        console.warn("[Notifications] Error checking task completion:", e);
+      }
+    }
     const results: Array<{
       deliveryDate: string;
       deliveryDateUtc: string;

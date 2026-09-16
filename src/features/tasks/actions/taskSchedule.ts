@@ -425,7 +425,18 @@ export async function updateTaskSchedule({
   }
 
   // Reschedule or cancel push notification for this task
-  if (target && target.enableReminders !== false) {
+  const completions = getStoredCompletions(targetId);
+  const isDoneOnDate = completions.some((c) => c.taskId === taskId && c.date === date && c.completed);
+  const isTaskCompleted = isDoneOnDate || target?.projectStatus === "DONE";
+
+  if (isTaskCompleted) {
+    if (target) {
+      cancelTaskPushNotifications({
+        taskId: target.id,
+        userId: targetId,
+      }).catch(() => {});
+    }
+  } else if (target && target.enableReminders !== false) {
     const scheduledIso = startTime
       ? createUtcIsoFromLocalDateTime(startTime, date)
       : undefined;

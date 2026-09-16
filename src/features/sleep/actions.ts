@@ -187,8 +187,8 @@ function mapDbSleepLogToModel(row: any): DailySleepLog {
     bedtimeValidated: Boolean(row.bedtime_validated),
     wakeTimeValidated: Boolean(row.wake_time_validated),
     bedtimeOffsets: offsets,
-    bedtimeReminders: localReminders,
-    enableBedtimeReminders: row.enable_bedtime_reminders !== false,
+    bedtimeReminders: [],
+    enableBedtimeReminders: false,
     naps,
     notes: rawNotes,
     gratitude,
@@ -284,8 +284,8 @@ export function getStoredSleepLog(date: string, userId?: string): DailySleepLog 
       bedtimeValidated: false,
       wakeTimeValidated: false,
       bedtimeOffsets: DEFAULT_BEDTIME_OFFSETS,
-      bedtimeReminders: ["22:00", "22:30", "22:45"],
-      enableBedtimeReminders: true,
+      bedtimeReminders: [],
+      enableBedtimeReminders: false,
       naps: [],
       notes: "",
       gratitude: "",
@@ -300,6 +300,8 @@ export function getStoredSleepLog(date: string, userId?: string): DailySleepLog 
       return {
         ...parsed,
         bedtimeOffsets: parsed.bedtimeOffsets || DEFAULT_BEDTIME_OFFSETS,
+        bedtimeReminders: [],
+        enableBedtimeReminders: false,
         naps: parsed.naps || [],
         gratitude: parsed.gratitude || "",
         manifestation: parsed.manifestation || "",
@@ -318,8 +320,8 @@ export function getStoredSleepLog(date: string, userId?: string): DailySleepLog 
     bedtimeValidated: false,
     wakeTimeValidated: false,
     bedtimeOffsets: DEFAULT_BEDTIME_OFFSETS,
-    bedtimeReminders: computeDefaultBedtimeReminders(defaultBedtime),
-    enableBedtimeReminders: true,
+    bedtimeReminders: [],
+    enableBedtimeReminders: false,
     naps: [],
     notes: "",
     gratitude: "",
@@ -437,8 +439,8 @@ export async function saveStoredSleepLog(
       bedtime_validated: Boolean(updatedLog.bedtimeValidated),
       wake_time_validated: Boolean(updatedLog.wakeTimeValidated),
       bedtime_offsets: updatedLog.bedtimeOffsets || DEFAULT_BEDTIME_OFFSETS,
-      bedtime_reminders: utcReminders,
-      enable_bedtime_reminders: updatedLog.enableBedtimeReminders !== false,
+      bedtime_reminders: [],
+      enable_bedtime_reminders: false,
       naps: utcNaps,
       notes: encryptedNotes,
       gratitude: encryptedGratitude,
@@ -467,8 +469,8 @@ export async function saveStoredSleepLog(
         bedtime_validated: Boolean(updatedLog.bedtimeValidated),
         wake_time_validated: Boolean(updatedLog.wakeTimeValidated),
         bedtime_offsets: updatedLog.bedtimeOffsets || DEFAULT_BEDTIME_OFFSETS,
-        bedtime_reminders: utcReminders,
-        enable_bedtime_reminders: updatedLog.enableBedtimeReminders !== false,
+        bedtime_reminders: [],
+        enable_bedtime_reminders: false,
         notes: encryptedPackedNotes,
         updated_at: nowIso,
       };
@@ -482,59 +484,13 @@ export async function saveStoredSleepLog(
     console.warn("Supabase saveStoredSleepLog network fallback:", err);
   }
 
-  // 3. Manage OneSignal bedtime push notifications & database reminder records
+  // 3. Cancel any existing OneSignal bedtime push notifications & database reminder records
   const bedtimeTaskId = `sleep_bedtime_${targetId}`;
-  if (updatedLog.enableBedtimeReminders && updatedLog.bedtimeReminders && updatedLog.bedtimeReminders.length > 0) {
-    // Cancel previous bedtime notifications first
-    await cancelTaskPushNotifications({
-      taskId: bedtimeTaskId,
-      userId: targetId,
-      reminderType: "bedtime",
-    }).catch(() => {});
-
-    for (const rTime of updatedLog.bedtimeReminders) {
-      const scheduledIso = createUtcIsoFromLocalDateTime(rTime, updatedLog.date);
-      const [rH, rM] = rTime.split(":").map((v) => parseInt(v, 10) || 0);
-      const [bH, bM] = (updatedLog.bedtime || "23:00").split(":").map((v) => parseInt(v, 10) || 0);
-      let diffMinutes = (bH * 60 + bM) - (rH * 60 + rM);
-      if (diffMinutes < 0) diffMinutes += 24 * 60;
-
-      const title = "Préparation au Sommeil";
-      const body = diffMinutes > 0 ? `Dans ${diffMinutes} min` : "C'est l'heure";
-
-      // Record in Supabase reminders table
-      createDbReminder({
-        userId: targetId || getEffectiveUserId(userId),
-        taskId: bedtimeTaskId,
-        title,
-        body,
-        scheduledAt: scheduledIso,
-        reminderType: "bedtime",
-      }).catch((e) => console.warn("Bedtime reminder DB record error:", e));
-
-      // Push via OneSignal
-      scheduleTaskPushNotification({
-        userId: targetId,
-        taskId: bedtimeTaskId,
-        taskTitle: title,
-        startTime: rTime,
-        scheduledIso,
-        reminderOffsetMinutes: 0,
-        customMessage: body,
-        date: updatedLog.date,
-        category: "Sleep",
-        type: "bedtime",
-        replaceExisting: false, // Already cancelled once above for the whole batch
-      }).catch((err) => console.warn("Bedtime reminder schedule error:", err));
-    }
-  } else {
-    // If disabled, cancel any existing bedtime notifications
-    cancelTaskPushNotifications({
-      taskId: bedtimeTaskId,
-      userId: targetId,
-      reminderType: "bedtime",
-    }).catch(() => {});
-  }
+  cancelTaskPushNotifications({
+    taskId: bedtimeTaskId,
+    userId: targetId,
+    reminderType: "bedtime",
+  }).catch(() => {});
 
   return updatedLog;
 }

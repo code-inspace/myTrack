@@ -13,6 +13,7 @@ import {
   convertLocalTimeToUtc,
   subtractMinutesFromTime,
 } from "@/lib/dates";
+import { cancelTaskPushNotifications } from "@/lib/onesignal/client";
 import { getStoredProjects } from "@/features/projects/actions";
 import { getProjectColumns, DEFAULT_PROJECT_COLUMNS } from "@/features/projects/types";
 
@@ -139,6 +140,14 @@ export async function upsertDbCompletion(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ completion: dbPayload, userId: targetId }),
     });
+
+    // If marked as completed, immediately cancel any scheduled push notifications
+    if (completion.completed) {
+      cancelTaskPushNotifications({
+        taskId: completion.taskId,
+        userId: targetId,
+      }).catch((e) => console.warn("Cancel push notifications note on completed:", e));
+    }
   } catch (err) {
     console.warn("API upsertDbCompletion error:", err);
   }

@@ -6,19 +6,14 @@ import {
   getStoredSleepLog,
   fetchDbSleepLog,
   saveStoredSleepLog,
-  computeDefaultBedtimeReminders,
-  computeBedtimeRemindersFromOffsets,
   computeSleepDuration,
   applySleepStartNow,
   applySleepEndNow,
-  BEDTIME_OFFSET_OPTIONS,
-  DEFAULT_BEDTIME_OFFSETS,
   getNightSleepDuration,
 } from "../actions";
 import {
   Moon,
   Sun,
-  BellRing,
   Check,
   Sparkles,
   Clock,
@@ -76,16 +71,12 @@ export const SleepJournalView: React.FC<SleepJournalViewProps> = ({ selectedDate
   };
 
   const handleBedtimeChange = (newBedtime: string, markValidated = true) => {
-    const offsets = log.bedtimeOffsets && log.bedtimeOffsets.length > 0
-      ? log.bedtimeOffsets
-      : DEFAULT_BEDTIME_OFFSETS;
-    const reminders = computeBedtimeRemindersFromOffsets(newBedtime, offsets);
     const updated: DailySleepLog = {
       ...log,
       bedtime: newBedtime,
       bedtimeValidated: markValidated,
-      bedtimeOffsets: offsets,
-      bedtimeReminders: reminders,
+      bedtimeReminders: [],
+      enableBedtimeReminders: false,
     };
     triggerSave(updated);
   };
@@ -109,35 +100,6 @@ export const SleepJournalView: React.FC<SleepJournalViewProps> = ({ selectedDate
     triggerSave(applySleepEndNow(log));
   };
 
-  const handleToggleReminders = (enabled: boolean) => {
-    const updated: DailySleepLog = {
-      ...log,
-      enableBedtimeReminders: enabled,
-    };
-    triggerSave(updated);
-  };
-
-  const handleToggleOffset = (offsetMinutes: number) => {
-    const currentOffsets = log.bedtimeOffsets && log.bedtimeOffsets.length > 0
-      ? log.bedtimeOffsets
-      : DEFAULT_BEDTIME_OFFSETS;
-
-    let nextOffsets: number[];
-    if (currentOffsets.includes(offsetMinutes)) {
-      nextOffsets = currentOffsets.filter((m) => m !== offsetMinutes);
-    } else {
-      nextOffsets = [...currentOffsets, offsetMinutes];
-    }
-
-    const nextReminders = computeBedtimeRemindersFromOffsets(log.bedtime || "23:00", nextOffsets);
-    const updated: DailySleepLog = {
-      ...log,
-      bedtimeOffsets: nextOffsets,
-      bedtimeReminders: nextReminders,
-    };
-    triggerSave(updated);
-  };
-
   const handleNotesChange = (text: string) => {
     const updated: DailySleepLog = {
       ...log,
@@ -158,10 +120,6 @@ export const SleepJournalView: React.FC<SleepJournalViewProps> = ({ selectedDate
   // Check if bedtime is past midnight (00:00 - 06:59) -> represents +1 jour
   const bedtimeHour = parseInt((log.bedtime || "23:00").split(":")[0], 10) || 0;
   const isPastMidnightBedtime = bedtimeHour >= 0 && bedtimeHour < 12;
-
-  const activeOffsets = log.bedtimeOffsets && log.bedtimeOffsets.length > 0
-    ? log.bedtimeOffsets
-    : DEFAULT_BEDTIME_OFFSETS;
 
   const naps = log.naps || [];
   const openNap = naps.find((n) => n.endTime === null) || null;
@@ -280,74 +238,6 @@ export const SleepJournalView: React.FC<SleepJournalViewProps> = ({ selectedDate
               className="h-10 px-3 rounded-xl bg-[#252830] border border-[#343740] text-white font-mono font-bold text-sm focus:border-[#D4F63D] outline-none text-center cursor-pointer shadow-inner"
             />
           </div>
-        </div>
-
-        {/* Rappels de coucher configurables par boutons rapides */}
-        <div className="pt-3 border-t border-[#282A30] space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <BellRing className="w-4 h-4 text-[#D4F63D]" />
-              <span className="text-xs font-bold text-white">Rappels avant le coucher</span>
-            </div>
-
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={log.enableBedtimeReminders !== false}
-                onChange={(e) => handleToggleReminders(e.target.checked)}
-                className="sr-only peer"
-              />
-              <div className="w-9 h-5 bg-[#343740] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#D4F63D]" />
-            </label>
-          </div>
-
-          {log.enableBedtimeReminders !== false && (
-            <div className="space-y-2.5 pt-1 animate-in fade-in duration-150">
-              <p className="text-[11px] text-[#8E929E]">
-                Sélectionne les moments où recevoir un rappel :
-              </p>
-
-              {/* Quick offset buttons: 1h, 30 min, 20 min, 15 min, À l'heure */}
-              <div className="flex flex-wrap gap-2">
-                {BEDTIME_OFFSET_OPTIONS.map((opt) => {
-                  const isSelected = activeOffsets.includes(opt.value);
-                  return (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => handleToggleOffset(opt.value)}
-                      className={cn(
-                        "px-3 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer flex items-center gap-1.5 border shadow-sm",
-                        isSelected
-                          ? "bg-[#D4F63D] text-black border-[#D4F63D] font-extrabold"
-                          : "bg-[#252830] text-[#8E929E] hover:text-white hover:border-[#4B5563] border-[#343740]"
-                      )}
-                    >
-                      <Clock className={cn("w-3 h-3", isSelected ? "text-black" : "text-[#8E929E]")} />
-                      <span>{opt.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Calculated notification times summary */}
-              {log.bedtimeReminders && log.bedtimeReminders.length > 0 && (
-                <div className="p-2.5 rounded-2xl bg-[#17181D]/80 border border-[#282A30] flex items-center justify-between flex-wrap gap-2 text-[11px]">
-                  <span className="text-[#8E929E] font-medium">Heures programmées :</span>
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    {log.bedtimeReminders.map((rTime, idx) => (
-                      <span
-                        key={idx}
-                        className="px-2 py-0.5 rounded-lg bg-[#252830] border border-[#343740] text-[#D4F63D] font-mono font-bold text-xs"
-                      >
-                        {rTime}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
         </div>
       </div>
     </div>

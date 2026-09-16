@@ -3,7 +3,6 @@
 import React, { useEffect, useRef } from "react";
 import { getStoredTasks, getStoredCompletions } from "@/features/tasks/actions";
 import { getStoredPreferences, getStoredReminders } from "@/features/notifications/actions";
-import { getStoredSleepLog } from "@/features/sleep/actions";
 import { sendNativeNotification } from "@/lib/notifications/service";
 import { getTodayDateString, isTaskScheduledForDate } from "@/lib/dates";
 
@@ -82,6 +81,7 @@ export default function NotificationWatcherProvider({ children }: { children: Re
       tasks.forEach((task) => {
         if (task.isArchived) return;
         if (task.enableReminders === false) return;
+        if (task.projectStatus === "DONE") return;
 
         // Check if task is scheduled for today
         const isScheduled = isTaskScheduledForDate(
@@ -93,8 +93,10 @@ export default function NotificationWatcherProvider({ children }: { children: Re
         if (!isScheduled) return;
 
         // Check if already completed today
-        const completion = completions.find((c) => c.taskId === task.id && c.date === todayDateStr);
-        if (completion?.completed) return;
+        const isDoneToday = completions.some(
+          (c) => c.taskId === task.id && c.date === todayDateStr && c.completed
+        );
+        if (isDoneToday) return;
 
         const effectiveStart =
           task.dateOverrides?.[todayDateStr]?.startTime || task.startTime;
@@ -144,6 +146,12 @@ export default function NotificationWatcherProvider({ children }: { children: Re
       // 2. Custom Interactive Reminders
       customReminders.forEach((rem) => {
         if (!rem.enabled) return;
+        if (rem.taskId) {
+          const isDoneToday = completions.some(
+            (c) => c.taskId === rem.taskId && c.date === todayDateStr && c.completed
+          );
+          if (isDoneToday) return;
+        }
         if (rem.time === currentTimeStr) {
           const cacheKey = `${todayDateStr}_custom_${rem.id}_${currentTimeStr}`;
           if (!sentNotificationsRef.current.has(cacheKey)) {
@@ -192,28 +200,6 @@ export default function NotificationWatcherProvider({ children }: { children: Re
             body: `Tu as complété ${todayCompletions} habitude${todayCompletions > 1 ? "s" : ""} aujourd'hui`,
             tag: "evening-recap",
           });
-        }
-      }
-
-      // 5. Bedtime Reminders
-      const sleepLog = getStoredSleepLog(todayDateStr);
-      if (sleepLog.enableBedtimeReminders && sleepLog.bedtimeReminders && sleepLog.bedtimeReminders.length > 0) {
-        if (sleepLog.bedtimeReminders.includes(currentTimeStr)) {
-          const cacheKey = `${todayDateStr}_bedtime_${currentTimeStr}`;
-          if (!sentNotificationsRef.current.has(cacheKey)) {
-            sentNotificationsRef.current.add(cacheKey);
-
-            const [rH, rM] = currentTimeStr.split(":").map((v) => parseInt(v, 10) || 0);
-            const [bH, bM] = (sleepLog.bedtime || "23:00").split(":").map((v) => parseInt(v, 10) || 0);
-            let diffMinutes = (bH * 60 + bM) - (rH * 60 + rM);
-            if (diffMinutes < 0) diffMinutes += 24 * 60;
-
-            sendNativeNotification({
-              title: "Préparation au Sommeil",
-              body: diffMinutes > 0 ? `Dans ${diffMinutes} min` : "C'est l'heure",
-              tag: `bedtime-${currentTimeStr}`,
-            });
-          }
         }
       }
     };

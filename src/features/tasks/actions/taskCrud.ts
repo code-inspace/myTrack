@@ -314,8 +314,17 @@ export async function updateDbTask(
       const nextList = tasks.map((t) => (t.id === taskId ? updated : t));
       saveStoredTasks(nextList, targetId);
 
-      if (updated.enableReminders) {
-        const targetDate = updates.date || getTodayDateString();
+      const targetDate = updates.date || getTodayDateString();
+      const completions = getStoredCompletions(targetId);
+      const isDoneOnDate = completions.some((c) => c.taskId === updated.id && c.date === targetDate && c.completed);
+      const isTaskCompleted = isDoneOnDate || updated.projectStatus === "DONE";
+
+      if (isTaskCompleted) {
+        cancelTaskPushNotifications({
+          taskId: updated.id,
+          userId: targetId,
+        }).catch(() => {});
+      } else if (updated.enableReminders) {
         const scheduledIso = updated.startTime
           ? createUtcIsoFromLocalDateTime(updated.startTime, targetDate)
           : undefined;
@@ -338,9 +347,9 @@ export async function updateDbTask(
         }).catch(() => {});
       }
 
-      const targetDate = updates.date || (target?.createdAt ? target.createdAt.split("T")[0] : undefined);
+      const napDate = updates.date || (target?.createdAt ? target.createdAt.split("T")[0] : undefined);
       const prevDate = target?.createdAt ? target.createdAt.split("T")[0] : undefined;
-      syncTaskWithSleepNaps(updated, targetDate, prevDate).catch(() => {});
+      syncTaskWithSleepNaps(updated, napDate, prevDate).catch(() => {});
 
       if (updates.startTime !== undefined || updates.endTime !== undefined) {
         try {
@@ -502,8 +511,17 @@ export async function updateDbTask(
     saveStoredTasks(nextList, targetId);
   }
 
-  if (updatedTask.enableReminders) {
-    const targetDate = updates.date || getTodayDateString();
+  const targetDate = updates.date || getTodayDateString();
+  const completions = getStoredCompletions(targetId);
+  const isDoneOnDate = completions.some((c) => c.taskId === updatedTask.id && c.date === targetDate && c.completed);
+  const isTaskCompleted = isDoneOnDate || updatedTask.projectStatus === "DONE";
+
+  if (isTaskCompleted) {
+    cancelTaskPushNotifications({
+      taskId: updatedTask.id,
+      userId: targetId,
+    }).catch(() => {});
+  } else if (updatedTask.enableReminders) {
     const scheduledIso = updatedTask.startTime
       ? createUtcIsoFromLocalDateTime(updatedTask.startTime, targetDate)
       : undefined;
@@ -526,9 +544,9 @@ export async function updateDbTask(
     }).catch(() => {});
   }
 
-  const targetDate = updates.date || (target?.createdAt ? target.createdAt.split("T")[0] : undefined);
+  const napDate = updates.date || (target?.createdAt ? target.createdAt.split("T")[0] : undefined);
   const prevDate = target?.createdAt ? target.createdAt.split("T")[0] : undefined;
-  syncTaskWithSleepNaps(updatedTask, targetDate, prevDate).catch(() => {});
+  syncTaskWithSleepNaps(updatedTask, napDate, prevDate).catch(() => {});
 
   if (updates.startTime !== undefined || updates.endTime !== undefined) {
     try {

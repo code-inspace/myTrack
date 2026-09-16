@@ -1,4 +1,33 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+
+vi.mock("@/utils/supabase/client", () => ({
+  createClient: () => ({
+    auth: {
+      getSession: vi.fn().mockResolvedValue({ data: { session: null } }),
+    },
+    from: () => ({
+      upsert: vi.fn().mockResolvedValue({ error: null }),
+      select: () => ({
+        eq: () => ({
+          eq: () => ({
+            maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+          }),
+        }),
+      }),
+    }),
+  }),
+}));
+
+vi.mock("@/lib/onesignal/client", () => ({
+  scheduleTaskPushNotification: vi.fn().mockImplementation(() => Promise.resolve({ success: true })),
+  cancelTaskPushNotifications: vi.fn().mockImplementation(() => Promise.resolve({ success: true })),
+}));
+
+vi.mock("@/features/notifications/reminderActions", () => ({
+  createDbReminder: vi.fn().mockImplementation(() => Promise.resolve({ success: true })),
+  cancelDbReminder: vi.fn().mockImplementation(() => Promise.resolve({ success: true })),
+}));
+
 import {
   DEFAULT_PREFERENCES,
   handleInteractiveNotificationResponse,
@@ -85,5 +114,21 @@ describe("Notifications Feature Logic", () => {
 
     const testTime2 = 9 * 60 + 15; // 09:15 = 555
     expect(testTime2 % interval === 0).toBe(false);
+  });
+
+  it("ensures sleep/bedtime notifications are disabled and not scheduled", async () => {
+    const { getStoredSleepLog, saveStoredSleepLog } = await import("@/features/sleep/actions");
+    const { cancelTaskPushNotifications, scheduleTaskPushNotification } = await import("@/lib/onesignal/client");
+    
+    const log = getStoredSleepLog("2026-09-16");
+    expect(log.enableBedtimeReminders).toBe(false);
+    expect(log.bedtimeReminders).toEqual([]);
+
+    await saveStoredSleepLog({
+      ...log,
+      bedtime: "23:00",
+    });
+
+    expect(cancelTaskPushNotifications).toHaveBeenCalled();
   });
 });
