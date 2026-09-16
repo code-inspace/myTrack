@@ -7,17 +7,14 @@ import { ExternalCalendarEvent } from "@/features/calendar/types";
 import { getExternalEventDurationMinutes } from "@/features/calendar/lib/duration";
 import { isExternalEventDone } from "@/features/calendar/lib/status";
 import { Period } from "@/features/dashboard/types";
-import { getProjectColumns } from "@/features/projects/types";
 import {
-  FolderKanban,
+  PieChart as PieChartIcon,
   ChevronRight,
   ArrowLeft,
   CheckCircle2,
   Circle,
   Calendar,
-  Layers,
   Sparkles,
-  Info,
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -138,6 +135,12 @@ function formatTickLabel(minutes: number): string {
   return `${h}h ${m}m`;
 }
 
+function getCoordinatesForPercent(percent: number) {
+  const x = Math.cos(2 * Math.PI * percent);
+  const y = Math.sin(2 * Math.PI * percent);
+  return [x, y];
+}
+
 export interface CategoryTaskDetailItem {
   id: string;
   type: "task" | "event";
@@ -175,7 +178,43 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
   const { projects } = useProjects();
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [selectedColumnId, setSelectedColumnId] = useState<string | null>(null);
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
+
+  // Period Date Range calculation
+  const { startDateStr, endDateStr, periodLabel } = useMemo(() => {
+    if (period === "day") {
+      const formattedDay = format(referenceDate, "yyyy-MM-dd");
+      return {
+        startDateStr: formattedDay,
+        endDateStr: formattedDay,
+        periodLabel: format(referenceDate, "EEEE d MMMM yyyy", { locale: fr }),
+      };
+    }
+    if (period === "week") {
+      const start = startOfWeek(referenceDate, { weekStartsOn: 1 });
+      const end = endOfWeek(referenceDate, { weekStartsOn: 1 });
+      return {
+        startDateStr: format(start, "yyyy-MM-dd"),
+        endDateStr: format(end, "yyyy-MM-dd"),
+        periodLabel: `Semaine du ${format(start, "dd MMM", { locale: fr })} au ${format(end, "dd MMM", { locale: fr })}`,
+      };
+    }
+    if (period === "month") {
+      const start = startOfMonth(referenceDate);
+      const end = endOfMonth(referenceDate);
+      return {
+        startDateStr: format(start, "yyyy-MM-dd"),
+        endDateStr: format(end, "yyyy-MM-dd"),
+        periodLabel: format(referenceDate, "MMMM yyyy", { locale: fr }),
+      };
+    }
+    return {
+      startDateStr: "1970-01-01",
+      endDateStr: "2099-12-31",
+      periodLabel: "Toutes les dates",
+    };
+  }, [period, referenceDate]);
 
   // Map project ID to project object & colors
   const projectMap = useMemo(() => {
@@ -195,12 +234,102 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
     return projects.find((p) => p.id === selectedProjectId) || null;
   }, [projects, selectedProjectId]);
 
-  // Helper to compute minutes for a specific day dateStr ("yyyy-MM-dd")
+  // All project tasks
+  const allProjectTasks = useMemo(() => {
+    return tasks.filter((t) => Boolean(t.projectId) && !t.isArchived);
+  }, [tasks]);
+
+  // All project external events
+  const allProjectEvents = useMemo(() => {
+    return externalEvents.filter((e) => Boolean(e.projectId));
+  }, [externalEvents]);
+
+  // ================= DAY / DONUT DATA COMPUTATION =================
+  const { globalProjectData, totalGlobalMinutes } = useMemo(() => {
+    let sumMinutes = 0;
+    const isAllPeriod = period === "all";
+
+    const list = projects.map((p) => {
+      const pTasks = tasks.filter((t) => t.projectId === p.id && !t.isArchived);
+      const pTaskIds = new Set(pTasks.map((t) => t.id));
+
+      const periodCompletions = completions.filter(
+        (c) =>
+          pTaskIds.has(c.taskId) &&
+          c.completed &&
+          (isAllPeriod || (c.date >= startDateStr && c.date <= endDateStr))
+      );
+
+      let pMinutes = 0;
+      let activeTasksCount = 0;
+
+      for (const t of pTasks) {
+        const tComps = periodCompletions.filter((c) => c.taskId === t.id);
+        if (tComps.length > 0) {
+          activeTasksCount++;
+          for (const c of tComps) {
+            pMinutes += getTaskCompletionDurationMinutes(c, t);
+          }
+        } else if (isAllPeriod) {
+          activeTasksCount++;
+          pMinutes += getTaskScheduledDurationMinutes(t);
+        } else if (t.recurrence && t.recurrence !== "ONCE") {
+          const dayDate = new Date(startDateStr);
+          const dayOfWeek = dayDate.getDay();
+          const isWeekDay = dayOfWeek >= 1 && dayOfWeek <= 5;
+          const configDays = t.recurrenceConfig?.days || [];
+          if (
+            t.recurrence === "DAILY" ||
+            (t.recurrence === "WEEKDAYS" && isWeekDay) ||
+            configDays.includes(dayOfWeek)
+          ) {
+            activeTasksCount++;
+            pMinutes += getTaskScheduledDurationMinutes(t);
+          }
+        } else {
+          const taskDate =
+            (t as any).date ||
+            t.deadline ||
+            (t.createdAt ? t.createdAt.split("T")[0] : null);
+          if (taskDate && taskDate >= startDateStr && taskDate <= endDateStr) {
+            activeTasksCount++;
+            pMinutes += getTaskScheduledDurationMinutes(t);
+          }
+        }
+      }
+
+      const pEvents = externalEvents.filter(
+        (e) =>
+          e.projectId === p.id &&
+          (isAllPeriod || (e.date >= startDateStr && e.date <= endDateStr))
+      );
+
+      for (const evt of pEvents) {
+        pMinutes += getExternalEventDurationMinutes(evt);
+      }
+
+      sumMinutes += pMinutes;
+
+      return {
+        id: p.id,
+        name: p.name,
+        durationMinutes: pMinutes,
+        count: activeTasksCount + pEvents.length,
+        taskCount: activeTasksCount,
+        eventCount: pEvents.length,
+        completedInPeriodCount: periodCompletions.length,
+        color: p.color || "#D4F63D",
+      };
+    });
+
+    return { globalProjectData: list, totalGlobalMinutes: sumMinutes };
+  }, [projects, tasks, externalEvents, completions, startDateStr, endDateStr, period]);
+
+  // Helper to compute minutes for a specific day dateStr ("yyyy-MM-dd") for Week / Month stacked bar
   const getDayProjectMinutes = useMemo(() => {
     return (dateStr: string) => {
       const breakdownMap = new Map<string, number>();
 
-      // 1. Completions on this date
       const dayCompletions = completions.filter((c) => c.date === dateStr && c.completed);
       const completedTaskIds = new Set(dayCompletions.map((c) => c.taskId));
 
@@ -212,7 +341,6 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
         }
       }
 
-      // 2. Scheduled uncompleted tasks for this date
       for (const t of tasks) {
         if (!t.projectId || t.isArchived || completedTaskIds.has(t.id)) continue;
         const taskDate =
@@ -222,10 +350,9 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
 
         if (t.recurrence && t.recurrence !== "ONCE") {
           const dayDate = new Date(dateStr);
-          const dayOfWeek = dayDate.getDay(); // 0=Sun, 1=Mon, ...
+          const dayOfWeek = dayDate.getDay();
           const isWeekDay = dayOfWeek >= 1 && dayOfWeek <= 5;
           const configDays = t.recurrenceConfig?.days || [];
-          
           if (
             t.recurrence === "DAILY" ||
             (t.recurrence === "WEEKDAYS" && isWeekDay) ||
@@ -240,7 +367,6 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
         }
       }
 
-      // 3. External calendar events for this date
       for (const evt of externalEvents) {
         if (evt.projectId && evt.date === dateStr) {
           const mins = getExternalEventDurationMinutes(evt);
@@ -264,21 +390,19 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
         }
       });
 
-      // Sort slices by duration descending or project order
       slices.sort((a, b) => b.minutes - a.minutes);
 
       return { slices, totalMins };
     };
   }, [tasks, completions, externalEvents, projectMap]);
 
-  // Build Chart Columns based on period (Week, Month, Day, All)
+  // Build Week / Month Chart Columns
   const { columns, totalPeriodMinutes, activeProjectsList } = useMemo(() => {
     const cols: ChartColumnData[] = [];
     let periodSum = 0;
     const projectTotalsMap = new Map<string, number>();
 
     if (period === "month") {
-      // Month View: Columns are the weeks of the month
       const mStart = startOfMonth(referenceDate);
       const mEnd = endOfMonth(referenceDate);
       const weekStarts = eachWeekOfInterval({ start: mStart, end: mEnd }, { weekStartsOn: 1 });
@@ -334,7 +458,7 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
         });
       });
     } else {
-      // Week & Day View: Columns are the 7 days of the week
+      // Week
       const wStart = startOfWeek(referenceDate, { weekStartsOn: 1 });
       const wEnd = endOfWeek(referenceDate, { weekStartsOn: 1 });
       const days = eachDayOfInterval({ start: wStart, end: wEnd });
@@ -352,26 +476,23 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
 
         periodSum += totalMins;
 
-        // "lun.", "mar.", etc.
         const dayName = format(dayDate, "EEE", { locale: fr }) + ".";
-        const dayMonth = format(dayDate, "M/d"); // e.g. 9/14 matching screenshot
+        const dayMonth = format(dayDate, "M/d");
 
         const isToday = isSameDay(dayDate, new Date());
-        const isRefDay = period === "day" && isSameDay(dayDate, referenceDate);
 
         cols.push({
           id: dStr,
           title: dayName,
           subTitle: dayMonth,
           fullLabel: format(dayDate, "EEEE d MMMM yyyy", { locale: fr }),
-          isHighlighted: isRefDay || isToday,
+          isHighlighted: isToday,
           projectBreakdown: slices,
           totalMinutes: totalMins,
         });
       });
     }
 
-    // Projects with time in this period
     const activeProjects: Array<{
       id: string;
       name: string;
@@ -389,7 +510,6 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
       });
     });
 
-    // Sort projects: active projects with time first
     activeProjects.sort((a, b) => b.minutes - a.minutes);
 
     return {
@@ -399,7 +519,6 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
     };
   }, [period, referenceDate, getDayProjectMinutes, projects, projectMap]);
 
-  // Max minutes across columns for dynamic Y-axis scaling
   const maxColumnMinutes = useMemo(() => {
     return Math.max(...columns.map((c) => c.totalMinutes), 0);
   }, [columns]);
@@ -408,32 +527,20 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
     return getYAxisTicks(maxColumnMinutes);
   }, [maxColumnMinutes]);
 
-  // Selected column object for inspection details
   const activeSelectedColumn = useMemo(() => {
     if (!selectedColumnId) return null;
     return columns.find((c) => c.id === selectedColumnId) || null;
   }, [columns, selectedColumnId]);
 
-  // ================= DRILL-DOWN LOGIC FOR A SINGLE PROJECT =================
+  // ================= DRILL-DOWN STATS FOR A SINGLE PROJECT =================
   const selectedProjectStats = useMemo(() => {
     if (!selectedProject) return null;
 
     const pTasks = tasks.filter((t) => t.projectId === selectedProject.id && !t.isArchived);
     const pTaskIds = new Set(pTasks.map((t) => t.id));
 
-    // Determine period dates for filtering
-    let pStart = "1970-01-01";
-    let pEnd = "2099-12-31";
-    if (period === "day") {
-      pStart = format(referenceDate, "yyyy-MM-dd");
-      pEnd = pStart;
-    } else if (period === "week") {
-      pStart = format(startOfWeek(referenceDate, { weekStartsOn: 1 }), "yyyy-MM-dd");
-      pEnd = format(endOfWeek(referenceDate, { weekStartsOn: 1 }), "yyyy-MM-dd");
-    } else if (period === "month") {
-      pStart = format(startOfMonth(referenceDate), "yyyy-MM-dd");
-      pEnd = format(endOfMonth(referenceDate), "yyyy-MM-dd");
-    }
+    let pStart = startDateStr;
+    let pEnd = endDateStr;
 
     const pEvents = externalEvents.filter(
       (e) => e.projectId === selectedProject.id && e.date >= pStart && e.date <= pEnd
@@ -567,13 +674,17 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
           : 0,
       categoriesList,
     };
-  }, [selectedProject, tasks, externalEvents, completions, period, referenceDate]);
+  }, [selectedProject, tasks, externalEvents, completions, startDateStr, endDateStr]);
+
+  // Donut cumulative math for day mode
+  let globalCumulativePercent = 0;
+  const effectiveGlobalTotal =
+    totalGlobalMinutes > 0 ? totalGlobalMinutes : allProjectTasks.length + allProjectEvents.length;
 
   const toggleExpandCategory = (catId: string) => {
     setExpandedCategory((prev) => (prev === catId ? null : catId));
   };
 
-  // Chart height in pixels
   const chartHeightPx = 220;
 
   return (
@@ -606,7 +717,14 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
           </div>
         ) : (
           <div className="flex items-center gap-2">
-            <h3 className="text-sm font-bold text-white tracking-tight">Temps enregistré</h3>
+            {period === "day" ? (
+              <PieChartIcon className="w-4 h-4 text-[#D4F63D]" />
+            ) : (
+              <h3 className="text-sm font-bold text-white tracking-tight">Temps enregistré</h3>
+            )}
+            <h3 className="text-sm font-bold text-white">
+              {period === "day" ? "Répartition des Projets" : ""}
+            </h3>
             <span className="text-[11px] font-semibold text-[#8E929E]">
               ({period === "day" ? "Jour" : period === "week" ? "Semaine" : "Mois"})
             </span>
@@ -615,7 +733,7 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
 
         <div className="flex items-center gap-2">
           <div className="px-2.5 py-0.5 rounded-full bg-[#252830] text-[#D4F63D] font-bold text-xs border border-white/5">
-            Total : {formatDurationHoursMinutes(totalPeriodMinutes)}
+            Total : {formatDurationHoursMinutes(period === "day" ? totalGlobalMinutes : totalPeriodMinutes)}
           </div>
           <Link
             href="/projects"
@@ -706,7 +824,7 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
                           isExpanded ? "rotate-90 text-[#D4F63D]" : ""
                         )}
                       >
-                        <ChevronRight className="w-3 h-3" />
+                        <ChevronRight className="w-3.5 h-3.5" />
                       </div>
                     </div>
                   </button>
@@ -753,8 +871,164 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
             })}
           </div>
         </div>
+      ) : period === "day" ? (
+        /* ================= DAY PERIOD: DONUT / CAMEMBERT VIEW ================= */
+        <div className="flex flex-col sm:flex-row items-center gap-6 animate-in fade-in duration-200">
+          {/* Global Donut Chart based on duration */}
+          <div className="relative w-36 h-36 flex-shrink-0 select-none">
+            <svg viewBox="-1.1 -1.1 2.2 2.2" className="w-full h-full -rotate-90">
+              {effectiveGlobalTotal === 0 ? (
+                <circle
+                  cx="0"
+                  cy="0"
+                  r="0.8"
+                  fill="transparent"
+                  stroke="#282A30"
+                  strokeWidth="0.3"
+                />
+              ) : (
+                globalProjectData.map((slice, idx) => {
+                  const sliceValue =
+                    totalGlobalMinutes > 0 ? slice.durationMinutes : slice.count;
+                  if (sliceValue === 0) return null;
+                  const percent = sliceValue / effectiveGlobalTotal;
+                  const [startX, startY] = getCoordinatesForPercent(globalCumulativePercent);
+                  globalCumulativePercent += percent;
+                  const [endX, endY] = getCoordinatesForPercent(globalCumulativePercent);
+                  const isLargeArc = percent > 0.5 ? 1 : 0;
+                  const isHovered = hoveredIndex === idx;
+
+                  if (percent >= 0.999) {
+                    return (
+                      <circle
+                        key={slice.id}
+                        cx="0"
+                        cy="0"
+                        r="0.8"
+                        fill="transparent"
+                        stroke={slice.color}
+                        strokeWidth={isHovered ? "0.36" : "0.3"}
+                        className="transition-all duration-200 cursor-pointer"
+                        onMouseEnter={() => setHoveredIndex(idx)}
+                        onMouseLeave={() => setHoveredIndex(null)}
+                        onClick={() => setSelectedProjectId(slice.id)}
+                        style={{
+                          filter: isHovered ? `drop-shadow(0 0 8px ${slice.color})` : "none",
+                        }}
+                      />
+                    );
+                  }
+
+                  const pathData = [
+                    `M ${startX * 0.95} ${startY * 0.95}`,
+                    `A 0.95 0.95 0 ${isLargeArc} 1 ${endX * 0.95} ${endY * 0.95}`,
+                    `L ${endX * 0.65} ${endY * 0.65}`,
+                    `A 0.65 0.65 0 ${isLargeArc} 0 ${startX * 0.65} ${startY * 0.65}`,
+                    "Z",
+                  ].join(" ");
+
+                  return (
+                    <path
+                      key={slice.id}
+                      d={pathData}
+                      fill={slice.color}
+                      className={cn(
+                        "transition-all duration-200 cursor-pointer",
+                        isHovered ? "opacity-100 scale-105" : "opacity-90 hover:opacity-100"
+                      )}
+                      onMouseEnter={() => setHoveredIndex(idx)}
+                      onMouseLeave={() => setHoveredIndex(null)}
+                      onClick={() => setSelectedProjectId(slice.id)}
+                      style={{
+                        transformOrigin: "0 0",
+                        filter: isHovered ? `drop-shadow(0 0 10px ${slice.color})` : "none",
+                      }}
+                    />
+                  );
+                })
+              )}
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center px-2">
+              {hoveredIndex !== null && globalProjectData[hoveredIndex] ? (
+                <>
+                  <span className="text-sm font-black text-white leading-none">
+                    {formatDurationHoursMinutes(globalProjectData[hoveredIndex].durationMinutes)}
+                  </span>
+                  <span className="text-[10px] text-[#D4F63D] font-bold mt-0.5 truncate max-w-[90px]">
+                    {globalProjectData[hoveredIndex].name}
+                  </span>
+                  <span className="text-[9px] text-[#8E929E]">
+                    ({globalProjectData[hoveredIndex].count} élém.)
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="text-base font-black text-white leading-none">
+                    {formatDurationHoursMinutes(totalGlobalMinutes)}
+                  </span>
+                  <span className="text-[10px] text-[#D4F63D] font-bold mt-0.5">
+                    {allProjectTasks.length + allProjectEvents.length} élément
+                    {allProjectTasks.length + allProjectEvents.length !== 1 ? "s" : ""}
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Project List with duration & click-to-drilldown */}
+          <div className="flex-1 w-full space-y-1.5">
+            <div className="text-[10px] font-semibold text-[#8E929E] flex items-center justify-between pb-1">
+              <span>Projet (clique pour détails)</span>
+              <span>Temps & Part</span>
+            </div>
+
+            {globalProjectData.map((p, idx) => {
+              const percent =
+                effectiveGlobalTotal > 0
+                  ? Math.round(
+                      ((totalGlobalMinutes > 0 ? p.durationMinutes : p.count) /
+                        effectiveGlobalTotal) *
+                        100
+                    )
+                  : 0;
+              const isHovered = hoveredIndex === idx;
+
+              return (
+                <button
+                  type="button"
+                  key={p.id}
+                  onClick={() => setSelectedProjectId(p.id)}
+                  onMouseEnter={() => setHoveredIndex(idx)}
+                  onMouseLeave={() => setHoveredIndex(null)}
+                  className={cn(
+                    "w-full flex items-center justify-between text-xs p-1.5 rounded-xl transition-all cursor-pointer text-left group",
+                    isHovered ? "bg-white/10 shadow-sm" : "hover:bg-white/5"
+                  )}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span
+                      className="w-2.5 h-2.5 rounded-full flex-shrink-0 group-hover:scale-125 transition-transform"
+                      style={{ backgroundColor: p.color }}
+                    />
+                    <span className="text-white truncate font-medium group-hover:text-[#D4F63D] transition-colors">
+                      {p.name}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className="font-bold text-[#D4F63D]">
+                      {formatDurationHoursMinutes(p.durationMinutes)}
+                    </span>
+                    <span className="text-[10px] text-[#8E929E]">({p.count} élém.)</span>
+                    <span className="text-[10px] text-[#6B7280] w-7 text-right">{percent}%</span>
+                    <ChevronRight className="w-3.5 h-3.5 text-[#6B7280] group-hover:text-white group-hover:translate-x-0.5 transition-all" />
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
       ) : (
-        /* ================= MAIN VERTICAL STACKED BAR CHART ================= */
+        /* ================= WEEK / MONTH: MAIN VERTICAL STACKED BAR CHART ================= */
         <div className="space-y-4 animate-in fade-in duration-200">
           {/* Selected Column Info Card (if clicked) */}
           {activeSelectedColumn && (
