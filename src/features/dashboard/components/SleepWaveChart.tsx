@@ -6,7 +6,6 @@ import {
   format,
   subDays,
   addDays,
-  parseISO,
   startOfWeek,
   eachDayOfInterval,
   startOfMonth,
@@ -15,13 +14,13 @@ import {
 import { fr } from "date-fns/locale";
 import {
   getNightSleepDuration,
-  getStoredSleepLog,
   computeSleepDuration,
   fetchSleepHistory,
+  purgeOldSleepLogsExceptYesterday,
 } from "@/features/sleep/actions";
 import { DailySleepLog } from "@/features/sleep/types";
 import { getTodayDateString } from "@/lib/dates";
-import { Moon, Sun, Sparkles, Bed, Clock } from "lucide-react";
+import { Moon, Sun, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface SleepWaveChartProps {
@@ -52,12 +51,14 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
   const [selectedDateStr, setSelectedDateStr] = useState<string | null>(null);
   const [historyLogs, setHistoryLogs] = useState<DailySleepLog[]>([]);
 
-  // Fetch real sleep history
+  // Cleanup pre-recorded mock logs and fetch real sleep history
   useEffect(() => {
-    fetchSleepHistory(180).then((logs) => {
-      if (logs && logs.length > 0) {
-        setHistoryLogs(logs);
-      }
+    purgeOldSleepLogsExceptYesterday().finally(() => {
+      fetchSleepHistory(180).then((logs) => {
+        if (logs) {
+          setHistoryLogs(logs);
+        }
+      });
     });
 
     const handleAutoSleep = () => {
@@ -76,10 +77,6 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
     return map;
   }, [historyLogs]);
 
-  const getLog = (dateStr: string): DailySleepLog => {
-    return logsMap.get(dateStr) || getStoredSleepLog(dateStr);
-  };
-
   // Determine list of days to display based on global page period
   const daysInterval = useMemo(() => {
     if (period === "day") {
@@ -95,24 +92,18 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
     return eachDayOfInterval({ start, end: addDays(start, 6) });
   }, [period, referenceDate]);
 
-  // Build data points for each day in interval
+  // Build data points for each day in interval - ONLY from real, verified sleep logs
   const points = useMemo(() => {
     return daysInterval.map((d) => {
       const dateStr = format(d, "yyyy-MM-dd");
-      const log = getLog(dateStr);
+      const log = logsMap.get(dateStr);
       const nightData = getNightSleepDuration(dateStr);
-      const yesterdayStr = format(subDays(d, 1), "yyyy-MM-dd");
-      const yLog = getLog(yesterdayStr);
 
       const hasNightData = Boolean(
-        nightData ||
-          (log.wakeTime && yLog.bedtime) ||
-          log.wakeTimeValidated ||
-          yLog.bedtimeValidated
+        nightData && nightData.yesterdayBedtime && nightData.todayWakeTime
       );
-
-      const bedtime = nightData?.yesterdayBedtime || yLog.bedtime || null;
-      const wakeTime = nightData?.todayWakeTime || log.wakeTime || null;
+      const bedtime = nightData ? nightData.yesterdayBedtime : null;
+      const wakeTime = nightData ? nightData.todayWakeTime : null;
 
       let nightBlock: {
         startTime: string;
@@ -143,7 +134,7 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
       }
 
       // Naps
-      const naps = (log.naps || []).map((nap) => {
+      const naps = (log?.naps || []).map((nap) => {
         const topPct = timeToOffsetPct(nap.startTime);
         const endPct = nap.endTime
           ? timeToOffsetPct(nap.endTime)
@@ -212,14 +203,13 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
     });
   }, [daysInterval, logsMap, period, todayStr]);
 
-  // Real average calculation based solely on recorded days
-  const { averageText, validNightsCount, totalPeriodMinutesText } = useMemo(() => {
+  // Real average calculation based solely on recorded days with real sleep data
+  const { averageText, validNightsCount } = useMemo(() => {
     const daysWithNight = points.filter((p) => p.night);
     if (daysWithNight.length === 0) {
       return {
         averageText: "—",
         validNightsCount: 0,
-        totalPeriodMinutesText: "0h",
       };
     }
 
@@ -231,13 +221,9 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
     const avgH = Math.floor(avgMins / 60);
     const avgM = avgMins % 60;
 
-    const totalPeriodH = Math.floor(totalMins / 60);
-    const totalPeriodM = totalMins % 60;
-
     return {
       averageText: `${avgH}h ${String(avgM).padStart(2, "0")}m`,
       validNightsCount: daysWithNight.length,
-      totalPeriodMinutesText: `${totalPeriodH}h ${String(totalPeriodM).padStart(2, "0")}m`,
     };
   }, [points]);
 
@@ -269,15 +255,15 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
   const trackHeightPx = period === "day" ? 180 : period === "month" || period === "all" ? 220 : 240;
 
   return (
-    <div className="bg-[#1C1D22] border border-[#282A30] rounded-3xl p-4 sm:p-5 shadow-sm space-y-4 select-none">
+    <div className="bg-[#1C1D22] border border-[#282A30] rounded-3xl p-4 sm:p-5 shadow-sm space-y-4 select-none w-full max-w-full overflow-hidden">
       {/* 1. Header with Real Average Sleep & Status */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-[#252830] border border-[#343740] flex items-center justify-center text-[#818CF8] shadow-sm">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-10 h-10 rounded-2xl bg-[#252830] border border-[#343740] flex items-center justify-center text-[#818CF8] shadow-sm shrink-0">
             <Moon className="w-5 h-5" />
           </div>
-          <div>
-            <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+          <div className="min-w-0">
+            <h3 className="text-sm font-bold text-white flex items-center gap-1.5 truncate">
               <span>Sommeil</span>
               {period === "day" ? (
                 <span className="text-[11px] font-semibold text-[#8E929E]">
@@ -293,14 +279,14 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
                 </span>
               )}
             </h3>
-            <p className="text-[11px] text-[#8E929E]">
+            <p className="text-[11px] text-[#8E929E] truncate">
               Moyenne : <strong className="text-[#D4F63D]">{averageText}</strong>
               {validNightsCount > 0 ? ` (${validNightsCount} nuit${validNightsCount > 1 ? "s" : ""})` : ""}
             </p>
           </div>
         </div>
 
-        <div className="px-3 py-1 rounded-full bg-[#818CF8]/15 border border-[#818CF8]/30 text-[#818CF8] text-[11px] font-bold flex items-center gap-1">
+        <div className="px-3 py-1 rounded-full bg-[#818CF8]/15 border border-[#818CF8]/30 text-[#818CF8] text-[11px] font-bold flex items-center gap-1 shrink-0">
           <Sparkles className="w-3 h-3" />
           <span>Objectif 8h</span>
         </div>
@@ -308,53 +294,55 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
 
       {/* 2. Interactive Day Detail Card */}
       {activeSelectedPoint && (
-        <div className="bg-[#17181D] border border-[#2A2D37] rounded-2xl p-3.5 space-y-2.5 transition-all animate-in fade-in duration-150">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-[#818CF8]" />
-              <span className="text-xs font-bold text-white capitalize">
+        <div className="bg-[#17181D] border border-[#2A2D37] rounded-2xl p-3 sm:p-3.5 space-y-2.5 transition-all animate-in fade-in duration-150 w-full overflow-hidden">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-2 h-2 rounded-full bg-[#818CF8] shrink-0" />
+              <span className="text-xs font-bold text-white capitalize truncate">
                 {activeSelectedPoint.fullDateLabel}
               </span>
             </div>
             {activeSelectedPoint.nightDurationText ? (
-              <span className="text-xs font-bold text-[#D4F63D] bg-[#D4F63D]/10 px-2.5 py-0.5 rounded-full border border-[#D4F63D]/25">
+              <span className="text-xs font-bold text-[#D4F63D] bg-[#D4F63D]/10 px-2.5 py-0.5 rounded-full border border-[#D4F63D]/25 shrink-0">
                 Nuit : {activeSelectedPoint.nightDurationText}
               </span>
             ) : (
-              <span className="text-[11px] text-[#8E929E] italic">
+              <span className="text-[11px] text-[#8E929E] italic shrink-0">
                 Aucune nuit enregistrée
               </span>
             )}
           </div>
 
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-1.5 sm:gap-2 w-full">
             {/* Coucher */}
-            <div className="bg-[#202229] border border-[#2D303C] rounded-xl p-2 flex flex-col">
-              <span className="text-[10px] font-medium text-[#8E929E] flex items-center gap-1">
-                <Moon className="w-3 h-3 text-[#818CF8]" /> Coucher
+            <div className="bg-[#202229] border border-[#2D303C] rounded-xl p-2 flex flex-col min-w-0 overflow-hidden">
+              <span className="text-[10px] font-medium text-[#8E929E] flex items-center gap-1 truncate">
+                <Moon className="w-3 h-3 text-[#818CF8] shrink-0" />
+                <span className="truncate">Coucher</span>
               </span>
-              <span className="text-xs font-mono font-bold text-white mt-0.5">
+              <span className="text-xs font-mono font-bold text-white mt-0.5 truncate">
                 {activeSelectedPoint.yesterdayBedtime || "—"}
               </span>
             </div>
 
             {/* Réveil */}
-            <div className="bg-[#202229] border border-[#2D303C] rounded-xl p-2 flex flex-col">
-              <span className="text-[10px] font-medium text-[#8E929E] flex items-center gap-1">
-                <Sun className="w-3 h-3 text-[#FBBF24]" /> Réveil
+            <div className="bg-[#202229] border border-[#2D303C] rounded-xl p-2 flex flex-col min-w-0 overflow-hidden">
+              <span className="text-[10px] font-medium text-[#8E929E] flex items-center gap-1 truncate">
+                <Sun className="w-3 h-3 text-[#FBBF24] shrink-0" />
+                <span className="truncate">Réveil</span>
               </span>
-              <span className="text-xs font-mono font-bold text-white mt-0.5">
+              <span className="text-xs font-mono font-bold text-white mt-0.5 truncate">
                 {activeSelectedPoint.todayWakeTime || "—"}
               </span>
             </div>
 
             {/* Siestes */}
-            <div className="bg-[#202229] border border-[#2D303C] rounded-xl p-2 flex flex-col">
-              <span className="text-[10px] font-medium text-[#8E929E] flex items-center gap-1">
-                <Sparkles className="w-3 h-3 text-[#A5B4FC]" /> Sieste
-                {activeSelectedPoint.napsCount > 1 ? "s" : ""}
+            <div className="bg-[#202229] border border-[#2D303C] rounded-xl p-2 flex flex-col min-w-0 overflow-hidden">
+              <span className="text-[10px] font-medium text-[#8E929E] flex items-center gap-1 truncate">
+                <Sparkles className="w-3 h-3 text-[#A5B4FC] shrink-0" />
+                <span className="truncate">Siestes</span>
               </span>
-              <span className="text-xs font-mono font-bold text-white mt-0.5">
+              <span className="text-xs font-mono font-bold text-white mt-0.5 truncate">
                 {activeSelectedPoint.totalNapMinutes > 0
                   ? activeSelectedPoint.totalNapText
                   : "0 min"}
@@ -365,17 +353,10 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
       )}
 
       {/* 3. Sleep Timeline Chart Frame */}
-      <div className="pt-1">
-        <div className="relative w-full rounded-2xl bg-[#141519] border border-[#282A30] p-2.5 sm:p-3 overflow-hidden select-none">
-          {/* Day columns */}
-          <div
-            className={cn(
-              "flex items-stretch w-full relative z-10",
-              period === "month" || period === "all"
-                ? "justify-center gap-[2px] sm:gap-[3px]"
-                : "gap-1.5 sm:gap-2"
-            )}
-          >
+      <div className="pt-1 w-full">
+        <div className="relative w-full rounded-2xl bg-[#141519] border border-[#282A30] p-2 sm:p-3 overflow-hidden select-none">
+          {/* Day columns stretching evenly across 100% of card width */}
+          <div className="flex items-stretch w-full relative z-10 gap-0.5 sm:gap-1">
             {points.map((pt, idx) => {
               const isSelected = activeSelectedPoint?.dateStr === pt.dateStr;
               const isMonthView = period === "month" || period === "all";
@@ -384,73 +365,78 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
                 <div
                   key={idx}
                   onClick={() => setSelectedDateStr(pt.dateStr)}
-                  className={cn(
-                    "flex flex-col items-center group relative cursor-pointer",
-                    isMonthView ? "w-auto" : "flex-1 min-w-0"
-                  )}
+                  className="flex-1 min-w-0 flex flex-col items-center group relative cursor-pointer"
                 >
                   {/* Track Bar area */}
-                  <div
-                    className={cn(
-                      "relative transition-all overflow-hidden",
-                      isMonthView
-                        ? "w-[3.5px] sm:w-[4px] rounded-full"
-                        : "w-full rounded-xl",
-                      isSelected
-                        ? "bg-[#1C1D24] ring-2 ring-[#818CF8] z-20 shadow-lg"
-                        : "bg-[#1B1D24] hover:bg-[#2A2D3A]"
-                    )}
-                    style={{ height: `${trackHeightPx}px` }}
-                  >
-                    {/* Main Night sleep block */}
-                    {pt.night && (
-                      <div
-                        className={cn(
-                          "absolute transition-all",
-                          isMonthView
-                            ? "inset-x-0 rounded-full"
-                            : "inset-x-[15%] rounded-md",
-                          isSelected
-                            ? "bg-gradient-to-b from-[#818CF8] to-[#6366F1] ring-1 ring-white/30"
-                            : "bg-gradient-to-b from-[#818CF8] to-[#6366F1] group-hover:from-[#D4F63D] group-hover:to-[#a9d61f]"
-                        )}
-                        style={{
-                          top: `${pt.night.topPct}%`,
-                          height: `${Math.max(pt.night.heightPct, 2)}%`,
-                        }}
-                      />
-                    )}
+                  <div className="w-full flex items-center justify-center">
+                    <div
+                      className={cn(
+                        "relative transition-all overflow-hidden",
+                        isMonthView
+                          ? "w-[2.5px] sm:w-[3px] rounded-full"
+                          : period === "day"
+                          ? "w-full max-w-[48px] rounded-2xl"
+                          : "w-full max-w-[24px] rounded-xl",
+                        isSelected
+                          ? "bg-[#252836] ring-2 ring-[#818CF8] z-20 shadow-lg"
+                          : "bg-[#1B1D24] hover:bg-[#2A2D3A]"
+                      )}
+                      style={{ height: `${trackHeightPx}px` }}
+                    >
+                      {/* Main Night sleep block */}
+                      {pt.night && (
+                        <div
+                          className={cn(
+                            "absolute transition-all",
+                            isMonthView
+                              ? "inset-x-0 rounded-full"
+                              : "inset-x-[12%] rounded-md",
+                            isSelected
+                              ? "bg-gradient-to-b from-[#818CF8] to-[#6366F1] ring-1 ring-white/30"
+                              : "bg-gradient-to-b from-[#818CF8] to-[#6366F1] group-hover:from-[#D4F63D] group-hover:to-[#a9d61f]"
+                          )}
+                          style={{
+                            top: `${pt.night.topPct}%`,
+                            height: `${Math.max(pt.night.heightPct, 2)}%`,
+                          }}
+                        />
+                      )}
 
-                    {/* Nap blocks */}
-                    {pt.naps.map((nap, nIdx) => (
-                      <div
-                        key={nIdx}
-                        className={cn(
-                          "absolute bg-[#A5B4FC]/90",
-                          isMonthView
-                            ? "inset-x-0 rounded-full"
-                            : "inset-x-[25%] rounded-md",
-                          nap.isOpen && "animate-pulse"
-                        )}
-                        style={{
-                          top: `${nap.topPct}%`,
-                          height: `${Math.max(nap.heightPct, 2)}%`,
-                        }}
-                      />
-                    ))}
+                      {/* Nap blocks */}
+                      {pt.naps.map((nap, nIdx) => (
+                        <div
+                          key={nIdx}
+                          className={cn(
+                            "absolute bg-[#A5B4FC]/90",
+                            isMonthView
+                              ? "inset-x-0 rounded-full"
+                              : "inset-x-[20%] rounded-md",
+                            nap.isOpen && "animate-pulse"
+                          )}
+                          style={{
+                            top: `${nap.topPct}%`,
+                            height: `${Math.max(nap.heightPct, 2)}%`,
+                          }}
+                        />
+                      ))}
+                    </div>
                   </div>
 
                   {/* Date label under column */}
-                  <span
-                    className={cn(
-                      "text-[9px] mt-1.5 truncate transition-colors h-3 flex items-center justify-center select-none",
-                      isSelected
-                        ? "font-bold text-[#818CF8]"
-                        : "font-medium text-[#8E929E] group-hover:text-white"
-                    )}
-                  >
-                    {pt.label || "\u00A0"}
-                  </span>
+                  <div className="w-full h-3.5 mt-1.5 flex items-center justify-center overflow-visible select-none pointer-events-none">
+                    {pt.label ? (
+                      <span
+                        className={cn(
+                          "text-[8px] sm:text-[9px] font-mono leading-none transition-colors",
+                          isSelected
+                            ? "font-bold text-[#818CF8]"
+                            : "font-medium text-[#8E929E] group-hover:text-white"
+                        )}
+                      >
+                        {pt.label}
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
               );
             })}
@@ -458,7 +444,7 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
 
           {/* Horizontal time-of-day gridlines with labels inside chart frame */}
           <div
-            className="absolute inset-x-2.5 sm:inset-x-3 top-2.5 sm:top-3 pointer-events-none z-0"
+            className="absolute inset-x-2 sm:inset-x-3 top-2 sm:top-3 pointer-events-none z-0"
             style={{ height: `${trackHeightPx}px` }}
           >
             {axisLabels.map((axis, i) => (
@@ -478,3 +464,4 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
     </div>
   );
 };
+
