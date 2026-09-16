@@ -177,14 +177,22 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
         (nightBlock?.durationMinutes || 0) + totalNapMinutes;
 
       const fullDateLabel = format(d, "EEEE d MMMM yyyy", { locale: fr });
-      const dayShort =
-        period === "month" || period === "all"
-          ? format(d, "d")
-          : format(d, "EEE", { locale: fr });
+      const dayNum = parseInt(format(d, "d"), 10);
+      let dayLabel = format(d, "EEE", { locale: fr });
+
+      if (period === "month" || period === "all") {
+        // Only write day number every 5 days: 1, 5, 10, 15, 20, 25, 30...
+        if (dayNum === 1 || dayNum % 5 === 0) {
+          dayLabel = String(dayNum);
+        } else {
+          dayLabel = "";
+        }
+      }
 
       return {
         dateStr,
-        label: dayShort,
+        label: dayLabel,
+        dayNum,
         fullDateLabel,
         isToday: dateStr === todayStr,
         night: nightBlock,
@@ -358,11 +366,17 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
 
       {/* 3. Sleep Timeline Chart Frame */}
       <div className="pt-1">
-        <div className="relative w-full rounded-2xl bg-[#141519] border border-[#282A30] p-3 overflow-hidden select-none">
+        <div className="relative w-full rounded-2xl bg-[#141519] border border-[#282A30] p-2.5 sm:p-3 overflow-hidden select-none">
           {/* Day columns */}
-          <div className="flex items-stretch gap-1.5 w-full relative z-10">
+          <div
+            className={cn(
+              "flex items-stretch w-full relative z-10",
+              period === "month" || period === "all" ? "gap-[1px] sm:gap-1" : "gap-1.5 sm:gap-2"
+            )}
+          >
             {points.map((pt, idx) => {
               const isSelected = activeSelectedPoint?.dateStr === pt.dateStr;
+              const isMonthView = period === "month" || period === "all";
 
               return (
                 <div
@@ -373,10 +387,11 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
                   {/* Track Bar area */}
                   <div
                     className={cn(
-                      "relative w-full rounded-xl transition-all overflow-hidden",
+                      "relative w-full transition-all overflow-hidden",
+                      isMonthView ? "rounded-[3px]" : "rounded-xl",
                       isSelected
-                        ? "bg-[#1C1D24] border-2 border-[#818CF8] shadow-lg ring-2 ring-[#818CF8]/20"
-                        : "bg-[#17181D]/60 border border-[#282A30] hover:border-[#4B5563]"
+                        ? "bg-[#1C1D24] ring-2 ring-[#818CF8] z-20 shadow-lg"
+                        : "bg-[#17181D]/60 border border-[#24262E] hover:border-[#4B5563]"
                     )}
                     style={{ height: `${trackHeightPx}px` }}
                   >
@@ -384,7 +399,8 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
                     {pt.night && (
                       <div
                         className={cn(
-                          "absolute inset-x-[15%] rounded-md transition-all",
+                          "absolute rounded-sm transition-all",
+                          isMonthView ? "inset-x-0" : "inset-x-[15%]",
                           isSelected
                             ? "bg-gradient-to-b from-[#818CF8] to-[#6366F1] ring-1 ring-white/30"
                             : "bg-gradient-to-b from-[#818CF8] to-[#6366F1] group-hover:from-[#D4F63D] group-hover:to-[#a9d61f]"
@@ -401,7 +417,8 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
                       <div
                         key={nIdx}
                         className={cn(
-                          "absolute inset-x-[25%] rounded-md bg-[#A5B4FC]/80 border border-[#A5B4FC]/50",
+                          "absolute rounded-sm bg-[#A5B4FC]/90",
+                          isMonthView ? "inset-x-0" : "inset-x-[25%]",
                           nap.isOpen && "animate-pulse"
                         )}
                         style={{
@@ -415,13 +432,13 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
                   {/* Date label under column */}
                   <span
                     className={cn(
-                      "text-[10px] mt-2 truncate max-w-full transition-colors",
+                      "text-[10px] mt-1.5 truncate max-w-full transition-colors h-3 flex items-center justify-center select-none",
                       isSelected
                         ? "font-bold text-[#818CF8]"
                         : "font-medium text-[#8E929E] group-hover:text-white"
                     )}
                   >
-                    {pt.label}
+                    {pt.label || "\u00A0"}
                   </span>
                 </div>
               );
@@ -430,7 +447,7 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
 
           {/* Horizontal time-of-day gridlines with labels inside chart frame */}
           <div
-            className="absolute inset-x-3 top-3 pointer-events-none z-0"
+            className="absolute inset-x-2.5 sm:inset-x-3 top-2.5 sm:top-3 pointer-events-none z-0"
             style={{ height: `${trackHeightPx}px` }}
           >
             {axisLabels.map((axis, i) => (
