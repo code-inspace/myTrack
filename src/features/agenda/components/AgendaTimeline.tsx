@@ -65,6 +65,7 @@ const TAG_COLORS: Record<string, { bg: string; text: string; border: string }> =
 import {
   parseTimeToMinutes,
   formatMinutesToTime,
+  formatDurationMinutes,
   calculateResizedDuration,
   calculateResizedEndMinutes,
   calculateTopResizedStartMinutes,
@@ -965,6 +966,7 @@ interface DayGridColumnProps {
   selectedTaskId: string | null;
   resizingState: {
     taskId: string;
+    date: string;
     edge: "top" | "bottom";
     currentStartMins: number;
     currentEndMins: number;
@@ -1420,6 +1422,20 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
           }
 
           if (item.type === "task" && item.task) {
+            const isCurrentlyResizing = resizingState?.taskId === item.task.id && resizingState?.date === dayDate;
+            const resizingInfo = isCurrentlyResizing
+              ? {
+                  edge: resizingState.edge,
+                  currentTime: formatMinutesToTime(
+                    resizingState.edge === "top"
+                      ? resizingState.currentStartMins
+                      : resizingState.currentEndMins
+                  ),
+                  fullRange: `${formatMinutesToTime(resizingState.currentStartMins)} - ${formatMinutesToTime(resizingState.currentEndMins)}`,
+                  durationStr: formatDurationMinutes(resizingState.currentHeight),
+                }
+              : null;
+
             return (
               <AgendaTaskBlock
                 key={item.id}
@@ -1428,7 +1444,8 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
                 heightPx={item.height}
                 leftPercent={leftPercent}
                 widthPercent={widthPercent}
-                isSelected={selectedTaskId === item.task.id || resizingState?.taskId === item.task.id}
+                isSelected={selectedTaskId === item.task.id || isCurrentlyResizing}
+                resizingInfo={resizingInfo}
                 onDragStart={onDragStartTask}
                 onClick={() => {
                   onSelectTask?.(item.task!);
@@ -1444,6 +1461,18 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
           return null;
         });
       })()}
+
+      {/* Horizontal timeline guideline during live resize */}
+      {resizingState && resizingState.date === dayDate && (
+        <div
+          className="absolute left-0 right-0 z-40 pointer-events-none flex items-center transition-all duration-75"
+          style={{
+            top: `${resizingState.edge === "top" ? resizingState.currentStartMins : resizingState.currentEndMins}px`,
+          }}
+        >
+          <div className="h-[2px] w-full bg-[#38BDF8] shadow-[0_0_8px_#38BDF8]" />
+        </div>
+      )}
     </div>
   );
 };

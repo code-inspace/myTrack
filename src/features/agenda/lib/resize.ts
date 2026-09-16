@@ -28,6 +28,13 @@ export function parseTimeToMinutes(timeStr?: string | null): number {
   return (h || 0) * 60 + (m || 0);
 }
 
+export function formatDurationMinutes(mins: number): string {
+  if (mins < 60) return `${mins} min`;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m === 0 ? `${h}h` : `${h}h${m.toString().padStart(2, "0")}`;
+}
+
 export function calculateResizedEndMinutes(
   startMins: number,
   initialDurationMins: number,

@@ -2,7 +2,7 @@
 
 import React, { useRef } from "react";
 import { TaskWithCompletion } from "@/features/tasks/types";
-import { Flame, Repeat } from "lucide-react";
+import { Flame, Repeat, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getPriorityTitleClass, getPriorityIconColorClass } from "@/features/tasks/priority";
 import { useProjects } from "@/features/projects/hooks";
@@ -14,6 +14,12 @@ interface AgendaTaskBlockProps {
   leftPercent?: number;
   widthPercent?: number;
   isSelected?: boolean;
+  resizingInfo?: {
+    edge: "top" | "bottom";
+    currentTime: string;
+    fullRange: string;
+    durationStr: string;
+  } | null;
   onDragStart: (e: React.DragEvent, task: TaskWithCompletion) => void;
   onClick?: () => void;
   onSelectForResize?: (task: TaskWithCompletion) => void;
@@ -66,6 +72,7 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
   leftPercent = 0,
   widthPercent = 100,
   isSelected = false,
+  resizingInfo = null,
   onDragStart,
   onClick,
   onSelectForResize,
@@ -109,16 +116,15 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
       try {
         navigator.vibrate?.(25);
       } catch {}
-    }, 280);
+      onSelectForResize?.(task);
+    }, 400);
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
     if (!startCoordRef.current) return;
-    const deltaX = Math.abs(e.clientX - startCoordRef.current.x);
-    const deltaY = Math.abs(e.clientY - startCoordRef.current.y);
-
-    // If moved significantly before long press, cancel timer and allow regular scroll
-    if (!hasLongPressedRef.current && (deltaX > 8 || deltaY > 8)) {
+    const dx = Math.abs(e.clientX - startCoordRef.current.x);
+    const dy = Math.abs(e.clientY - startCoordRef.current.y);
+    if (dx > 8 || dy > 8) {
       if (timerRef.current) {
         clearTimeout(timerRef.current);
         timerRef.current = null;
@@ -131,50 +137,40 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
       clearTimeout(timerRef.current);
       timerRef.current = null;
     }
+    const hadLongPressed = hasLongPressedRef.current;
+    startCoordRef.current = null;
+    hasLongPressedRef.current = false;
 
-    if (!startCoordRef.current) return;
-    const deltaX = Math.abs(e.clientX - startCoordRef.current.x);
-    const deltaY = Math.abs(e.clientY - startCoordRef.current.y);
-    const wasMoved = deltaX > 8 || deltaY > 8;
-
-    if (hasLongPressedRef.current && !wasMoved) {
-      // Long press then released without moving -> Select task for resizing (shows top & bottom handles)
-      e.stopPropagation();
-      onSelectForResize?.(task);
-    } else if (!hasLongPressedRef.current && !wasMoved) {
-      // Short tap (< 280ms) -> Open detail/edit modal
-      e.stopPropagation();
+    if (!hadLongPressed) {
       onClick?.();
     }
+  };
 
+  const handlePointerCancel = () => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
     startCoordRef.current = null;
     hasLongPressedRef.current = false;
   };
 
   return (
     <div
-      data-agenda-block="true"
       draggable
-      onDragStart={(e) => {
-        e.dataTransfer.setData("text/plain", task.id);
-        e.dataTransfer.setData("taskId", task.id);
-        onDragStart(e, task);
-      }}
+      onDragStart={(e) => onDragStart(e, task)}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
-      onPointerCancel={() => {
-        if (timerRef.current) clearTimeout(timerRef.current);
-        startCoordRef.current = null;
-      }}
+      onPointerCancel={handlePointerCancel}
       style={{
         top: `${topOffsetPx}px`,
-        height: `${Math.max(2, heightPx)}px`,
-        left: `calc(${activeLeftPercent}% + 1px)`,
-        width: `calc(${activeWidthPercent}% - 3px)`,
+        height: `${heightPx}px`,
+        left: `${activeLeftPercent}%`,
+        width: `${activeWidthPercent}%`,
       }}
       className={cn(
-        "absolute rounded-lg border transition-all duration-150 select-none cursor-pointer group overflow-visible",
+        "absolute rounded-xl border transition-[top,height,box-shadow,transform] duration-75 select-none cursor-pointer flex flex-col justify-between overflow-visible",
         style.bg,
         style.border,
         isSelected
@@ -188,10 +184,10 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
         !task.isCompletedToday && !task.isActive && task.priority === "URGENT" ? "ring-1 ring-amber-500" : ""
       )}
     >
-      {/* --- APPLE CALENDAR STYLE RESIZE HANDLES (When selected) --- */}
+      {/* --- APPLE CALENDAR STYLE RESIZE HANDLES & LIVE TIME BADGES --- */}
       {isSelected && (
         <>
-          {/* Top-Right circular resize handle (Top-Right position matching Apple Calendar) */}
+          {/* Top-Right circular resize handle */}
           <div
             onPointerDown={(e) => {
               e.preventDefault();
@@ -200,9 +196,18 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
             }}
             className="absolute -top-2.5 right-2 w-4 h-4 rounded-full bg-white border-2 border-[#38BDF8] shadow-[0_2px_8px_rgba(0,0,0,0.6)] cursor-ns-resize z-50 flex items-center justify-center hover:scale-125 active:scale-125 transition-transform touch-none after:absolute after:-inset-2.5 after:content-['']"
             title="Glisser pour modifier l'heure de début (pas de 5min)"
-          />
+          >
+            {/* Live floating time badge while stretching top handle */}
+            {resizingInfo && resizingInfo.edge === "top" && (
+              <div className="absolute -top-8 -right-2 z-50 pointer-events-none flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#0F172A] border-2 border-[#38BDF8] text-[#38BDF8] shadow-[0_4px_20px_rgba(0,0,0,0.9),0_0_12px_rgba(56,189,248,0.6)] animate-in fade-in zoom-in-95 duration-100 whitespace-nowrap">
+                <Clock className="w-3 h-3 text-[#38BDF8]" />
+                <span className="font-mono text-xs font-black tracking-tight text-white">{resizingInfo.currentTime}</span>
+                <span className="text-[10px] text-[#94A3B8] font-semibold">({resizingInfo.durationStr})</span>
+              </div>
+            )}
+          </div>
 
-          {/* Bottom-Left circular resize handle (Bottom-Left position matching Apple Calendar) */}
+          {/* Bottom-Left circular resize handle */}
           <div
             onPointerDown={(e) => {
               e.preventDefault();
@@ -211,7 +216,16 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
             }}
             className="absolute -bottom-2.5 left-2 w-4 h-4 rounded-full bg-white border-2 border-[#38BDF8] shadow-[0_2px_8px_rgba(0,0,0,0.6)] cursor-ns-resize z-50 flex items-center justify-center hover:scale-125 active:scale-125 transition-transform touch-none after:absolute after:-inset-2.5 after:content-['']"
             title="Glisser pour modifier l'heure de fin (pas de 5min)"
-          />
+          >
+            {/* Live floating time badge while stretching bottom handle */}
+            {resizingInfo && resizingInfo.edge === "bottom" && (
+              <div className="absolute -bottom-8 -left-2 z-50 pointer-events-none flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#0F172A] border-2 border-[#38BDF8] text-[#38BDF8] shadow-[0_4px_20px_rgba(0,0,0,0.9),0_0_12px_rgba(56,189,248,0.6)] animate-in fade-in zoom-in-95 duration-100 whitespace-nowrap">
+                <Clock className="w-3 h-3 text-[#38BDF8]" />
+                <span className="font-mono text-xs font-black tracking-tight text-white">{resizingInfo.currentTime}</span>
+                <span className="text-[10px] text-[#94A3B8] font-semibold">({resizingInfo.durationStr})</span>
+              </div>
+            )}
+          </div>
         </>
       )}
 

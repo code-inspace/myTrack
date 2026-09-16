@@ -4,6 +4,7 @@ import {
   calculateResizedEndMinutes,
   calculateTopResizedStartMinutes,
   formatMinutesToTime,
+  formatDurationMinutes,
   parseTimeToMinutes,
 } from "./lib/resize";
 
@@ -11,6 +12,9 @@ describe("Agenda Task Resizing Logic (Mobile & Desktop)", () => {
   it("parses and formats time strings accurately", () => {
     expect(parseTimeToMinutes("09:30")).toBe(570);
     expect(formatMinutesToTime(570)).toBe("09:30");
+    expect(formatDurationMinutes(45)).toBe("45 min");
+    expect(formatDurationMinutes(60)).toBe("1h");
+    expect(formatDurationMinutes(90)).toBe("1h30");
     expect(parseTimeToMinutes("00:00")).toBe(0);
     expect(formatMinutesToTime(0)).toBe("00:00");
     expect(parseTimeToMinutes("23:45")).toBe(1425);
