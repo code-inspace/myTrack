@@ -22,6 +22,7 @@ import { AppHeader } from "@/components/shared/AppHeader";
 import { useAuth } from "@/providers/AuthProvider";
 import { useDisplayMode } from "@/providers/DisplayModeProvider";
 import { useCalendarEvents } from "@/features/calendar/hooks/useCalendarEvents";
+import { addWeeks, subWeeks, addMonths, subMonths } from "date-fns";
 import { Sliders } from "lucide-react";
 
 const DASHBOARD_CONFIG_STORAGE_KEY = "mytrack_dashboard_modules_config";
@@ -30,6 +31,34 @@ export default function DashboardPage() {
   const [period, setPeriod] = useState<Period>("week");
   const [referenceDate, setReferenceDate] = useState<Date>(() => new Date());
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
+  const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      setTouchStart({ x: e.touches[0].clientX, y: e.touches[0].clientY });
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!touchStart || period === "all") return;
+    const touchEnd = e.changedTouches[0];
+    const dx = touchEnd.clientX - touchStart.x;
+    const dy = touchEnd.clientY - touchStart.y;
+
+    // Detect clear horizontal swipe of at least 45px
+    if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      if (dx < 0) {
+        // Swipe left -> Next period
+        if (period === "week") setReferenceDate((prev) => addWeeks(prev, 1));
+        else if (period === "month") setReferenceDate((prev) => addMonths(prev, 1));
+      } else {
+        // Swipe right -> Previous period
+        if (period === "week") setReferenceDate((prev) => subWeeks(prev, 1));
+        else if (period === "month") setReferenceDate((prev) => subMonths(prev, 1));
+      }
+    }
+    setTouchStart(null);
+  };
 
   const [modules, setModules] = useState<DashboardModuleConfig[]>(() => {
     if (typeof window !== "undefined") {
@@ -150,7 +179,11 @@ export default function DashboardPage() {
   const enabledModules = modules.filter((m) => m.enabled);
 
   return (
-    <div className="flex-1 flex flex-col overflow-y-auto pb-28 md:pb-10 space-y-4 max-w-md md:max-w-6xl mx-auto w-full px-4 md:px-8 pt-2 md:pt-6">
+    <div
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      className="flex-1 flex flex-col overflow-y-auto pb-28 md:pb-10 space-y-4 max-w-md md:max-w-6xl mx-auto w-full px-4 md:px-8 pt-2 md:pt-6"
+    >
       {/* Desktop Header */}
       <div className="hidden md:flex items-center justify-between pb-2 select-none flex-shrink-0">
         <div>

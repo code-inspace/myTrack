@@ -168,6 +168,8 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
   // Global Project distribution chart data with duration, task & external event counts
   const { globalProjectData, totalGlobalMinutes } = useMemo(() => {
     let sumMinutes = 0;
+    const isAllPeriod = period === "all";
+
     const list = projects.map((p) => {
       const pTasks = tasks.filter((t) => t.projectId === p.id && !t.isArchived);
       const pTaskIds = new Set(pTasks.map((t) => t.id));
@@ -176,19 +178,34 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
         (c) =>
           pTaskIds.has(c.taskId) &&
           c.completed &&
-          c.date >= startDateStr &&
-          c.date <= endDateStr
+          (isAllPeriod || (c.date >= startDateStr && c.date <= endDateStr))
       );
 
       let pMinutes = 0;
-      if (periodCompletions.length > 0) {
-        for (const c of periodCompletions) {
-          const t = pTasks.find((item) => item.id === c.taskId);
-          pMinutes += getTaskCompletionDurationMinutes(c, t);
-        }
-      } else {
-        for (const t of pTasks) {
+      let activeTasksCount = 0;
+
+      for (const t of pTasks) {
+        const tComps = periodCompletions.filter((c) => c.taskId === t.id);
+        if (tComps.length > 0) {
+          activeTasksCount++;
+          for (const c of tComps) {
+            pMinutes += getTaskCompletionDurationMinutes(c, t);
+          }
+        } else if (isAllPeriod) {
+          activeTasksCount++;
           pMinutes += getTaskScheduledDurationMinutes(t);
+        } else if (t.recurrence && t.recurrence !== "ONCE") {
+          activeTasksCount++;
+          pMinutes += getTaskScheduledDurationMinutes(t);
+        } else {
+          const taskDate =
+            (t as any).date ||
+            t.deadline ||
+            (t.createdAt ? t.createdAt.split("T")[0] : null);
+          if (taskDate && taskDate >= startDateStr && taskDate <= endDateStr) {
+            activeTasksCount++;
+            pMinutes += getTaskScheduledDurationMinutes(t);
+          }
         }
       }
 
@@ -196,7 +213,7 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
       const pEvents = externalEvents.filter(
         (e) =>
           e.projectId === p.id &&
-          (period === "all" || (e.date >= startDateStr && e.date <= endDateStr))
+          (isAllPeriod || (e.date >= startDateStr && e.date <= endDateStr))
       );
 
       for (const evt of pEvents) {
@@ -209,8 +226,8 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
         id: p.id,
         name: p.name,
         durationMinutes: pMinutes,
-        count: pTasks.length + pEvents.length,
-        taskCount: pTasks.length,
+        count: activeTasksCount + pEvents.length,
+        taskCount: activeTasksCount,
         eventCount: pEvents.length,
         completedInPeriodCount: periodCompletions.length,
         color: p.color || "#D4F63D",
@@ -223,6 +240,7 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
   // Detailed computations for selected project
   const selectedProjectStats = useMemo(() => {
     if (!selectedProject) return null;
+    const isAllPeriod = period === "all";
 
     const pTasks = tasks.filter((t) => t.projectId === selectedProject.id && !t.isArchived);
     const pTaskIds = new Set(pTasks.map((t) => t.id));
@@ -231,7 +249,7 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
     const pEvents = externalEvents.filter(
       (e) =>
         e.projectId === selectedProject.id &&
-        (period === "all" || (e.date >= startDateStr && e.date <= endDateStr))
+        (isAllPeriod || (e.date >= startDateStr && e.date <= endDateStr))
     );
 
     // Completions inside the selected period
@@ -239,8 +257,7 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
       (c) =>
         pTaskIds.has(c.taskId) &&
         c.completed &&
-        c.date >= startDateStr &&
-        c.date <= endDateStr
+        (isAllPeriod || (c.date >= startDateStr && c.date <= endDateStr))
     );
 
     // Categories breakdown
@@ -266,38 +283,66 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
     }
 
     let projectTotalMinutes = 0;
+    let includedTasksCount = 0;
+    let completedTasksCount = 0;
 
-    // 1. Process tasks
+    // 1. Process tasks strictly relevant to this period
     for (const t of pTasks) {
       const cat = t.projectCategory || "Général";
       if (!catMap[cat]) {
         catMap[cat] = { durationMinutes: 0, count: 0, completedCount: 0, items: [] };
       }
-      catMap[cat].count++;
 
       const tComps = periodCompletions.filter((c) => c.taskId === t.id);
       let tMins = 0;
-      const isDone = t.projectStatus === "DONE" || tComps.length > 0;
+      let isIncluded = false;
+      let isDone = false;
 
       if (tComps.length > 0) {
-        catMap[cat].completedCount += tComps.length;
+        isIncluded = true;
+        isDone = true;
         for (const c of tComps) {
           tMins += getTaskCompletionDurationMinutes(c, t);
         }
-      } else {
+      } else if (isAllPeriod) {
+        isIncluded = true;
+        isDone = t.projectStatus === "DONE";
         tMins = getTaskScheduledDurationMinutes(t);
+      } else if (t.recurrence && t.recurrence !== "ONCE") {
+        isIncluded = true;
+        isDone = false;
+        tMins = getTaskScheduledDurationMinutes(t);
+      } else {
+        const taskDate =
+          (t as any).date ||
+          t.deadline ||
+          (t.createdAt ? t.createdAt.split("T")[0] : null);
+        if (taskDate && taskDate >= startDateStr && taskDate <= endDateStr) {
+          isIncluded = true;
+          isDone = t.projectStatus === "DONE";
+          tMins = getTaskScheduledDurationMinutes(t);
+        }
       }
 
-      catMap[cat].durationMinutes += tMins;
-      projectTotalMinutes += tMins;
+      if (isIncluded) {
+        includedTasksCount++;
+        catMap[cat].count++;
+        catMap[cat].durationMinutes += tMins;
+        projectTotalMinutes += tMins;
 
-      catMap[cat].items.push({
-        id: t.id,
-        type: "task",
-        title: t.title,
-        durationMinutes: tMins,
-        isDone,
-      });
+        if (isDone) {
+          completedTasksCount++;
+          catMap[cat].completedCount++;
+        }
+
+        catMap[cat].items.push({
+          id: t.id,
+          type: "task",
+          title: t.title,
+          durationMinutes: tMins,
+          isDone,
+        });
+      }
     }
 
     // 2. Process external events
@@ -312,6 +357,7 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
       const isDone = isExternalEventDone(evt);
       if (isDone) {
         catMap[cat].completedCount++;
+        completedTasksCount++;
       }
 
       catMap[cat].durationMinutes += evtMins;
@@ -356,14 +402,7 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
       };
     });
 
-    const completedTasksCount =
-      pTasks.filter(
-        (t) =>
-          t.projectStatus === "DONE" ||
-          periodCompletions.some((c) => c.taskId === t.id)
-      ).length + pEvents.filter((e) => isExternalEventDone(e)).length;
-
-    const totalElementsCount = pTasks.length + pEvents.length;
+    const totalElementsCount = includedTasksCount + pEvents.length;
 
     const completionRate =
       totalElementsCount > 0
