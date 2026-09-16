@@ -65,10 +65,10 @@ export const ExternalEventTaskCard: React.FC<ExternalEventTaskCardProps> = ({
         touchAction: "pan-y",
         transform: CSS.Transform.toString(transform),
         transition,
-        ...(project?.color && !isDone && !isDragging
+        ...(project?.color && !isDragging
           ? {
-              backgroundColor: `${project.color}0F`,
-              borderColor: `${project.color}45`,
+              backgroundColor: isDone ? `${project.color}0D` : `${project.color}0F`,
+              borderColor: isDone ? `${project.color}30` : `${project.color}45`,
             }
           : {}),
       }}
@@ -80,7 +80,9 @@ export const ExternalEventTaskCard: React.FC<ExternalEventTaskCardProps> = ({
           : isInProgress
           ? "bg-[#181C26] border-[#3B82F6]/60 shadow-[0_0_20px_rgba(59,130,246,0.15)] ring-1 ring-[#3B82F6]/40"
           : isDone
-          ? "bg-[#121316]/70 border-[#202229] opacity-70"
+          ? project
+            ? "opacity-80 hover:brightness-110"
+            : "bg-[#121316]/70 border-[#202229] opacity-70"
           : !project
           ? "bg-[#17181F] border-[#262833] hover:border-[#3A3D4D] hover:bg-[#1A1C24]"
           : "hover:brightness-110"
@@ -113,10 +115,17 @@ export const ExternalEventTaskCard: React.FC<ExternalEventTaskCardProps> = ({
           onTouchStart={(e) => e.stopPropagation()}
           onClick={handleCircleClick}
           aria-label={isDone ? "Marquer comme à faire" : "Marquer comme fait"}
+          style={
+            isDone && project?.color
+              ? { backgroundColor: project.color, borderColor: project.color }
+              : undefined
+          }
           className={cn(
             "w-6 h-6 rounded-full flex items-center justify-center transition-all cursor-pointer flex-shrink-0 border-2 mt-0.5",
             isDone
-              ? "bg-[#D4F63D] border-[#D4F63D] text-black shadow-sm"
+              ? project?.color
+                ? "text-black shadow-sm"
+                : "bg-[#D4F63D] border-[#D4F63D] text-black shadow-sm"
               : isInProgress
               ? "border-[#3B82F6] bg-[#3B82F6]/15 text-[#3B82F6]"
               : "border-[#4E525F] hover:border-[#D4F63D] bg-transparent"
@@ -167,7 +176,14 @@ export const ExternalEventTaskCard: React.FC<ExternalEventTaskCardProps> = ({
 
             {/* DONE badge */}
             {isDone && (
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-bold bg-[#D4F63D]/10 text-[#D4F63D]/80 border border-[#D4F63D]/20">
+              <span
+                className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-bold border"
+                style={
+                  project?.color
+                    ? { color: project.color, backgroundColor: `${project.color}15`, borderColor: `${project.color}30` }
+                    : { color: "rgba(212, 246, 61, 0.8)", backgroundColor: "rgba(212, 246, 61, 0.1)", borderColor: "rgba(212, 246, 61, 0.2)" }
+                }
+              >
                 Terminé
               </span>
             )}

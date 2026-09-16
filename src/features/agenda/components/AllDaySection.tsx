@@ -138,8 +138,8 @@ export const AllDaySection: React.FC<AllDaySectionProps> = ({
                 style={
                   project?.color
                     ? {
-                        backgroundColor: `${project.color}22`,
-                        borderColor: `${project.color}60`,
+                        backgroundColor: task.isCompletedToday ? `${project.color}15` : `${project.color}22`,
+                        borderColor: task.isCompletedToday ? `${project.color}40` : `${project.color}60`,
                       }
                     : undefined
                 }
@@ -166,7 +166,13 @@ export const AllDaySection: React.FC<AllDaySectionProps> = ({
                   className="hover:scale-110 transition-transform cursor-pointer"
                 >
                   {task.isCompletedToday ? (
-                    <CheckCircle2 className="w-3.5 h-3.5 text-[#D4F63D] fill-[#D4F63D]/20" />
+                    <CheckCircle2
+                      className="w-3.5 h-3.5"
+                      style={{
+                        color: project?.color || "#D4F63D",
+                        fill: project?.color ? `${project.color}33` : "#D4F63D33",
+                      }}
+                    />
                   ) : (
                     <Circle className="w-3.5 h-3.5 opacity-60" />
                   )}

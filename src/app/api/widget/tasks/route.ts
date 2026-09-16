@@ -120,6 +120,7 @@ export async function GET(_req: NextRequest) {
                       ? `${evt.startTime} - ${evt.endTime}`
                       : evt.startTime || "Événement";
 
+                    const project = (evt as any).projectId ? projectMap.get((evt as any).projectId) : null;
                     externalEventItems.push({
                       id: `ext_${evt.id}`,
                       title: evt.title || "Événement",
@@ -128,7 +129,10 @@ export async function GET(_req: NextRequest) {
                       targetFormattedDuration: timeLabel,
                       isHabit: false,
                       isExternal: true,
-                      color: evt.calendarColor || sub.color || "#3B82F6",
+                      color: project?.color || evt.calendarColor || sub.color || "#3B82F6",
+                      projectId: (evt as any).projectId || null,
+                      projectName: project?.name || null,
+                      projectColor: project?.color || null,
                     });
                   }
                 }

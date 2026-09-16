@@ -42,17 +42,19 @@ export const HistoryTaskCard: React.FC<HistoryTaskCardProps> = ({
   return (
     <div
       style={
-        project?.color && !isCompleted
+        project?.color
           ? {
-              backgroundColor: `${project.color}0F`,
-              borderColor: `${project.color}45`,
+              backgroundColor: isCompleted ? `${project.color}0D` : `${project.color}0F`,
+              borderColor: isCompleted ? `${project.color}30` : `${project.color}45`,
             }
           : undefined
       }
       className={cn(
         "rounded-2xl p-4 border transition-all duration-200 shadow-sm",
         isCompleted
-          ? "bg-[#141519] border-[#2A2D35]"
+          ? project
+            ? "opacity-85 hover:brightness-110"
+            : "bg-[#141519] border-[#2A2D35]"
           : !project
           ? "bg-[#1C1D22] border-[#2E313B] hover:border-[#3E424F]"
           : "hover:brightness-110",
@@ -120,10 +122,16 @@ export const HistoryTaskCard: React.FC<HistoryTaskCardProps> = ({
           <button
             type="button"
             onClick={() => onToggleComplete(task.id)}
-            className="p-1 text-[#D4F63D] hover:scale-110 transition-transform cursor-pointer"
+            className="p-1 hover:scale-110 transition-transform cursor-pointer"
           >
             {isCompleted ? (
-              <CheckCircle2 className="w-5 h-5 fill-[#D4F63D]/20 text-[#D4F63D]" />
+              <CheckCircle2
+                className="w-5 h-5"
+                style={{
+                  color: project?.color || "#D4F63D",
+                  fill: project?.color ? `${project.color}33` : "#D4F63D33",
+                }}
+              />
             ) : (
               <Circle className="w-5 h-5 text-[#8E929E]" />
             )}
@@ -191,7 +199,14 @@ export const HistoryTaskCard: React.FC<HistoryTaskCardProps> = ({
             </button>
           )
         ) : (
-          <div className="w-full text-center py-1 text-[11px] font-semibold text-[#22C55E] bg-[#22C55E]/10 rounded-lg">
+          <div
+            className="w-full text-center py-1 text-[11px] font-semibold rounded-lg"
+            style={
+              project?.color
+                ? { color: project.color, backgroundColor: `${project.color}15` }
+                : { color: "#22C55E", backgroundColor: "rgba(34, 197, 94, 0.1)" }
+            }
+          >
             ✓ Accomplie le {date}
           </div>
         )}

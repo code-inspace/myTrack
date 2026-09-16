@@ -177,8 +177,8 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
         width: `${activeWidthPercent}%`,
         ...(project?.color && !isSelected
           ? {
-              backgroundColor: `${project.color}22`,
-              borderColor: `${project.color}66`,
+              backgroundColor: task.isCompletedToday ? `${project.color}15` : `${project.color}25`,
+              borderColor: task.isCompletedToday ? `${project.color}45` : `${project.color}66`,
             }
           : {}),
       }}

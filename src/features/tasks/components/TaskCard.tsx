@@ -93,10 +93,10 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         touchAction: "pan-y",
         transform: CSS.Transform.toString(transform),
         transition,
-        ...(project?.color && !isCompleted && !isDragging
+        ...(project?.color && !isDragging
           ? {
-              backgroundColor: `${project.color}0F`,
-              borderColor: `${project.color}45`,
+              backgroundColor: isCompleted ? `${project.color}0D` : `${project.color}0F`,
+              borderColor: isCompleted ? `${project.color}30` : `${project.color}45`,
             }
           : {}),
       }}
@@ -105,7 +105,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         isDragging
           ? "opacity-40 border-[#D4F63D] scale-[0.98] ring-2 ring-[#D4F63D]/50 bg-[#22242B]"
           : isCompleted
-          ? "bg-[#141518]/90 border-[#23242A] opacity-75"
+          ? project
+            ? "opacity-80 hover:brightness-110"
+            : "bg-[#141518]/90 border-[#23242A] opacity-75"
           : !project
           ? "bg-[#1C1D22] hover:bg-[#22242B] border-[#282A30] hover:border-[#383C48]"
           : "hover:brightness-110",
@@ -113,9 +115,12 @@ export const TaskCard: React.FC<TaskCardProps> = ({
       )}
     >
       {/* Left colored accent bar for project-assigned tasks */}
-      {project?.color && !isCompleted && (
+      {project?.color && (
         <div
-          className="absolute top-3 bottom-3 left-1 w-1 rounded-full opacity-85"
+          className={cn(
+            "absolute top-3 bottom-3 left-1 w-1 rounded-full transition-opacity",
+            isCompleted ? "opacity-50" : "opacity-85"
+          )}
           style={{ backgroundColor: project.color }}
         />
       )}
@@ -141,10 +146,17 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             onTouchStart={(e) => e.stopPropagation()}
             onClick={handleCircleClick}
             aria-label={isCompleted ? "Marquer comme non fait" : "Marquer comme fait"}
+            style={
+              isCompleted && project?.color
+                ? { backgroundColor: project.color, borderColor: project.color }
+                : undefined
+            }
             className={cn(
               "w-6 h-6 rounded-full flex items-center justify-center transition-all cursor-pointer flex-shrink-0 border-2 mt-0.5",
               isCompleted
-                ? "bg-[#D4F63D] border-[#D4F63D] text-black shadow-sm"
+                ? project?.color
+                  ? "text-black shadow-sm"
+                  : "bg-[#D4F63D] border-[#D4F63D] text-black shadow-sm"
                 : "border-[#4E525F] hover:border-[#D4F63D] bg-transparent"
             )}
           >
