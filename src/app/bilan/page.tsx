@@ -1,8 +1,5 @@
-"use client";
-
-import React from "react";
-import { UnifiedTasksAgendaView } from "@/features/tasks/components/UnifiedTasksAgendaView";
+import { redirect } from "next/navigation";
 
 export default function BilanPage() {
-  return <UnifiedTasksAgendaView initialTab="bilan" />;
+  redirect("/dashboard");
 }

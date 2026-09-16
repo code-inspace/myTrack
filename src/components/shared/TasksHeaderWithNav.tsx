@@ -10,22 +10,21 @@ import { cn } from "@/lib/utils";
 import { useDisplayMode } from "@/providers/DisplayModeProvider";
 import { useAuth } from "@/providers/AuthProvider";
 
-export type TasksTab = "habits" | "agenda" | "projects" | "bilan";
+export type TasksTab = "habits" | "agenda" | "projects";
 
 export interface TaskTabDef {
-  id: TasksTab;
+  id: TasksTab | "dashboard";
   href: string;
   label: string;
   icon: LucideIcon;
   activePaths: string[];
 }
 
-/** Shared with BottomNav, which renders these same tabs in "modern" display mode. */
+/** Shared with BottomNav, which renders these same tabs in bottom nav. */
 export const TASK_TABS: TaskTabDef[] = [
   { id: "habits", href: "/tasks", label: "Liste", icon: ListTodo, activePaths: ["/tasks", "/"] },
-  { id: "agenda", href: "/agenda", label: "Agenda", icon: Calendar, activePaths: ["/agenda", "/sleep"] },
+  { id: "agenda", href: "/agenda", label: "Agenda", icon: Calendar, activePaths: ["/agenda", "/sleep", "/bilan"] },
   { id: "projects", href: "/projects", label: "Projets", icon: FolderKanban, activePaths: ["/projects"] },
-  { id: "bilan", href: "/bilan", label: "Bilan", icon: BookOpen, activePaths: ["/bilan"] },
 ];
 
 interface TasksHeaderWithNavProps {
@@ -56,10 +55,8 @@ export const TasksHeaderWithNav: React.FC<TasksHeaderWithNavProps> = ({
 
   const currentTab: TasksTab =
     activeTab ||
-    (pathname.includes("/agenda") || pathname.includes("/sleep")
+    (pathname.includes("/agenda") || pathname.includes("/sleep") || pathname.includes("/bilan")
       ? "agenda"
-      : pathname.includes("/bilan")
-      ? "bilan"
       : pathname.includes("/projects")
       ? "projects"
       : "habits");
@@ -75,16 +72,20 @@ export const TasksHeaderWithNav: React.FC<TasksHeaderWithNavProps> = ({
             ? { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" }
             : undefined
         }
-        rightAction={{
-          href: "/profile",
-          initial: (user?.name?.[0] || "A").toUpperCase(),
-          label: "Profil",
-        }}
+        rightAction={
+          displayMode === "modern" && user
+            ? {
+                href: "/profile",
+                initial: (user?.name?.[0] || user?.email?.[0] || "A").toUpperCase(),
+                label: "Mon profil",
+              }
+            : undefined
+        }
       />
 
-      {/* 2. 7-Day Horizontal Week Calendar — only visible on mobile */}
+      {/* 2. Horizontal Date Picker Day Strip (always visible on Tasks/Agenda/Projects) */}
       {currentTab !== "projects" && (
-        <div className="md:hidden">
+        <div className="px-3 pb-2 pt-0.5">
           <HorizontalDatePicker
             selectedDate={selectedDate}
             onSelectDate={onSelectDate}
@@ -94,7 +95,7 @@ export const TasksHeaderWithNav: React.FC<TasksHeaderWithNavProps> = ({
         </div>
       )}
 
-      {/* 3. Cohesive Segmented View Switcher (Habitudes / Agenda / Sommeil / Bilan / Projets) —
+      {/* 3. Cohesive Segmented View Switcher (Habitudes / Agenda / Projets) —
           only in "classic" display mode; in "modern" mode these tabs live in the bottom nav. */}
       {displayMode === "classic" && (
         <div className="px-3 pb-3 pt-0.5">
@@ -112,7 +113,7 @@ export const TasksHeaderWithNav: React.FC<TasksHeaderWithNavProps> = ({
                     key={v.id}
                     data-testid={`nav-tab-${v.id}`}
                     type="button"
-                    onClick={() => onChangeTab(v.id)}
+                    onClick={() => onChangeTab(v.id as TasksTab)}
                     className={cn(
                       "flex-shrink-0 min-w-[92px] flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer text-center",
                       isActive

@@ -31,10 +31,8 @@ export const DesktopSidebarNav: React.FC<DesktopSidebarNavProps> = ({
 
   const currentTab: TasksTab =
     activeTab ||
-    (pathname.includes("/agenda") || pathname.includes("/sleep")
+    (pathname.includes("/agenda") || pathname.includes("/sleep") || pathname.includes("/bilan")
       ? "agenda"
-      : pathname.includes("/bilan")
-      ? "bilan"
       : pathname.includes("/projects")
       ? "projects"
       : "habits");
@@ -104,7 +102,7 @@ export const DesktopSidebarNav: React.FC<DesktopSidebarNavProps> = ({
               <button
                 key={tab.id}
                 type="button"
-                onClick={() => onChangeTab(tab.id)}
+                onClick={() => onChangeTab(tab.id as TasksTab)}
                 className={baseClass}
                 title={tab.label}
               >

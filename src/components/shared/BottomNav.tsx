@@ -17,15 +17,13 @@ export const BottomNav: React.FC = () => {
     return null;
   }
 
-  const navItems =
-    displayMode === "modern"
-      ? TASK_TABS.map((t) => ({ href: t.href, label: t.label, icon: t.icon, activePaths: t.activePaths }))
-      : [
-          { href: "/tasks", label: "Tâches", icon: ListTodo, activePaths: ["/tasks", "/", "/agenda", "/sleep", "/bilan", "/history"] },
-          { href: "/dashboard", label: "Dashboard", icon: TrendingUp, activePaths: ["/dashboard"] },
-          { href: "/chat", label: "Coach IA", icon: MessageSquare, activePaths: ["/chat"] },
-          { href: "/profile", label: "Profil", icon: User, activePaths: ["/profile"] },
-        ];
+  const navItems = [
+    { href: "/tasks", label: "Liste", icon: ListTodo, activePaths: ["/tasks", "/"] },
+    { href: "/agenda", label: "Agenda", icon: TASK_TABS.find((t) => t.id === "agenda")?.icon || ListTodo, activePaths: ["/agenda", "/sleep", "/bilan"] },
+    { href: "/projects", label: "Projets", icon: TASK_TABS.find((t) => t.id === "projects")?.icon || ListTodo, activePaths: ["/projects"] },
+    { href: "/dashboard", label: "Dashboard", icon: TrendingUp, activePaths: ["/dashboard"] },
+    { href: "/profile", label: "Profil", icon: User, activePaths: ["/profile"] },
+  ];
 
   return (
     <nav
