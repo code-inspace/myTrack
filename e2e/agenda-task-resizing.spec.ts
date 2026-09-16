@@ -108,4 +108,39 @@ test.describe("Agenda Task Resizing (Top & Bottom Handles)", () => {
       }
     }
   });
+
+  test("resizing task does not open detail modal upon completion", async ({ page }) => {
+    const taskBlock = page.locator('[data-testid="agenda-task-block-task-resize-test-1"]');
+    await expect(taskBlock).toBeVisible();
+
+    const box = await taskBlock.boundingBox();
+    expect(box).not.toBeNull();
+    if (box) {
+      // Long-press or pointer down to select for resize
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      await page.mouse.down();
+      await page.waitForTimeout(500);
+      await page.mouse.up();
+
+      const bottomHandle = page.locator('[data-testid="agenda-resize-handle-bottom-task-resize-test-1"]');
+      await expect(bottomHandle).toBeVisible();
+
+      const handleBox = await bottomHandle.boundingBox();
+      expect(handleBox).not.toBeNull();
+      if (handleBox) {
+        // Drag bottom handle down by 60px (1 hour)
+        await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2);
+        await page.mouse.down();
+        await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2 + 60, { steps: 10 });
+        await page.mouse.up();
+
+        // Wait a short moment to ensure any debounced click/pointerup events have fired
+        await page.waitForTimeout(300);
+
+        // Modal should NOT be visible
+        const detailModal = page.locator('[data-testid="agenda-task-detail-modal"]');
+        await expect(detailModal).not.toBeVisible();
+      }
+    }
+  });
 });

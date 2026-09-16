@@ -160,6 +160,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
   }, [selectedTaskIdForDetail, allTasks, tasks, allCompletions, selectedDate, selectedTaskForDetailSnapshot]);
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const justResizedRef = useRef<number>(0);
   const [dragHoverInfo, setDragHoverInfo] = useState<{ date: string; minute: number } | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [resizingState, setResizingState] = useState<{
@@ -367,6 +368,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
     e.preventDefault();
     e.stopPropagation();
 
+    justResizedRef.current = Date.now();
     const startMins = parseTimeToMinutes(task.effectiveStartTime || task.startTime || "09:00");
     const endMins = parseTimeToMinutes(task.effectiveEndTime || task.endTime || "10:00");
     const initialStartMins = startMins;
@@ -436,6 +438,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
     };
 
     const handlePointerUp = (upEvent: PointerEvent) => {
+      justResizedRef.current = Date.now();
       try {
         targetElement.releasePointerCapture(pointerId);
       } catch {}
@@ -482,6 +485,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
   };
 
   const handleBackgroundClick = () => {
+    if (Date.now() - justResizedRef.current < 400) return;
     if (resizingState) {
       onMoveTaskToTime(
         resizingState.taskId,
@@ -890,6 +894,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
                   onCreateTaskAtTime={onCreateTaskAtTime}
                   onDragStartTask={onDragStartTask}
                   onSelectTask={(t) => {
+                    if (Date.now() - justResizedRef.current < 400) return;
                     setSelectedTaskIdForDetail(t.id);
                     setSelectedTaskForDetailSnapshot(t);
                     onSelectTask?.(t);

@@ -142,7 +142,7 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
     startCoordRef.current = null;
     hasLongPressedRef.current = false;
 
-    if (!hadLongPressed) {
+    if (!hadLongPressed && !resizingInfo) {
       onClick?.();
     }
   };
@@ -202,6 +202,10 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
               e.stopPropagation();
               onStartResize?.(e, task, "top");
             }}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
             className="absolute -top-2.5 right-2 w-4 h-4 rounded-full bg-white border-2 border-[#38BDF8] shadow-[0_2px_8px_rgba(0,0,0,0.6)] cursor-ns-resize z-50 flex items-center justify-center hover:scale-125 active:scale-125 transition-transform touch-none after:absolute after:-inset-2.5 after:content-['']"
             title="Glisser pour modifier l'heure de début (pas de 5min)"
           >
@@ -222,6 +226,10 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
               e.preventDefault();
               e.stopPropagation();
               onStartResize?.(e, task, "bottom");
+            }}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
             }}
             className="absolute -bottom-2.5 left-2 w-4 h-4 rounded-full bg-white border-2 border-[#38BDF8] shadow-[0_2px_8px_rgba(0,0,0,0.6)] cursor-ns-resize z-50 flex items-center justify-center hover:scale-125 active:scale-125 transition-transform touch-none after:absolute after:-inset-2.5 after:content-['']"
             title="Glisser pour modifier l'heure de fin (pas de 5min)"
