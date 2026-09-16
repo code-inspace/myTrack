@@ -51,6 +51,7 @@ interface AgendaTimelineProps {
   onMoveTaskOccurrence?: (taskId: string, targetDate: string) => void;
   onDragStartTask: (e: React.DragEvent, task: TaskWithCompletion) => void;
   onSelectTask?: (task: TaskWithCompletion) => void;
+  onDuplicateTask?: (task: TaskWithCompletion) => void;
 }
 
 const TAG_COLORS: Record<string, { bg: string; text: string; border: string }> = {
@@ -139,6 +140,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
   onMoveTaskOccurrence,
   onDragStartTask,
   onSelectTask,
+  onDuplicateTask,
 }) => {
   const { projects } = useProjects();
   const [viewMode, setViewMode] = useState<AgendaViewMode>("day");
@@ -942,6 +944,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
         }}
         onToggleComplete={onToggleComplete}
         onToggleReminder={onToggleReminder}
+        onDuplicateTask={onDuplicateTask}
         onDeleteTask={(taskId) => {
           setSelectedTaskIdForDetail(null);
           setSelectedTaskForDetailSnapshot(null);

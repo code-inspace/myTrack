@@ -118,6 +118,28 @@ export const AgendaView: React.FC = () => {
           onMoveTaskToTime={handleMoveTaskToTime}
           onDropToAllDay={handleDropToAllDay}
           onDragStartTask={handleDragStartTask}
+          onDuplicateTask={(t) => {
+            createTask.mutate({
+              title: t.title,
+              category: t.category || "General",
+              tag: (t as any).tag || null,
+              description: t.description || null,
+              priority: (t as any).priority || "NORMAL",
+              projectId: t.projectId || null,
+              projectCategory: t.projectCategory || null,
+              enableReminders: t.enableReminders,
+              reminderOffsetMinutes: t.reminderOffsetMinutes,
+              reminderTimes: t.reminderTimes,
+              recurrence: "ONCE",
+              recurrenceConfig: null,
+              trackingType: t.trackingType || "BOOLEAN",
+              targetValue: t.targetValue || null,
+              unit: t.unit || null,
+              startTime: null,
+              endTime: null,
+              date: selectedDate,
+            } as any);
+          }}
         />
       </div>
 

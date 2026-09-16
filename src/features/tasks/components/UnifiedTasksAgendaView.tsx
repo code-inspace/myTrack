@@ -232,18 +232,28 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
 
   const handleQuickAdd = (e?: React.FormEvent, autoStart = false) => {
     if (e) e.preventDefault();
-    if (!quickTitle.trim()) return;
+    const cleanTitle = quickTitle.trim();
+    if (!cleanTitle) return;
 
-    createTask.mutate({
-      title: quickTitle.trim(),
-      tag: "General",
-      category: "General",
-      trackingType: "BOOLEAN",
-      recurrence: "ONCE",
-      date: selectedDate,
-      autoStart,
-    } as any);
-    setQuickTitle("");
+    // Check if there is an existing task with the exact same title to inherit its metadata
+    const exactMatch = allTasks.find(
+      (t) => t.title.trim().toLowerCase() === cleanTitle.toLowerCase() && !t.isArchived
+    );
+
+    if (exactMatch) {
+      handleSelectSuggestion(exactMatch, autoStart);
+    } else {
+      createTask.mutate({
+        title: cleanTitle,
+        tag: "General",
+        category: "General",
+        trackingType: "BOOLEAN",
+        recurrence: "ONCE",
+        date: selectedDate,
+        autoStart,
+      } as any);
+      setQuickTitle("");
+    }
   };
 
   const matchingTasks = useMemo(() => {
@@ -263,18 +273,48 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
   }, [allTasks, quickTitle]);
 
   const handleSelectSuggestion = (matchedTask: Task, autoStart = false) => {
-    const isSingle = matchedTask.recurrence === "ONCE";
+    // Check if matchedTask is already present on selectedDate (already scheduled, in tasks list, or completed today)
+    const isAlreadyOnDate =
+      tasks.some((t) => t.id === matchedTask.id) ||
+      allCompletions.some((c) => c.taskId === matchedTask.id && c.date === selectedDate);
 
-    updateTask.mutate({
-      taskId: matchedTask.id,
-      values: {
-        recurrence: isSingle ? "CUSTOM" : matchedTask.recurrence,
-        recurrenceConfig: isSingle ? { days: [] } : (matchedTask.recurrenceConfig || { days: [] }),
-      },
-    });
+    if (isAlreadyOnDate) {
+      // User is repeating this task today (e.g. morning shower done, now repeating evening shower).
+      // Create a fresh new task instance copying all metadata without overwriting the previous one!
+      createTask.mutate({
+        title: matchedTask.title,
+        category: matchedTask.category || "General",
+        tag: (matchedTask as any).tag || null,
+        description: matchedTask.description || null,
+        priority: (matchedTask as any).priority || "NORMAL",
+        projectId: matchedTask.projectId || null,
+        projectCategory: matchedTask.projectCategory || null,
+        enableReminders: matchedTask.enableReminders,
+        reminderOffsetMinutes: matchedTask.reminderOffsetMinutes,
+        reminderTimes: matchedTask.reminderTimes,
+        recurrence: "ONCE",
+        recurrenceConfig: null,
+        trackingType: matchedTask.trackingType || "BOOLEAN",
+        targetValue: matchedTask.targetValue || null,
+        unit: matchedTask.unit || null,
+        startTime: null,
+        endTime: null,
+        date: selectedDate,
+        autoStart,
+      } as any);
+    } else {
+      const isSingle = matchedTask.recurrence === "ONCE";
+      updateTask.mutate({
+        taskId: matchedTask.id,
+        values: {
+          recurrence: isSingle ? "CUSTOM" : matchedTask.recurrence,
+          recurrenceConfig: isSingle ? { days: [] } : (matchedTask.recurrenceConfig || { days: [] }),
+        },
+      });
 
-    if (autoStart) {
-      toggleTaskActive.mutate({ taskId: matchedTask.id, date: selectedDate });
+      if (autoStart) {
+        toggleTaskActive.mutate({ taskId: matchedTask.id, date: selectedDate });
+      }
     }
 
     setQuickTitle("");
@@ -756,6 +796,28 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
                     moveOccurrence.mutate({ taskId, fromDate: selectedDate, toDate: targetDate })
                   }
                   onDragStartTask={handleDragStartTask}
+                  onDuplicateTask={(t) => {
+                    createTask.mutate({
+                      title: t.title,
+                      category: t.category || "General",
+                      tag: (t as any).tag || null,
+                      description: t.description || null,
+                      priority: (t as any).priority || "NORMAL",
+                      projectId: t.projectId || null,
+                      projectCategory: t.projectCategory || null,
+                      enableReminders: t.enableReminders,
+                      reminderOffsetMinutes: t.reminderOffsetMinutes,
+                      reminderTimes: t.reminderTimes,
+                      recurrence: "ONCE",
+                      recurrenceConfig: null,
+                      trackingType: t.trackingType || "BOOLEAN",
+                      targetValue: t.targetValue || null,
+                      unit: t.unit || null,
+                      startTime: null,
+                      endTime: null,
+                      date: selectedDate,
+                    } as any);
+                  }}
                 />
               </div>
             </>

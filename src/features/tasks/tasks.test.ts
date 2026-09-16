@@ -747,4 +747,102 @@ describe("Tasks Feature Logic", () => {
       expect(mapped.effectiveEndTime).toBe("17:45");
     });
   });
+
+  describe("Same-Day Task Repetition (Douche matin + Douche soir)", () => {
+    it("creates a separate copy for the second occurrence on the same day without overwriting the morning task", () => {
+      const today = "2026-09-16";
+
+      // Morning task (08:00 - 08:30, completed)
+      const morningTask: Task = {
+        id: "task-shower-morning",
+        userId: "user-1",
+        title: "Douche",
+        category: "Santé",
+        tag: "Hygiène",
+        startTime: "08:00",
+        endTime: "08:30",
+        recurrence: "DAILY",
+        recurrenceConfig: null,
+        dateOverrides: {},
+        trackingType: "BOOLEAN",
+        targetValue: null,
+        unit: null,
+        isActive: false,
+        isArchived: false,
+        createdAt: "2026-09-01T08:00:00.000Z",
+        updatedAt: "2026-09-16T08:30:00.000Z",
+      };
+
+      const morningCompletion: TaskCompletion = {
+        id: "comp-shower-morning",
+        taskId: morningTask.id,
+        userId: morningTask.userId,
+        date: today,
+        completed: true,
+        actualStartTime: "08:00",
+        actualEndTime: "08:30",
+        scheduledStartTime: "08:00",
+        scheduledEndTime: "08:30",
+        createdAt: "2026-09-16T08:30:00.000Z",
+        updatedAt: "2026-09-16T08:30:00.000Z",
+      };
+
+      // User repeats "Douche" in the evening (20:00 - 20:30)
+      const eveningTask: Task = {
+        id: "task-shower-evening-clone",
+        userId: "user-1",
+        title: morningTask.title,
+        category: morningTask.category,
+        tag: morningTask.tag,
+        startTime: "20:00",
+        endTime: "20:30",
+        recurrence: "ONCE",
+        recurrenceConfig: null,
+        dateOverrides: {},
+        trackingType: "BOOLEAN",
+        targetValue: null,
+        unit: null,
+        isActive: false,
+        isArchived: false,
+        createdAt: `${today}T18:00:00.000Z`,
+        updatedAt: `${today}T18:00:00.000Z`,
+      };
+
+      const eveningCompletion: TaskCompletion = {
+        id: "comp-shower-evening",
+        taskId: eveningTask.id,
+        userId: eveningTask.userId,
+        date: today,
+        completed: false,
+        scheduledStartTime: "20:00",
+        scheduledEndTime: "20:30",
+        actualStartTime: null,
+        actualEndTime: null,
+        createdAt: `${today}T18:00:00.000Z`,
+        updatedAt: `${today}T18:00:00.000Z`,
+      };
+
+      const allCompletions = [morningCompletion, eveningCompletion];
+
+      // Map both tasks for today
+      const mappedMorning = mapTaskWithCompletion(morningTask, allCompletions, today);
+      const mappedEvening = mapTaskWithCompletion(eveningTask, allCompletions, today);
+
+      // Morning task remains completed with 08:00 - 08:30
+      expect(mappedMorning.id).toBe("task-shower-morning");
+      expect(mappedMorning.isCompletedToday).toBe(true);
+      expect(mappedMorning.effectiveStartTime).toBe("08:00");
+      expect(mappedMorning.effectiveEndTime).toBe("08:30");
+
+      // Evening task is separate, incomplete with 20:00 - 20:30
+      expect(mappedEvening.id).toBe("task-shower-evening-clone");
+      expect(mappedEvening.isCompletedToday).toBe(false);
+      expect(mappedEvening.effectiveStartTime).toBe("20:00");
+      expect(mappedEvening.effectiveEndTime).toBe("20:30");
+
+      // Both tasks coexist cleanly on today's agenda/stream
+      expect(mappedMorning.id).not.toBe(mappedEvening.id);
+      expect(mappedMorning.title).toBe(mappedEvening.title);
+    });
+  });
 });

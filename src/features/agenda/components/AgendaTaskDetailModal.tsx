@@ -16,6 +16,7 @@ import {
   Repeat,
   Sparkles,
   ChevronDown,
+  Copy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProjects } from "@/features/projects/hooks";
@@ -29,6 +30,7 @@ interface AgendaTaskDetailModalProps {
   onClose: () => void;
   onToggleComplete?: (taskId: string) => void;
   onToggleReminder?: (taskId: string) => void;
+  onDuplicateTask?: (task: TaskWithCompletion) => void;
   onEditTask?: (task: TaskWithCompletion) => void;
   onDeleteTask?: (taskId: string) => void;
   onUpdateTimes?: (taskId: string, startTime: string, endTime: string, date?: string) => void;
@@ -42,6 +44,7 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
   onClose,
   onToggleComplete,
   onToggleReminder,
+  onDuplicateTask,
   onEditTask,
   onDeleteTask,
   onUpdateTimes,
@@ -336,8 +339,8 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
           </div>
         </div>
 
-        {/* Footer: Full Edit & Delete */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-[#222430] bg-[#101117] flex-shrink-0 gap-3">
+        {/* Footer: Full Edit, Duplicate & Delete */}
+        <div className="flex items-center justify-between px-6 py-4 border-t border-[#222430] bg-[#101117] flex-shrink-0 gap-2 flex-wrap">
           <button
             data-testid="agenda-detail-delete-btn"
             type="button"
@@ -351,18 +354,34 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
             <span>Supprimer</span>
           </button>
 
-          <button
-            data-testid="agenda-detail-edit-btn"
-            type="button"
-            onClick={() => {
-              onClose();
-              onEditTask?.(task);
-            }}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold bg-[#D4F63D] text-black hover:bg-[#c2e430] transition-colors cursor-pointer shadow-sm"
-          >
-            <Edit3 className="w-4 h-4" />
-            <span>Modifier la tâche</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              data-testid="agenda-detail-duplicate-btn"
+              type="button"
+              onClick={() => {
+                onClose();
+                onDuplicateTask?.(task);
+              }}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-[#20232C] hover:bg-[#2B2F3D] text-[#A5B4FC] hover:text-white transition-colors cursor-pointer border border-[#2D3142]"
+              title="Créer une nouvelle occurrence aujourd'hui avec de nouveaux horaires sans écraser celle-ci"
+            >
+              <Copy className="w-3.5 h-3.5" />
+              <span>Répéter aujourd'hui</span>
+            </button>
+
+            <button
+              data-testid="agenda-detail-edit-btn"
+              type="button"
+              onClick={() => {
+                onClose();
+                onEditTask?.(task);
+              }}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-[#D4F63D] text-black hover:bg-[#c2e430] transition-colors cursor-pointer shadow-sm"
+            >
+              <Edit3 className="w-4 h-4" />
+              <span>Modifier</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
