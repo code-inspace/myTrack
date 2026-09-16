@@ -493,8 +493,10 @@ export async function updateDbTask(
   };
   const nextList = target
     ? tasks.map((t) => (t.id === taskId ? updatedTask : t))
-    : [updatedTask, ...tasks];
-  saveStoredTasks(nextList, targetId);
+    : tasks;
+  if (target) {
+    saveStoredTasks(nextList, targetId);
+  }
 
   if (updatedTask.enableReminders) {
     const targetDate = updates.date || getTodayDateString();

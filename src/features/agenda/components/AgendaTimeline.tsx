@@ -925,7 +925,10 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
         onClose={() => setSelectedTaskForDetail(null)}
         onToggleComplete={onToggleComplete}
         onToggleReminder={onToggleReminder}
-        onDeleteTask={onDeleteTask}
+        onDeleteTask={(taskId) => {
+          setSelectedTaskForDetail(null);
+          onDeleteTask?.(taskId);
+        }}
         onEditTask={(t) => {
           setSelectedTaskForDetail(null);
           onEditTask?.(t);

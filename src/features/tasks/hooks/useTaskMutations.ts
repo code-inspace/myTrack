@@ -217,7 +217,14 @@ export function useTaskMutations() {
     },
     onSuccess: (updatedTask) => {
       queryClient.setQueryData<Task[]>(["tasks", userId], (old = []) =>
-        old.map((t) => (t.id === updatedTask.id ? updatedTask : t)),
+        old.some((t) => t.id === updatedTask.id)
+          ? old.map((t) => (t.id === updatedTask.id ? updatedTask : t))
+          : old,
+      );
+      queryClient.setQueryData<Task[]>(["tasks"], (old = []) =>
+        Array.isArray(old) && old.some((t) => t.id === updatedTask.id)
+          ? old.map((t) => (t.id === updatedTask.id ? updatedTask : t))
+          : old,
       );
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       queryClient.invalidateQueries({ queryKey: ["completions"] });
@@ -231,6 +238,9 @@ export function useTaskMutations() {
     onMutate: async (deletedId) => {
       await queryClient.cancelQueries({ queryKey: ["tasks", userId] });
       await queryClient.cancelQueries({ queryKey: ["completions", userId] });
+      await queryClient.cancelQueries({ queryKey: ["tasks"] });
+      await queryClient.cancelQueries({ queryKey: ["completions"] });
+
       const prevTasks = queryClient.getQueryData<Task[]>(["tasks", userId]);
       const prevCompletions = queryClient.getQueryData<TaskCompletion[]>([
         "completions",
@@ -240,8 +250,14 @@ export function useTaskMutations() {
       queryClient.setQueryData<Task[]>(["tasks", userId], (old = []) =>
         old.filter((t) => t.id !== deletedId),
       );
+      queryClient.setQueryData<Task[]>(["tasks"], (old = []) =>
+        Array.isArray(old) ? old.filter((t) => t.id !== deletedId) : old,
+      );
       queryClient.setQueryData<TaskCompletion[]>(["completions", userId], (old = []) =>
         old.filter((c) => c.taskId !== deletedId),
+      );
+      queryClient.setQueryData<TaskCompletion[]>(["completions"], (old = []) =>
+        Array.isArray(old) ? old.filter((c) => c.taskId !== deletedId) : old,
       );
 
       return { prevTasks, prevCompletions };

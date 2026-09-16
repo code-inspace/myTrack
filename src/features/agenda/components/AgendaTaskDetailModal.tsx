@@ -53,9 +53,12 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
   const [startTime, setStartTime] = useState(task?.effectiveStartTime || task?.startTime || "09:00");
   const [endTime, setEndTime] = useState(task?.effectiveEndTime || task?.endTime || "10:00");
 
+  const isDeletingRef = React.useRef(false);
+
   // Synchronize when task changes
   React.useEffect(() => {
     if (task) {
+      isDeletingRef.current = false;
       setTitle(task.title || "");
       setSelectedProjectId(task.projectId || "");
       setStartTime(task.effectiveStartTime || task.startTime || "09:00");
@@ -88,12 +91,25 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
   };
 
   const handleTitleBlur = () => {
+    if (isDeletingRef.current) return;
     if (task && title.trim() && title.trim() !== task.title) {
       onUpdateTask?.(task.id, { title: title.trim() });
     }
   };
 
+  const handleDelete = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    isDeletingRef.current = true;
+    const currentTaskId = task.id;
+    onClose();
+    if (onDeleteTask && currentTaskId) {
+      onDeleteTask(currentTaskId);
+    }
+  };
+
   const handleProjectChange = (newProjId: string) => {
+    if (isDeletingRef.current) return;
     setSelectedProjectId(newProjId);
     if (task) {
       onUpdateTask?.(task.id, { projectId: newProjId || null });
@@ -101,6 +117,7 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
   };
 
   const handleStartTimeChange = (newStart: string) => {
+    if (isDeletingRef.current) return;
     setStartTime(newStart);
     if (onUpdateTimes && newStart && endTime) {
       onUpdateTimes(task.id, newStart, endTime, selectedDate);
@@ -306,11 +323,10 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
         <div className="flex items-center justify-between px-6 py-4 border-t border-[#222430] bg-[#101117] flex-shrink-0 gap-3">
           <button
             type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onClose();
-              onDeleteTask?.(task.id);
+            onPointerDown={() => {
+              isDeletingRef.current = true;
             }}
+            onClick={handleDelete}
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-[#EF4444] hover:bg-[#EF4444]/15 transition-colors cursor-pointer"
           >
             <Trash2 className="w-4 h-4" />
