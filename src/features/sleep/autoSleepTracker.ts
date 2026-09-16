@@ -18,32 +18,20 @@ export interface AutoSleepDetectionResult {
 }
 
 /**
- * Heuristics configuration for night sleep detection:
- * - Night window (evening / late night): 20:00 to 05:00
- * - Morning window (wake up): 05:00 to 13:00
- * - Min sleep duration: 180 min (3h)
- * - Max sleep duration: 960 min (16h)
+ * Configuration for sleep detection based on app absence duration:
+ * - Main sleep (Dodo): absence between 180 min (3h) and 1080 min (18h)
+ * - Nap (Sieste): absence between 20 min and 179 min
+ * - Short interruption: < 20 min
  */
 export const SLEEP_CONFIG = {
-  NIGHT_START_HOUR: 20, // 20h00
-  NIGHT_END_HOUR: 5,   // 05h00
-  MORNING_START_HOUR: 5, // 05h00
-  MORNING_END_HOUR: 13,  // 13h00
   MIN_SLEEP_MINUTES: 180, // 3 hours
-  MAX_SLEEP_MINUTES: 960, // 16 hours
+  MAX_SLEEP_MINUTES: 1080, // 18 hours
+  MIN_NAP_MINUTES: 20,    // 20 minutes
+  MAX_NAP_MINUTES: 179,   // 2h59
 };
 
-export function isNightHour(hour: number): boolean {
-  return hour >= SLEEP_CONFIG.NIGHT_START_HOUR || hour < SLEEP_CONFIG.NIGHT_END_HOUR;
-}
-
-export function isMorningHour(hour: number): boolean {
-  return hour >= SLEEP_CONFIG.MORNING_START_HOUR && hour < SLEEP_CONFIG.MORNING_END_HOUR;
-}
-
 /**
- * Records when the app goes into the background or closes.
- * If within the night window, candidate bedtime is updated.
+ * Records when the app goes into the background or is closed.
  */
 export function recordAppBackground(now: Date = new Date()): void {
   if (typeof window === "undefined") return;
@@ -56,27 +44,25 @@ export function recordAppBackground(now: Date = new Date()): void {
   }
 
   const hour = now.getHours();
-  if (isNightHour(hour)) {
-    const timeStr = `${String(hour).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-    const dateStr = hour >= SLEEP_CONFIG.NIGHT_START_HOUR
-      ? format(now, "yyyy-MM-dd")
-      : format(subDays(now, 1), "yyyy-MM-dd");
+  const timeStr = `${String(hour).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  const dateStr = hour < 6
+    ? format(subDays(now, 1), "yyyy-MM-dd")
+    : format(now, "yyyy-MM-dd");
 
+  try {
     const currentLog = getStoredSleepLog(dateStr);
-    // Only update if not explicitly validated by user
     if (!currentLog.bedtimeValidated) {
-      const updatedLog = {
+      saveStoredSleepLog({
         ...currentLog,
         bedtime: timeStr,
-      };
-      saveStoredSleepLog(updatedLog);
+      });
       console.log(`[AutoSleepTracker] Candidate bedtime set to ${timeStr} for night of ${dateStr}`);
     }
-  }
+  } catch {}
 }
 
 /**
- * Checks and detects sleep when the app becomes active/foreground in the morning.
+ * Detects sleep sessions based primarily on the duration of absence from the app.
  */
 export function processAppForeground(now: Date = new Date()): AutoSleepDetectionResult {
   if (typeof window === "undefined") {
@@ -88,15 +74,9 @@ export function processAppForeground(now: Date = new Date()): AutoSleepDetection
     localStorage.setItem(STORAGE_KEY_LAST_OPENED, nowIso);
   } catch {}
 
-  const currentHour = now.getHours();
   const todayStr = format(now, "yyyy-MM-dd");
 
-  // Check if we are in the morning window
-  if (!isMorningHour(currentHour)) {
-    return { detected: false, reason: "Not in morning window (05:00 - 13:00)" };
-  }
-
-  // Get last recorded app close
+  // Get last recorded app close timestamp
   const lastClosedIso = localStorage.getItem(STORAGE_KEY_LAST_CLOSED);
   if (!lastClosedIso) {
     return { detected: false, reason: "No previous app close timestamp found" };
@@ -106,81 +86,122 @@ export function processAppForeground(now: Date = new Date()): AutoSleepDetection
     const closedDate = parseISO(lastClosedIso);
     const minutesDiff = differenceInMinutes(now, closedDate);
 
-    // Validate duration range (e.g. between 3h and 16h)
-    if (minutesDiff < SLEEP_CONFIG.MIN_SLEEP_MINUTES) {
-      return {
-        detected: false,
-        reason: `Duration too short (${minutesDiff} min < ${SLEEP_CONFIG.MIN_SLEEP_MINUTES} min)`,
-      };
-    }
+    // 1. MAIN SLEEP DETECTION (Absence between 3h and 18h)
+    if (minutesDiff >= SLEEP_CONFIG.MIN_SLEEP_MINUTES && minutesDiff <= SLEEP_CONFIG.MAX_SLEEP_MINUTES) {
+      const closedHour = closedDate.getHours();
+      const bedtimeDateStr = closedHour < 6
+        ? format(subDays(closedDate, 1), "yyyy-MM-dd")
+        : format(closedDate, "yyyy-MM-dd");
 
-    if (minutesDiff > SLEEP_CONFIG.MAX_SLEEP_MINUTES) {
-      return {
-        detected: false,
-        reason: `Duration too long (${minutesDiff} min > ${SLEEP_CONFIG.MAX_SLEEP_MINUTES} min)`,
-      };
-    }
+      const bedtimeStr = `${String(closedHour).padStart(2, "0")}:${String(closedDate.getMinutes()).padStart(2, "0")}`;
+      const wakeTimeStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
 
-    const closedHour = closedDate.getHours();
-    if (!isNightHour(closedHour)) {
-      return {
-        detected: false,
-        reason: `Previous app close was not during night window (was at ${closedHour}h)`,
-      };
-    }
-
-    // Determine the bedtime date (eve of wakeDate)
-    const bedtimeDateStr = closedHour >= SLEEP_CONFIG.NIGHT_START_HOUR
-      ? format(closedDate, "yyyy-MM-dd")
-      : format(subDays(closedDate, 1), "yyyy-MM-dd");
-
-    const bedtimeStr = `${String(closedHour).padStart(2, "0")}:${String(closedDate.getMinutes()).padStart(2, "0")}`;
-    const wakeTimeStr = `${String(currentHour).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-
-    // Update yesterday's bedtime if not manually locked
-    const yesterdayLog = getStoredSleepLog(bedtimeDateStr);
-    if (!yesterdayLog.bedtimeValidated) {
-      saveStoredSleepLog({
-        ...yesterdayLog,
-        bedtime: bedtimeStr,
-      });
-    }
-
-    // Update today's wake time if not manually locked
-    const todayLog = getStoredSleepLog(todayStr);
-    if (!todayLog.wakeTimeValidated) {
-      saveStoredSleepLog({
-        ...todayLog,
-        wakeTime: wakeTimeStr,
-      });
-    }
-
-    localStorage.setItem(STORAGE_KEY_LAST_AUTO_DETECTED_DATE, todayStr);
-
-    // Dispatch custom event for UI components to re-render
-    window.dispatchEvent(
-      new CustomEvent("mytrack:sleep-auto-detected", {
-        detail: {
+      // Update bedtime on the eve/sleep start date if not manually validated
+      const yesterdayLog = getStoredSleepLog(bedtimeDateStr);
+      if (!yesterdayLog.bedtimeValidated) {
+        saveStoredSleepLog({
+          ...yesterdayLog,
           bedtime: bedtimeStr,
-          wakeTime: wakeTimeStr,
-          bedtimeDate: bedtimeDateStr,
-          wakeDate: todayStr,
-          durationMinutes: minutesDiff,
-        },
-      })
-    );
+        });
+      }
 
-    console.log(
-      `[AutoSleepTracker] Sleep detected: Bedtime ${bedtimeStr} (${bedtimeDateStr}) -> WakeTime ${wakeTimeStr} (${todayStr}), Duration: ${Math.floor(minutesDiff / 60)}h${minutesDiff % 60}m`
-    );
+      // Update wake time on today's date if not manually validated
+      const todayLog = getStoredSleepLog(todayStr);
+      if (!todayLog.wakeTimeValidated) {
+        saveStoredSleepLog({
+          ...todayLog,
+          wakeTime: wakeTimeStr,
+        });
+      }
+
+      localStorage.setItem(STORAGE_KEY_LAST_AUTO_DETECTED_DATE, todayStr);
+
+      window.dispatchEvent(
+        new CustomEvent("mytrack:sleep-auto-detected", {
+          detail: {
+            bedtime: bedtimeStr,
+            wakeTime: wakeTimeStr,
+            bedtimeDate: bedtimeDateStr,
+            wakeDate: todayStr,
+            durationMinutes: minutesDiff,
+            type: "night",
+          },
+        })
+      );
+
+      console.log(
+        `[AutoSleepTracker] Sleep detected: Bedtime ${bedtimeStr} (${bedtimeDateStr}) -> WakeTime ${wakeTimeStr} (${todayStr}), Duration: ${Math.floor(minutesDiff / 60)}h${minutesDiff % 60}m`
+      );
+
+      return {
+        detected: true,
+        bedtime: bedtimeStr,
+        wakeTime: wakeTimeStr,
+        bedtimeDate: bedtimeDateStr,
+        wakeDate: todayStr,
+        durationMinutes: minutesDiff,
+      };
+    }
+
+    // 2. NAP DETECTION (Absence between 20 min and 3h)
+    if (minutesDiff >= SLEEP_CONFIG.MIN_NAP_MINUTES && minutesDiff < SLEEP_CONFIG.MIN_SLEEP_MINUTES) {
+      const napStartStr = `${String(closedDate.getHours()).padStart(2, "0")}:${String(closedDate.getMinutes()).padStart(2, "0")}`;
+      const napEndStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+
+      const todayLog = getStoredSleepLog(todayStr);
+      const existingNaps = todayLog.naps || [];
+      const alreadyHasNap = existingNaps.some(
+        (n) => n.startTime === napStartStr && n.endTime === napEndStr
+      );
+
+      if (!alreadyHasNap) {
+        const newNap = {
+          id: `nap-${Date.now()}`,
+          startTime: napStartStr,
+          endTime: napEndStr,
+        };
+        saveStoredSleepLog({
+          ...todayLog,
+          naps: [...existingNaps, newNap],
+        });
+
+        window.dispatchEvent(
+          new CustomEvent("mytrack:sleep-auto-detected", {
+            detail: {
+              nap: newNap,
+              wakeDate: todayStr,
+              durationMinutes: minutesDiff,
+              type: "nap",
+            },
+          })
+        );
+
+        console.log(
+          `[AutoSleepTracker] Nap detected: ${napStartStr} -> ${napEndStr} (${minutesDiff}m)`
+        );
+      }
+
+      return {
+        detected: true,
+        bedtime: napStartStr,
+        wakeTime: napEndStr,
+        bedtimeDate: todayStr,
+        wakeDate: todayStr,
+        durationMinutes: minutesDiff,
+      };
+    }
+
+    // 3. Short absence (< 20 min)
+    if (minutesDiff < SLEEP_CONFIG.MIN_NAP_MINUTES) {
+      return {
+        detected: false,
+        reason: `Duration too short (${minutesDiff} min < ${SLEEP_CONFIG.MIN_NAP_MINUTES} min)`,
+      };
+    }
 
     return {
-      detected: true,
-      bedtime: bedtimeStr,
-      wakeTime: wakeTimeStr,
-      bedtimeDate: bedtimeDateStr,
-      wakeDate: todayStr,
-      durationMinutes: minutesDiff,
+      detected: false,
+      reason: `Duration exceeds maximum limit (${minutesDiff} min > ${SLEEP_CONFIG.MAX_SLEEP_MINUTES} min)`,
     };
   } catch (err) {
     console.warn("[AutoSleepTracker] Error processing app foreground:", err);
