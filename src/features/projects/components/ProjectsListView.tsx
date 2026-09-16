@@ -32,7 +32,9 @@ export const ProjectsListView: React.FC<ProjectsListViewProps> = ({
   isInitialLoading = false,
 }) => {
   const tasksByProject = (projectId: string) => tasks.filter((t) => t.projectId === projectId && !t.isArchived);
-  const unassignedTasksCount = tasks.filter((t) => !t.projectId && !t.isArchived).length;
+  const unassignedTasksCount = tasks.filter(
+    (t) => !t.projectId && !t.isArchived && !t.dateOverrides?._isNoProject
+  ).length;
 
   return (
     <div className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-4 pt-3 pb-44 space-y-3 max-w-md mx-auto w-full">

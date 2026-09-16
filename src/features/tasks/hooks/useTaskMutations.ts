@@ -169,18 +169,21 @@ export function useTaskMutations() {
                 ? values.projectCategory || null
                 : t.projectCategory,
             ...(values.date ? { createdAt: `${values.date}T12:00:00.000Z` } : {}),
-            dateOverrides: {
-              ...(t.dateOverrides || {}),
-              ...(values.enableReminders !== undefined
-                ? { _enableReminders: values.enableReminders }
-                : {}),
-              ...(values.projectCategory !== undefined
-                ? { _projectCategory: values.projectCategory || null }
-                : {}),
-            },
-          };
-        }),
-      );
+              dateOverrides: {
+                ...(t.dateOverrides || {}),
+                ...(values.enableReminders !== undefined
+                  ? { _enableReminders: values.enableReminders }
+                  : {}),
+                ...(values.projectCategory !== undefined
+                  ? { _projectCategory: values.projectCategory || null }
+                  : {}),
+                ...(values.isNoProject !== undefined
+                  ? { _isNoProject: values.isNoProject }
+                  : (values.projectId ? { _isNoProject: false } : {})),
+              },
+            };
+          }),
+        );
 
       if (values.startTime !== undefined || values.endTime !== undefined) {
         queryClient.setQueryData<TaskCompletion[]>(

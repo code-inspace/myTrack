@@ -294,6 +294,19 @@ export async function PATCH(req: NextRequest) {
       };
     }
 
+    if (updates.isNoProject !== undefined || updates.is_no_project !== undefined) {
+      const isNoProj = updates.isNoProject !== undefined ? Boolean(updates.isNoProject) : Boolean(updates.is_no_project);
+      dbPayload.date_overrides = {
+        ...(dbPayload.date_overrides || {}),
+        _isNoProject: isNoProj,
+      };
+    } else if (updates.projectId || updates.project_id) {
+      dbPayload.date_overrides = {
+        ...(dbPayload.date_overrides || {}),
+        _isNoProject: false,
+      };
+    }
+
     if (updates.createdAt !== undefined) {
       dbPayload.created_at = updates.createdAt;
     } else if (updates.created_at !== undefined) {

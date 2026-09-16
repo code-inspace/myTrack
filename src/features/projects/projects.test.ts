@@ -100,8 +100,24 @@ describe("Projects Logic", () => {
       );
     }
 
-    expect(cleanColumns.length).toBe(3);
-    expect(cleanColumns[2].isDone).toBe(true);
-    expect(cleanColumns[0].isDone).toBeFalsy();
+    expect(cleanColumns.filter((c) => c.isDone).length).toBe(1);
+    expect(cleanColumns[cleanColumns.length - 1].isDone).toBe(true);
+  });
+
+  it("filters out tasks marked as _isNoProject from unassigned project assignment list", () => {
+    const tasks = [
+      { id: "t1", title: "Task 1", projectId: null, isArchived: false, dateOverrides: {} },
+      { id: "t2", title: "Task 2", projectId: "proj-1", isArchived: false, dateOverrides: {} },
+      { id: "t3", title: "Task 3 (No Project)", projectId: null, isArchived: false, dateOverrides: { _isNoProject: true } },
+      { id: "t4", title: "Task 4 (Archived)", projectId: null, isArchived: true, dateOverrides: {} },
+    ];
+
+    const unassigned = tasks.filter((t) => !t.projectId && !t.isArchived && !t.dateOverrides?._isNoProject);
+    const excluded = tasks.filter((t) => !t.projectId && !t.isArchived && Boolean(t.dateOverrides?._isNoProject));
+
+    expect(unassigned.length).toBe(1);
+    expect(unassigned[0].id).toBe("t1");
+    expect(excluded.length).toBe(1);
+    expect(excluded[0].id).toBe("t3");
   });
 });

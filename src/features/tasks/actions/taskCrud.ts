@@ -228,6 +228,9 @@ export async function updateDbTask(
     ...(updates.reminderTimes !== undefined
       ? { _reminderTimes: updates.reminderTimes }
       : {}),
+    ...(updates.isNoProject !== undefined
+      ? { _isNoProject: updates.isNoProject }
+      : (updates.projectId ? { _isNoProject: false } : {})),
   };
 
   const taskDate = updates.date || (target?.createdAt ? target.createdAt.split("T")[0] : getTodayDateString());

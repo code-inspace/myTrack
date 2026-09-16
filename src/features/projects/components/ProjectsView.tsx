@@ -46,7 +46,9 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
   const [selectedExternalEvent, setSelectedExternalEvent] = useState<ExternalCalendarEvent | null>(null);
 
   const selectedProject = projects.find((p) => p.id === selectedProjectId) || null;
-  const unassignedTasksCount = allTasks.filter((t) => !t.projectId && !t.isArchived).length;
+  const unassignedTasksCount = allTasks.filter(
+    (t) => !t.projectId && !t.isArchived && !t.dateOverrides?._isNoProject
+  ).length;
 
   const closeProjectModal = () => {
     setIsProjectModalOpen(false);

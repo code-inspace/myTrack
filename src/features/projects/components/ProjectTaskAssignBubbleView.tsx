@@ -19,6 +19,9 @@ import {
   Layers,
   Tag,
   ChevronLeft,
+  Ban,
+  RotateCcw,
+  X,
 } from "lucide-react";
 import {
   DndContext,
@@ -278,16 +281,78 @@ function CategoryDroppableBubble({
   );
 }
 
+// Droppable bubble for tasks that should NOT belong to any project (excluded from assignment)
+function NoProjectDroppableBubble({
+  taskCount,
+  isOverTarget,
+  onClick,
+}: {
+  taskCount: number;
+  isOverTarget: boolean;
+  onClick: () => void;
+}) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: "no-project",
+    data: { type: "no-project" },
+  });
+
+  const activeIsOver = isOver || isOverTarget;
+
+  return (
+    <div
+      ref={setNodeRef}
+      onClick={onClick}
+      className={cn(
+        "relative rounded-full flex flex-col items-center justify-center text-center p-1.5 transition-all duration-300 select-none cursor-pointer flex-shrink-0 group w-20 h-20 md:w-28 md:h-28",
+        activeIsOver
+          ? "scale-110 shadow-[0_0_25px_rgba(239,68,68,0.45)] border-2 border-dashed border-red-400 bg-[#22171A]"
+          : "border-2 border-dashed border-[#383C48] hover:border-[#8E929E] bg-[#16171C]/90 hover:scale-105"
+      )}
+      title="Glisser ici les tâches sans projet (cliquer pour voir/rétablir la liste)"
+    >
+      <div
+        className={cn(
+          "w-6 h-6 rounded-full flex items-center justify-center mb-0.5 transition-colors",
+          activeIsOver ? "bg-red-500/20 text-red-400" : "bg-white/5 text-[#8E929E] group-hover:text-white"
+        )}
+      >
+        <Ban className="w-3.5 h-3.5" />
+      </div>
+
+      <span
+        className={cn(
+          "font-bold leading-tight line-clamp-2 px-1 text-center drop-shadow-sm text-[10px] md:text-[11px]",
+          activeIsOver ? "text-red-400" : "text-[#A0A5B5] group-hover:text-white"
+        )}
+      >
+        Sans projet
+      </span>
+
+      {activeIsOver ? (
+        <span className="mt-0.5 px-1.5 py-0.2 rounded-full text-[9px] font-extrabold bg-red-400 text-black flex items-center gap-0.5 animate-bounce">
+          Exclure
+        </span>
+      ) : (
+        <span className="text-[#6B7280] group-hover:text-[#8E929E] text-[8px] md:text-[9px] mt-0.5">
+          {taskCount} exclu{taskCount !== 1 ? "s" : ""}
+        </span>
+      )}
+    </div>
+  );
+}
+
 // Draggable Unassigned Task Card
 function DraggableTaskCard({
   task,
   projects,
   onAssignToProject,
+  onAssignToNoProject,
   onEditTask,
 }: {
   task: Task;
   projects: Project[];
   onAssignToProject: (taskId: string, projectId: string, category?: string | null) => void;
+  onAssignToNoProject?: (taskId: string) => void;
   onEditTask: (task: Task) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
@@ -381,7 +446,7 @@ function DraggableTaskCard({
               className="fixed inset-0 z-40"
               onClick={() => setShowQuickMenu(false)}
             />
-            <div className="absolute right-0 top-full mt-1 w-48 rounded-xl bg-[#1C1D22] border border-[#383C48] shadow-2xl py-1 z-50 animate-in fade-in zoom-in-95">
+            <div className="absolute right-0 top-full mt-1 w-52 rounded-xl bg-[#1C1D22] border border-[#383C48] shadow-2xl py-1 z-50 animate-in fade-in zoom-in-95">
               <div className="px-3 py-1.5 text-[10px] font-bold text-[#8E929E] uppercase tracking-wider border-b border-[#282A30]">
                 Choisir un projet
               </div>
@@ -404,6 +469,22 @@ function DraggableTaskCard({
                   </button>
                 ))}
               </div>
+              {onAssignToNoProject && (
+                <>
+                  <div className="border-t border-[#282A30] my-1" />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onAssignToNoProject(task.id);
+                      setShowQuickMenu(false);
+                    }}
+                    className="w-full text-left px-3 py-2 text-xs text-red-300 hover:bg-red-500/10 flex items-center gap-2 cursor-pointer"
+                  >
+                    <Ban className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />
+                    <span className="truncate flex-1 font-medium">Sans projet (exclure)</span>
+                  </button>
+                </>
+              )}
             </div>
           </>
         )}
@@ -444,6 +525,7 @@ export const ProjectTaskAssignBubbleView: React.FC<ProjectTaskAssignBubbleViewPr
   const [searchQuery, setSearchQuery] = useState("");
   const [newCatInput, setNewCatInput] = useState("");
   const [showAddCat, setShowAddCat] = useState(false);
+  const [showExcludedModal, setShowExcludedModal] = useState(false);
   const [assignedToast, setAssignedToast] = useState<{
     taskTitle: string;
     projectName: string;
@@ -455,9 +537,14 @@ export const ProjectTaskAssignBubbleView: React.FC<ProjectTaskAssignBubbleViewPr
     return Boolean(p && Array.isArray(p.categories) && p.categories.length > 0);
   };
 
-  // All tasks without a project and not archived
+  // All tasks without a project, not archived, and not excluded
   const unassignedTasks = useMemo(() => {
-    return tasks.filter((t) => !t.projectId && !t.isArchived);
+    return tasks.filter((t) => !t.projectId && !t.isArchived && !t.dateOverrides?._isNoProject);
+  }, [tasks]);
+
+  // Tasks explicitly marked as excluded from project assignment
+  const excludedTasks = useMemo(() => {
+    return tasks.filter((t) => !t.projectId && !t.isArchived && Boolean(t.dateOverrides?._isNoProject));
   }, [tasks]);
 
   // Tasks counts by project
@@ -563,6 +650,7 @@ export const ProjectTaskAssignBubbleView: React.FC<ProjectTaskAssignBubbleViewPr
         projectId: project.id,
         projectStatus: firstColumnId,
         projectCategory: cleanCategory,
+        isNoProject: false,
       },
     });
 
@@ -574,6 +662,39 @@ export const ProjectTaskAssignBubbleView: React.FC<ProjectTaskAssignBubbleViewPr
     setTimeout(() => {
       setAssignedToast(null);
     }, 3500);
+  };
+
+  const handleAssignToNoProject = (taskId: string) => {
+    const task = tasks.find((t) => t.id === taskId);
+    if (!task) return;
+
+    updateTask.mutate({
+      taskId,
+      values: {
+        projectId: null,
+        projectStatus: null,
+        projectCategory: null,
+        isNoProject: true,
+      },
+    });
+
+    setAssignedToast({
+      taskTitle: task.title,
+      projectName: "Sans projet (exclue)",
+      categoryName: null,
+    });
+    setTimeout(() => {
+      setAssignedToast(null);
+    }, 3500);
+  };
+
+  const handleRestoreTask = (taskId: string) => {
+    updateTask.mutate({
+      taskId,
+      values: {
+        isNoProject: false,
+      },
+    });
   };
 
   const handleAddCategory = () => {
@@ -657,6 +778,13 @@ export const ProjectTaskAssignBubbleView: React.FC<ProjectTaskAssignBubbleViewPr
     const overId = String(over.id);
     const taskId = String(active.id).replace("task-", "");
     const overData = over.data?.current;
+
+    if (overId === "no-project" || overData?.type === "no-project") {
+      // Dropped on "Sans projet" bubble
+      handleAssignToNoProject(taskId);
+      setZoomedProject(null);
+      return;
+    }
 
     if (overId.startsWith("cat__") || overData?.type === "category") {
       // Dropped on a category bubble
@@ -844,6 +972,13 @@ export const ProjectTaskAssignBubbleView: React.FC<ProjectTaskAssignBubbleViewPr
                       />
                     );
                   })}
+
+                  {/* "Sans projet" Droppable Bubble */}
+                  <NoProjectDroppableBubble
+                    taskCount={excludedTasks.length}
+                    isOverTarget={overTargetId === "no-project"}
+                    onClick={() => setShowExcludedModal(true)}
+                  />
                 </div>
               </div>
             )}
@@ -924,7 +1059,7 @@ export const ProjectTaskAssignBubbleView: React.FC<ProjectTaskAssignBubbleViewPr
                   <CheckCircle2 className="w-6 h-6 text-[#D4F63D] mb-1.5" />
                   <p className="text-xs font-semibold text-white">
                     {unassignedTasks.length === 0
-                      ? "Toutes les tâches sont affectées à un projet !"
+                      ? "Toutes les tâches sont affectées ou exclues !"
                       : "Aucune tâche trouvée pour ce filtre."}
                   </p>
                   <p className="text-[10px] text-[#8E929E] mt-0.5">
@@ -940,6 +1075,7 @@ export const ProjectTaskAssignBubbleView: React.FC<ProjectTaskAssignBubbleViewPr
                     task={task}
                     projects={projects}
                     onAssignToProject={handleAssignToProject}
+                    onAssignToNoProject={handleAssignToNoProject}
                     onEditTask={onEditTask}
                   />
                 ))
@@ -948,6 +1084,92 @@ export const ProjectTaskAssignBubbleView: React.FC<ProjectTaskAssignBubbleViewPr
           </div>
         </div>
       </div>
+
+      {/* Modal for viewing and restoring excluded tasks */}
+      {showExcludedModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div
+            className="fixed inset-0"
+            onClick={() => setShowExcludedModal(false)}
+          />
+          <div className="relative w-full max-w-md bg-[#16171C] border border-[#282A30] rounded-2xl shadow-2xl p-4 md:p-5 flex flex-col max-h-[85vh] z-10 animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-[#282A30] flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400">
+                  <Ban className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">Tâches sans projet ({excludedTasks.length})</h3>
+                  <p className="text-[11px] text-[#8E929E]">Exclues de la vue d&apos;affectation</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowExcludedModal(false)}
+                className="p-1.5 rounded-lg bg-[#202228] hover:bg-[#2A2C34] text-[#8E929E] hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* List */}
+            <div className="flex-1 overflow-y-auto py-3 space-y-2 min-h-0">
+              {excludedTasks.length === 0 ? (
+                <div className="py-8 text-center text-[#8E929E] text-xs">
+                  Aucune tâche n&apos;est marquée sans projet pour le moment.
+                </div>
+              ) : (
+                excludedTasks.map((task) => (
+                  <div
+                    key={task.id}
+                    className="p-3 rounded-xl bg-[#1C1D22] border border-[#282A30] hover:border-[#383C48] flex items-center justify-between gap-3 transition-colors"
+                  >
+                    <div
+                      className="flex-1 min-w-0 cursor-pointer"
+                      onClick={() => {
+                        setShowExcludedModal(false);
+                        onEditTask(task);
+                      }}
+                    >
+                      <div className="text-xs font-semibold text-white truncate">{task.title}</div>
+                      <div className="flex items-center gap-2 mt-1 text-[10px] text-[#8E929E]">
+                        {task.category && (
+                          <span className="px-1.5 py-0.2 rounded bg-white/5 border border-white/10 text-[#A0A5B5]">
+                            {task.category}
+                          </span>
+                        )}
+                        {task.deadline && <span>{task.deadline}</span>}
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleRestoreTask(task.id)}
+                      className="px-2.5 py-1.5 rounded-lg bg-[#252830] hover:bg-[#D4F63D] text-[#8E929E] hover:text-black text-[11px] font-semibold flex items-center gap-1.5 transition-all cursor-pointer flex-shrink-0"
+                      title="Rétablir dans la liste d'affectation"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      <span>Rétablir</span>
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="pt-3 border-t border-[#282A30] flex justify-end flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowExcludedModal(false)}
+                className="px-4 py-1.5 rounded-xl bg-[#202228] hover:bg-[#2A2C34] text-xs font-semibold text-white transition-colors cursor-pointer"
+              >
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Drag Overlay for active drag */}
       <DragOverlay>
@@ -961,7 +1183,7 @@ export const ProjectTaskAssignBubbleView: React.FC<ProjectTaskAssignBubbleViewPr
               )}
             </div>
             <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#D4F63D] text-black font-extrabold">
-              {zoomedProject ? "Déposer sur une catégorie" : "Déposer sur un projet"}
+              {zoomedProject ? "Déposer sur une catégorie" : "Déposer sur un projet / Sans projet"}
             </span>
           </div>
         ) : null}

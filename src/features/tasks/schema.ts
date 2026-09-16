@@ -27,6 +27,7 @@ export const TaskFormSchema = z.object({
   projectId: z.string().optional().nullable(),
   projectStatus: z.string().optional().nullable(),
   projectCategory: z.string().optional().nullable(),
+  isNoProject: z.boolean().optional().nullable(),
 });
 
 export type TaskFormValues = z.infer<typeof TaskFormSchema>;
