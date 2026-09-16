@@ -103,6 +103,7 @@ export const AgendaView: React.FC = () => {
             setIsTaskModalOpen(true);
           }}
           onDeleteTask={(taskId) => deleteTask.mutate(taskId)}
+          onUpdateTask={(taskId, values) => updateTask.mutate({ taskId, values })}
           onCreateTaskAtTime={(date, startTime, endTime) => {
             createTask.mutate({
               title: "Nouvelle tâche",

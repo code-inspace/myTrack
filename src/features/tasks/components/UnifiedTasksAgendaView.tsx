@@ -642,6 +642,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
                     setIsTaskModalOpen(true);
                   }}
                   onDeleteTask={(taskId) => deleteTask.mutate(taskId)}
+                  onUpdateTask={(taskId, values) => updateTask.mutate({ taskId, values })}
                   onCreateTaskAtTime={(date, startTime, endTime) => {
                     createTask.mutate({
                       title: "Nouvelle tâche",

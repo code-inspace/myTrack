@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { TaskWithCompletion } from "@/features/tasks/types";
+import { TaskWithCompletion, TaskFormValues } from "@/features/tasks/types";
 import {
   X,
   CheckCircle2,
@@ -15,6 +15,7 @@ import {
   Flame,
   Repeat,
   Sparkles,
+  ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProjects } from "@/features/projects/hooks";
@@ -31,6 +32,7 @@ interface AgendaTaskDetailModalProps {
   onEditTask?: (task: TaskWithCompletion) => void;
   onDeleteTask?: (taskId: string) => void;
   onUpdateTimes?: (taskId: string, startTime: string, endTime: string, date?: string) => void;
+  onUpdateTask?: (taskId: string, values: Partial<TaskFormValues>) => void;
 }
 
 export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
@@ -43,14 +45,19 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
   onEditTask,
   onDeleteTask,
   onUpdateTimes,
+  onUpdateTask,
 }) => {
   const { projects } = useProjects();
+  const [title, setTitle] = useState(task?.title || "");
+  const [selectedProjectId, setSelectedProjectId] = useState<string>(task?.projectId || "");
   const [startTime, setStartTime] = useState(task?.effectiveStartTime || task?.startTime || "09:00");
   const [endTime, setEndTime] = useState(task?.effectiveEndTime || task?.endTime || "10:00");
 
   // Synchronize when task changes
   React.useEffect(() => {
     if (task) {
+      setTitle(task.title || "");
+      setSelectedProjectId(task.projectId || "");
       setStartTime(task.effectiveStartTime || task.startTime || "09:00");
       setEndTime(task.effectiveEndTime || task.endTime || "10:00");
     }
@@ -58,7 +65,12 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
 
   if (!isOpen || !task) return null;
 
-  const project = task.projectId ? projects.find((p) => p.id === task.projectId) : null;
+  const currentProject = selectedProjectId
+    ? projects.find((p) => p.id === selectedProjectId)
+    : task.projectId
+    ? projects.find((p) => p.id === task.projectId)
+    : null;
+
   const isDone = Boolean(task.isCompletedToday);
   const isRemindersEnabled = task.enableReminders !== false;
   const isRecurring = Boolean(task.recurrence && task.recurrence !== "ONCE");
@@ -69,10 +81,23 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
         particleCount: 30,
         spread: 60,
         origin: { y: 0.7 },
-        colors: [project?.color || "#D4F63D", "#38BDF8", "#FFFFFF"],
+        colors: [currentProject?.color || "#D4F63D", "#38BDF8", "#FFFFFF"],
       });
     }
     onToggleComplete?.(task.id);
+  };
+
+  const handleTitleBlur = () => {
+    if (task && title.trim() && title.trim() !== task.title) {
+      onUpdateTask?.(task.id, { title: title.trim() });
+    }
+  };
+
+  const handleProjectChange = (newProjId: string) => {
+    setSelectedProjectId(newProjId);
+    if (task) {
+      onUpdateTask?.(task.id, { projectId: newProjId || null });
+    }
   };
 
   const handleStartTimeChange = (newStart: string) => {
@@ -101,26 +126,31 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
         {/* Header: Project / Tag + Close */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#222430] flex-shrink-0 gap-3">
           <div className="flex items-center gap-2.5 min-w-0 flex-wrap">
-            {project ? (
-              <div
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border truncate"
+            {/* Project Selector Dropdown */}
+            <div className="relative flex items-center">
+              <select
+                value={selectedProjectId}
+                onChange={(e) => handleProjectChange(e.target.value)}
+                className="appearance-none text-xs font-bold pl-7 pr-7 py-1.5 rounded-full border cursor-pointer focus:outline-none transition-all"
                 style={{
-                  backgroundColor: `${project.color || "#D4F63D"}15`,
-                  borderColor: `${project.color || "#D4F63D"}40`,
-                  color: project.color || "#D4F63D",
+                  backgroundColor: currentProject ? `${currentProject.color || "#D4F63D"}18` : "#20232C",
+                  borderColor: currentProject ? `${currentProject.color || "#D4F63D"}50` : "#2D313E",
+                  color: currentProject ? (currentProject.color || "#D4F63D") : "#94A3B8",
                 }}
               >
-                <span
-                  className="w-2 h-2 rounded-full flex-shrink-0 shadow-sm"
-                  style={{ backgroundColor: project.color || "#D4F63D" }}
-                />
-                <span className="text-xs font-bold truncate">{project.name}</span>
-              </div>
-            ) : (
-              <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-[#20232C] text-[#94A3B8] border border-[#2D313E]">
-                {task.tag || task.category || "Tâche"}
-              </span>
-            )}
+                <option value="" className="bg-[#181A20] text-white">Sans projet</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id} className="bg-[#181A20] text-white">
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+              <span
+                className="w-2.5 h-2.5 rounded-full absolute left-2.5 pointer-events-none shadow-sm"
+                style={{ backgroundColor: currentProject?.color || "#94A3B8" }}
+              />
+              <ChevronDown className="w-3.5 h-3.5 absolute right-2 pointer-events-none opacity-60" />
+            </div>
 
             {task.projectCategory && (
               <span className="text-[11px] text-[#A5B4FC] bg-[#818CF8]/15 border border-[#818CF8]/30 px-2 py-0.5 rounded-md font-semibold truncate">
@@ -147,23 +177,36 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
               {task.priority && task.priority !== "NORMAL" && (
                 <Flame
                   className={cn(
-                    "w-5 h-5 flex-shrink-0 mt-1",
+                    "w-5 h-5 flex-shrink-0 mt-2",
                     getPriorityIconColorClass(task.priority)
                   )}
                 />
               )}
-              <h3
-                className={cn(
-                  "text-lg sm:text-xl font-extrabold text-white leading-snug break-words flex-1",
-                  isDone && "line-through text-[#8E929E]"
-                )}
-              >
-                {task.title}
-              </h3>
+              <div className="flex-1 min-w-0">
+                <label className="text-[10px] uppercase font-bold text-[#8E929E] tracking-wider block mb-1">
+                  Nom de la tâche
+                </label>
+                <input
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  onBlur={handleTitleBlur}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      (e.target as HTMLInputElement).blur();
+                    }
+                  }}
+                  className={cn(
+                    "w-full text-base sm:text-lg font-bold text-white bg-[#14161F] border border-[#2B2F40] hover:border-[#38BDF8]/60 focus:border-[#38BDF8] rounded-xl px-3 py-2 outline-none transition-all shadow-inner",
+                    isDone && "line-through text-[#8E929E]"
+                  )}
+                  placeholder="Nom de la tâche..."
+                />
+              </div>
             </div>
 
             {task.description && (
-              <p className="text-sm text-[#94A3B8] whitespace-pre-wrap pl-0.5 leading-relaxed">
+              <p className="text-sm text-[#94A3B8] whitespace-pre-wrap pl-1 leading-relaxed">
                 {task.description}
               </p>
             )}

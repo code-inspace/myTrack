@@ -45,6 +45,7 @@ interface AgendaTimelineProps {
   onEditTask?: (task: TaskWithCompletion) => void;
   onDeleteTask?: (taskId: string) => void;
   onCreateTaskAtTime?: (date: string, startTime: string, endTime: string) => void;
+  onUpdateTask?: (taskId: string, values: any) => void;
   onMoveTaskToTime: (taskId: string, startTime: string, endTime: string, date?: string) => void;
   onDropToAllDay?: (taskId: string, date?: string) => void;
   onMoveTaskOccurrence?: (taskId: string, targetDate: string) => void;
@@ -131,6 +132,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
   onEditTask,
   onDeleteTask,
   onCreateTaskAtTime,
+  onUpdateTask,
   onMoveTaskToTime,
   onDropToAllDay,
   onMoveTaskOccurrence,
@@ -928,6 +930,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
           setSelectedTaskForDetail(null);
           onEditTask?.(t);
         }}
+        onUpdateTask={onUpdateTask}
         onUpdateTimes={(taskId, start, end, date) => {
           onMoveTaskToTime(taskId, start, end, date);
         }}
