@@ -119,24 +119,24 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="flex-1 flex flex-col overflow-y-auto pb-28 md:pb-10 space-y-4 max-w-md md:max-w-5xl mx-auto w-full px-4 md:px-8 pt-2 md:pt-6">
-      {/* Mobile Sticky Header conforming to the other pages */}
-      <div className="sticky top-0 z-40 w-full bg-[#111214] border-b border-[#23242A] select-none shadow-md md:hidden -mx-4 px-4 -mt-2">
-        <AppHeader
-          title="Mon Profil"
-        />
+    <div className="flex-1 min-h-0 flex flex-col w-full h-full bg-[#0E0F12] relative overflow-hidden">
+      {/* 1. Mobile Fixed Header (matching standard page layout, outside scroll area) */}
+      <div className="flex-shrink-0 z-30 shadow-md md:hidden bg-[#111214] border-b border-[#23242A]">
+        <AppHeader title="Mon Profil" />
       </div>
 
-      {/* Desktop Header */}
-      <header className="hidden md:block w-full text-left py-1 pb-2 select-none flex-shrink-0">
-        <h1 className="text-2xl lg:text-3xl font-extrabold text-white tracking-tight">
-          Mon Profil
-        </h1>
-        <p className="text-xs text-[#8E929E] mt-0.5">Paramètres du compte, affichage &amp; préférences</p>
-      </header>
+      {/* 2. Scrollable Content Body */}
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain pb-28 md:pb-10 space-y-4 max-w-md md:max-w-5xl mx-auto w-full px-4 md:px-8 pt-3 md:pt-6">
+        {/* Desktop Header */}
+        <header className="hidden md:block w-full text-left py-1 pb-2 select-none flex-shrink-0">
+          <h1 className="text-2xl lg:text-3xl font-extrabold text-white tracking-tight">
+            Mon Profil
+          </h1>
+          <p className="text-xs text-[#8E929E] mt-0.5">Paramètres du compte, affichage &amp; préférences</p>
+        </header>
 
-      {/* Desktop: two balanced columns · Mobile: single stack */}
-      <div className="lg:grid lg:grid-cols-2 lg:gap-4 lg:items-start space-y-4 lg:space-y-0">
+        {/* Desktop: two balanced columns · Mobile: single stack */}
+        <div className="lg:grid lg:grid-cols-2 lg:gap-4 lg:items-start space-y-4 lg:space-y-0">
         {/* ── Left column ── */}
         <div className="space-y-4">
 
@@ -477,18 +477,19 @@ export default function ProfilePage() {
         onSaveReminder={handleSaveReminder}
       />
 
-      {/* Test interactive notification popup */}
-      {activeTestReminder && (
-        <InteractiveNotificationSheet
-          isOpen={Boolean(activeTestReminder)}
-          question={activeTestReminder.question}
-          taskTitle={activeTestReminder.taskTitle || "Habitude"}
-          onClose={() => setActiveTestReminder(null)}
-          onRespond={(action, val) => {
-            alert(`Action reçue: ${action} ${val ? `(${val})` : ""} - Enregistrée avec succès !`);
-          }}
-        />
-      )}
+        {/* Test interactive notification popup */}
+        {activeTestReminder && (
+          <InteractiveNotificationSheet
+            isOpen={Boolean(activeTestReminder)}
+            question={activeTestReminder.question}
+            taskTitle={activeTestReminder.taskTitle || "Habitude"}
+            onClose={() => setActiveTestReminder(null)}
+            onRespond={(action, val) => {
+              alert(`Action reçue: ${action} ${val ? `(${val})` : ""} - Enregistrée avec succès !`);
+            }}
+          />
+        )}
+      </div>
     </div>
   );
 }

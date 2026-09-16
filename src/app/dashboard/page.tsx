@@ -179,72 +179,72 @@ export default function DashboardPage() {
   const enabledModules = modules.filter((m) => m.enabled);
 
   return (
-    <div
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-      className="flex-1 flex flex-col overflow-y-auto pb-28 md:pb-10 space-y-4 max-w-md md:max-w-6xl mx-auto w-full px-4 md:px-8 pt-2 md:pt-6"
-    >
-      {/* Desktop Header */}
-      <div className="hidden md:flex items-center justify-between pb-2 select-none flex-shrink-0">
-        <div className="flex items-center gap-4">
-          <button
-            type="button"
-            onClick={() => setIsConfigModalOpen(true)}
-            className="px-3.5 py-2 rounded-2xl bg-[#1C1D22] hover:bg-[#252830] border border-[#282A30] hover:border-[#383C48] text-xs font-semibold text-white flex items-center gap-2 transition-all cursor-pointer shadow-sm"
-            title="Personnaliser le dashboard"
-          >
-            <Sliders className="w-4 h-4 text-[#D4F63D]" />
-            <span>Personnaliser</span>
-          </button>
+    <div className="flex-1 min-h-0 flex flex-col w-full h-full bg-[#0E0F12] relative overflow-hidden">
+      {/* 1. Mobile Fixed Header (matching standard page layout, outside scroll area) */}
+      <div className="flex-shrink-0 z-30 shadow-md md:hidden bg-[#111214] border-b border-[#23242A]">
+        <AppHeader title="Dashboard" />
+      </div>
 
-          <div>
-            <h1 className="text-2xl lg:text-3xl font-extrabold text-white tracking-tight">
-              <span>Dashboard</span>
-            </h1>
-            <p className="text-xs text-[#8E929E] mt-0.5">
-              Analyse de ta progression, régularité et momentum
-            </p>
+      {/* 2. Scrollable Content Body */}
+      <div
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain pb-28 md:pb-10 space-y-4 max-w-md md:max-w-6xl mx-auto w-full px-4 md:px-8 pt-3 md:pt-6"
+      >
+        {/* Desktop Header */}
+        <div className="hidden md:flex items-center justify-between pb-2 select-none flex-shrink-0">
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={() => setIsConfigModalOpen(true)}
+              className="px-3.5 py-2 rounded-2xl bg-[#1C1D22] hover:bg-[#252830] border border-[#282A30] hover:border-[#383C48] text-xs font-semibold text-white flex items-center gap-2 transition-all cursor-pointer shadow-sm"
+              title="Personnaliser le dashboard"
+            >
+              <Sliders className="w-4 h-4 text-[#D4F63D]" />
+              <span>Personnaliser</span>
+            </button>
+
+            <div>
+              <h1 className="text-2xl lg:text-3xl font-extrabold text-white tracking-tight">
+                <span>Dashboard</span>
+              </h1>
+              <p className="text-xs text-[#8E929E] mt-0.5">
+                Analyse de ta progression, régularité et momentum
+              </p>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Mobile Sticky Header conforming to the other pages */}
-      <div className="sticky top-0 z-40 w-full bg-[#111214] border-b border-[#23242A] select-none shadow-md md:hidden -mx-4 px-4 -mt-2">
-        <AppHeader
-          title="Dashboard"
+        {/* Period Selector Tabs & Chevron Navigation: [Semaine] [Mois] [Tout le temps] */}
+        <PeriodSelector
+          period={period}
+          onChangePeriod={setPeriod}
+          referenceDate={referenceDate}
+          onChangeReferenceDate={setReferenceDate}
+        />
+
+        {/* Dynamically configured modules in custom order */}
+        <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+          {enabledModules.map((mod) => {
+            return (
+              <div
+                key={mod.id}
+                className={mod.id === "MOMENTUM_WAVE" ? "lg:col-span-2" : "w-full"}
+              >
+                {renderModule(mod.id)}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Dashboard Configuration Modal */}
+        <DashboardConfigModal
+          isOpen={isConfigModalOpen}
+          onClose={() => setIsConfigModalOpen(false)}
+          modules={modules}
+          onSave={handleSaveModules}
         />
       </div>
-
-      {/* Period Selector Tabs & Chevron Navigation: [Semaine] [Mois] [Tout le temps] */}
-      <PeriodSelector
-        period={period}
-        onChangePeriod={setPeriod}
-        referenceDate={referenceDate}
-        onChangeReferenceDate={setReferenceDate}
-      />
-
-      {/* Dynamically configured modules in custom order */}
-      <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
-        {enabledModules.map((mod) => {
-          // Allow MOMENTUM_WAVE and SLEEP_WAVE to expand nicely if desired
-          return (
-            <div
-              key={mod.id}
-              className={mod.id === "MOMENTUM_WAVE" ? "lg:col-span-2" : "w-full"}
-            >
-              {renderModule(mod.id)}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Dashboard Configuration Modal */}
-      <DashboardConfigModal
-        isOpen={isConfigModalOpen}
-        onClose={() => setIsConfigModalOpen(false)}
-        modules={modules}
-        onSave={handleSaveModules}
-      />
     </div>
   );
 }

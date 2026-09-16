@@ -371,7 +371,9 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
           <div
             className={cn(
               "flex items-stretch w-full relative z-10",
-              period === "month" || period === "all" ? "gap-[1px] sm:gap-1" : "gap-1.5 sm:gap-2"
+              period === "month" || period === "all"
+                ? "justify-center gap-[2px] sm:gap-[3px]"
+                : "gap-1.5 sm:gap-2"
             )}
           >
             {points.map((pt, idx) => {
@@ -382,14 +384,17 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
                 <div
                   key={idx}
                   onClick={() => setSelectedDateStr(pt.dateStr)}
-                  className="flex-1 flex flex-col items-center min-w-0 group relative cursor-pointer"
+                  className={cn(
+                    "flex flex-col items-center group relative cursor-pointer",
+                    isMonthView ? "w-auto" : "flex-1 min-w-0"
+                  )}
                 >
                   {/* Track Bar area */}
                   <div
                     className={cn(
                       "relative transition-all overflow-hidden",
                       isMonthView
-                        ? "w-[3px] sm:w-[3.5px] rounded-full"
+                        ? "w-[3.5px] sm:w-[4px] rounded-full"
                         : "w-full rounded-xl",
                       isSelected
                         ? "bg-[#1C1D24] ring-2 ring-[#818CF8] z-20 shadow-lg"
@@ -438,7 +443,7 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
                   {/* Date label under column */}
                   <span
                     className={cn(
-                      "text-[10px] mt-1.5 truncate max-w-full transition-colors h-3 flex items-center justify-center select-none",
+                      "text-[9px] mt-1.5 truncate transition-colors h-3 flex items-center justify-center select-none",
                       isSelected
                         ? "font-bold text-[#818CF8]"
                         : "font-medium text-[#8E929E] group-hover:text-white"
