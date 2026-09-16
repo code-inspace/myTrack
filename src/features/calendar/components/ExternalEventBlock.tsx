@@ -27,7 +27,7 @@ export const ExternalEventBlock: React.FC<ExternalEventBlockProps> = ({
   const project = event.projectId ? projects.find((p) => p.id === event.projectId) : null;
 
   const isShort = heightPx < 40;
-  const calColor = event.calendarColor || "#3B82F6";
+  const calColor = project?.color || event.calendarColor || "#3B82F6";
 
   return (
     <div

@@ -361,12 +361,12 @@ function DraggableTaskCard({
   });
 
   const [showQuickMenu, setShowQuickMenu] = useState(false);
+  const project = task.projectId ? projects.find((p) => p.id === task.projectId) : null;
 
-  const style = transform
-    ? {
-        transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
-      }
-    : undefined;
+  const style = {
+    ...(transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : {}),
+    ...(project?.color ? { backgroundColor: `${project.color}0F`, borderColor: `${project.color}45` } : {}),
+  };
 
   return (
     <div

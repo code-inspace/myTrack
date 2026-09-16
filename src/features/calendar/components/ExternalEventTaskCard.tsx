@@ -43,7 +43,7 @@ export const ExternalEventTaskCard: React.FC<ExternalEventTaskCardProps> = ({
   const status = getExternalEventStatus(event, selectedDate, isManuallyCompleted);
   const isDone = status === "DONE";
   const isInProgress = status === "IN_PROGRESS";
-  const calColor = event.calendarColor || "#3B82F6";
+  const calColor = project?.color || event.calendarColor || "#3B82F6";
 
   const handleCircleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -65,6 +65,12 @@ export const ExternalEventTaskCard: React.FC<ExternalEventTaskCardProps> = ({
         touchAction: "pan-y",
         transform: CSS.Transform.toString(transform),
         transition,
+        ...(project?.color && !isDone && !isDragging
+          ? {
+              backgroundColor: `${project.color}0F`,
+              borderColor: `${project.color}45`,
+            }
+          : {}),
       }}
       onClick={onClick}
       className={cn(
@@ -75,7 +81,9 @@ export const ExternalEventTaskCard: React.FC<ExternalEventTaskCardProps> = ({
           ? "bg-[#181C26] border-[#3B82F6]/60 shadow-[0_0_20px_rgba(59,130,246,0.15)] ring-1 ring-[#3B82F6]/40"
           : isDone
           ? "bg-[#121316]/70 border-[#202229] opacity-70"
-          : "bg-[#17181F] border-[#262833] hover:border-[#3A3D4D] hover:bg-[#1A1C24]"
+          : !project
+          ? "bg-[#17181F] border-[#262833] hover:border-[#3A3D4D] hover:bg-[#1A1C24]"
+          : "hover:brightness-110"
       )}
     >
       {/* Left calendar color vertical accent strip */}

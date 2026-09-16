@@ -93,6 +93,12 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         touchAction: "pan-y",
         transform: CSS.Transform.toString(transform),
         transition,
+        ...(project?.color && !isCompleted && !isDragging
+          ? {
+              backgroundColor: `${project.color}0F`,
+              borderColor: `${project.color}45`,
+            }
+          : {}),
       }}
       className={cn(
         "relative w-full rounded-2xl p-4 transition-all duration-200 border space-y-3 shadow-sm select-none touch-pan-y",
@@ -100,10 +106,20 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           ? "opacity-40 border-[#D4F63D] scale-[0.98] ring-2 ring-[#D4F63D]/50 bg-[#22242B]"
           : isCompleted
           ? "bg-[#141518]/90 border-[#23242A] opacity-75"
-          : "bg-[#1C1D22] hover:bg-[#22242B] border-[#282A30] hover:border-[#383C48]",
+          : !project
+          ? "bg-[#1C1D22] hover:bg-[#22242B] border-[#282A30] hover:border-[#383C48]"
+          : "hover:brightness-110",
         !isCompleted && getPriorityCardClass(task.priority)
       )}
     >
+      {/* Left colored accent bar for project-assigned tasks */}
+      {project?.color && !isCompleted && (
+        <div
+          className="absolute top-3 bottom-3 left-1 w-1 rounded-full opacity-85"
+          style={{ backgroundColor: project.color }}
+        />
+      )}
+
       {/* Level 1: Grip + Check Circle + Title Header + Actions on Right */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-2.5 flex-1 min-w-0">
@@ -147,7 +163,10 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                   className="w-2 h-2 rounded-full flex-shrink-0 shadow-sm"
                   style={{ backgroundColor: project.color || "#D4F63D" }}
                 />
-                <span className="text-[#D4F63D] font-bold truncate max-w-[160px]">
+                <span
+                  className="font-bold truncate max-w-[160px]"
+                  style={{ color: project.color || "#D4F63D" }}
+                >
                   {project.name}
                 </span>
                 {task.projectCategory && (

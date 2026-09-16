@@ -135,12 +135,20 @@ export const AllDaySection: React.FC<AllDaySectionProps> = ({
                   e.dataTransfer.setData("taskId", task.id);
                   onDragStartTask(e, task);
                 }}
-                onClick={() => onSelectTask?.(task)}
+                style={
+                  project?.color
+                    ? {
+                        backgroundColor: `${project.color}22`,
+                        borderColor: `${project.color}60`,
+                      }
+                    : undefined
+                }
                 className={cn(
                   "flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold shadow-sm transition-all duration-200 cursor-grab active:cursor-grabbing hover:scale-[1.03] hover:ring-1 hover:ring-white/30",
-                  style.bg,
-                  style.text,
-                  style.border,
+                  !project && style.bg,
+                  !project && style.text,
+                  !project && style.border,
+                  project && "text-white",
                   task.isCompletedToday ? "opacity-60 line-through" : "",
                   !task.isCompletedToday && task.priority === "VERY_URGENT" ? "ring-2 ring-red-500" : "",
                   !task.isCompletedToday && task.priority === "URGENT" ? "ring-1 ring-amber-500" : ""

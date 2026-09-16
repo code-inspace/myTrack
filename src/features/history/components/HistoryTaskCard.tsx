@@ -41,11 +41,21 @@ export const HistoryTaskCard: React.FC<HistoryTaskCardProps> = ({
 
   return (
     <div
+      style={
+        project?.color && !isCompleted
+          ? {
+              backgroundColor: `${project.color}0F`,
+              borderColor: `${project.color}45`,
+            }
+          : undefined
+      }
       className={cn(
         "rounded-2xl p-4 border transition-all duration-200 shadow-sm",
         isCompleted
           ? "bg-[#141519] border-[#2A2D35]"
-          : "bg-[#1C1D22] border-[#2E313B] hover:border-[#3E424F]",
+          : !project
+          ? "bg-[#1C1D22] border-[#2E313B] hover:border-[#3E424F]"
+          : "hover:brightness-110",
         !isCompleted && getPriorityCardClass(task.priority)
       )}
     >

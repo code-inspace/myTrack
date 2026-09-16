@@ -175,11 +175,17 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
         height: `${heightPx}px`,
         left: `${activeLeftPercent}%`,
         width: `${activeWidthPercent}%`,
+        ...(project?.color && !isSelected
+          ? {
+              backgroundColor: `${project.color}22`,
+              borderColor: `${project.color}66`,
+            }
+          : {}),
       }}
       className={cn(
         "absolute rounded-xl border transition-[top,height,box-shadow,transform] duration-75 select-none cursor-pointer flex flex-col justify-between overflow-visible",
-        style.bg,
-        style.border,
+        !project && style.bg,
+        !project && style.border,
         isSelected
           ? "z-40 ring-1.5 ring-[#38BDF8] shadow-[0_4px_24px_rgba(56,189,248,0.4)] scale-[1.008] border-[#38BDF8] bg-[repeating-linear-gradient(135deg,rgba(255,255,255,0.07)_0px,rgba(255,255,255,0.07)_6px,transparent_6px,transparent_12px)]"
           : "z-10 hover:ring-1 hover:ring-white/30 hover:z-25",
@@ -250,8 +256,9 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
       <div
         className={cn(
           "absolute top-0.5 bottom-0.5 left-0.5 w-1 rounded-full",
-          style.bar
+          !project && style.bar
         )}
+        style={project?.color ? { backgroundColor: project.color } : undefined}
       />
 
       {/* Inner Content - Clean Apple Calendar Progressive Disclosure */}
