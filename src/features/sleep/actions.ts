@@ -378,15 +378,7 @@ export async function saveStoredSleepLog(
   log: DailySleepLog,
   userId?: string
 ): Promise<DailySleepLog> {
-  const supabase = createClient();
-  let targetId = userId;
-
-  if (!targetId) {
-    const { data: { session } } = await supabase.auth.getSession();
-    targetId = session?.user?.id || getEffectiveUserId();
-  }
-
-  const key = `${SLEEP_STORAGE_PREFIX}${targetId}_${log.date}`;
+  let targetId = getEffectiveUserId(userId);
   const nowIso = new Date().toISOString();
 
   const updatedLog: DailySleepLog = {
@@ -394,13 +386,29 @@ export async function saveStoredSleepLog(
     updatedAt: nowIso,
   };
 
-  // 1. Instant local persistence
+  // 1. Instant synchronous local persistence
   if (typeof window !== "undefined") {
     try {
-      localStorage.setItem(key, JSON.stringify(updatedLog));
+      const immediateKey = `${SLEEP_STORAGE_PREFIX}${targetId}_${log.date}`;
+      localStorage.setItem(immediateKey, JSON.stringify(updatedLog));
     } catch (err) {
       console.warn("saveStoredSleepLog local storage error:", err);
     }
+  }
+
+  const supabase = createClient();
+  if (!targetId) {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      targetId = session?.user?.id || getEffectiveUserId();
+    } catch {}
+  }
+
+  const key = `${SLEEP_STORAGE_PREFIX}${targetId}_${log.date}`;
+  if (typeof window !== "undefined" && targetId) {
+    try {
+      localStorage.setItem(key, JSON.stringify(updatedLog));
+    } catch {}
   }
 
   // 2. Database persistence in Supabase (Timezone normalized to UTC)

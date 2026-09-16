@@ -12,6 +12,7 @@ import type { Task } from "@/features/tasks/types";
 
 import { App as CapApp } from "@capacitor/app";
 import { Capacitor } from "@capacitor/core";
+import { initAutoSleepTracking } from "@/features/sleep/autoSleepTracker";
 
 export function DeepLinkProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -199,6 +200,9 @@ export function DeepLinkProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
+    // Automatic sleep tracking based on app lifecycle (open / close / background during night)
+    const cleanupAutoSleep = initAutoSleepTracking();
+
     // Global window scroll lockdown for iOS WebKit
     const lockWindowScroll = () => {
       if (window.scrollY !== 0 || window.scrollX !== 0) {
@@ -209,6 +213,7 @@ export function DeepLinkProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       cleanupNotifs();
+      cleanupAutoSleep();
       window.removeEventListener("scroll", lockWindowScroll);
       document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("focus", onVisibilityChange);

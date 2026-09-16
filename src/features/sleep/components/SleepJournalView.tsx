@@ -52,6 +52,14 @@ export const SleepJournalView: React.FC<SleepJournalViewProps> = ({ selectedDate
         setLog(remoteLog);
       }
     });
+
+    const handleAutoDetect = () => {
+      if (!isEditingRef.current) {
+        setLog(getStoredSleepLog(selectedDate));
+      }
+    };
+    window.addEventListener("mytrack:sleep-auto-detected", handleAutoDetect);
+    return () => window.removeEventListener("mytrack:sleep-auto-detected", handleAutoDetect);
   }, [selectedDate]);
 
   const triggerSave = (updated: DailySleepLog) => {

@@ -93,6 +93,13 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
         setSyncVersion((v) => v + 1);
       }
     });
+
+    const handleAutoSleep = () => {
+      setSyncVersion((v) => v + 1);
+    };
+
+    window.addEventListener("mytrack:sleep-auto-detected", handleAutoSleep);
+    return () => window.removeEventListener("mytrack:sleep-auto-detected", handleAutoSleep);
   }, [period, referenceDate]);
 
   const { points, validNights, averageText, trackHeightPx, axisLabels } = useMemo(() => {
