@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import confetti from "canvas-confetti";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useProjects } from "@/features/projects/hooks";
 
 interface ExternalEventTaskCardProps {
   event: ExternalCalendarEvent;
@@ -26,6 +27,9 @@ export const ExternalEventTaskCard: React.FC<ExternalEventTaskCardProps> = ({
   onToggleComplete,
   onClick,
 }) => {
+  const { projects } = useProjects();
+  const project = event.projectId ? projects.find((p) => p.id === event.projectId) : null;
+
   const sortableId = event.id.startsWith("event_") ? event.id : `event_${event.id}`;
   const {
     attributes,
@@ -118,6 +122,23 @@ export const ExternalEventTaskCard: React.FC<ExternalEventTaskCardProps> = ({
 
         {/* Content */}
         <div className="min-w-0 flex-1">
+          {project && (
+            <div className="flex items-center gap-1.5 mb-1 text-[11px] font-semibold">
+              <span
+                className="w-2 h-2 rounded-full flex-shrink-0 shadow-sm"
+                style={{ backgroundColor: project.color || "#D4F63D" }}
+              />
+              <span className="text-[#D4F63D] font-bold truncate max-w-[160px]">
+                {project.name}
+              </span>
+              {event.projectCategory && (
+                <span className="text-[10px] text-[#A5B4FC] bg-[#818CF8]/15 border border-[#818CF8]/30 px-1.5 py-0.2 rounded-md font-semibold truncate max-w-[120px]">
+                  {event.projectCategory}
+                </span>
+              )}
+            </div>
+          )}
+
           <div className="flex items-center gap-2 flex-wrap">
             <h4
               className={cn(
@@ -158,6 +179,24 @@ export const ExternalEventTaskCard: React.FC<ExternalEventTaskCardProps> = ({
             ) : (
               <span className="inline-flex items-center gap-1 font-semibold px-2 py-0.5 rounded-lg bg-[#20222B] text-[#9CA3AF] border border-[#2D303E]">
                 Jour entier
+              </span>
+            )}
+
+            {/* Project badge */}
+            {project && (
+              <span
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border"
+                style={{
+                  borderColor: `${project.color || "#D4F63D"}40`,
+                  backgroundColor: `${project.color || "#D4F63D"}15`,
+                  color: project.color || "#D4F63D",
+                }}
+              >
+                <span
+                  className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: project.color || "#D4F63D" }}
+                />
+                <span className="truncate max-w-[110px]">{project.name}</span>
               </span>
             )}
 

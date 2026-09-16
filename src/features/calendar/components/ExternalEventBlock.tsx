@@ -4,6 +4,7 @@ import React from "react";
 import { ExternalCalendarEvent } from "../types";
 import { MapPin, Calendar, AlignLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useProjects } from "@/features/projects/hooks";
 
 interface ExternalEventBlockProps {
   event: ExternalCalendarEvent;
@@ -22,6 +23,9 @@ export const ExternalEventBlock: React.FC<ExternalEventBlockProps> = ({
   widthPercent,
   onClick,
 }) => {
+  const { projects } = useProjects();
+  const project = event.projectId ? projects.find((p) => p.id === event.projectId) : null;
+
   const isShort = heightPx < 40;
   const calColor = event.calendarColor || "#3B82F6";
 
@@ -55,6 +59,13 @@ export const ExternalEventBlock: React.FC<ExternalEventBlockProps> = ({
           <h5 className="text-xs font-bold text-white truncate leading-tight">
             {event.title}
           </h5>
+          {project && (
+            <span
+              className="w-1.5 h-1.5 rounded-full flex-shrink-0 shadow-sm"
+              style={{ backgroundColor: project.color || "#D4F63D" }}
+              title={`Projet: ${project.name}`}
+            />
+          )}
         </div>
 
         {event.startTime && (
@@ -71,7 +82,16 @@ export const ExternalEventBlock: React.FC<ExternalEventBlockProps> = ({
       {/* Bottom details if height permits */}
       {!isShort && (
         <div className="flex items-center justify-between gap-1 text-[10px] text-[#9CA3AF] mt-1 pt-1 border-t border-white/5">
-          <div className="flex items-center gap-1 truncate">
+          <div className="flex items-center gap-1.5 truncate">
+            {project && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-black/40 text-white font-medium text-[9px] border border-white/10 truncate max-w-[100px]">
+                <span
+                  className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: project.color || "#D4F63D" }}
+                />
+                <span className="truncate">{project.name}</span>
+              </span>
+            )}
             {event.location && (
               <span className="inline-flex items-center gap-0.5 truncate text-[#D1D5DB]">
                 <MapPin className="w-2.5 h-2.5 flex-shrink-0" style={{ color: calColor }} />
@@ -91,3 +111,4 @@ export const ExternalEventBlock: React.FC<ExternalEventBlockProps> = ({
     </div>
   );
 };
+

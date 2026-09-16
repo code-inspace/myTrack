@@ -5,6 +5,7 @@ import { ExternalCalendarEvent } from "../types";
 import { getExternalEventStatus } from "../lib/status";
 import { Calendar, Clock, MapPin, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useProjects } from "@/features/projects/hooks";
 
 interface ExternalEventBoardCardProps {
   event: ExternalCalendarEvent;
@@ -17,6 +18,9 @@ export const ExternalEventBoardCard: React.FC<ExternalEventBoardCardProps> = ({
   targetDateStr,
   onClick,
 }) => {
+  const { projects } = useProjects();
+  const project = event.projectId ? projects.find((p) => p.id === event.projectId) : null;
+
   const status = getExternalEventStatus(event, targetDateStr);
   const isDone = status === "DONE";
   const isInProgress = status === "IN_PROGRESS";
@@ -34,6 +38,21 @@ export const ExternalEventBoardCard: React.FC<ExternalEventBoardCardProps> = ({
           : "bg-[#1C1D22] border-[#282A30] hover:border-[#383B46]"
       )}
     >
+      {project && (
+        <div className="flex items-center gap-1.5 text-[10px] font-semibold text-[#D4F63D]">
+          <span
+            className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+            style={{ backgroundColor: project.color || "#D4F63D" }}
+          />
+          <span className="truncate">{project.name}</span>
+          {event.projectCategory && (
+            <span className="text-[9px] text-[#A5B4FC] bg-[#818CF8]/15 border border-[#818CF8]/30 px-1 py-0.2 rounded font-semibold truncate">
+              {event.projectCategory}
+            </span>
+          )}
+        </div>
+      )}
+
       <div className="flex items-center justify-between gap-1">
         <div className="flex items-center gap-1.5 min-w-0 flex-1">
           <span
@@ -95,3 +114,4 @@ export const ExternalEventBoardCard: React.FC<ExternalEventBoardCardProps> = ({
     </div>
   );
 };
+

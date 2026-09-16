@@ -30,6 +30,7 @@ import { AgendaSleepBlock } from "./AgendaSleepBlock";
 import { getStoredSleepLog, computeSleepDuration } from "@/features/sleep/actions";
 import { SleepEditModal, SleepSessionData } from "@/features/sleep/components/SleepEditModal";
 import { addHoursToTimeString } from "@/lib/dates";
+import { useProjects } from "@/features/projects/hooks";
 
 export type AgendaViewMode = "day" | "3days" | "week";
 
@@ -130,6 +131,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
   onDragStartTask,
   onSelectTask,
 }) => {
+  const { projects } = useProjects();
   const [viewMode, setViewMode] = useState<AgendaViewMode>("day");
   const [isAllDayExpanded, setIsAllDayExpanded] = useState(false);
   const [isCalendarModalOpen, setIsCalendarModalOpen] = useState(false);
@@ -616,6 +618,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
                         {/* 1. External All-Day Events */}
                         {dayAllDayExternal.map((extEvent) => {
                           const calColor = extEvent.calendarColor || "#3B82F6";
+                          const project = extEvent.projectId ? projects.find((p) => p.id === extEvent.projectId) : null;
                           return (
                             <button
                               key={extEvent.id}
@@ -624,18 +627,27 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
                                 e.stopPropagation();
                                 setSelectedExternalEvent(extEvent);
                               }}
-                              className="flex items-center gap-1 px-2.5 py-1 rounded-full border text-[11px] font-semibold shadow-sm transition-all duration-150 hover:scale-[1.02] cursor-pointer"
+                              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-semibold shadow-sm transition-all duration-150 hover:scale-[1.02] cursor-pointer"
                               style={{
                                 backgroundColor: `${calColor}20`,
                                 borderColor: `${calColor}50`,
                                 color: "#FFFFFF",
                               }}
-                              title={`${extEvent.title} (${extEvent.calendarName})`}
+                              title={`${extEvent.title} (${extEvent.calendarName}${project ? ` • Projet: ${project.name}` : ""})`}
                             >
                               <span
                                 className="w-1.5 h-1.5 rounded-full flex-shrink-0"
                                 style={{ backgroundColor: calColor }}
                               />
+                              {project && (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full bg-black/40 text-white font-medium text-[9px] border border-white/10 flex-shrink-0">
+                                  <span
+                                    className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                                    style={{ backgroundColor: project.color || "#D4F63D" }}
+                                  />
+                                  <span className="truncate max-w-[60px]">{project.name}</span>
+                                </span>
+                              )}
                               <span className="truncate max-w-[90px] md:max-w-[120px]">
                                 {extEvent.title}
                               </span>
@@ -648,6 +660,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
                           const tagKey = task.tag || task.category || "General";
                           const style = TAG_COLORS[tagKey] || TAG_COLORS.General;
                           const isRemindersEnabled = task.enableReminders !== false;
+                          const project = task.projectId ? projects.find((p) => p.id === task.projectId) : null;
 
                           return (
                             <div
@@ -663,7 +676,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
                                 onSelectTask?.(task);
                               }}
                               className={cn(
-                                "flex items-center gap-1 px-2.5 py-1 rounded-full border text-[11px] font-semibold shadow-sm transition-all duration-150 cursor-grab active:cursor-grabbing hover:scale-[1.02]",
+                                "flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-semibold shadow-sm transition-all duration-150 cursor-grab active:cursor-grabbing hover:scale-[1.02]",
                                 style.bg,
                                 style.text,
                                 style.border,
@@ -686,6 +699,15 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
                                   <Circle className="w-3 h-3 opacity-60" />
                                 )}
                               </button>
+                              {project && (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full bg-black/40 text-white font-medium text-[9px] border border-white/10 flex-shrink-0">
+                                  <span
+                                    className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                                    style={{ backgroundColor: project.color || "#D4F63D" }}
+                                  />
+                                  <span className="truncate max-w-[60px]">{project.name}</span>
+                                </span>
+                              )}
                               <span className="truncate max-w-[90px] md:max-w-[120px]">{task.title}</span>
 
                               {onToggleReminder && (
