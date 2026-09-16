@@ -18,7 +18,9 @@ import { DesktopTasksView } from "@/features/tasks/components/desktop/DesktopTas
 import { DesktopDatePicker } from "@/features/tasks/components/desktop/DesktopDatePicker";
 import { getNightSleepDuration } from "@/features/sleep/actions";
 import { useTasks, useTaskMutations } from "@/features/tasks/hooks";
+import { useProjects } from "@/features/projects/hooks";
 import { Task, TaskWithCompletion, TaskFormValues } from "@/features/tasks/types";
+import { TaskAutoCompleteSuggestions } from "@/features/tasks/components/TaskAutoCompleteSuggestions";
 import { mapTaskWithCompletion } from "@/features/tasks/mappers";
 import { getTodayDateString } from "@/lib/dates";
 import { CheckCircle2, Inbox, CalendarDays, Play } from "lucide-react";
@@ -61,6 +63,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
   initialTab = "habits",
 }) => {
   const { selectedDate, setSelectedDate } = useSelectedDate();
+  const { projects } = useProjects();
   const [activeTab, setActiveTab] = useState<TasksTab>(initialTab);
 
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
@@ -68,6 +71,8 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
   const [selectedLoggingTask, setSelectedLoggingTask] = useState<TaskWithCompletion | null>(null);
   const [isLiveActivityPermissionModalOpen, setIsLiveActivityPermissionModalOpen] = useState(false);
   const [quickTitle, setQuickTitle] = useState("");
+  const [isAutoCompleteOpen, setIsAutoCompleteOpen] = useState(false);
+  const [autoCompleteIndex, setAutoCompleteIndex] = useState(-1);
   const [isTestNotificationOpen, setIsTestNotificationOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedExternalEvent, setSelectedExternalEvent] = useState<ExternalCalendarEvent | null>(null);
@@ -239,6 +244,42 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
       autoStart,
     } as any);
     setQuickTitle("");
+  };
+
+  const matchingTasks = useMemo(() => {
+    const cleanQuery = quickTitle.trim().toLowerCase();
+    if (!cleanQuery) return [];
+    const taskMap = new Map<string, Task>();
+    for (const t of allTasks) {
+      if (!t.title) continue;
+      const titleClean = t.title.trim().toLowerCase();
+      if (titleClean.includes(cleanQuery)) {
+        if (!taskMap.has(titleClean)) {
+          taskMap.set(titleClean, t);
+        }
+      }
+    }
+    return Array.from(taskMap.values()).slice(0, 5);
+  }, [allTasks, quickTitle]);
+
+  const handleSelectSuggestion = (matchedTask: Task, autoStart = false) => {
+    const isSingle = matchedTask.recurrence === "ONCE";
+
+    updateTask.mutate({
+      taskId: matchedTask.id,
+      values: {
+        recurrence: isSingle ? "CUSTOM" : matchedTask.recurrence,
+        recurrenceConfig: isSingle ? { days: [] } : (matchedTask.recurrenceConfig || { days: [] }),
+      },
+    });
+
+    if (autoStart) {
+      toggleTaskActive.mutate({ taskId: matchedTask.id, date: selectedDate });
+    }
+
+    setQuickTitle("");
+    setIsAutoCompleteOpen(false);
+    setAutoCompleteIndex(-1);
   };
 
   const handleCreateOrUpdateTask = (values: TaskFormValues, taskId?: string) => {
@@ -459,7 +500,19 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
                 </div>
 
                 {/* Quick Task Input Bar */}
-                <form onSubmit={(e) => handleQuickAdd(e, false)} className="w-full relative">
+                <form
+                  onSubmit={(e) => {
+                    if (autoCompleteIndex >= 0 && autoCompleteIndex < matchingTasks.length) {
+                      e.preventDefault();
+                      handleSelectSuggestion(matchingTasks[autoCompleteIndex], false);
+                      return;
+                    }
+                    handleQuickAdd(e, false);
+                    setIsAutoCompleteOpen(false);
+                    setAutoCompleteIndex(-1);
+                  }}
+                  className="w-full relative"
+                >
                   <div className="relative flex items-center">
                     <div className="absolute left-4 text-[#D4F63D]">
                       <CheckCircle2 className="w-4 h-4" />
@@ -469,7 +522,27 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
                       type="text"
                       placeholder="Nom de la tâche"
                       value={quickTitle}
-                      onChange={(e) => setQuickTitle(e.target.value)}
+                      onFocus={() => {
+                        if (quickTitle.trim()) setIsAutoCompleteOpen(true);
+                      }}
+                      onChange={(e) => {
+                        setQuickTitle(e.target.value);
+                        setIsAutoCompleteOpen(true);
+                        setAutoCompleteIndex(-1);
+                      }}
+                      onKeyDown={(e) => {
+                        if (!isAutoCompleteOpen || matchingTasks.length === 0) return;
+                        if (e.key === "ArrowDown") {
+                          e.preventDefault();
+                          setAutoCompleteIndex((prev) => (prev + 1) % matchingTasks.length);
+                        } else if (e.key === "ArrowUp") {
+                          e.preventDefault();
+                          setAutoCompleteIndex((prev) => (prev - 1 + matchingTasks.length) % matchingTasks.length);
+                        } else if (e.key === "Escape") {
+                          setIsAutoCompleteOpen(false);
+                          setAutoCompleteIndex(-1);
+                        }
+                      }}
                       className={cn(
                         "w-full pl-11 py-3 rounded-2xl bg-[#1C1D22] border border-[#282A30] text-sm text-white focus:border-[#D4F63D] outline-none placeholder-[#6B7280] shadow-sm transition-all",
                         quickTitle.trim() ? "pr-28" : "pr-4"
@@ -482,7 +555,13 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
+                            if (autoCompleteIndex >= 0 && autoCompleteIndex < matchingTasks.length) {
+                              handleSelectSuggestion(matchingTasks[autoCompleteIndex], true);
+                              return;
+                            }
                             handleQuickAdd(undefined, true);
+                            setIsAutoCompleteOpen(false);
+                            setAutoCompleteIndex(-1);
                           }}
                           title="Créer et démarrer la tâche"
                           className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[#D4F63D] hover:bg-[#c2e42f] text-black font-extrabold text-xs shadow-md transition-all active:scale-95 cursor-pointer"
@@ -493,6 +572,20 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
                       </div>
                     )}
                   </div>
+
+                  {/* Auto-completion suggestions dropdown */}
+                  <TaskAutoCompleteSuggestions
+                    query={quickTitle}
+                    allTasks={allTasks}
+                    projects={projects}
+                    isOpen={isAutoCompleteOpen}
+                    selectedIndex={autoCompleteIndex}
+                    setSelectedIndex={setAutoCompleteIndex}
+                    onClose={() => setIsAutoCompleteOpen(false)}
+                    onSelectSuggestion={(task, autoStart) => {
+                      handleSelectSuggestion(task, autoStart);
+                    }}
+                  />
                 </form>
 
                 {/* Active Running Task Banners */}
@@ -615,6 +708,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
                   onQuickTitleChange={setQuickTitle}
                   onQuickAdd={(e) => handleQuickAdd(e, false)}
                   onQuickAddAndStart={() => handleQuickAdd(undefined, true)}
+                  onSelectSuggestion={handleSelectSuggestion}
                   onSelectTab={handleTabChange}
                   sleepDurationText={sleepDurationText}
                 />

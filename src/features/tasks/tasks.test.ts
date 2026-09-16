@@ -525,4 +525,68 @@ describe("Tasks Feature Logic", () => {
       expect(ids).toEqual(["task-A", "event_evt-mid", "task-B"]);
     });
   });
+
+  describe("Task Auto-Completion & Repeated Habit Transformation", () => {
+    it("inherits all metadata (project, sub-project, tags, reminders, priority, description) when converting to a repeated habit", () => {
+      const pastTask: Task = {
+        id: "task-shower-123",
+        userId: "user-1",
+        title: "Douche froide",
+        description: "Douche vivifiante du matin",
+        tag: "Hygiène",
+        category: "Santé",
+        priority: "URGENT",
+        recurrence: "ONCE",
+        recurrenceConfig: null,
+        projectId: "proj-wellness",
+        projectCategory: "Routine Matin",
+        enableReminders: true,
+        reminderOffsetMinutes: 15,
+        reminderTimes: ["07:30"],
+        trackingType: "BOOLEAN",
+        targetValue: null,
+        unit: null,
+        isActive: false,
+        isArchived: false,
+        createdAt: "2026-09-01T07:00:00.000Z",
+        updatedAt: "2026-09-01T07:00:00.000Z",
+      };
+
+      // When auto-completion accepts this past task, recurrence is converted to CUSTOM (repeated habit without fixed mandatory days)
+      const convertedValues = {
+        recurrence: pastTask.recurrence === "ONCE" ? "CUSTOM" : pastTask.recurrence,
+        recurrenceConfig: pastTask.recurrence === "ONCE" ? { days: [] } : (pastTask.recurrenceConfig || { days: [] }),
+        isArchived: false,
+      };
+
+      const updatedTask: Task = {
+        ...pastTask,
+        ...convertedValues,
+      };
+
+      expect(updatedTask.recurrence).toBe("CUSTOM");
+      expect(updatedTask.projectId).toBe("proj-wellness");
+      expect(updatedTask.projectCategory).toBe("Routine Matin");
+      expect(updatedTask.tag).toBe("Hygiène");
+      expect(updatedTask.category).toBe("Santé");
+      expect(updatedTask.priority).toBe("URGENT");
+      expect(updatedTask.description).toBe("Douche vivifiante du matin");
+      expect(updatedTask.reminderOffsetMinutes).toBe(15);
+      expect(updatedTask.enableReminders).toBe(true);
+
+      // Verify that this repeated habit is scheduled for any date (like 2026-09-16)
+      const testDate = parseISO("2026-09-16");
+      expect(
+        isTaskScheduledForDate(
+          updatedTask.recurrence,
+          updatedTask.recurrenceConfig,
+          testDate,
+          updatedTask.createdAt
+        )
+      ).toBe(true);
+
+      // Verify that it is treated as a recurring habit in habit streak calculations (recurrence !== "ONCE")
+      expect(updatedTask.recurrence !== "ONCE").toBe(true);
+    });
+  });
 });

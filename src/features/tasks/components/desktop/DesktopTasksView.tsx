@@ -16,6 +16,8 @@ import {
 } from "@/features/tasks/unifiedStream";
 import { DesktopWidgetsPane } from "./DesktopWidgetsPane";
 import { DesktopDatePicker } from "./DesktopDatePicker";
+import { TaskAutoCompleteSuggestions } from "../TaskAutoCompleteSuggestions";
+import { useProjects } from "@/features/projects/hooks";
 import { CheckCircle2, Plus, Flame, Inbox, Calendar, RefreshCw, Play } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -55,6 +57,7 @@ interface DesktopTasksViewProps {
   onQuickTitleChange: (title: string) => void;
   onQuickAdd: (e: React.FormEvent) => void;
   onQuickAddAndStart?: () => void;
+  onSelectSuggestion?: (task: Task, autoStart?: boolean) => void;
   onSelectTab?: (tab: any) => void;
   sleepDurationText?: string;
   isInitialLoading?: boolean;
@@ -83,22 +86,42 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
   onQuickTitleChange,
   onQuickAdd,
   onQuickAddAndStart,
+  onSelectSuggestion,
   onSelectTab,
   sleepDurationText,
   isInitialLoading = false,
   isSyncing = false,
 }) => {
   const queryClient = useQueryClient();
+  const { projects } = useProjects();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [statusFilter, setStatusFilter] = useState<FilterStatus>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("");
   const [manualCompletedEvents, setManualCompletedEvents] = useState<Record<string, boolean>>({});
+  const [isAutoCompleteOpen, setIsAutoCompleteOpen] = useState(false);
+  const [autoCompleteIndex, setAutoCompleteIndex] = useState(-1);
   const [showCalendar, setShowCalendar] = useState<boolean>(() => {
     if (typeof window !== "undefined") {
       return localStorage.getItem("mytrack_show_calendar_in_tasks") !== "false";
     }
     return true;
   });
+
+  const matchingTasks = useMemo(() => {
+    const cleanQuery = quickTitle.trim().toLowerCase();
+    if (!cleanQuery) return [];
+    const taskMap = new Map<string, Task>();
+    for (const t of allTasks) {
+      if (!t.title) continue;
+      const titleClean = t.title.trim().toLowerCase();
+      if (titleClean.includes(cleanQuery)) {
+        if (!taskMap.has(titleClean)) {
+          taskMap.set(titleClean, t);
+        }
+      }
+    }
+    return Array.from(taskMap.values()).slice(0, 5);
+  }, [allTasks, quickTitle]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -419,7 +442,21 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
         {/* Left Pane: Tasks Workspace */}
         <div className="flex-1 min-h-0 h-full flex flex-col overflow-y-auto scrollbar-none pr-2 space-y-4">
           {/* Quick Task Input Bar */}
-          <form onSubmit={onQuickAdd} className="w-full relative select-none">
+          <form
+            onSubmit={(e) => {
+              if (autoCompleteIndex >= 0 && autoCompleteIndex < matchingTasks.length) {
+                e.preventDefault();
+                onSelectSuggestion?.(matchingTasks[autoCompleteIndex], false);
+                setIsAutoCompleteOpen(false);
+                setAutoCompleteIndex(-1);
+                return;
+              }
+              onQuickAdd(e);
+              setIsAutoCompleteOpen(false);
+              setAutoCompleteIndex(-1);
+            }}
+            className="w-full relative select-none"
+          >
             <div className="relative flex items-center">
               <div className="absolute left-4 text-[#D4F63D]">
                 <CheckCircle2 className="w-4 h-4" />
@@ -428,7 +465,27 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
                 type="text"
                 placeholder="Ajouter rapidement une tâche et appuyer sur Entrée..."
                 value={quickTitle}
-                onChange={(e) => onQuickTitleChange(e.target.value)}
+                onFocus={() => {
+                  if (quickTitle.trim()) setIsAutoCompleteOpen(true);
+                }}
+                onChange={(e) => {
+                  onQuickTitleChange(e.target.value);
+                  setIsAutoCompleteOpen(true);
+                  setAutoCompleteIndex(-1);
+                }}
+                onKeyDown={(e) => {
+                  if (!isAutoCompleteOpen || matchingTasks.length === 0) return;
+                  if (e.key === "ArrowDown") {
+                    e.preventDefault();
+                    setAutoCompleteIndex((prev) => (prev + 1) % matchingTasks.length);
+                  } else if (e.key === "ArrowUp") {
+                    e.preventDefault();
+                    setAutoCompleteIndex((prev) => (prev - 1 + matchingTasks.length) % matchingTasks.length);
+                  } else if (e.key === "Escape") {
+                    setIsAutoCompleteOpen(false);
+                    setAutoCompleteIndex(-1);
+                  }
+                }}
                 className={cn(
                   "w-full pl-11 py-3.5 rounded-2xl bg-[#17181F] border border-[#282B36] text-sm text-white focus:border-[#D4F63D] outline-none placeholder-[#6B7280] shadow-sm transition-all",
                   quickTitle.trim() ? "pr-48" : "pr-24"
@@ -441,7 +498,15 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
+                      if (autoCompleteIndex >= 0 && autoCompleteIndex < matchingTasks.length) {
+                        onSelectSuggestion?.(matchingTasks[autoCompleteIndex], true);
+                        setIsAutoCompleteOpen(false);
+                        setAutoCompleteIndex(-1);
+                        return;
+                      }
                       onQuickAddAndStart();
+                      setIsAutoCompleteOpen(false);
+                      setAutoCompleteIndex(-1);
                     }}
                     title="Créer et démarrer immédiatement"
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#D4F63D] hover:bg-[#c2e42f] text-black font-extrabold text-xs shadow-md transition-all active:scale-95 cursor-pointer"
@@ -459,6 +524,22 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
                 </button>
               </div>
             </div>
+
+            {/* Auto-completion suggestions dropdown */}
+            <TaskAutoCompleteSuggestions
+              query={quickTitle}
+              allTasks={allTasks}
+              projects={projects}
+              isOpen={isAutoCompleteOpen}
+              selectedIndex={autoCompleteIndex}
+              setSelectedIndex={setAutoCompleteIndex}
+              onClose={() => setIsAutoCompleteOpen(false)}
+              onSelectSuggestion={(task, autoStart) => {
+                onSelectSuggestion?.(task, autoStart);
+                setIsAutoCompleteOpen(false);
+                setAutoCompleteIndex(-1);
+              }}
+            />
           </form>
 
           {/* Active Running Task Banners if any */}
