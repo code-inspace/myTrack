@@ -689,6 +689,7 @@ struct DualMediumActiveTasksView: View {
                 .cornerRadius(12)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         .padding(8)
     }
 }
@@ -805,9 +806,9 @@ struct MediumTasksListWidgetView: View {
         let safePage = min(max(0, currentPage), totalPages - 1)
         let pageTasks = Array(tasks.dropFirst(safePage * pageSize).prefix(pageSize))
 
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 0) {
             // Header compact: Bouton Lancer App + Barre de saisie + Boutons de défilement / pagination
-            HStack(spacing: 5) {
+            HStack(spacing: 6) {
                 // Bouton haut-gauche pour lancer l'application directement
                 Link(destination: URL(string: "mytrack://tasks")!) {
                     AppLogoView(size: 26, cornerRadius: 8)
@@ -819,12 +820,12 @@ struct MediumTasksListWidgetView: View {
                             .font(.system(size: 11, weight: .bold))
                             .foregroundColor(brandNeon)
                         Text("Ajouter...")
-                            .font(.system(size: 10.5, weight: .medium))
+                            .font(.system(size: 11, weight: .medium))
                             .foregroundColor(Color(white: 0.6))
                         Spacer()
                     }
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 5)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 6)
                     .background(Color.white.opacity(0.08))
                     .overlay(
                         RoundedRectangle(cornerRadius: 8)
@@ -834,26 +835,26 @@ struct MediumTasksListWidgetView: View {
                 }
 
                 if totalPages > 1 {
-                    HStack(spacing: 3) {
+                    HStack(spacing: 4) {
                         Button(intent: ChangeTaskPageIntent(delta: -1)) {
                             Image(systemName: "chevron.left")
-                                .font(.system(size: 9, weight: .bold))
+                                .font(.system(size: 9.5, weight: .bold))
                                 .foregroundColor(.white)
-                                .frame(width: 20, height: 20)
+                                .frame(width: 22, height: 22)
                                 .background(Color.white.opacity(0.12))
                                 .clipShape(Circle())
                         }
                         .buttonStyle(.plain)
 
                         Text("\(safePage + 1)/\(totalPages)")
-                            .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                            .foregroundColor(Color(white: 0.7))
+                            .font(.system(size: 9.5, weight: .semibold, design: .monospaced))
+                            .foregroundColor(Color(white: 0.75))
 
                         Button(intent: ChangeTaskPageIntent(delta: 1)) {
                             Image(systemName: "chevron.right")
-                                .font(.system(size: 9, weight: .bold))
+                                .font(.system(size: 9.5, weight: .bold))
                                 .foregroundColor(.white)
-                                .frame(width: 20, height: 20)
+                                .frame(width: 22, height: 22)
                                 .background(Color.white.opacity(0.12))
                                 .clipShape(Circle())
                         }
@@ -861,6 +862,8 @@ struct MediumTasksListWidgetView: View {
                     }
                 }
             }
+
+            Spacer(minLength: 6)
 
             if tasks.isEmpty {
                 Spacer()
@@ -873,7 +876,7 @@ struct MediumTasksListWidgetView: View {
                 }
                 Spacer()
             } else {
-                VStack(spacing: 5) {
+                VStack(spacing: 6) {
                     ForEach(pageTasks) { task in
                         TaskRowInteractiveView(
                             task: task,
@@ -883,9 +886,13 @@ struct MediumTasksListWidgetView: View {
                         )
                     }
                 }
+
+                Spacer(minLength: 0)
             }
         }
-        .padding(10)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
     }
 }
 
@@ -1172,7 +1179,8 @@ struct TaskRowInteractiveView: View {
             }
         }
         .padding(.horizontal, 9)
-        .padding(.vertical, 6)
+        .padding(.vertical, 7)
+        .frame(minHeight: 38)
         .background(isSelected ? Color.white.opacity(0.12) : Color.white.opacity(0.04))
         .overlay(
             RoundedRectangle(cornerRadius: 11)
