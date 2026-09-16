@@ -85,4 +85,23 @@ describe("Projects Logic", () => {
     expect(tasks.filter((t) => !t.projectId).length).toBe(2);
     expect(tasks.find((t) => t.id === "t2")?.projectId).toBe("proj-2");
   });
+
+  it("ensures at least one done column is present when sanitizing columns", () => {
+    const rawColumns = [
+      { id: "col-1", label: "À faire" },
+      { id: "col-2", label: "En cours" },
+      { id: "col-3", label: "Terminé", isDone: false },
+    ];
+
+    let cleanColumns = rawColumns.map((c) => ({ ...c, label: c.label.trim() })).filter((c) => c.label);
+    if (!cleanColumns.some((c) => c.isDone)) {
+      cleanColumns = cleanColumns.map((c, idx) =>
+        idx === cleanColumns.length - 1 ? { ...c, isDone: true } : c
+      );
+    }
+
+    expect(cleanColumns.length).toBe(3);
+    expect(cleanColumns[2].isDone).toBe(true);
+    expect(cleanColumns[0].isDone).toBeFalsy();
+  });
 });

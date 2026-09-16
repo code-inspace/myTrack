@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
-import { X, FolderPlus, Plus, Trash2, Columns3, CheckCircle2, Tag } from "lucide-react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
+import { X, FolderPlus, Plus, Trash2, Columns3, CheckCircle2, Tag, Check, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Project, ProjectColumn, getProjectColumns, generateColumnId } from "../types";
 
@@ -12,7 +12,7 @@ interface ProjectFormModalProps {
   onSubmit: (
     data: { name: string; color: string; columns: ProjectColumn[]; categories?: string[] },
     projectId?: string
-  ) => void;
+  ) => Promise<Project | void> | void;
   onDelete?: (projectId: string) => void;
 }
 
@@ -38,36 +38,157 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
   onSubmit,
   onDelete,
 }) => {
-  const isEditing = Boolean(initialProject);
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [color, setColor] = useState(COLOR_OPTIONS[0]);
-  const [columns, setColumns] = useState<ProjectColumn[]>(getProjectColumns({ columns: [] }));
+  const [columns, setColumns] = useState<ProjectColumn[]>(() => getProjectColumns({ columns: [] }));
   const [categories, setCategories] = useState<string[]>([]);
   const [newCatInput, setNewCatInput] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
 
   const prevIsOpenRef = useRef(false);
+  const isSavingRef = useRef(false);
+  const autoSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastSavedSignatureRef = useRef<string>("");
+  const activeProjectIdRef = useRef<string | null>(null);
+  activeProjectIdRef.current = activeProjectId;
 
+  const isEditing = Boolean(activeProjectId || initialProject);
+
+  // Initialize or reset form when modal opens
   useEffect(() => {
     if (isOpen && !prevIsOpenRef.current) {
       setConfirmDelete(false);
       setNewCatInput("");
+      setSaveStatus("idle");
       if (initialProject) {
-        setName(initialProject.name);
-        setColor(initialProject.color);
-        setColumns(getProjectColumns(initialProject));
-        setCategories(
-          Array.isArray(initialProject.categories) ? [...initialProject.categories] : []
-        );
+        setName(initialProject.name || "");
+        setColor(initialProject.color || COLOR_OPTIONS[0]);
+        const cols = getProjectColumns(initialProject);
+        setColumns(cols);
+        const cats = Array.isArray(initialProject.categories) ? [...initialProject.categories] : [];
+        setCategories(cats);
+        setActiveProjectId(initialProject.id);
+        lastSavedSignatureRef.current = JSON.stringify({
+          name: (initialProject.name || "").trim(),
+          color: initialProject.color || COLOR_OPTIONS[0],
+          columns: cols,
+          categories: cats,
+        });
       } else {
         setName("");
         setColor(COLOR_OPTIONS[0]);
-        setColumns(getProjectColumns({ columns: [] }));
+        const cols = getProjectColumns({ columns: [] });
+        setColumns(cols);
         setCategories([]);
+        setActiveProjectId(null);
+        lastSavedSignatureRef.current = "";
       }
     }
     prevIsOpenRef.current = isOpen;
   }, [isOpen, initialProject]);
+
+  const getCleanPayload = useCallback(() => {
+    const trimmed = name.trim();
+    let cleanColumns = columns.map((c) => ({ ...c, label: c.label.trim() })).filter((c) => c.label);
+    if (cleanColumns.length === 0) {
+      cleanColumns = getProjectColumns({ columns: [] });
+    }
+    if (!cleanColumns.some((c) => c.isDone)) {
+      cleanColumns = cleanColumns.map((c, idx) =>
+        idx === cleanColumns.length - 1 ? { ...c, isDone: true } : c
+      );
+    }
+    const cleanCategories = categories.map((c) => c.trim()).filter(Boolean);
+    return {
+      name: trimmed,
+      color,
+      columns: cleanColumns,
+      categories: cleanCategories,
+    };
+  }, [name, color, columns, categories]);
+
+  const performSave = useCallback(async () => {
+    const payload = getCleanPayload();
+    if (!payload.name) return;
+
+    const signature = JSON.stringify(payload);
+    if (signature === lastSavedSignatureRef.current) return;
+
+    setSaveStatus("saving");
+    isSavingRef.current = true;
+    try {
+      const currentId = activeProjectIdRef.current;
+      if (currentId) {
+        await onSubmit(payload, currentId);
+        lastSavedSignatureRef.current = signature;
+        setSaveStatus("saved");
+      } else {
+        const result = await onSubmit(payload);
+        if (result && typeof result === "object" && (result as any).id) {
+          setActiveProjectId((result as any).id);
+          activeProjectIdRef.current = (result as any).id;
+        }
+        lastSavedSignatureRef.current = signature;
+        setSaveStatus("saved");
+      }
+    } catch (err) {
+      console.error("Auto-save project error:", err);
+      setSaveStatus("idle");
+    } finally {
+      isSavingRef.current = false;
+    }
+  }, [getCleanPayload, onSubmit]);
+
+  // Debounced auto-save effect
+  useEffect(() => {
+    if (!isOpen) return;
+    const trimmed = name.trim();
+    if (!trimmed) {
+      setSaveStatus("idle");
+      return;
+    }
+
+    const payload = getCleanPayload();
+    const signature = JSON.stringify(payload);
+    if (signature === lastSavedSignatureRef.current) return;
+
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+    }
+
+    autoSaveTimeoutRef.current = setTimeout(() => {
+      performSave();
+    }, 450);
+
+    return () => {
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+        autoSaveTimeoutRef.current = null;
+      }
+    };
+  }, [isOpen, name, color, columns, categories, getCleanPayload, performSave]);
+
+  const handleClose = () => {
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+      autoSaveTimeoutRef.current = null;
+    }
+    performSave();
+    onClose();
+  };
+
+  // Keyboard shortcut (Escape to close & flush)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isOpen) {
+        handleClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  });
 
   if (!isOpen) return null;
 
@@ -84,36 +205,14 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
     setCategories((prev) => prev.filter((c) => c !== catToRemove));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const trimmed = name.trim();
-    let cleanColumns = columns.map((c) => ({ ...c, label: c.label.trim() })).filter((c) => c.label);
-    if (!trimmed || cleanColumns.length === 0) return;
-
-    // Guarantee there's always a "done" column that closes a task when it lands there
-    if (!cleanColumns.some((c) => c.isDone)) {
-      cleanColumns = cleanColumns.map((c, idx) =>
-        idx === cleanColumns.length - 1 ? { ...c, isDone: true } : c
-      );
-    }
-
-    const cleanCategories = categories.map((c) => c.trim()).filter(Boolean);
-
-    onSubmit(
-      {
-        name: trimmed,
-        color,
-        columns: cleanColumns,
-        categories: cleanCategories,
-      },
-      initialProject?.id
-    );
-    onClose();
-  };
-
   const handleDelete = () => {
-    if (initialProject && onDelete) {
-      onDelete(initialProject.id);
+    const targetId = activeProjectId || initialProject?.id;
+    if (targetId && onDelete) {
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+        autoSaveTimeoutRef.current = null;
+      }
+      onDelete(targetId);
       onClose();
     }
   };
@@ -135,24 +234,52 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) handleClose();
+      }}
+    >
       <div className="w-full max-w-sm max-h-[88vh] bg-[#1C1D22] border border-[#282A30] rounded-3xl p-5 shadow-2xl relative flex flex-col space-y-4 my-auto overflow-hidden">
-        {/* Modal Header */}
+        {/* Modal Header with Auto-save indicator */}
         <div className="flex items-center justify-between pb-3 border-b border-[#282A30] flex-shrink-0">
-          <h2 className="text-lg font-bold text-white flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <FolderPlus className="w-5 h-5 text-[#D4F63D]" />
-            <span>{isEditing ? "Modifier le projet" : "Nouveau projet"}</span>
-          </h2>
+            <div>
+              <h2 className="text-base font-bold text-white leading-tight">
+                {isEditing ? "Modifier le projet" : "Nouveau projet"}
+              </h2>
+              {/* Auto-save status feedback */}
+              <div className="flex items-center gap-1.5 mt-0.5">
+                {saveStatus === "saving" ? (
+                  <span className="text-[11px] text-amber-400 font-medium flex items-center gap-1">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    Enregistrement...
+                  </span>
+                ) : saveStatus === "saved" ? (
+                  <span className="text-[11px] text-[#D4F63D] font-medium flex items-center gap-1">
+                    <Check className="w-3 h-3 text-[#D4F63D]" />
+                    Enregistré
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-[#8E929E]">
+                    Enregistrement automatique
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="text-[#8E929E] hover:text-white p-2 rounded-full bg-[#252830] transition-colors cursor-pointer"
+            title="Fermer"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Scrollable Form Body */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto pr-1 space-y-4 min-h-0">
+        <form onSubmit={(e) => e.preventDefault()} className="flex-1 overflow-y-auto pr-1 space-y-4 min-h-0">
           <div className="space-y-1.5">
             <label className="block text-xs font-semibold uppercase tracking-wider text-[#8E929E]">
               Nom du projet *
@@ -164,6 +291,7 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
               placeholder="ex: Refonte site web"
               value={name}
               onChange={(e) => setName(e.target.value)}
+              onBlur={() => performSave()}
               className="w-full px-4 py-2.5 rounded-2xl bg-[#252830] border border-[#343740] focus:border-[#D4F63D] focus:ring-1 focus:ring-[#D4F63D] text-white text-sm outline-none transition-all placeholder-[#6B7280]"
             />
           </div>
@@ -261,6 +389,7 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
                     placeholder="Nom de la colonne"
                     value={col.label}
                     onChange={(e) => renameColumn(col.id, e.target.value)}
+                    onBlur={() => performSave()}
                     className="flex-1 px-3 py-2 rounded-xl bg-[#252830] border border-[#343740] focus:border-[#D4F63D] text-white text-xs outline-none transition-all placeholder-[#6B7280]"
                   />
                   <button
@@ -306,17 +435,11 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
             </button>
           </div>
 
-          <button
-            type="submit"
-            className="w-full py-3 rounded-2xl bg-[#D4F63D] hover:bg-[#c2e42f] text-black font-extrabold text-sm transition-all cursor-pointer"
-          >
-            {isEditing ? "Enregistrer" : "Créer le projet"}
-          </button>
-
+          {/* Delete Project Section (When editing an existing project) */}
           {isEditing && onDelete && (
-            <div className="pt-2 border-t border-[#282A30]">
+            <div className="pt-3 border-t border-[#282A30]">
               {confirmDelete ? (
-                <div className="p-3 rounded-2xl bg-red-500/10 border border-red-500/30 space-y-2">
+                <div className="p-3 rounded-2xl bg-red-500/10 border border-red-500/30 space-y-2 animate-in fade-in">
                   <p className="text-xs text-red-300 font-medium">
                     Supprimer ce projet ? Toutes les tâches associées seront désaffectées et conservées.
                   </p>
@@ -354,3 +477,4 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
     </div>
   );
 };
+

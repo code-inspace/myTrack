@@ -33,7 +33,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
     onClose,
   });
 
-  const { createProject } = useProjectMutations();
+  const { createProject, updateProject } = useProjectMutations();
 
   if (!isOpen) return null;
 
@@ -68,13 +68,15 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
       <ProjectFormModal
         isOpen={form.isNewProjectOpen}
         onClose={() => form.setIsNewProjectOpen(false)}
-        onSubmit={(data) => {
-          createProject.mutate(data, {
-            onSuccess: (newProject) => {
-              form.setProjectId(newProject.id);
-              form.setProjectStatus(getProjectColumns(newProject)[0].id);
-            },
-          });
+        onSubmit={async (data, projectId) => {
+          if (projectId) {
+            updateProject.mutate({ projectId, updates: data });
+          } else {
+            const newProject = await createProject.mutateAsync(data);
+            form.setProjectId(newProject.id);
+            form.setProjectStatus(getProjectColumns(newProject)[0].id);
+            return newProject;
+          }
         }}
       />
     </div>

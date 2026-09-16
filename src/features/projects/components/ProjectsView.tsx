@@ -435,11 +435,12 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
         isOpen={isProjectModalOpen}
         initialProject={editingProject}
         onClose={closeProjectModal}
-        onSubmit={(data, projectId) => {
+        onSubmit={async (data, projectId) => {
           if (projectId) {
             updateProject.mutate({ projectId, updates: data });
           } else {
-            createProject.mutate(data);
+            const created = await createProject.mutateAsync(data);
+            return created;
           }
         }}
         onDelete={(projectId) => handleDeleteProject(projectId)}
