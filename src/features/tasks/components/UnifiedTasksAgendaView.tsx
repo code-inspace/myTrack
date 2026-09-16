@@ -641,6 +641,18 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
                     setEditingTask(task);
                     setIsTaskModalOpen(true);
                   }}
+                  onDeleteTask={(taskId) => deleteTask.mutate(taskId)}
+                  onCreateTaskAtTime={(date, startTime, endTime) => {
+                    createTask.mutate({
+                      title: "Nouvelle tâche",
+                      date,
+                      startTime,
+                      endTime,
+                      category: "General",
+                      trackingType: "BOOLEAN",
+                      recurrence: "ONCE",
+                    } as any);
+                  }}
                   onMoveTaskToTime={handleMoveTaskToTime}
                   onDropToAllDay={handleDropToAllDay}
                   onMoveTaskOccurrence={(taskId, targetDate) =>

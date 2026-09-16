@@ -29,6 +29,7 @@ export const AgendaSleepBlock: React.FC<AgendaSleepBlockProps> = ({
 
   return (
     <div
+      data-agenda-block="true"
       onClick={onClick}
       style={{
         top: `${topOffsetPx}px`,

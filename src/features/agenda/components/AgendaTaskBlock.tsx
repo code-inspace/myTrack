@@ -153,6 +153,7 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
 
   return (
     <div
+      data-agenda-block="true"
       draggable
       onDragStart={(e) => {
         e.dataTransfer.setData("text/plain", task.id);

@@ -267,9 +267,13 @@ export async function updateTaskSchedule({
   applyToAll?: boolean;
   userId?: string;
 }): Promise<void> {
-  let targetId = userId;
+  const supabase = createClient();
+  let targetId: string = userId || "";
   if (!targetId) {
-    targetId = getEffectiveUserId();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    targetId = session?.user?.id || getEffectiveUserId();
   }
 
   const tasks = getStoredTasks(targetId);
@@ -283,8 +287,23 @@ export async function updateTaskSchedule({
   if (!isRecurring) {
     // For a ONCE task, updating schedule for a date also moves the task occurrence to that target date!
     const createdIso = `${date}T12:00:00.000Z`;
+
     try {
-      fetch("/api/tasks", {
+      await supabase
+        .from("tasks")
+        .update({
+          start_time: utcStart,
+          end_time: utcEnd,
+          created_at: createdIso,
+          updated_at: nowIso,
+        })
+        .eq("id", taskId);
+    } catch (err) {
+      console.warn("Supabase updateTaskSchedule ONCE error:", err);
+    }
+
+    try {
+      await fetch("/api/tasks", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -296,9 +315,9 @@ export async function updateTaskSchedule({
             createdAt: createdIso,
           },
         }),
-      }).catch((err) => console.warn("API updateTaskSchedule ONCE PATCH note:", err));
+      });
     } catch (err) {
-      console.warn("updateTaskSchedule ONCE error:", err);
+      console.warn("API updateTaskSchedule ONCE error:", err);
     }
 
     const updated = tasks.map((t) =>
@@ -325,7 +344,19 @@ export async function updateTaskSchedule({
     };
 
     try {
-      fetch("/api/tasks", {
+      await supabase
+        .from("tasks")
+        .update({
+          date_overrides: updatedOverrides,
+          updated_at: nowIso,
+        })
+        .eq("id", taskId);
+    } catch (err) {
+      console.warn("Supabase updateTaskSchedule override error:", err);
+    }
+
+    try {
+      await fetch("/api/tasks", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -335,9 +366,9 @@ export async function updateTaskSchedule({
             dateOverrides: updatedOverrides,
           },
         }),
-      }).catch((err) => console.warn("API updateTaskSchedule override PATCH note:", err));
+      });
     } catch (err) {
-      console.warn("updateTaskSchedule override error:", err);
+      console.warn("API updateTaskSchedule override error:", err);
     }
 
     const updated = tasks.map((t) =>
@@ -356,7 +387,20 @@ export async function updateTaskSchedule({
   } else {
     // Global schedule update
     try {
-      fetch("/api/tasks", {
+      await supabase
+        .from("tasks")
+        .update({
+          start_time: utcStart,
+          end_time: utcEnd,
+          updated_at: nowIso,
+        })
+        .eq("id", taskId);
+    } catch (err) {
+      console.warn("Supabase updateTaskSchedule global error:", err);
+    }
+
+    try {
+      await fetch("/api/tasks", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -367,9 +411,9 @@ export async function updateTaskSchedule({
             endTime: utcEnd,
           },
         }),
-      }).catch((err) => console.warn("API updateTaskSchedule global PATCH note:", err));
+      });
     } catch (err) {
-      console.warn("updateTaskSchedule global error:", err);
+      console.warn("API updateTaskSchedule global error:", err);
     }
 
     const updated = tasks.map((t) =>

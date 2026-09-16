@@ -43,6 +43,8 @@ interface AgendaTimelineProps {
   onToggleComplete: (taskId: string) => void;
   onToggleReminder?: (taskId: string) => void;
   onEditTask?: (task: TaskWithCompletion) => void;
+  onDeleteTask?: (taskId: string) => void;
+  onCreateTaskAtTime?: (date: string, startTime: string, endTime: string) => void;
   onMoveTaskToTime: (taskId: string, startTime: string, endTime: string, date?: string) => void;
   onDropToAllDay?: (taskId: string, date?: string) => void;
   onMoveTaskOccurrence?: (taskId: string, targetDate: string) => void;
@@ -127,6 +129,8 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
   onToggleComplete,
   onToggleReminder,
   onEditTask,
+  onDeleteTask,
+  onCreateTaskAtTime,
   onMoveTaskToTime,
   onDropToAllDay,
   onMoveTaskOccurrence,
@@ -866,6 +870,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
                   onToggleComplete={onToggleComplete}
                   onToggleReminder={onToggleReminder}
                   onEditTask={onEditTask}
+                  onCreateTaskAtTime={onCreateTaskAtTime}
                   onDragStartTask={onDragStartTask}
                   onSelectTask={(t) => {
                     setSelectedTaskForDetail(t);
@@ -918,6 +923,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
         onClose={() => setSelectedTaskForDetail(null)}
         onToggleComplete={onToggleComplete}
         onToggleReminder={onToggleReminder}
+        onDeleteTask={onDeleteTask}
         onEditTask={(t) => {
           setSelectedTaskForDetail(null);
           onEditTask?.(t);
@@ -964,6 +970,7 @@ interface DayGridColumnProps {
   onToggleComplete: (taskId: string) => void;
   onToggleReminder?: (taskId: string) => void;
   onEditTask?: (task: TaskWithCompletion) => void;
+  onCreateTaskAtTime?: (date: string, startTime: string, endTime: string) => void;
   onDragStartTask: (e: React.DragEvent, task: TaskWithCompletion) => void;
   onSelectTask?: (task: TaskWithCompletion) => void;
   onSelectForResize?: (task: TaskWithCompletion) => void;
@@ -988,6 +995,7 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
   onToggleComplete,
   onToggleReminder,
   onEditTask,
+  onCreateTaskAtTime,
   onDragStartTask,
   onSelectTask,
   onSelectForResize,
@@ -997,10 +1005,64 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
   sleepSyncVersion,
 }) => {
   const colRef = useRef<HTMLDivElement>(null);
+  const longPressEmptyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pointerDownCoordRef = useRef<{ x: number; y: number } | null>(null);
+
+  const handleEmptyPointerDown = (e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    const target = e.target as HTMLElement;
+    if (target.closest("[data-agenda-block]")) return;
+
+    pointerDownCoordRef.current = { x: e.clientX, y: e.clientY };
+    if (longPressEmptyTimerRef.current) clearTimeout(longPressEmptyTimerRef.current);
+
+    longPressEmptyTimerRef.current = setTimeout(() => {
+      if (!colRef.current) return;
+      const rect = colRef.current.getBoundingClientRect();
+      const offsetY = e.clientY - rect.top;
+      const snappedStartMins = Math.max(0, Math.min(23 * 60, Math.round(offsetY / 5) * 5));
+      const snappedEndMins = Math.min(23 * 60 + 55, snappedStartMins + 60);
+
+      try {
+        navigator.vibrate?.(35);
+      } catch {}
+
+      onCreateTaskAtTime?.(
+        dayDate,
+        formatMinutesToTime(snappedStartMins),
+        formatMinutesToTime(snappedEndMins)
+      );
+    }, 350);
+  };
+
+  const handleEmptyPointerMove = (e: React.PointerEvent) => {
+    if (!pointerDownCoordRef.current) return;
+    const dx = Math.abs(e.clientX - pointerDownCoordRef.current.x);
+    const dy = Math.abs(e.clientY - pointerDownCoordRef.current.y);
+    if (dx > 8 || dy > 8) {
+      if (longPressEmptyTimerRef.current) {
+        clearTimeout(longPressEmptyTimerRef.current);
+        longPressEmptyTimerRef.current = null;
+      }
+      pointerDownCoordRef.current = null;
+    }
+  };
+
+  const handleEmptyPointerUpOrCancel = () => {
+    if (longPressEmptyTimerRef.current) {
+      clearTimeout(longPressEmptyTimerRef.current);
+      longPressEmptyTimerRef.current = null;
+    }
+    pointerDownCoordRef.current = null;
+  };
 
   return (
     <div
       ref={colRef}
+      onPointerDown={handleEmptyPointerDown}
+      onPointerMove={handleEmptyPointerMove}
+      onPointerUp={handleEmptyPointerUpOrCancel}
+      onPointerCancel={handleEmptyPointerUpOrCancel}
       onDragOver={(e) => colRef.current && onGridDragOver(e, dayDate, colRef.current)}
       onDragLeave={onGridDragLeave}
       onDrop={(e) => colRef.current && onGridDrop(e, dayDate, colRef.current)}

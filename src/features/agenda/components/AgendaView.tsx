@@ -28,6 +28,7 @@ export const AgendaView: React.FC = () => {
     updateSchedule,
     toggleCompletion,
     updateCompletionValue,
+    deleteTask,
   } = useTaskMutations();
 
   const handleDragStartTask = (e: React.DragEvent, task: TaskWithCompletion) => {
@@ -100,6 +101,18 @@ export const AgendaView: React.FC = () => {
           onEditTask={(task) => {
             setEditingTask(task);
             setIsTaskModalOpen(true);
+          }}
+          onDeleteTask={(taskId) => deleteTask.mutate(taskId)}
+          onCreateTaskAtTime={(date, startTime, endTime) => {
+            createTask.mutate({
+              title: "Nouvelle tâche",
+              date,
+              startTime,
+              endTime,
+              category: "General",
+              trackingType: "BOOLEAN",
+              recurrence: "ONCE",
+            } as any);
           }}
           onMoveTaskToTime={handleMoveTaskToTime}
           onDropToAllDay={handleDropToAllDay}
