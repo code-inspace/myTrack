@@ -32,6 +32,8 @@ export const ExternalEventBlock: React.FC<ExternalEventBlockProps> = ({
   return (
     <div
       data-agenda-block="true"
+      data-event-id={event.id}
+      onPointerDown={(e) => e.stopPropagation()}
       onClick={(e) => {
         e.stopPropagation();
         onClick?.();

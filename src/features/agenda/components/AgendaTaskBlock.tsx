@@ -107,6 +107,7 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
   const handlePointerDown = (e: React.PointerEvent) => {
     // Only handle primary button
     if (e.button !== 0) return;
+    e.stopPropagation();
 
     startCoordRef.current = { x: e.clientX, y: e.clientY, time: Date.now() };
     hasLongPressedRef.current = false;
@@ -158,6 +159,11 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
   return (
     <div
       draggable
+      data-agenda-block="true"
+      data-task-id={task.id}
+      onClick={(e) => {
+        e.stopPropagation();
+      }}
       onDragStart={(e) => onDragStart(e, task)}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}

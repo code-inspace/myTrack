@@ -1019,7 +1019,17 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
   const handleEmptyPointerDown = (e: React.PointerEvent) => {
     if (e.button !== 0) return;
     const target = e.target as HTMLElement;
-    if (target.closest("[data-agenda-block]")) return;
+    if (
+      target.closest("[data-agenda-block]") ||
+      target.closest("[data-task-id]") ||
+      target.closest("[data-event-id]") ||
+      target.closest("[data-sleep-block]") ||
+      target.closest("button") ||
+      target.closest("input") ||
+      target.closest("a")
+    ) {
+      return;
+    }
 
     pointerDownCoordRef.current = { x: e.clientX, y: e.clientY };
     if (longPressEmptyTimerRef.current) clearTimeout(longPressEmptyTimerRef.current);
