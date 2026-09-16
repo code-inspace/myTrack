@@ -186,45 +186,47 @@ export default function DashboardPage() {
     >
       {/* Desktop Header */}
       <div className="hidden md:flex items-center justify-between pb-2 select-none flex-shrink-0">
-        <div>
-          <h1 className="text-2xl lg:text-3xl font-extrabold text-white tracking-tight flex items-center gap-2.5">
-            <span>Dashboard &amp; Statistiques</span>
-          </h1>
-          <p className="text-xs text-[#8E929E] mt-0.5">
-            Analyse de ta progression, régularité et momentum
-          </p>
-        </div>
+        <div className="flex items-center gap-4">
+          <button
+            type="button"
+            onClick={() => setIsConfigModalOpen(true)}
+            className="px-3.5 py-2 rounded-2xl bg-[#1C1D22] hover:bg-[#252830] border border-[#282A30] hover:border-[#383C48] text-xs font-semibold text-white flex items-center gap-2 transition-all cursor-pointer shadow-sm"
+            title="Personnaliser le dashboard"
+          >
+            <Sliders className="w-4 h-4 text-[#D4F63D]" />
+            <span>Personnaliser</span>
+          </button>
 
-        <button
-          type="button"
-          onClick={() => setIsConfigModalOpen(true)}
-          className="px-3.5 py-2 rounded-2xl bg-[#1C1D22] hover:bg-[#252830] border border-[#282A30] hover:border-[#383C48] text-xs font-semibold text-white flex items-center gap-2 transition-all cursor-pointer shadow-sm"
-        >
-          <Sliders className="w-4 h-4 text-[#D4F63D]" />
-          <span>Personnaliser</span>
-        </button>
+          <div>
+            <h1 className="text-2xl lg:text-3xl font-extrabold text-white tracking-tight">
+              <span>Dashboard</span>
+            </h1>
+            <p className="text-xs text-[#8E929E] mt-0.5">
+              Analyse de ta progression, régularité et momentum
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Mobile Title Header */}
-      <div className="md:hidden flex items-center justify-between">
-        <div className="flex-1">
-          <AppHeader
-            title="Dashboard"
-            rightAction={
-              displayMode === "modern"
-                ? { href: "/profile", initial: (user?.name?.[0] || "?").toUpperCase(), label: "Profil" }
-                : undefined
-            }
-          />
-        </div>
-        <button
-          type="button"
-          onClick={() => setIsConfigModalOpen(true)}
-          className="p-2 rounded-xl bg-[#1C1D22] border border-[#282A30] text-[#8E929E] hover:text-white transition-colors ml-2 cursor-pointer"
-          title="Personnaliser le dashboard"
-        >
-          <Sliders className="w-4 h-4 text-[#D4F63D]" />
-        </button>
+      <div className="md:hidden">
+        <AppHeader
+          title="Dashboard"
+          leftAction={{
+            onClick: () => setIsConfigModalOpen(true),
+            icon: Sliders,
+            label: "Personnaliser le dashboard",
+          }}
+          rightAction={
+            displayMode === "modern" && user
+              ? {
+                  href: "/profile",
+                  initial: (user?.name?.[0] || user?.email?.[0] || "A").toUpperCase(),
+                  label: "Profil",
+                }
+              : undefined
+          }
+        />
       </div>
 
       {/* Period Selector Tabs & Chevron Navigation: [Semaine] [Mois] [Tout le temps] */}

@@ -5,13 +5,15 @@ import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 
 interface HeaderAction {
-  href: string;
+  href?: string;
+  onClick?: () => void;
   icon: LucideIcon;
   label: string;
 }
 
 interface HeaderAvatarAction {
-  href: string;
+  href?: string;
+  onClick?: () => void;
   initial: string;
   label: string;
 }
@@ -61,14 +63,26 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     <header className="w-full flex items-center justify-between py-3 px-3 gap-2">
       <div className="w-9 h-9 flex-shrink-0">
         {leftAction && (
-          <Link
-            href={leftAction.href}
-            aria-label={leftAction.label}
-            title={leftAction.label}
-            className="w-9 h-9 rounded-full bg-[#1C1D22] border border-[#282A30] text-[#8E929E] hover:text-white hover:border-[#3D4252] flex items-center justify-center transition-colors"
-          >
-            <leftAction.icon className="w-4 h-4" />
-          </Link>
+          leftAction.onClick ? (
+            <button
+              type="button"
+              onClick={leftAction.onClick}
+              aria-label={leftAction.label}
+              title={leftAction.label}
+              className="w-9 h-9 rounded-full bg-[#1C1D22] border border-[#282A30] text-[#8E929E] hover:text-white hover:border-[#3D4252] flex items-center justify-center transition-colors cursor-pointer"
+            >
+              <leftAction.icon className="w-4 h-4 text-[#D4F63D]" />
+            </button>
+          ) : (
+            <Link
+              href={leftAction.href || "#"}
+              aria-label={leftAction.label}
+              title={leftAction.label}
+              className="w-9 h-9 rounded-full bg-[#1C1D22] border border-[#282A30] text-[#8E929E] hover:text-white hover:border-[#3D4252] flex items-center justify-center transition-colors"
+            >
+              <leftAction.icon className="w-4 h-4" />
+            </Link>
+          )
         )}
       </div>
 
@@ -91,14 +105,26 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
 
       <div className="w-9 h-9 flex-shrink-0">
         {rightAction && (
-          <Link
-            href={rightAction.href}
-            aria-label={rightAction.label}
-            title={rightAction.label}
-            className="w-9 h-9 rounded-full bg-[#D4F63D] text-[#111214] flex items-center justify-center font-extrabold text-sm shadow-sm"
-          >
-            {rightAction.initial}
-          </Link>
+          rightAction.onClick ? (
+            <button
+              type="button"
+              onClick={rightAction.onClick}
+              aria-label={rightAction.label}
+              title={rightAction.label}
+              className="w-9 h-9 rounded-full bg-[#D4F63D] text-[#111214] flex items-center justify-center font-extrabold text-sm shadow-sm cursor-pointer"
+            >
+              {rightAction.initial}
+            </button>
+          ) : (
+            <Link
+              href={rightAction.href || "#"}
+              aria-label={rightAction.label}
+              title={rightAction.label}
+              className="w-9 h-9 rounded-full bg-[#D4F63D] text-[#111214] flex items-center justify-center font-extrabold text-sm shadow-sm"
+            >
+              {rightAction.initial}
+            </Link>
+          )
         )}
       </div>
     </header>
