@@ -1074,20 +1074,36 @@ struct SmallTasksListWidgetView: View {
 
                 Spacer()
 
-                Button(intent: StartTaskIntent(taskId: firstTask.id, taskTitle: firstTask.title, category: firstTask.category)) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "play.fill")
-                            .font(.system(size: 10, weight: .bold))
-                        Text(isExternal ? "Suivre" : "Démarrer")
-                            .font(.system(size: 11, weight: .bold))
+                if isExternal {
+                    Link(destination: URL(string: "mytrack://agenda")!) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "calendar")
+                                .font(.system(size: 10, weight: .bold))
+                            Text("Voir l'agenda")
+                                .font(.system(size: 11, weight: .bold))
+                        }
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 6)
+                        .background(Color.white.opacity(0.15))
+                        .clipShape(Capsule())
                     }
-                    .foregroundColor(darkBg)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 6)
-                    .background(brandNeon)
-                    .clipShape(Capsule())
+                } else {
+                    Button(intent: StartTaskIntent(taskId: firstTask.id, taskTitle: firstTask.title, category: firstTask.category)) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "play.fill")
+                                .font(.system(size: 10, weight: .bold))
+                            Text("Démarrer")
+                                .font(.system(size: 11, weight: .bold))
+                        }
+                        .foregroundColor(darkBg)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 6)
+                        .background(brandNeon)
+                        .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             } else {
                 Spacer()
                 Text("Aucune tâche")
@@ -1119,74 +1135,121 @@ struct TaskRowInteractiveView: View {
     }
 
     var body: some View {
-        HStack(spacing: 7) {
-            // Bouton de sélection de la tâche / événement
-            Button(intent: SelectTaskIntent(taskId: task.id)) {
-                HStack(spacing: 7) {
-                    if isExternalEvent {
-                        Image(systemName: isSelected ? "calendar.badge.clock" : "calendar")
+        Group {
+            if isExternalEvent {
+                // ==========================================
+                // ÉVÉNEMENT EXTERNE : Ouvre directement l'Agenda, aucun bouton Play
+                // ==========================================
+                Link(destination: URL(string: "mytrack://agenda")!) {
+                    HStack(spacing: 7) {
+                        Image(systemName: "calendar")
                             .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(isSelected ? brandNeon : accentColor)
-                    } else {
-                        Image(systemName: isSelected ? "checkmark.circle.fill" : (task.isCompleted == true ? "checkmark.circle" : "circle"))
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(isSelected ? brandNeon : (task.isCompleted == true ? Color.gray.opacity(0.5) : Color.gray))
-                    }
+                            .foregroundColor(accentColor)
 
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(task.title)
-                            .font(.system(size: 12, weight: isSelected ? .bold : .semibold))
-                            .foregroundColor(isSelected ? .white : (task.isCompleted == true ? Color.white.opacity(0.5) : Color.white.opacity(0.95)))
-                            .strikethrough(task.isCompleted == true && !isSelected)
-                            .lineLimit(1)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(task.title)
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(.white)
+                                .lineLimit(1)
 
-                        HStack(spacing: 4) {
-                            Text(task.category)
-                                .font(.system(size: 9.5, weight: .medium))
-                                .foregroundColor(isSelected ? brandNeon : (isExternalEvent ? accentColor : Color.gray))
-                            
-                            if let dur = task.targetFormattedDuration ?? task.subtitle {
-                                Text("• \(dur)")
-                                    .font(.system(size: 9.5))
-                                    .foregroundColor(Color.gray)
+                            HStack(spacing: 4) {
+                                Text(task.category)
+                                    .font(.system(size: 9.5, weight: .medium))
+                                    .foregroundColor(accentColor)
+
+                                if let dur = task.targetFormattedDuration ?? task.subtitle {
+                                    Text("• \(dur)")
+                                        .font(.system(size: 9.5))
+                                        .foregroundColor(Color.gray)
+                                }
                             }
                         }
-                    }
 
-                    Spacer()
-                }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
+                        Spacer()
 
-            // BOUTON PLAY qui apparaît quand la tâche est sélectionnée
-            if isSelected {
-                Button(intent: StartTaskIntent(taskId: task.id, taskTitle: task.title, category: task.category)) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "play.fill")
-                            .font(.system(size: 9.5, weight: .heavy))
-                        Text("Play")
-                            .font(.system(size: 11, weight: .heavy))
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundColor(Color.white.opacity(0.3))
                     }
-                    .foregroundColor(darkBg)
+                    .contentShape(Rectangle())
                     .padding(.horizontal, 9)
-                    .padding(.vertical, 5)
-                    .background(brandNeon)
-                    .clipShape(Capsule())
-                    .shadow(color: brandNeon.opacity(0.3), radius: 3, x: 0, y: 1)
+                    .padding(.vertical, 7)
+                    .frame(minHeight: 38)
+                    .background(Color.white.opacity(0.04))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 11)
+                            .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                    )
+                    .cornerRadius(11)
                 }
-                .buttonStyle(.plain)
+            } else {
+                // ==========================================
+                // TÂCHE INTERNE : Sélection Interactive + Bouton Play
+                // ==========================================
+                HStack(spacing: 7) {
+                    // Bouton de sélection de la tâche
+                    Button(intent: SelectTaskIntent(taskId: task.id)) {
+                        HStack(spacing: 7) {
+                            Image(systemName: isSelected ? "checkmark.circle.fill" : (task.isCompleted == true ? "checkmark.circle" : "circle"))
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(isSelected ? brandNeon : (task.isCompleted == true ? Color.gray.opacity(0.5) : Color.gray))
+
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(task.title)
+                                    .font(.system(size: 12, weight: isSelected ? .bold : .semibold))
+                                    .foregroundColor(isSelected ? .white : (task.isCompleted == true ? Color.white.opacity(0.5) : Color.white.opacity(0.95)))
+                                    .strikethrough(task.isCompleted == true && !isSelected)
+                                    .lineLimit(1)
+
+                                HStack(spacing: 4) {
+                                    Text(task.category)
+                                        .font(.system(size: 9.5, weight: .medium))
+                                        .foregroundColor(isSelected ? brandNeon : Color.gray)
+
+                                    if let dur = task.targetFormattedDuration ?? task.subtitle {
+                                        Text("• \(dur)")
+                                            .font(.system(size: 9.5))
+                                            .foregroundColor(Color.gray)
+                                    }
+                                }
+                            }
+
+                            Spacer()
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+
+                    // BOUTON PLAY qui apparaît quand la tâche est sélectionnée
+                    if isSelected {
+                        Button(intent: StartTaskIntent(taskId: task.id, taskTitle: task.title, category: task.category)) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "play.fill")
+                                    .font(.system(size: 9.5, weight: .heavy))
+                                Text("Play")
+                                    .font(.system(size: 11, weight: .heavy))
+                            }
+                            .foregroundColor(darkBg)
+                            .padding(.horizontal, 9)
+                            .padding(.vertical, 5)
+                            .background(brandNeon)
+                            .clipShape(Capsule())
+                            .shadow(color: brandNeon.opacity(0.3), radius: 3, x: 0, y: 1)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 9)
+                .padding(.vertical, 7)
+                .frame(minHeight: 38)
+                .background(isSelected ? Color.white.opacity(0.12) : Color.white.opacity(0.04))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 11)
+                        .stroke(isSelected ? brandNeon.opacity(0.8) : Color.clear, lineWidth: 1.5)
+                )
+                .cornerRadius(11)
             }
         }
-        .padding(.horizontal, 9)
-        .padding(.vertical, 7)
-        .frame(minHeight: 38)
-        .background(isSelected ? Color.white.opacity(0.12) : Color.white.opacity(0.04))
-        .overlay(
-            RoundedRectangle(cornerRadius: 11)
-                .stroke(isSelected ? brandNeon.opacity(0.8) : Color.clear, lineWidth: 1.5)
-        )
-        .cornerRadius(11)
     }
 }
 
