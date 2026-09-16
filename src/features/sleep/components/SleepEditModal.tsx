@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
-import { Moon, Sun, Sparkles, Clock, Calendar, X, Trash2, Check, ArrowRight } from "lucide-react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { Moon, Sun, Sparkles, Clock, Calendar, X, Trash2, Check, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getStoredSleepLog, saveStoredSleepLog } from "../actions";
 import { DailySleepLog, NapSession } from "../types";
-import { format, parseISO, differenceInMinutes, addDays, subDays } from "date-fns";
+import { format, parseISO, differenceInMinutes, subDays } from "date-fns";
 import { fr } from "date-fns/locale";
 
 export interface SleepSessionData {
@@ -37,16 +37,45 @@ export const SleepEditModal: React.FC<SleepEditModalProps> = ({
   const [endTime, setEndTime] = useState("07:30");
   const [napId, setNapId] = useState<string | undefined>(undefined);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
 
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isInitialMountRef = useRef(true);
+
+  // Initialize session state on open
   useEffect(() => {
     if (isOpen && initialSession) {
-      setSessionType(initialSession.sessionType || "night");
-      setStartDate(initialSession.startDate || format(new Date(), "yyyy-MM-dd"));
-      setStartTime(initialSession.startTime || "23:00");
-      setEndDate(initialSession.endDate || format(new Date(), "yyyy-MM-dd"));
-      setEndTime(initialSession.endTime || "07:30");
+      isInitialMountRef.current = true;
+      const type = initialSession.sessionType || "night";
+      setSessionType(type);
+
+      const initEndDate = initialSession.endDate || format(new Date(), "yyyy-MM-dd");
+      const initStartTime = initialSession.startTime || "23:00";
+      const initEndTime = initialSession.endTime || "07:30";
+
+      let initStartDate = initialSession.startDate || initEndDate;
+      if (type === "night") {
+        const hour = parseInt(initStartTime.split(":")[0], 10) || 0;
+        // If bedtime is in early morning (< 12h, e.g. 03:00), bedtime date is the same day as wake-up
+        if (hour < 12) {
+          initStartDate = initEndDate;
+        } else if (initStartDate === initEndDate) {
+          initStartDate = format(subDays(parseISO(initEndDate), 1), "yyyy-MM-dd");
+        }
+      }
+
+      setStartDate(initStartDate);
+      setStartTime(initStartTime);
+      setEndDate(initEndDate);
+      setEndTime(initEndTime);
       setNapId(initialSession.napId);
       setConfirmDelete(false);
+      setSaveStatus("idle");
+
+      // Mark mount complete after a short tick
+      setTimeout(() => {
+        isInitialMountRef.current = false;
+      }, 50);
     }
   }, [isOpen, initialSession]);
 
@@ -59,7 +88,7 @@ export const SleepEditModal: React.FC<SleepEditModalProps> = ({
       const diffMins = differenceInMinutes(endDt, startDt);
 
       if (diffMins <= 0) {
-        return { isValid: false, text: "L'heure de fin doit être après le début", diffMins: 0, hours: 0, minutes: 0 };
+        return { isValid: false, text: "L'heure de réveil doit être après le coucher", diffMins: 0, hours: 0, minutes: 0 };
       }
 
       const hours = Math.floor(diffMins / 60);
@@ -71,99 +100,216 @@ export const SleepEditModal: React.FC<SleepEditModalProps> = ({
     }
   }, [startDate, startTime, endDate, endTime]);
 
+  // Core save routine
+  const performSave = useCallback(
+    async (
+      currType: "night" | "nap",
+      sDate: string,
+      sTime: string,
+      eDate: string,
+      eTime: string,
+      currentNapId?: string
+    ) => {
+      try {
+        const startDt = parseISO(`${sDate}T${sTime}:00`);
+        const endDt = parseISO(`${eDate}T${eTime}:00`);
+        const diff = differenceInMinutes(endDt, startDt);
+        if (diff <= 0) return;
+
+        setSaveStatus("saving");
+
+        if (currType === "night") {
+          // Night session bedtime key in DailySleepLog is the eve date
+          const nightLogKey = format(subDays(parseISO(eDate), 1), "yyyy-MM-dd");
+
+          const startLog = getStoredSleepLog(nightLogKey);
+          await saveStoredSleepLog({
+            ...startLog,
+            bedtime: sTime,
+            bedtimeValidated: true,
+            updatedAt: new Date().toISOString(),
+          });
+
+          // WakeTime belongs to endDate
+          const endLog = getStoredSleepLog(eDate);
+          await saveStoredSleepLog({
+            ...endLog,
+            wakeTime: eTime,
+            wakeTimeValidated: true,
+            updatedAt: new Date().toISOString(),
+          });
+        } else {
+          // Nap session
+          const dayLog = getStoredSleepLog(sDate);
+          const existingNaps = dayLog.naps || [];
+          let updatedNaps: NapSession[];
+
+          if (currentNapId) {
+            updatedNaps = existingNaps.map((n) =>
+              n.id === currentNapId ? { ...n, startTime: sTime, endTime: eTime } : n
+            );
+          } else {
+            updatedNaps = [
+              ...existingNaps,
+              { id: "nap-" + Date.now(), startTime: sTime, endTime: eTime },
+            ];
+          }
+
+          await saveStoredSleepLog({
+            ...dayLog,
+            naps: updatedNaps,
+            updatedAt: new Date().toISOString(),
+          });
+        }
+
+        // Dispatch event to refresh Agenda and Sleep Dashboard
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("mytrack:sleep-auto-detected"));
+        }
+
+        onSaved?.();
+        setSaveStatus("saved");
+
+        setTimeout(() => {
+          setSaveStatus((prev) => (prev === "saved" ? "idle" : prev));
+        }, 2000);
+      } catch (err) {
+        console.error("Failed to auto-save sleep session:", err);
+        setSaveStatus("idle");
+      }
+    },
+    [onSaved]
+  );
+
+  // Trigger auto-save whenever fields change after initialization
+  const triggerAutoSave = useCallback(
+    (
+      newType: "night" | "nap",
+      newStartDate: string,
+      newStartTime: string,
+      newEndDate: string,
+      newEndTime: string,
+      immediate = false
+    ) => {
+      if (isInitialMountRef.current) return;
+
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+
+      if (immediate) {
+        performSave(newType, newStartDate, newStartTime, newEndDate, newEndTime, napId);
+      } else {
+        setSaveStatus("saving");
+        saveTimeoutRef.current = setTimeout(() => {
+          performSave(newType, newStartDate, newStartTime, newEndDate, newEndTime, napId);
+        }, 400);
+      }
+    },
+    [napId, performSave]
+  );
+
+  // Clean up timer on unmount
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, []);
+
   if (!isOpen || !initialSession) return null;
+
+  const handleStartTimeChange = (newTime: string) => {
+    setStartTime(newTime);
+    let targetStartDate = startDate;
+
+    if (sessionType === "night" && endDate) {
+      const hour = parseInt(newTime.split(":")[0], 10) || 0;
+      targetStartDate = hour < 12 ? endDate : format(subDays(parseISO(endDate), 1), "yyyy-MM-dd");
+      setStartDate(targetStartDate);
+    }
+
+    triggerAutoSave(sessionType, targetStartDate, newTime, endDate, endTime);
+  };
+
+  const handleStartDateChange = (newDate: string) => {
+    setStartDate(newDate);
+    triggerAutoSave(sessionType, newDate, startTime, endDate, endTime);
+  };
+
+  const handleEndTimeChange = (newTime: string) => {
+    setEndTime(newTime);
+    triggerAutoSave(sessionType, startDate, startTime, endDate, newTime);
+  };
+
+  const handleEndDateChange = (newDate: string) => {
+    setEndDate(newDate);
+    let targetStartDate = startDate;
+
+    if (sessionType === "night") {
+      const hour = parseInt(startTime.split(":")[0], 10) || 0;
+      targetStartDate = hour < 12 ? newDate : format(subDays(parseISO(newDate), 1), "yyyy-MM-dd");
+      setStartDate(targetStartDate);
+    }
+
+    triggerAutoSave(sessionType, targetStartDate, startTime, newDate, endTime);
+  };
 
   const handleQuickAdjust = (type: "start" | "end", minutesDelta: number) => {
     try {
       if (type === "start") {
         const dt = parseISO(`${startDate}T${startTime}:00`);
         const newDt = new Date(dt.getTime() + minutesDelta * 60000);
-        setStartDate(format(newDt, "yyyy-MM-dd"));
-        setStartTime(format(newDt, "HH:mm"));
+        const newStartDate = format(newDt, "yyyy-MM-dd");
+        const newStartTime = format(newDt, "HH:mm");
+        setStartDate(newStartDate);
+        setStartTime(newStartTime);
+        triggerAutoSave(sessionType, newStartDate, newStartTime, endDate, endTime, true);
       } else {
         const dt = parseISO(`${endDate}T${endTime}:00`);
         const newDt = new Date(dt.getTime() + minutesDelta * 60000);
-        setEndDate(format(newDt, "yyyy-MM-dd"));
-        setEndTime(format(newDt, "HH:mm"));
+        const newEndDate = format(newDt, "yyyy-MM-dd");
+        const newEndTime = format(newDt, "HH:mm");
+        setEndDate(newEndDate);
+        setEndTime(newEndTime);
+
+        let targetStartDate = startDate;
+        if (sessionType === "night") {
+          const hour = parseInt(startTime.split(":")[0], 10) || 0;
+          targetStartDate = hour < 12 ? newEndDate : format(subDays(parseISO(newEndDate), 1), "yyyy-MM-dd");
+          setStartDate(targetStartDate);
+        }
+
+        triggerAutoSave(sessionType, targetStartDate, startTime, newEndDate, newEndTime, true);
       }
     } catch (e) {
       console.warn("Error adjusting sleep time:", e);
     }
   };
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!durationInfo?.isValid) return;
-
-    try {
-      if (sessionType === "night") {
-        // 1. Bedtime belongs to startDate
-        const startLog = getStoredSleepLog(startDate);
-        const updatedStartLog: DailySleepLog = {
-          ...startLog,
-          bedtime: startTime,
-          bedtimeValidated: true,
-          updatedAt: new Date().toISOString(),
-        };
-        await saveStoredSleepLog(updatedStartLog);
-
-        // 2. WakeTime belongs to endDate
-        const endLog = getStoredSleepLog(endDate);
-        const updatedEndLog: DailySleepLog = {
-          ...endLog,
-          wakeTime: endTime,
-          wakeTimeValidated: true,
-          updatedAt: new Date().toISOString(),
-        };
-        await saveStoredSleepLog(updatedEndLog);
-      } else {
-        // Nap session
-        const dayLog = getStoredSleepLog(startDate);
-        const existingNaps = dayLog.naps || [];
-        let updatedNaps: NapSession[];
-
-        if (napId) {
-          updatedNaps = existingNaps.map((n) =>
-            n.id === napId ? { ...n, startTime, endTime } : n
-          );
-        } else {
-          updatedNaps = [
-            ...existingNaps,
-            { id: "nap-" + Date.now(), startTime, endTime },
-          ];
-        }
-
-        const updatedDayLog: DailySleepLog = {
-          ...dayLog,
-          naps: updatedNaps,
-          updatedAt: new Date().toISOString(),
-        };
-        await saveStoredSleepLog(updatedDayLog);
-      }
-
-      // Dispatch event to refresh Agenda and Sleep Dashboard
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("mytrack:sleep-auto-detected"));
-      }
-
-      onSaved?.();
-      onClose();
-    } catch (err) {
-      console.error("Failed to save sleep session:", err);
-    }
-  };
-
   const handleDelete = async () => {
     try {
       if (sessionType === "night") {
-        // Reset bedtime and wakeTime
-        const startLog = getStoredSleepLog(startDate);
+        const nightLogKey = format(subDays(parseISO(endDate), 1), "yyyy-MM-dd");
+
+        const startLog = getStoredSleepLog(nightLogKey);
         await saveStoredSleepLog({
           ...startLog,
           bedtime: null,
           bedtimeValidated: false,
           updatedAt: new Date().toISOString(),
         });
+
+        if (startDate !== nightLogKey) {
+          const otherLog = getStoredSleepLog(startDate);
+          await saveStoredSleepLog({
+            ...otherLog,
+            bedtime: null,
+            bedtimeValidated: false,
+            updatedAt: new Date().toISOString(),
+          });
+        }
 
         const endLog = getStoredSleepLog(endDate);
         await saveStoredSleepLog({
@@ -240,7 +386,7 @@ export const SleepEditModal: React.FC<SleepEditModalProps> = ({
           </button>
         </div>
 
-        {/* Live Duration Banner */}
+        {/* Live Duration Banner & Autosave State */}
         <div className="p-3 rounded-2xl bg-[#20233B] border border-[#373C60] flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Clock className="w-4 h-4 text-[#818CF8]" />
@@ -260,7 +406,7 @@ export const SleepEditModal: React.FC<SleepEditModalProps> = ({
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSave} className="flex-1 overflow-y-auto pr-1 space-y-4 min-h-0">
+        <div className="flex-1 overflow-y-auto pr-1 space-y-4 min-h-0">
           {/* 1. Date et Heure de Début (Coucher) */}
           <div className="p-3.5 rounded-2xl bg-[#1D2038] border border-[#2E3352] space-y-2.5">
             <div className="flex items-center justify-between">
@@ -279,7 +425,7 @@ export const SleepEditModal: React.FC<SleepEditModalProps> = ({
                 <input
                   type="date"
                   value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
+                  onChange={(e) => handleStartDateChange(e.target.value)}
                   className="w-full px-2.5 py-2 rounded-xl bg-[#242842] border border-[#373C60] text-xs font-semibold text-white focus:border-[#818CF8] outline-none"
                 />
               </div>
@@ -288,7 +434,7 @@ export const SleepEditModal: React.FC<SleepEditModalProps> = ({
                 <input
                   type="time"
                   value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
+                  onChange={(e) => handleStartTimeChange(e.target.value)}
                   className="w-full px-2.5 py-2 rounded-xl bg-[#242842] border border-[#373C60] text-xs font-mono font-bold text-[#D4F63D] focus:border-[#818CF8] outline-none text-center"
                 />
               </div>
@@ -330,7 +476,7 @@ export const SleepEditModal: React.FC<SleepEditModalProps> = ({
                 <input
                   type="date"
                   value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
+                  onChange={(e) => handleEndDateChange(e.target.value)}
                   className="w-full px-2.5 py-2 rounded-xl bg-[#242842] border border-[#373C60] text-xs font-semibold text-white focus:border-[#FCD34D] outline-none"
                 />
               </div>
@@ -339,7 +485,7 @@ export const SleepEditModal: React.FC<SleepEditModalProps> = ({
                 <input
                   type="time"
                   value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
+                  onChange={(e) => handleEndTimeChange(e.target.value)}
                   className="w-full px-2.5 py-2 rounded-xl bg-[#242842] border border-[#373C60] text-xs font-mono font-bold text-[#D4F63D] focus:border-[#FCD34D] outline-none text-center"
                 />
               </div>
@@ -363,19 +509,35 @@ export const SleepEditModal: React.FC<SleepEditModalProps> = ({
             </div>
           </div>
 
-          {/* Submit Action */}
-          <button
-            type="submit"
-            disabled={!durationInfo?.isValid}
-            className={cn(
-              "w-full py-3 rounded-2xl font-extrabold text-sm flex items-center justify-center gap-2 transition-all shadow-lg cursor-pointer",
-              durationInfo?.isValid
-                ? "bg-[#818CF8] hover:bg-[#6366F1] text-white shadow-indigo-500/20 active:scale-[0.98]"
-                : "bg-[#2E3352] text-[#64748B] cursor-not-allowed opacity-60"
+          {/* Autosave Status Indicator */}
+          <div className="pt-1">
+            {saveStatus === "saving" && (
+              <div className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-2xl bg-[#818CF8]/10 border border-[#818CF8]/25 text-[#818CF8] text-xs font-bold animate-pulse">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span>Sauvegarde automatique...</span>
+              </div>
             )}
+            {saveStatus === "saved" && (
+              <div className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-2xl bg-[#D4F63D]/10 border border-[#D4F63D]/30 text-[#D4F63D] text-xs font-bold animate-in fade-in duration-200">
+                <Check className="w-3.5 h-3.5 stroke-[3]" />
+                <span>Enregistré automatiquement</span>
+              </div>
+            )}
+            {saveStatus === "idle" && (
+              <div className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-2xl bg-[#20233B] border border-[#2E3352]/60 text-[#94A3B8] text-[11px] font-medium">
+                <Sparkles className="w-3 h-3 text-[#818CF8]" />
+                <span>Sauvegarde automatique en continu</span>
+              </div>
+            )}
+          </div>
+
+          {/* Close Action */}
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full py-2.5 rounded-2xl bg-[#242842] hover:bg-[#2F3456] text-white font-bold text-xs transition-all cursor-pointer shadow"
           >
-            <Check className="w-4 h-4 stroke-[3]" />
-            <span>Enregistrer la session</span>
+            Fermer
           </button>
 
           {/* Delete Option */}
@@ -383,7 +545,7 @@ export const SleepEditModal: React.FC<SleepEditModalProps> = ({
             {confirmDelete ? (
               <div className="p-3 rounded-2xl bg-red-500/10 border border-red-500/30 space-y-2 animate-in fade-in">
                 <p className="text-xs text-red-300 font-medium">
-                  Supprimer cette session de sommeil ? Les heures de coucher et de réveil associées seront réinitialisées.
+                  Supprimer cette session de sommeil ? Les heures associées seront réinitialisées.
                 </p>
                 <div className="flex items-center gap-2">
                   <button
@@ -406,14 +568,14 @@ export const SleepEditModal: React.FC<SleepEditModalProps> = ({
               <button
                 type="button"
                 onClick={() => setConfirmDelete(true)}
-                className="w-full py-2.5 rounded-2xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 font-semibold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                className="w-full py-2 rounded-2xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 font-semibold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>Supprimer cette session</span>
               </button>
             )}
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );

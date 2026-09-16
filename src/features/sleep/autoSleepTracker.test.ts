@@ -40,6 +40,7 @@ import {
   isNapTitle,
   syncTaskWithSleepNaps,
   removeTaskFromSleepNaps,
+  computeSleepDuration,
 } from "./actions";
 
 describe("AutoSleepTracker", () => {
@@ -297,6 +298,43 @@ describe("AutoSleepTracker", () => {
     expect(cleanedLog.naps?.some((n) => n.id === "nap-123456789")).toBe(false);
     expect(cleanedLog.naps?.some((n) => n.id === "task-nap-task1")).toBe(true);
     expect(cleanedLog.naps?.some((n) => n.id === "nap_manual1")).toBe(true);
+  });
+
+  it("correctly handles same-day morning bedtime (e.g. 03:00 -> 08:00)", () => {
+    const bedtime = "03:00";
+    const wakeTime = "08:00";
+    const duration = computeSleepDuration(bedtime, wakeTime);
+
+    expect(duration).not.toBeNull();
+    expect(duration?.hours).toBe(5);
+    expect(duration?.minutes).toBe(0);
+    expect(duration?.text).toBe("5h 00m");
+
+    // Saving bedtime for night of 2026-09-15 (eve of 2026-09-16) at 03:00
+    const eveDate = "2026-09-15";
+    const wakeDate = "2026-09-16";
+
+    const eveLog = getStoredSleepLog(eveDate);
+    saveStoredSleepLog({
+      ...eveLog,
+      bedtime,
+      bedtimeValidated: true,
+      updatedAt: new Date().toISOString(),
+    });
+
+    const wakeLog = getStoredSleepLog(wakeDate);
+    saveStoredSleepLog({
+      ...wakeLog,
+      wakeTime,
+      wakeTimeValidated: true,
+      updatedAt: new Date().toISOString(),
+    });
+
+    const savedEve = getStoredSleepLog(eveDate);
+    const savedWake = getStoredSleepLog(wakeDate);
+
+    expect(savedEve.bedtime).toBe("03:00");
+    expect(savedWake.wakeTime).toBe("08:00");
   });
 });
 

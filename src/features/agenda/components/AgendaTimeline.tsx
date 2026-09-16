@@ -1266,6 +1266,9 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
                 ? `${durationText} • Réveil ${todayLog.wakeTime}`
                 : `Réveil ${todayLog.wakeTime}`;
 
+              const bedHour = parseInt(yesterdayBedtime.split(":")[0], 10) || 0;
+              const actualBedDateStr = bedHour < 12 ? dayDate : yesterdayDateStr;
+
               sleepItems.push({
                 type: "sleep",
                 sleepItem: {
@@ -1275,7 +1278,7 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
                   isNap: false,
                   sessionData: {
                     sessionType: "night",
-                    startDate: yesterdayDateStr,
+                    startDate: actualBedDateStr,
                     startTime: yesterdayBedtime,
                     endDate: dayDate,
                     endTime: todayLog.wakeTime,
