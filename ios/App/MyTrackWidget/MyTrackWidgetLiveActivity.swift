@@ -60,13 +60,14 @@ public struct AppLogoCheckmark: Shape {
 // MARK: - Widget Live Activity (Dynamic Island & Lock Screen)
 struct MyTrackWidgetLiveActivity: Widget {
     let brandNeon = Color(red: 0.83, green: 0.96, blue: 0.24) // #D4F63D
+    let sleepIndigo = Color(red: 0.38, green: 0.45, blue: 0.98) // #6173FA
 
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: TaskActivityAttributes.self) { context in
             // ==========================================
             // VUE ÉCRAN DE VERROUILLAGE (Lock Screen)
             // ==========================================
-            LockScreenLiveActivityView(context: context, brandNeon: brandNeon)
+            LockScreenLiveActivityView(context: context, brandNeon: brandNeon, sleepIndigo: sleepIndigo)
                 .activityBackgroundTint(Color.black.opacity(0.75))
                 .activitySystemActionForegroundColor(brandNeon)
 
@@ -77,24 +78,62 @@ struct MyTrackWidgetLiveActivity: Widget {
             DynamicIsland {
                 // Région étendue gauche (Appui long)
                 DynamicIslandExpandedRegion(.leading) {
-                    HStack(spacing: 6) {
-                        AppLogoView(size: 20)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(context.attributes.taskTitle)
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundColor(.white)
-                                .lineLimit(1)
-                            Text(context.state.subtitle ?? context.attributes.category ?? "myTrack")
-                                .font(.system(size: 11, weight: .medium))
-                                .foregroundColor(.gray)
+                    if context.state.isSleepMode == true || context.state.currentStatus == "SLEEP" || context.state.currentStatus == "SLEEP_AWAKE" {
+                        HStack(spacing: 6) {
+                            ZStack {
+                                Circle()
+                                    .fill(sleepIndigo.opacity(0.25))
+                                    .frame(width: 22, height: 22)
+                                Image(systemName: "moon.stars.fill")
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundColor(sleepIndigo)
+                            }
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Mode Sommeil")
+                                    .font(.system(size: 13, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .lineLimit(1)
+                                let phaseIdx = context.state.sleepPhaseIndex ?? 1
+                                Text(phaseIdx > 1 ? "Phase de sommeil \(phaseIdx)" : "Nuit")
+                                    .font(.system(size: 10.5, weight: .medium))
+                                    .foregroundColor(.gray)
+                            }
                         }
+                        .padding(.leading, 4)
+                    } else {
+                        HStack(spacing: 6) {
+                            AppLogoView(size: 20)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(context.attributes.taskTitle)
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .lineLimit(1)
+                                Text(context.state.subtitle ?? context.attributes.category ?? "myTrack")
+                                    .font(.system(size: 11, weight: .medium))
+                                    .foregroundColor(.gray)
+                            }
+                        }
+                        .padding(.leading, 4)
                     }
-                    .padding(.leading, 4)
                 }
 
                 // Région étendue droite (Appui long)
                 DynamicIslandExpandedRegion(.trailing) {
-                    if context.state.currentStatus == "STANDBY" {
+                    if context.state.isSleepMode == true || context.state.currentStatus == "SLEEP" || context.state.currentStatus == "SLEEP_AWAKE" {
+                        VStack(alignment: .trailing, spacing: 2) {
+                            if let bTime = context.state.bedtime {
+                                Text("Couché : \(bTime)")
+                                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                                    .foregroundColor(sleepIndigo)
+                            }
+                            if let wTime = context.state.wakeTime {
+                                Text("Réveil : \(wTime)")
+                                    .font(.system(size: 10.5, weight: .semibold))
+                                    .foregroundColor(brandNeon)
+                            }
+                        }
+                        .padding(.trailing, 4)
+                    } else if context.state.currentStatus == "STANDBY" {
                         Link(destination: URL(string: "mytrack://tasks?action=new-task")!) {
                             HStack(spacing: 4) {
                                 Image(systemName: "plus.circle.fill")
@@ -127,7 +166,44 @@ struct MyTrackWidgetLiveActivity: Widget {
 
                 // Région étendue bas (Appui long)
                 DynamicIslandExpandedRegion(.bottom) {
-                    if context.state.currentStatus == "STANDBY" {
+                    if context.state.isSleepMode == true || context.state.currentStatus == "SLEEP" || context.state.currentStatus == "SLEEP_AWAKE" {
+                        // 2 Boutons Interactifs pour le Mode Sommeil
+                        HStack(spacing: 8) {
+                            Button(intent: SleepStartNowIntent()) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "bed.double.fill")
+                                        .font(.system(size: 10, weight: .bold))
+                                    Text("Je me couche")
+                                        .font(.system(size: 11, weight: .bold))
+                                }
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .background(sleepIndigo.opacity(0.85))
+                                .clipShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
+
+                            Spacer()
+
+                            Button(intent: SleepWakeNowIntent()) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "sun.max.fill")
+                                        .font(.system(size: 10, weight: .bold))
+                                    Text("Je me réveille")
+                                        .font(.system(size: 11, weight: .bold))
+                                }
+                                .foregroundColor(Color(red: 0.07, green: 0.07, blue: 0.08))
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .background(brandNeon)
+                                .clipShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .padding(.horizontal, 4)
+                        .padding(.top, 4)
+                    } else if context.state.currentStatus == "STANDBY" {
                         if let nextTitle = context.state.nextTaskTitle, let nextId = context.state.nextTaskId {
                             HStack(spacing: 8) {
                                 HStack(spacing: 4) {
@@ -214,16 +290,31 @@ struct MyTrackWidgetLiveActivity: Widget {
 
             } compactLeading: {
                 // ==========================================
-                // PILULE GAUCHE : Logo Officiel MyTrack Compact (13x13)
+                // PILULE GAUCHE
                 // ==========================================
-                AppLogoView(size: 13)
-                    .frame(width: 13, height: 13)
+                if context.state.isSleepMode == true || context.state.currentStatus == "SLEEP" || context.state.currentStatus == "SLEEP_AWAKE" {
+                    Image(systemName: "moon.stars.fill")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(sleepIndigo)
+                } else {
+                    AppLogoView(size: 13)
+                        .frame(width: 13, height: 13)
+                }
 
             } compactTrailing: {
                 // ==========================================
-                // PILULE DROITE : Timer ou Icône Plus
+                // PILULE DROITE
                 // ==========================================
-                if context.state.currentStatus == "STANDBY" {
+                if context.state.isSleepMode == true || context.state.currentStatus == "SLEEP" || context.state.currentStatus == "SLEEP_AWAKE" {
+                    if let bTime = context.state.bedtime {
+                        Text(bTime)
+                            .font(.system(size: 11, weight: .bold, design: .rounded))
+                            .foregroundColor(sleepIndigo)
+                    } else {
+                        Text("😴")
+                            .font(.system(size: 10))
+                    }
+                } else if context.state.currentStatus == "STANDBY" {
                     Image(systemName: "plus.circle.fill")
                         .font(.system(size: 12, weight: .bold))
                         .foregroundColor(brandNeon)
@@ -236,8 +327,14 @@ struct MyTrackWidgetLiveActivity: Widget {
                 }
 
             } minimal: {
-                AppLogoView(size: 12)
-                    .frame(width: 12, height: 12)
+                if context.state.isSleepMode == true || context.state.currentStatus == "SLEEP" || context.state.currentStatus == "SLEEP_AWAKE" {
+                    Image(systemName: "moon.stars.fill")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(sleepIndigo)
+                } else {
+                    AppLogoView(size: 12)
+                        .frame(width: 12, height: 12)
+                }
             }
         }
     }
@@ -247,9 +344,120 @@ struct MyTrackWidgetLiveActivity: Widget {
 struct LockScreenLiveActivityView: View {
     let context: ActivityViewContext<TaskActivityAttributes>
     let brandNeon: Color
+    var sleepIndigo: Color = Color(red: 0.38, green: 0.45, blue: 0.98)
+
+    var isSleep: Bool {
+        context.state.isSleepMode == true ||
+        context.state.currentStatus == "SLEEP" ||
+        context.state.currentStatus == "SLEEP_AWAKE" ||
+        context.attributes.taskId == "sleep"
+    }
 
     var body: some View {
-        if context.state.currentStatus == "STANDBY" {
+        if isSleep {
+            // ============================================================
+            // MODE SOMMEIL (SLEEP MODE) : 2 Boutons Coucher / Réveil
+            // ============================================================
+            let phaseIdx = context.state.sleepPhaseIndex ?? 1
+            let isAwake = context.state.isAwakeBetweenPhases == true || context.state.currentStatus == "SLEEP_AWAKE"
+
+            VStack(alignment: .leading, spacing: 10) {
+                // Header Mode Sommeil
+                HStack(alignment: .center, spacing: 8) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(sleepIndigo.opacity(0.2))
+                            .frame(width: 28, height: 28)
+                        Image(systemName: isAwake ? "sun.haze.fill" : "moon.stars.fill")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(isAwake ? brandNeon : sleepIndigo)
+                    }
+
+                    VStack(alignment: .leading, spacing: 1) {
+                        HStack(spacing: 6) {
+                            Text("Mode Sommeil")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(.white)
+
+                            if phaseIdx > 1 {
+                                Text("Phase \(phaseIdx)")
+                                    .font(.system(size: 9.5, weight: .heavy))
+                                    .foregroundColor(sleepIndigo)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 1.5)
+                                    .background(sleepIndigo.opacity(0.18))
+                                    .clipShape(Capsule())
+                            }
+                        }
+
+                        if let sub = context.state.subtitle, !sub.isEmpty {
+                            Text(sub)
+                                .font(.system(size: 10.5, weight: .medium))
+                                .foregroundColor(Color.gray)
+                        } else if let bTime = context.state.bedtime {
+                            Text(isAwake ? "Réveillé • Prêt pour nouvelle phase" : "Couché à \(bTime)")
+                                .font(.system(size: 10.5, weight: .medium))
+                                .foregroundColor(Color.gray)
+                        }
+                    }
+
+                    Spacer()
+
+                    if let bTime = context.state.bedtime {
+                        VStack(alignment: .trailing, spacing: 1) {
+                            Text("Couché")
+                                .font(.system(size: 9, weight: .semibold))
+                                .foregroundColor(Color.gray)
+                            Text(bTime)
+                                .font(.system(size: 12, weight: .bold, design: .rounded))
+                                .foregroundColor(sleepIndigo)
+                        }
+                    }
+                }
+
+                // 2 Boutons d'Action Principaux
+                HStack(spacing: 10) {
+                    // Bouton 1 : Je me couche maintenant
+                    Button(intent: SleepStartNowIntent()) {
+                        HStack(spacing: 5) {
+                            Image(systemName: "bed.double.fill")
+                                .font(.system(size: 11, weight: .bold))
+                            Text(phaseIdx > 1 && isAwake ? "2nd Couché" : "Je me couche")
+                                .font(.system(size: 12.5, weight: .bold))
+                        }
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 9)
+                        .background(sleepIndigo.opacity(0.9))
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .shadow(color: sleepIndigo.opacity(0.3), radius: 3, x: 0, y: 1)
+                    }
+                    .buttonStyle(.plain)
+
+                    // Bouton 2 : Je me réveille maintenant
+                    Button(intent: SleepWakeNowIntent()) {
+                        HStack(spacing: 5) {
+                            Image(systemName: "sun.max.fill")
+                                .font(.system(size: 11, weight: .bold))
+                            Text("Je me réveille")
+                                .font(.system(size: 12.5, weight: .bold))
+                        }
+                        .foregroundColor(Color(red: 0.07, green: 0.07, blue: 0.08))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 9)
+                        .background(brandNeon)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .shadow(color: brandNeon.opacity(0.25), radius: 3, x: 0, y: 1)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 15)
+            .padding(.vertical, 13)
+            .background(Color(red: 0.08, green: 0.09, blue: 0.13).opacity(0.97))
+            .cornerRadius(20)
+
+        } else if context.state.currentStatus == "STANDBY" {
             // ============================================================
             // MODE EN ATTENTE (STANDBY) : Aucune tâche active en cours
             // ============================================================

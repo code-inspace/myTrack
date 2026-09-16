@@ -447,3 +447,198 @@ public struct ResetWidgetIntent: AppIntent {
         return .result()
     }
 }
+
+// MARK: - 6. Intent pour "Je me couche maintenant" (Widget & Live Activity)
+@available(iOS 16.0, macOS 13.0, *)
+public struct SleepStartNowIntent: AppIntent, LiveActivityIntent {
+    public static var title: LocalizedStringResource = "Je me couche maintenant"
+    public static var description = IntentDescription("Définit ou réinitialise l'heure de coucher pour la phase de sommeil actuelle.")
+    public static var openAppWhenRun: Bool = false
+
+    public init() {}
+
+    public func perform() async throws -> some IntentResult {
+        let now = Date()
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        let nowTimeStr = formatter.string(from: now)
+        let nowTs = now.timeIntervalSince1970
+
+        let suite = UserDefaults(suiteName: "group.com.mytrack.app") ?? UserDefaults.standard
+
+        // Lire les sessions de sommeil déjà terminées pour aujourd'hui/cette nuit
+        var sessions: [[String: Any]] = []
+        if let raw = suite.string(forKey: "mytrack_sleep_sessions"),
+           let data = raw.data(using: .utf8),
+           let list = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
+            sessions = list
+        }
+
+        let phaseIndex = sessions.count + 1
+
+        // Enregistrer l'état du sommeil (actif, heure de coucher réinitialisée/définie)
+        suite.set(true, forKey: "mytrack_sleep_is_active")
+        UserDefaults.standard.set(true, forKey: "mytrack_sleep_is_active")
+        suite.set(nowTimeStr, forKey: "mytrack_sleep_current_bedtime")
+        UserDefaults.standard.set(nowTimeStr, forKey: "mytrack_sleep_current_bedtime")
+        suite.removeObject(forKey: "mytrack_sleep_current_wake_time")
+        UserDefaults.standard.removeObject(forKey: "mytrack_sleep_current_wake_time")
+        suite.set(nowTs, forKey: "mytrack_sleep_started_timestamp")
+        UserDefaults.standard.set(nowTs, forKey: "mytrack_sleep_started_timestamp")
+        suite.set(phaseIndex, forKey: "mytrack_sleep_phase_index")
+        UserDefaults.standard.set(phaseIndex, forKey: "mytrack_sleep_phase_index")
+        suite.set(false, forKey: "mytrack_sleep_is_awake_between_phases")
+        UserDefaults.standard.set(false, forKey: "mytrack_sleep_is_awake_between_phases")
+
+        // Mettre à jour la Live Activity si existante ou en lancer une
+        if #available(iOS 16.2, *) {
+            let sleepActivities = Activity<TaskActivityAttributes>.activities.filter { $0.attributes.taskId == "sleep" }
+            let contentState = TaskActivityAttributes.ContentState(
+                currentStatus: "SLEEP",
+                startedAtTimestamp: nowTs,
+                elapsedSeconds: 0,
+                subtitle: phaseIndex > 1 ? "Phase de sommeil \(phaseIndex)" : "En sommeil",
+                isSleepMode: true,
+                bedtime: nowTimeStr,
+                wakeTime: nil,
+                sleepPhaseIndex: phaseIndex,
+                sleepPhaseCount: phaseIndex,
+                isAwakeBetweenPhases: false
+            )
+
+            if let existing = sleepActivities.first {
+                await existing.update(.init(state: contentState, staleDate: nil))
+            } else {
+                let attributes = TaskActivityAttributes(
+                    taskId: "sleep",
+                    taskTitle: "Mode Sommeil",
+                    category: "Sommeil"
+                )
+                _ = try? Activity<TaskActivityAttributes>.request(
+                    attributes: attributes,
+                    content: .init(state: contentState, staleDate: nil),
+                    pushType: nil
+                )
+            }
+        }
+
+        // Recharger immédiatement tous les widgets
+        WidgetCenter.shared.reloadAllTimelines()
+
+        // Notification API distante en tâche de fond non bloquante
+        Task.detached(priority: .background) {
+            guard let url = URL(string: "https://mytrack-nine.vercel.app/api/widget/sleep-action") else { return }
+            var request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            request.timeoutInterval = 3.0
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            let body: [String: Any] = [
+                "action": "BEDTIME_NOW",
+                "time": nowTimeStr,
+                "timestamp": nowTs,
+                "phaseIndex": phaseIndex
+            ]
+            request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+            _ = try? await URLSession.shared.data(for: request)
+        }
+
+        return .result()
+    }
+}
+
+// MARK: - 7. Intent pour "Je me réveille maintenant" (Widget & Live Activity)
+@available(iOS 16.0, macOS 13.0, *)
+public struct SleepWakeNowIntent: AppIntent, LiveActivityIntent {
+    public static var title: LocalizedStringResource = "Je me réveille maintenant"
+    public static var description = IntentDescription("Définit l'heure de réveil pour la phase de sommeil actuelle.")
+    public static var openAppWhenRun: Bool = false
+
+    public init() {}
+
+    public func perform() async throws -> some IntentResult {
+        let now = Date()
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        let nowTimeStr = formatter.string(from: now)
+        let nowTs = now.timeIntervalSince1970
+
+        let suite = UserDefaults(suiteName: "group.com.mytrack.app") ?? UserDefaults.standard
+
+        let currentBedtime = suite.string(forKey: "mytrack_sleep_current_bedtime") ?? nowTimeStr
+        let phaseIndex = max(1, suite.integer(forKey: "mytrack_sleep_phase_index"))
+
+        // Lire et ajouter la phase terminée aux sessions
+        var sessions: [[String: Any]] = []
+        if let raw = suite.string(forKey: "mytrack_sleep_sessions"),
+           let data = raw.data(using: .utf8),
+           let list = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
+            sessions = list
+        }
+
+        let newSession: [String: Any] = [
+            "id": "phase_\(Int(nowTs))",
+            "phaseIndex": phaseIndex,
+            "startTime": currentBedtime,
+            "endTime": nowTimeStr,
+            "timestamp": nowTs
+        ]
+        sessions.append(newSession)
+
+        if let data = try? JSONSerialization.data(withJSONObject: sessions),
+           let jsonStr = String(data: data, encoding: .utf8) {
+            suite.set(jsonStr, forKey: "mytrack_sleep_sessions")
+            UserDefaults.standard.set(jsonStr, forKey: "mytrack_sleep_sessions")
+        }
+
+        suite.set(false, forKey: "mytrack_sleep_is_active")
+        UserDefaults.standard.set(false, forKey: "mytrack_sleep_is_active")
+        suite.set(nowTimeStr, forKey: "mytrack_sleep_current_wake_time")
+        UserDefaults.standard.set(nowTimeStr, forKey: "mytrack_sleep_current_wake_time")
+        suite.set(true, forKey: "mytrack_sleep_is_awake_between_phases")
+        UserDefaults.standard.set(true, forKey: "mytrack_sleep_is_awake_between_phases")
+
+        // Mettre à jour la Live Activity pour afficher l'état réveillé avec possibilité de se recouvrir
+        if #available(iOS 16.2, *) {
+            for activity in Activity<TaskActivityAttributes>.activities {
+                if activity.attributes.taskId == "sleep" {
+                    let contentState = TaskActivityAttributes.ContentState(
+                        currentStatus: "SLEEP_AWAKE",
+                        startedAtTimestamp: nowTs,
+                        elapsedSeconds: 0,
+                        subtitle: "Réveillé à \(nowTimeStr) • Phase \(phaseIndex) terminée",
+                        isSleepMode: true,
+                        bedtime: currentBedtime,
+                        wakeTime: nowTimeStr,
+                        sleepPhaseIndex: phaseIndex,
+                        sleepPhaseCount: sessions.count,
+                        isAwakeBetweenPhases: true
+                    )
+                    await activity.update(.init(state: contentState, staleDate: nil))
+                }
+            }
+        }
+
+        // Recharger immédiatement les widgets
+        WidgetCenter.shared.reloadAllTimelines()
+
+        // Notification API distante en tâche de fond non bloquante
+        Task.detached(priority: .background) {
+            guard let url = URL(string: "https://mytrack-nine.vercel.app/api/widget/sleep-action") else { return }
+            var request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            request.timeoutInterval = 3.0
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            let body: [String: Any] = [
+                "action": "WAKE_NOW",
+                "time": nowTimeStr,
+                "bedtime": currentBedtime,
+                "timestamp": nowTs,
+                "phaseIndex": phaseIndex
+            ]
+            request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+            _ = try? await URLSession.shared.data(for: request)
+        }
+
+        return .result()
+    }
+}

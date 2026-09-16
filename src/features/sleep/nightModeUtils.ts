@@ -89,7 +89,7 @@ export function setNightModeInactivityTimeoutMs(durationMs: number): void {
 
 /**
  * Checks if the current time falls inside the user's programmed sleep window.
- * Default bedtime: 23:00, default wakeTime: 07:00.
+ * Default detection window: 23:00 to 12:00 (midday).
  */
 export function isCurrentlyInSleepWindow(
   now: Date = new Date(),
@@ -97,7 +97,7 @@ export function isCurrentlyInSleepWindow(
   wakeTimeStr?: string | null,
 ): boolean {
   const bedtime = bedtimeStr || "23:00";
-  const wakeTime = wakeTimeStr || "07:00";
+  const wakeTime = wakeTimeStr || "12:00";
 
   const [bH, bM] = bedtime.split(":").map((v) => parseInt(v, 10) || 0);
   const [wH, wM] = wakeTime.split(":").map((v) => parseInt(v, 10) || 0);
@@ -107,17 +107,17 @@ export function isCurrentlyInSleepWindow(
   const wakeMinutes = wH * 60 + wM;
 
   if (bedMinutes <= wakeMinutes) {
-    // Bedtime and wakeTime within the same calendar day (e.g. 01:00 to 08:00)
+    // Bedtime and wakeTime within the same calendar day
     return currentMinutes >= bedMinutes && currentMinutes < wakeMinutes;
   } else {
-    // Standard night schedule crossing midnight (e.g. 22:30 to 07:15)
+    // Standard night schedule crossing midnight (e.g. 23:00 to 12:00)
     return currentMinutes >= bedMinutes || currentMinutes < wakeMinutes;
   }
 }
 
 /**
  * Calculates the next bedtime timestamp (ISO string) when the user wakes up.
- * If user wakes up in the morning (e.g. 07:00), next bedtime is today at bedtime (e.g. 22:30).
+ * If user wakes up in the morning (e.g. 07:00), next bedtime is today at bedtime (e.g. 23:00).
  * If user wakes up after bedtime (e.g. 23:45), next bedtime is tomorrow at bedtime.
  */
 export function getNextBedtimeIso(bedtimeStr?: string | null, now: Date = new Date()): string {
@@ -127,7 +127,7 @@ export function getNextBedtimeIso(bedtimeStr?: string | null, now: Date = new Da
   const targetDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), bH, bM, 0);
 
   if (now.getTime() >= targetDate.getTime()) {
-    // Today's bedtime already passed (e.g. waking up at 23:45), next bedtime is tomorrow
+    // Today's bedtime already passed, next bedtime is tomorrow
     targetDate.setDate(targetDate.getDate() + 1);
   }
 

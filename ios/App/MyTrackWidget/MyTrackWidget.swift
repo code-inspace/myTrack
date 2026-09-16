@@ -91,6 +91,12 @@ public struct ActiveTaskEntry: TimelineEntry {
     public let tasks: [TaskItemWidgetModel]
     public let selectedTaskId: String?
     public let currentPage: Int
+    public let isSleepMode: Bool
+    public let bedtime: String?
+    public let wakeTime: String?
+    public let sleepPhaseIndex: Int
+    public let sleepPhaseCount: Int
+    public let isAwakeBetweenPhases: Bool
 
     public var activeTask: ActiveTaskWidgetModel? {
         activeTasks.first
@@ -101,18 +107,63 @@ public struct ActiveTaskEntry: TimelineEntry {
         activeTasks: [ActiveTaskWidgetModel] = [],
         tasks: [TaskItemWidgetModel] = [],
         selectedTaskId: String? = nil,
-        currentPage: Int = 0
+        currentPage: Int = 0,
+        isSleepMode: Bool = false,
+        bedtime: String? = nil,
+        wakeTime: String? = nil,
+        sleepPhaseIndex: Int = 1,
+        sleepPhaseCount: Int = 1,
+        isAwakeBetweenPhases: Bool = false
     ) {
         self.date = date
         self.activeTasks = activeTasks
         self.tasks = tasks
         self.selectedTaskId = selectedTaskId
         self.currentPage = currentPage
+        self.isSleepMode = isSleepMode
+        self.bedtime = bedtime
+        self.wakeTime = wakeTime
+        self.sleepPhaseIndex = sleepPhaseIndex
+        self.sleepPhaseCount = sleepPhaseCount
+        self.isAwakeBetweenPhases = isAwakeBetweenPhases
     }
 }
 
 // MARK: - 2. Provider de données
 struct Provider: TimelineProvider {
+    private func fetchSleepState() -> (isSleepMode: Bool, bedtime: String?, wakeTime: String?, phaseIndex: Int, phaseCount: Int, isAwake: Bool) {
+        let suite = UserDefaults(suiteName: "group.com.mytrack.app") ?? UserDefaults.standard
+        let isActive = suite.bool(forKey: "mytrack_sleep_is_active")
+        let isAwake = suite.bool(forKey: "mytrack_sleep_is_awake_between_phases")
+        let currentBedtime = suite.string(forKey: "mytrack_sleep_current_bedtime")
+        let currentWakeTime = suite.string(forKey: "mytrack_sleep_current_wake_time")
+        let phaseIndex = max(1, suite.integer(forKey: "mytrack_sleep_phase_index"))
+
+        var sessionCount = 0
+        if let raw = suite.string(forKey: "mytrack_sleep_sessions"),
+           let data = raw.data(using: .utf8),
+           let list = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
+            sessionCount = list.count
+        }
+
+        // Fenêtre de sommeil 23h - 12h (ou après 12h si non réveillé)
+        let calendar = Calendar.current
+        let hour = calendar.component(.hour, from: Date())
+        let isInSleepWindow = hour >= 23 || hour < 12
+
+        // Si le sommeil est actif, ou si entre deux phases, ou si dans la fenêtre 23h-12h
+        let shouldShowSleep = isActive || isAwake || isInSleepWindow
+
+        return (
+            isSleepMode: shouldShowSleep,
+            bedtime: currentBedtime ?? "23:00",
+            wakeTime: currentWakeTime,
+            phaseIndex: phaseIndex,
+            phaseCount: max(phaseIndex, sessionCount),
+            isAwake: isAwake
+        )
+    }
+
     private func fetchLocalActiveTasks(tasks: [TaskItemWidgetModel]) -> [ActiveTaskWidgetModel] {
         var activeList: [ActiveTaskWidgetModel] = []
 
@@ -192,7 +243,8 @@ struct Provider: TimelineProvider {
             activeTasks: [],
             tasks: [],
             selectedTaskId: nil,
-            currentPage: 0
+            currentPage: 0,
+            isSleepMode: false
         )
     }
 
@@ -201,13 +253,20 @@ struct Provider: TimelineProvider {
         let page = getCurrentPage()
         let localTasks = fetchLocalTasksList()
         let localActives = fetchLocalActiveTasks(tasks: localTasks)
+        let sleep = fetchSleepState()
 
         let entry = ActiveTaskEntry(
             date: Date(),
             activeTasks: localActives,
             tasks: localTasks,
             selectedTaskId: selectedId,
-            currentPage: page
+            currentPage: page,
+            isSleepMode: sleep.isSleepMode,
+            bedtime: sleep.bedtime,
+            wakeTime: sleep.wakeTime,
+            sleepPhaseIndex: sleep.phaseIndex,
+            sleepPhaseCount: sleep.phaseCount,
+            isAwakeBetweenPhases: sleep.isAwake
         )
         completion(entry)
     }
@@ -217,13 +276,20 @@ struct Provider: TimelineProvider {
         let page = getCurrentPage()
         let localTasks = fetchLocalTasksList()
         let localActives = fetchLocalActiveTasks(tasks: localTasks)
+        let sleep = fetchSleepState()
 
         let entry = ActiveTaskEntry(
             date: Date(),
             activeTasks: localActives,
             tasks: localTasks,
             selectedTaskId: selectedId,
-            currentPage: page
+            currentPage: page,
+            isSleepMode: sleep.isSleepMode,
+            bedtime: sleep.bedtime,
+            wakeTime: sleep.wakeTime,
+            sleepPhaseIndex: sleep.phaseIndex,
+            sleepPhaseCount: sleep.phaseCount,
+            isAwakeBetweenPhases: sleep.isAwake
         )
 
         // Rafraîchissement régulier toutes les 5 minutes (ou instantané lors des AppIntents)
@@ -292,8 +358,17 @@ struct MyTrackWidgetEntryView: View {
                 } else {
                     SmallActiveTaskView(task: singleActive, brandNeon: brandNeon, darkBg: darkBg)
                 }
+            } else if entry.isSleepMode {
+                // MODE SOMMEIL DÉTECTÉ (23h - 12h ou Sommeil actif)
+                if family == .systemLarge {
+                    LargeSleepWidgetView(entry: entry, brandNeon: brandNeon, darkBg: darkBg)
+                } else if family == .systemMedium {
+                    MediumSleepWidgetView(entry: entry, brandNeon: brandNeon, darkBg: darkBg)
+                } else {
+                    SmallSleepWidgetView(entry: entry, brandNeon: brandNeon, darkBg: darkBg)
+                }
             } else {
-                // Aucune tâche active -> Liste des tâches avec barre de saisie
+                // Aucune tâche active et hors sommeil -> Liste des tâches avec barre de saisie
                 if family == .systemLarge {
                     LargeTasksListWidgetView(
                         tasks: entry.tasks,
@@ -325,6 +400,8 @@ struct MyTrackWidgetEntryView: View {
                 Color.clear
             } else if !entry.activeTasks.isEmpty {
                 brandNeon
+            } else if entry.isSleepMode {
+                Color(red: 0.08, green: 0.09, blue: 0.13)
             } else {
                 darkBg
             }
@@ -338,6 +415,7 @@ struct LockScreenAccessoryRectangularView: View {
     let entry: ActiveTaskEntry
     let brandNeon: Color
     let darkBg: Color
+    let sleepIndigo = Color(red: 0.38, green: 0.45, blue: 0.98)
 
     var body: some View {
         if let active = entry.activeTasks.first {
@@ -362,6 +440,33 @@ struct LockScreenAccessoryRectangularView: View {
                         .font(.system(size: 11, weight: .semibold, design: .monospaced))
                 }
             }
+        } else if entry.isSleepMode {
+            // Mode Sommeil sur Écran Verrouillé
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 4) {
+                    Image(systemName: "moon.stars.fill")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(sleepIndigo)
+                    Text("Mode Sommeil")
+                        .font(.system(size: 12, weight: .bold))
+                        .lineLimit(1)
+                }
+
+                if let bTime = entry.bedtime {
+                    Text("Couché : \(bTime)")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(.secondary)
+                }
+
+                if let wTime = entry.wakeTime {
+                    Text("Réveil : \(wTime)")
+                        .font(.system(size: 10, weight: .semibold))
+                } else {
+                    Text("En sommeil...")
+                        .font(.system(size: 9.5))
+                        .foregroundColor(.secondary)
+                }
+            }
         } else {
             // Mode Inactif sur Écran Verrouillé : Input / Ajouter + Prochaine tâche sur la liste
             Link(destination: URL(string: "mytrack://tasks?action=new-task")!) {
@@ -382,6 +487,404 @@ struct LockScreenAccessoryRectangularView: View {
                         HStack(spacing: 3) {
                             Text("📋")
                                 .font(.system(size: 9))
+                            Text(nextTask.title)
+                                .font(.system(size: 10.5, weight: .medium))
+                                .lineLimit(1)
+                        }
+                    } else {
+                        Text("🎉 Toutes terminées")
+                            .font(.system(size: 9.5))
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+        }
+    }
+}
+
+struct LockScreenAccessoryInlineView: View {
+    let entry: ActiveTaskEntry
+
+    var body: some View {
+        if let active = entry.activeTasks.first {
+            Text("⏱ \(active.taskTitle)")
+        } else if entry.isSleepMode {
+            if let bTime = entry.bedtime {
+                Text("🌙 Sommeil • Couché \(bTime)")
+            } else {
+                Text("🌙 Mode Sommeil")
+            }
+        } else if let nextTask = entry.tasks.first(where: { $0.isCompleted != true }) {
+            Text("📋 \(nextTask.title)")
+        } else {
+            Text("myTrack • + Ajouter tâche")
+        }
+    }
+}
+
+struct LockScreenAccessoryCircularView: View {
+    let entry: ActiveTaskEntry
+    let brandNeon: Color
+    let darkBg: Color
+
+    var body: some View {
+        if let active = entry.activeTasks.first {
+            Link(destination: URL(string: "mytrack://tasks")!) {
+                ZStack {
+                    AccessoryWidgetBackground()
+                    VStack(spacing: 1) {
+                        Image(systemName: "timer")
+                            .font(.system(size: 13, weight: .bold))
+                        Text(active.taskTitle)
+                            .font(.system(size: 8, weight: .bold))
+                            .lineLimit(1)
+                    }
+                }
+            }
+        } else if entry.isSleepMode {
+            Link(destination: URL(string: "mytrack://sleep")!) {
+                ZStack {
+                    AccessoryWidgetBackground()
+                    VStack(spacing: 1) {
+                        Image(systemName: "moon.stars.fill")
+                            .font(.system(size: 13, weight: .bold))
+                        Text("Sommeil")
+                            .font(.system(size: 7.5, weight: .bold))
+                    }
+                }
+            }
+        } else {
+            Link(destination: URL(string: "mytrack://tasks?action=new-task")!) {
+                ZStack {
+                    AccessoryWidgetBackground()
+                    Image(systemName: "plus")
+                        .font(.system(size: 16, weight: .heavy))
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Sleep Mode Widget Views
+
+struct MediumSleepWidgetView: View {
+    let entry: ActiveTaskEntry
+    let brandNeon: Color
+    let darkBg: Color
+    let sleepIndigo = Color(red: 0.38, green: 0.45, blue: 0.98) // #6173FA
+
+    var body: some View {
+        let phaseIdx = entry.sleepPhaseIndex
+        let isAwake = entry.isAwakeBetweenPhases
+
+        VStack(alignment: .leading, spacing: 9) {
+            // Header
+            HStack(alignment: .center, spacing: 8) {
+                Link(destination: URL(string: "mytrack://sleep")!) {
+                    HStack(spacing: 6) {
+                        ZStack {
+                            Circle()
+                                .fill(sleepIndigo.opacity(0.25))
+                                .frame(width: 26, height: 26)
+                            Image(systemName: isAwake ? "sun.haze.fill" : "moon.stars.fill")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundColor(isAwake ? brandNeon : sleepIndigo)
+                        }
+
+                        VStack(alignment: .leading, spacing: 1) {
+                            HStack(spacing: 4) {
+                                Text("Mode Sommeil")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(.white)
+
+                                if phaseIdx > 1 {
+                                    Text("Phase \(phaseIdx)")
+                                        .font(.system(size: 9, weight: .heavy))
+                                        .foregroundColor(sleepIndigo)
+                                        .padding(.horizontal, 5)
+                                        .padding(.vertical, 1)
+                                        .background(sleepIndigo.opacity(0.2))
+                                        .clipShape(Capsule())
+                                }
+                            }
+
+                            Text(isAwake ? "Réveillé • Prêt pour 2nd dodo" : "Enregistrement du sommeil")
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundColor(Color.gray)
+                        }
+                    }
+                }
+
+                Spacer()
+
+                if let bTime = entry.bedtime {
+                    HStack(spacing: 4) {
+                        Image(systemName: "bed.double.fill")
+                            .font(.system(size: 10))
+                        Text(bTime)
+                            .font(.system(size: 12, weight: .bold, design: .rounded))
+                    }
+                    .foregroundColor(sleepIndigo)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.white.opacity(0.08))
+                    .cornerRadius(8)
+                }
+            }
+
+            Spacer(minLength: 2)
+
+            // 2 Boutons Interactifs
+            HStack(spacing: 8) {
+                Button(intent: SleepStartNowIntent()) {
+                    HStack(spacing: 5) {
+                        Image(systemName: "bed.double.fill")
+                            .font(.system(size: 11, weight: .bold))
+                        Text(phaseIdx > 1 && isAwake ? "2nd Couché" : "Je me couche")
+                            .font(.system(size: 12, weight: .bold))
+                            .lineLimit(1)
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 9)
+                    .background(sleepIndigo.opacity(0.9))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .shadow(color: sleepIndigo.opacity(0.3), radius: 2, x: 0, y: 1)
+                }
+                .buttonStyle(.plain)
+
+                Button(intent: SleepWakeNowIntent()) {
+                    HStack(spacing: 5) {
+                        Image(systemName: "sun.max.fill")
+                            .font(.system(size: 11, weight: .bold))
+                        Text("Je me réveille")
+                            .font(.system(size: 12, weight: .bold))
+                            .lineLimit(1)
+                    }
+                    .foregroundColor(Color(red: 0.07, green: 0.07, blue: 0.08))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 9)
+                    .background(brandNeon)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .shadow(color: brandNeon.opacity(0.25), radius: 2, x: 0, y: 1)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(13)
+    }
+}
+
+struct LargeSleepWidgetView: View {
+    let entry: ActiveTaskEntry
+    let brandNeon: Color
+    let darkBg: Color
+    let sleepIndigo = Color(red: 0.38, green: 0.45, blue: 0.98) // #6173FA
+
+    var body: some View {
+        let phaseIdx = entry.sleepPhaseIndex
+        let isAwake = entry.isAwakeBetweenPhases
+
+        VStack(alignment: .leading, spacing: 12) {
+            // Header
+            HStack(spacing: 8) {
+                Link(destination: URL(string: "mytrack://sleep")!) {
+                    HStack(spacing: 6) {
+                        AppLogoView(size: 20)
+                        Text("myTrack")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(.white)
+                    }
+                }
+
+                Text("• Mode Sommeil")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(Color(white: 0.75))
+
+                Spacer()
+
+                if phaseIdx > 1 {
+                    Text("Phase \(phaseIdx)")
+                        .font(.system(size: 10, weight: .heavy))
+                        .foregroundColor(sleepIndigo)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
+                        .background(sleepIndigo.opacity(0.2))
+                        .clipShape(Capsule())
+                }
+            }
+
+            // Card statut
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    ZStack {
+                        Circle()
+                            .fill(sleepIndigo.opacity(0.25))
+                            .frame(width: 32, height: 32)
+                        Image(systemName: isAwake ? "sun.haze.fill" : "moon.stars.fill")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(isAwake ? brandNeon : sleepIndigo)
+                    }
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(isAwake ? "Phase \(phaseIdx) terminée" : "Sommeil en cours")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(.white)
+
+                        Text(isAwake ? "Vous pouvez vous recoucher ou vous lever" : "Bonne nuit ! Vos cycles sont suivis automatiquement")
+                            .font(.system(size: 11))
+                            .foregroundColor(Color.gray)
+                    }
+                }
+
+                Divider()
+                    .background(Color.white.opacity(0.1))
+
+                HStack {
+                    if let bTime = entry.bedtime {
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("Couché")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundColor(Color.gray)
+                            Text(bTime)
+                                .font(.system(size: 14, weight: .bold, design: .rounded))
+                                .foregroundColor(sleepIndigo)
+                        }
+                    }
+
+                    Spacer()
+
+                    if let wTime = entry.wakeTime {
+                        VStack(alignment: .trailing, spacing: 1) {
+                            Text("Dernier réveil")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundColor(Color.gray)
+                            Text(wTime)
+                                .font(.system(size: 14, weight: .bold, design: .rounded))
+                                .foregroundColor(brandNeon)
+                        }
+                    } else {
+                        VStack(alignment: .trailing, spacing: 1) {
+                            Text("Statut")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundColor(Color.gray)
+                            Text("En sommeil")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundColor(brandNeon)
+                        }
+                    }
+                }
+            }
+            .padding(12)
+            .background(Color.white.opacity(0.06))
+            .cornerRadius(14)
+
+            Spacer()
+
+            // 2 Boutons Interactifs
+            VStack(spacing: 8) {
+                Button(intent: SleepStartNowIntent()) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "bed.double.fill")
+                            .font(.system(size: 12, weight: .bold))
+                        Text(phaseIdx > 1 && isAwake ? "Je me recouche maintenant (Phase \(phaseIdx + 1))" : "Je me couche maintenant")
+                            .font(.system(size: 13, weight: .bold))
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 11)
+                    .background(sleepIndigo.opacity(0.9))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .shadow(color: sleepIndigo.opacity(0.3), radius: 3, x: 0, y: 1)
+                }
+                .buttonStyle(.plain)
+
+                Button(intent: SleepWakeNowIntent()) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "sun.max.fill")
+                            .font(.system(size: 12, weight: .bold))
+                        Text("Je me réveille maintenant")
+                            .font(.system(size: 13, weight: .bold))
+                    }
+                    .foregroundColor(Color(red: 0.07, green: 0.07, blue: 0.08))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 11)
+                    .background(brandNeon)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .shadow(color: brandNeon.opacity(0.25), radius: 3, x: 0, y: 1)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(13)
+    }
+}
+
+struct SmallSleepWidgetView: View {
+    let entry: ActiveTaskEntry
+    let brandNeon: Color
+    let darkBg: Color
+    let sleepIndigo = Color(red: 0.38, green: 0.45, blue: 0.98) // #6173FA
+
+    var body: some View {
+        let isAwake = entry.isAwakeBetweenPhases
+
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 4) {
+                Image(systemName: isAwake ? "sun.haze.fill" : "moon.stars.fill")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(isAwake ? brandNeon : sleepIndigo)
+
+                Text("Sommeil")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(.white)
+
+                Spacer()
+
+                if let bTime = entry.bedtime {
+                    Text(bTime)
+                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                        .foregroundColor(sleepIndigo)
+                }
+            }
+
+            Spacer()
+
+            VStack(spacing: 6) {
+                Button(intent: SleepStartNowIntent()) {
+                    HStack(spacing: 3) {
+                        Image(systemName: "bed.double.fill")
+                            .font(.system(size: 9, weight: .bold))
+                        Text("Coucher")
+                            .font(.system(size: 10.5, weight: .bold))
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 5)
+                    .background(sleepIndigo.opacity(0.85))
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+
+                Button(intent: SleepWakeNowIntent()) {
+                    HStack(spacing: 3) {
+                        Image(systemName: "sun.max.fill")
+                            .font(.system(size: 9, weight: .bold))
+                        Text("Réveil")
+                            .font(.system(size: 10.5, weight: .bold))
+                    }
+                    .foregroundColor(Color(red: 0.07, green: 0.07, blue: 0.08))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 5)
+                    .background(brandNeon)
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(10)
+    }
+}
                             Text(nextTask.title)
                                 .font(.system(size: 10.5, weight: .medium))
                                 .lineLimit(1)

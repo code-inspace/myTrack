@@ -4,7 +4,7 @@ import ActivityKit
 // MARK: - Structure de données partagée pour l'Activité en Direct
 public struct TaskActivityAttributes: ActivityAttributes {
     public struct ContentState: Codable, Hashable {
-        public var currentStatus: String // "IN_PROGRESS", "PAUSED", "COMPLETED"
+        public var currentStatus: String // "IN_PROGRESS", "PAUSED", "COMPLETED", "STANDBY", "SLEEP", "SLEEP_AWAKE"
         public var startedAtTimestamp: Double // UNIX timestamp en secondes
         public var elapsedSeconds: Int
         public var targetDurationSeconds: Int?
@@ -16,6 +16,14 @@ public struct TaskActivityAttributes: ActivityAttributes {
         public var nextTaskTitle: String?
         public var nextTaskCategory: String?
 
+        // Sleep Mode specific fields
+        public var isSleepMode: Bool?
+        public var bedtime: String?
+        public var wakeTime: String?
+        public var sleepPhaseIndex: Int?
+        public var sleepPhaseCount: Int?
+        public var isAwakeBetweenPhases: Bool?
+
         public init(
             currentStatus: String = "IN_PROGRESS",
             startedAtTimestamp: Double,
@@ -26,7 +34,13 @@ public struct TaskActivityAttributes: ActivityAttributes {
             progress: Double = 0.0,
             nextTaskId: String? = nil,
             nextTaskTitle: String? = nil,
-            nextTaskCategory: String? = nil
+            nextTaskCategory: String? = nil,
+            isSleepMode: Bool? = false,
+            bedtime: String? = nil,
+            wakeTime: String? = nil,
+            sleepPhaseIndex: Int? = 1,
+            sleepPhaseCount: Int? = 1,
+            isAwakeBetweenPhases: Bool? = false
         ) {
             self.currentStatus = currentStatus
             self.startedAtTimestamp = startedAtTimestamp
@@ -38,6 +52,12 @@ public struct TaskActivityAttributes: ActivityAttributes {
             self.nextTaskId = nextTaskId
             self.nextTaskTitle = nextTaskTitle
             self.nextTaskCategory = nextTaskCategory
+            self.isSleepMode = isSleepMode
+            self.bedtime = bedtime
+            self.wakeTime = wakeTime
+            self.sleepPhaseIndex = sleepPhaseIndex
+            self.sleepPhaseCount = sleepPhaseCount
+            self.isAwakeBetweenPhases = isAwakeBetweenPhases
         }
     }
 

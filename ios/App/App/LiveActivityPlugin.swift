@@ -14,6 +14,7 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "getActiveTask", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "syncTasks", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "syncStandby", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "syncSleepMode", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "checkAuthorization", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "openSettings", returnType: CAPPluginReturnPromise)
     ]
@@ -560,6 +561,98 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
             print("[LiveActivityPlugin] Standby Live Activity request failed: \(error.localizedDescription)")
             call.resolve(["success": false, "error": error.localizedDescription])
         }
+    }
+
+    @objc func syncSleepMode(_ call: CAPPluginCall) {
+        let isActive = call.getBool("isActive") ?? false
+        let bedtime = call.getString("bedtime") ?? "23:00"
+        let wakeTime = call.getString("wakeTime")
+        let phaseIndex = call.getInt("phaseIndex") ?? 1
+        let startedAtTimestamp = call.getDouble("startedAtTimestamp") ?? Date().timeIntervalSince1970
+
+        let suite = UserDefaults(suiteName: "group.com.mytrack.app") ?? UserDefaults.standard
+        suite.set(isActive, forKey: "mytrack_sleep_is_active")
+        UserDefaults.standard.set(isActive, forKey: "mytrack_sleep_is_active")
+        suite.set(bedtime, forKey: "mytrack_sleep_current_bedtime")
+        UserDefaults.standard.set(bedtime, forKey: "mytrack_sleep_current_bedtime")
+        if let w = wakeTime {
+            suite.set(w, forKey: "mytrack_sleep_current_wake_time")
+            UserDefaults.standard.set(w, forKey: "mytrack_sleep_current_wake_time")
+        } else {
+            suite.removeObject(forKey: "mytrack_sleep_current_wake_time")
+            UserDefaults.standard.removeObject(forKey: "mytrack_sleep_current_wake_time")
+        }
+        suite.set(phaseIndex, forKey: "mytrack_sleep_phase_index")
+        UserDefaults.standard.set(phaseIndex, forKey: "mytrack_sleep_phase_index")
+        suite.set(startedAtTimestamp, forKey: "mytrack_sleep_started_timestamp")
+        UserDefaults.standard.set(startedAtTimestamp, forKey: "mytrack_sleep_started_timestamp")
+
+        if let sessionsArray = call.getArray("sessions") as? [[String: Any]],
+           let data = try? JSONSerialization.data(withJSONObject: sessionsArray),
+           let jsonStr = String(data: data, encoding: .utf8) {
+            suite.set(jsonStr, forKey: "mytrack_sleep_sessions")
+            UserDefaults.standard.set(jsonStr, forKey: "mytrack_sleep_sessions")
+        }
+
+        // Mettre à jour ou lancer la Live Activity Sommeil
+        if #available(iOS 16.2, *) {
+            if isActive {
+                let sleepActivities = Activity<TaskActivityAttributes>.activities.filter { $0.attributes.taskId == "sleep" }
+                let contentState = TaskActivityAttributes.ContentState(
+                    currentStatus: "SLEEP",
+                    startedAtTimestamp: startedAtTimestamp,
+                    elapsedSeconds: 0,
+                    subtitle: phaseIndex > 1 ? "Phase de sommeil \(phaseIndex)" : "En sommeil",
+                    isSleepMode: true,
+                    bedtime: bedtime,
+                    wakeTime: wakeTime,
+                    sleepPhaseIndex: phaseIndex,
+                    sleepPhaseCount: phaseIndex,
+                    isAwakeBetweenPhases: false
+                )
+
+                if let existing = sleepActivities.first {
+                    Task {
+                        await existing.update(.init(state: contentState, staleDate: nil))
+                    }
+                } else {
+                    let attributes = TaskActivityAttributes(
+                        taskId: "sleep",
+                        taskTitle: "Mode Sommeil",
+                        category: "Sommeil"
+                    )
+                    _ = try? Activity<TaskActivityAttributes>.request(
+                        attributes: attributes,
+                        content: .init(state: contentState, staleDate: nil),
+                        pushType: nil
+                    )
+                }
+            } else {
+                // Si réveil en cours de nuit mais phase terminée
+                if let w = wakeTime {
+                    for activity in Activity<TaskActivityAttributes>.activities.filter({ $0.attributes.taskId == "sleep" }) {
+                        Task {
+                            let contentState = TaskActivityAttributes.ContentState(
+                                currentStatus: "SLEEP_AWAKE",
+                                startedAtTimestamp: startedAtTimestamp,
+                                elapsedSeconds: 0,
+                                subtitle: "Réveillé à \(w) • Phase \(phaseIndex) terminée",
+                                isSleepMode: true,
+                                bedtime: bedtime,
+                                wakeTime: w,
+                                sleepPhaseIndex: phaseIndex,
+                                sleepPhaseCount: phaseIndex,
+                                isAwakeBetweenPhases: true
+                            )
+                            await activity.update(.init(state: contentState, staleDate: nil))
+                        }
+                    }
+                }
+            }
+        }
+
+        WidgetCenter.shared.reloadAllTimelines()
+        call.resolve(["success": true])
     }
 
     @objc func checkAuthorization(_ call: CAPPluginCall) {

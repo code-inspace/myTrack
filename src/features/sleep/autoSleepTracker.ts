@@ -28,6 +28,8 @@ export const SLEEP_CONFIG = {
   MAX_SLEEP_MINUTES: 1080, // 18 hours
 };
 
+import { LiveActivityBridge } from "@/lib/native/liveActivity";
+
 /**
  * Records when the app goes into the background or is closed.
  */
@@ -42,14 +44,14 @@ export function recordAppBackground(now: Date = new Date()): void {
   }
 
   const hour = now.getHours();
-  // ONLY set candidate bedtime if closed during the nighttime window (>= 20:00 or < 06:00)
-  // Closing the app during daytime (06:00 - 19:59) is normal daytime phone usage and must NOT set bedtime
-  if (hour < 20 && hour >= 6) {
+  // ONLY set candidate bedtime if closed during the nighttime window (>= 23:00 or < 12:00)
+  // Closing the app during daytime (12:00 - 22:59) is daytime phone usage
+  if (hour < 23 && hour >= 12) {
     return;
   }
 
   const timeStr = `${String(hour).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-  const dateStr = hour < 6
+  const dateStr = hour < 12
     ? format(subDays(now, 1), "yyyy-MM-dd")
     : format(now, "yyyy-MM-dd");
 
@@ -62,6 +64,13 @@ export function recordAppBackground(now: Date = new Date()): void {
       });
       console.log(`[AutoSleepTracker] Candidate bedtime set to ${timeStr} for night of ${dateStr}`);
     }
+
+    // Synchroniser avec la Live Activity & le Widget natif
+    LiveActivityBridge.syncSleepMode({
+      isActive: true,
+      bedtime: timeStr,
+      startedAtTimestamp: now.getTime() / 1000,
+    });
   } catch {}
 }
 
@@ -90,13 +99,13 @@ export function processAppForeground(now: Date = new Date()): AutoSleepDetection
     const closedDate = parseISO(lastClosedIso);
     const minutesDiff = differenceInMinutes(now, closedDate);
 
-    // 1. MAIN SLEEP DETECTION (Absence between 3h and 18h during night/morning window)
+    // 1. MAIN SLEEP DETECTION (Absence between 3h and 18h during 23h-12h window)
     if (minutesDiff >= SLEEP_CONFIG.MIN_SLEEP_MINUTES && minutesDiff <= SLEEP_CONFIG.MAX_SLEEP_MINUTES) {
       const closedHour = closedDate.getHours();
       const openHour = now.getHours();
 
-      // Only count as overnight sleep if it started during evening/night (>= 20h or < 6h) or woke up in morning (< 14h)
-      const isNightSleep = closedHour >= 20 || closedHour < 6 || openHour < 14;
+      // Only count as overnight sleep if it started during evening/night (>= 20h or < 6h) or morning wake (< 14h)
+      const isNightSleep = closedHour >= 20 || closedHour < 6 || (closedHour < 12 && openHour <= 12);
       if (!isNightSleep) {
         return {
           detected: false,
@@ -104,7 +113,7 @@ export function processAppForeground(now: Date = new Date()): AutoSleepDetection
         };
       }
 
-      const bedtimeDateStr = closedHour < 6
+      const bedtimeDateStr = closedHour < 12
         ? format(subDays(closedDate, 1), "yyyy-MM-dd")
         : format(closedDate, "yyyy-MM-dd");
 
@@ -143,6 +152,14 @@ export function processAppForeground(now: Date = new Date()): AutoSleepDetection
           },
         })
       );
+
+      // Synchroniser l'état réveillé avec les Live Activities
+      LiveActivityBridge.syncSleepMode({
+        isActive: false,
+        bedtime: bedtimeStr,
+        wakeTime: wakeTimeStr,
+        startedAtTimestamp: now.getTime() / 1000,
+      });
 
       console.log(
         `[AutoSleepTracker] Sleep detected: Bedtime ${bedtimeStr} (${bedtimeDateStr}) -> WakeTime ${wakeTimeStr} (${todayStr}), Duration: ${Math.floor(minutesDiff / 60)}h${minutesDiff % 60}m`

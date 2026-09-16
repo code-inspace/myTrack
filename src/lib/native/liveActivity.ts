@@ -42,6 +42,20 @@ interface LiveActivityPluginInterface {
     nextTaskTitle?: string;
     nextTaskCategory?: string;
   }): Promise<{ success: boolean }>;
+  syncSleepMode(options: {
+    isActive: boolean;
+    bedtime: string;
+    wakeTime?: string;
+    phaseIndex?: number;
+    startedAtTimestamp?: number;
+    sessions?: Array<{
+      id: string;
+      phaseIndex: number;
+      startTime: string;
+      endTime?: string | null;
+      timestamp: number;
+    }>;
+  }): Promise<{ success: boolean }>;
   checkAuthorization(): Promise<{ enabled: boolean; frequentUpdatesEnabled: boolean; supported: boolean; reason?: string }>;
   openSettings(): Promise<{ success: boolean }>;
 }
@@ -207,6 +221,29 @@ export const LiveActivityBridge = {
       });
     } catch (err) {
       console.warn("[LiveActivity] syncStandby error:", err);
+    }
+  },
+
+  async syncSleepMode(options: {
+    isActive: boolean;
+    bedtime: string;
+    wakeTime?: string;
+    phaseIndex?: number;
+    startedAtTimestamp?: number;
+    sessions?: Array<{
+      id: string;
+      phaseIndex: number;
+      startTime: string;
+      endTime?: string | null;
+      timestamp: number;
+    }>;
+  }): Promise<void> {
+    if (!this.isSupported()) return;
+
+    try {
+      await NativeLiveActivity.syncSleepMode(options);
+    } catch (err) {
+      console.warn("[LiveActivity] syncSleepMode error:", err);
     }
   },
 };
