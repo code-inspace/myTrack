@@ -193,7 +193,9 @@ export const LiveActivityBridge = {
           t.targetFormattedDuration ||
           (t.targetValue ? `${t.targetValue} ${t.unit || "min"}` : undefined),
         isHabit: t.isHabit ?? false,
-        color: t.color || t.calendarColor || "#D4F63D",
+        color: t.projectColor || t.color || t.calendarColor || "#D4F63D",
+        projectColor: t.projectColor || null,
+        projectName: t.projectName || null,
         isCompleted: Boolean(
           t.isCompletedToday || t.completion?.completed || t.isCompleted
         ),

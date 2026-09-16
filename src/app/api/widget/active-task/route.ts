@@ -53,6 +53,16 @@ export async function GET(_req: NextRequest) {
     const targetVal = row.target_value ? Number(row.target_value) : null;
     const durationStr = targetVal ? `${targetVal} ${row.unit || "min"}` : undefined;
 
+    let projectInfo: { name: string; color: string } | null = null;
+    if (row.project_id) {
+      const { data: pData } = await supabase
+        .from("projects")
+        .select("name, color")
+        .eq("id", row.project_id)
+        .maybeSingle();
+      if (pData) projectInfo = pData;
+    }
+
     return NextResponse.json({
       active: true,
       task: {
@@ -62,6 +72,10 @@ export async function GET(_req: NextRequest) {
         subtitle: description || row.category || "En cours",
         startedAtTimestamp,
         totalFormattedDuration: durationStr,
+        projectId: row.project_id || null,
+        projectName: projectInfo?.name || null,
+        projectColor: projectInfo?.color || null,
+        color: projectInfo?.color || row.color || "#D4F63D",
       },
     }, {
       headers: { "Cache-Control": "no-store, max-age=0" }

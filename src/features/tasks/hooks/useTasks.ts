@@ -20,6 +20,7 @@ import { createClient } from "@/utils/supabase/client";
 import { parseISO } from "date-fns";
 import { LiveActivityBridge } from "@/lib/native/liveActivity";
 import { getStoredExternalEvents } from "@/features/calendar/actions/storage";
+import { getStoredProjects } from "@/features/projects/actions";
 
 export function useTasks(selectedDateStr: string) {
   const queryClient = useQueryClient();
@@ -243,18 +244,27 @@ export function useTasks(selectedDateStr: string) {
 
   useEffect(() => {
     if (sortedTasks) {
-      const mappedActiveTasks = activeTasksList.map((t) => ({
-        taskId: t.id,
-        taskTitle: t.title || "Tâche en cours",
-        category: t.tag || t.category || "myTrack",
-        subtitle: t.description || t.category || "En cours",
-        startedAtTimestamp: t.startedAt
-          ? Math.floor(new Date(t.startedAt).getTime() / 1000)
-          : Math.floor(Date.now() / 1000),
-        totalFormattedDuration: t.targetValue
-          ? `${t.targetValue} ${t.unit || "min"}`
-          : undefined,
-      }));
+      const projects = getStoredProjects(userId);
+      const projectMap = new Map(projects.map((p) => [p.id, p]));
+
+      const mappedActiveTasks = activeTasksList.map((t) => {
+        const project = t.projectId ? projectMap.get(t.projectId) : null;
+        return {
+          taskId: t.id,
+          taskTitle: t.title || "Tâche en cours",
+          category: t.tag || t.category || "myTrack",
+          subtitle: t.description || t.category || "En cours",
+          startedAtTimestamp: t.startedAt
+            ? Math.floor(new Date(t.startedAt).getTime() / 1000)
+            : Math.floor(Date.now() / 1000),
+          totalFormattedDuration: t.targetValue
+            ? `${t.targetValue} ${t.unit || "min"}`
+            : undefined,
+          color: project?.color || "#D4F63D",
+          projectName: project?.name,
+          projectColor: project?.color,
+        };
+      });
 
       // Récupérer les événements externes stockés pour aujourd'hui (Apple / Google / ICS / CalDAV)
       const todayDate = getTodayDateString();
@@ -264,6 +274,7 @@ export function useTasks(selectedDateStr: string) {
       );
 
       const mappedExternalEvents = todayExternalEvents.map((evt) => {
+        const project = evt.projectId ? projectMap.get(evt.projectId) : null;
         const timeLabel = evt.isAllDay
           ? "Toute la journée"
           : evt.startTime && evt.endTime
@@ -278,14 +289,26 @@ export function useTasks(selectedDateStr: string) {
           targetFormattedDuration: timeLabel,
           isHabit: false,
           isExternal: true,
-          color: evt.calendarColor || "#3B82F6",
+          color: project?.color || evt.calendarColor || "#3B82F6",
           startTime: evt.startTime || null,
           isCompletedToday: false,
+          projectName: project?.name,
+          projectColor: project?.color,
+        };
+      });
+
+      const mappedTasks = sortedTasks.map((t) => {
+        const project = t.projectId ? projectMap.get(t.projectId) : null;
+        return {
+          ...t,
+          color: project?.color || undefined,
+          projectColor: project?.color || undefined,
+          projectName: project?.name || undefined,
         };
       });
 
       // Synchroniser l'ensemble des items (événements d'agenda + tâches)
-      const allWidgetItems = [...mappedExternalEvents, ...sortedTasks];
+      const allWidgetItems = [...mappedExternalEvents, ...mappedTasks];
 
       LiveActivityBridge.syncTasks(
         allWidgetItems,

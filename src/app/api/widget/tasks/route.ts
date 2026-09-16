@@ -18,17 +18,24 @@ export async function GET(_req: NextRequest) {
   try {
     const supabase = getAdminClient();
     
-    // 1. Fetch active tasks
-    const { data, error } = await supabase
-      .from("tasks")
-      .select("*")
-      .eq("is_archived", false)
-      .order("created_at", { ascending: false })
-      .limit(20);
+    // 1. Fetch active tasks & projects
+    const [{ data: taskRows }, { data: projectRows }] = await Promise.all([
+      supabase
+        .from("tasks")
+        .select("*")
+        .eq("is_archived", false)
+        .order("created_at", { ascending: false })
+        .limit(20),
+      supabase
+        .from("projects")
+        .select("id, name, color"),
+    ]);
 
-    const decryptedTasks = data
+    const projectMap = new Map((projectRows || []).map((p: any) => [p.id, p]));
+
+    const decryptedTasks = taskRows
       ? await Promise.all(
-          data.map(async (row) => {
+          taskRows.map(async (row) => {
             let title = row.title;
             let description = row.description;
 
@@ -43,6 +50,7 @@ export async function GET(_req: NextRequest) {
 
             const targetVal = row.target_value ? Number(row.target_value) : null;
             const durationStr = targetVal ? `${targetVal} ${row.unit || "min"}` : undefined;
+            const project = row.project_id ? projectMap.get(row.project_id) : null;
 
             return {
               id: row.id,
@@ -51,7 +59,10 @@ export async function GET(_req: NextRequest) {
               subtitle: description || row.category || "Routine",
               targetFormattedDuration: durationStr,
               isHabit: row.is_habit ?? false,
-              color: row.color ?? "#D4F63D",
+              color: project?.color || row.color || "#D4F63D",
+              projectId: row.project_id || null,
+              projectName: project?.name || null,
+              projectColor: project?.color || null,
               isExternal: false,
             };
           })

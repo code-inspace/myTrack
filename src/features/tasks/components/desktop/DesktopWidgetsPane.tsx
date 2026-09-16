@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 
 import { ExternalCalendarEvent } from "@/features/calendar/types";
 import { getExternalEventStatus } from "@/features/calendar/lib/status";
+import { useProjects } from "@/features/projects/hooks";
 
 interface UpcomingItem {
   id: string;
@@ -27,6 +28,7 @@ interface UpcomingItem {
   time: string;
   color: string;
   isExternal: boolean;
+  hasProject: boolean;
 }
 
 interface DesktopWidgetsPaneProps {
@@ -50,6 +52,7 @@ export const DesktopWidgetsPane: React.FC<DesktopWidgetsPaneProps> = ({
   onOpenNewTask,
   onSelectTab,
 }) => {
+  const { projects } = useProjects();
   const totalCount = tasks.length;
   const completedCount = tasks.filter((t) => t.isCompletedToday).length;
   const rate = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
@@ -58,28 +61,36 @@ export const DesktopWidgetsPane: React.FC<DesktopWidgetsPaneProps> = ({
   const upcomingTasks = useMemo<UpcomingItem[]>(() => {
     const taskItems: UpcomingItem[] = tasks
       .filter((t) => !t.isCompletedToday && (t.effectiveStartTime || t.startTime))
-      .map((t) => ({
-        id: t.id,
-        title: t.title,
-        time: t.effectiveStartTime || t.startTime || "",
-        color: "#38BDF8",
-        isExternal: false,
-      }));
+      .map((t) => {
+        const project = t.projectId ? projects.find((p) => p.id === t.projectId) : null;
+        return {
+          id: t.id,
+          title: t.title,
+          time: t.effectiveStartTime || t.startTime || "",
+          color: project?.color || "#38BDF8",
+          isExternal: false,
+          hasProject: Boolean(project),
+        };
+      });
 
     const eventItems: UpcomingItem[] = externalEvents
       .filter((e) => getExternalEventStatus(e, selectedDate) !== "DONE" && e.startTime)
-      .map((e) => ({
-        id: e.id,
-        title: e.title,
-        time: e.startTime || "",
-        color: e.calendarColor || "#3B82F6",
-        isExternal: true,
-      }));
+      .map((e) => {
+        const project = e.projectId ? projects.find((p) => p.id === e.projectId) : null;
+        return {
+          id: e.id,
+          title: e.title,
+          time: e.startTime || "",
+          color: project?.color || e.calendarColor || "#3B82F6",
+          isExternal: true,
+          hasProject: Boolean(project),
+        };
+      });
 
     return [...taskItems, ...eventItems]
       .sort((a, b) => a.time.localeCompare(b.time))
       .slice(0, 4);
-  }, [tasks, externalEvents, selectedDate]);
+  }, [tasks, externalEvents, selectedDate, projects]);
 
   // Projects count
   const projectTasks = allTasks.filter((t) => t.projectId && !t.isArchived);
@@ -201,11 +212,22 @@ export const DesktopWidgetsPane: React.FC<DesktopWidgetsPaneProps> = ({
             {upcomingTasks.map((t) => (
               <div
                 key={t.id}
-                className="flex items-center justify-between p-2.5 rounded-2xl bg-[#1C1E26] border border-[#2A2D3A] text-xs hover:border-[#3E4254] transition-all"
+                style={
+                  t.hasProject && t.color
+                    ? {
+                        borderColor: `${t.color}45`,
+                        backgroundColor: `${t.color}0F`,
+                      }
+                    : undefined
+                }
+                className={cn(
+                  "flex items-center justify-between p-2.5 rounded-2xl bg-[#1C1E26] border border-[#2A2D3A] text-xs hover:border-[#3E4254] transition-all",
+                  t.hasProject && "hover:brightness-110"
+                )}
               >
                 <div className="flex items-center gap-2 min-w-0">
                   <div
-                    className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                    className="w-2 h-2 rounded-full flex-shrink-0 shadow-sm"
                     style={{ backgroundColor: t.color }}
                   />
                   <span className="font-medium text-white truncate text-xs">{t.title}</span>

@@ -10,6 +10,35 @@ struct WidgetTaskItem: Identifiable, Codable {
     var isCompleted: Bool
     var startTime: String?
     var isCurrentActive: Bool
+    var projectColor: String?
+    var projectName: String?
+}
+
+// Extension pour parser les codes hexadécimaux (#RRGGBB)
+extension Color {
+    init(hex: String) {
+        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int: UInt64 = 0
+        Scanner(string: hex).scanHexInt64(&int)
+        let a, r, g, b: UInt64
+        switch hex.count {
+        case 3: // RGB (12-bit)
+            (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
+        case 6: // RGB (24-bit)
+            (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
+        case 8: // ARGB (32-bit)
+            (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
+        default:
+            (a, r, g, b) = (255, 212, 246, 61)
+        }
+        self.init(
+            .sRGB,
+            red: Double(r) / 255,
+            green: Double(g) / 255,
+            blue: Double(b) / 255,
+            opacity: Double(a) / 255
+        )
+    }
 }
 
 struct MyTrackWidgetEntry: TimelineEntry {
@@ -25,10 +54,10 @@ struct MyTrackTimelineProvider: TimelineProvider {
     func placeholder(in context: Context) -> MyTrackWidgetEntry {
         MyTrackWidgetEntry(
             date: Date(),
-            activeTask: WidgetTaskItem(id: "1", title: "Séance de sport", category: "Fitness", isCompleted: false, startTime: "09:00", isCurrentActive: true),
+            activeTask: WidgetTaskItem(id: "1", title: "Séance de sport", category: "Fitness", isCompleted: false, startTime: "09:00", isCurrentActive: true, projectColor: "#38BDF8", projectName: "Santé"),
             todayTasks: [
-                WidgetTaskItem(id: "1", title: "Séance de sport", category: "Fitness", isCompleted: false, startTime: "09:00", isCurrentActive: true),
-                WidgetTaskItem(id: "2", title: "Répondre aux emails", category: "Travail", isCompleted: true, startTime: "11:00", isCurrentActive: false),
+                WidgetTaskItem(id: "1", title: "Séance de sport", category: "Fitness", isCompleted: false, startTime: "09:00", isCurrentActive: true, projectColor: "#38BDF8", projectName: "Santé"),
+                WidgetTaskItem(id: "2", title: "Répondre aux emails", category: "Travail", isCompleted: true, startTime: "11:00", isCurrentActive: false, projectColor: "#F97316", projectName: "Pro"),
                 WidgetTaskItem(id: "3", title: "Lecture & Veille", category: "Apprentissage", isCompleted: false, startTime: "18:00", isCurrentActive: false)
             ],
             totalCount: 3,
@@ -135,14 +164,22 @@ struct ActiveTaskView: View {
             HStack {
                 HStack(spacing: 5) {
                     Circle()
-                        .fill(brandNeon)
+                        .fill(task.projectColor != nil ? Color(hex: task.projectColor!) : brandNeon)
                         .frame(width: 8, height: 8)
                     Text("EN COURS")
                         .font(.system(size: 10, weight: .black, design: .monospaced))
-                        .foregroundColor(brandNeon)
+                        .foregroundColor(task.projectColor != nil ? Color(hex: task.projectColor!) : brandNeon)
                 }
                 Spacer()
-                if let cat = task.category {
+                if let pName = task.projectName, let pColor = task.projectColor {
+                    Text(pName)
+                        .font(.system(size: 10, weight: .bold))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color(hex: pColor).opacity(0.2))
+                        .foregroundColor(Color(hex: pColor))
+                        .cornerRadius(6)
+                } else if let cat = task.category {
                     Text(cat)
                         .font(.system(size: 10, weight: .bold))
                         .padding(.horizontal, 6)
@@ -165,14 +202,14 @@ struct ActiveTaskView: View {
             HStack {
                 Text(Date(), style: .timer)
                     .font(.system(size: 22, weight: .heavy, design: .monospaced))
-                    .foregroundColor(brandNeon)
+                    .foregroundColor(task.projectColor != nil ? Color(hex: task.projectColor!) : brandNeon)
 
                 Spacer()
 
                 Link(destination: URL(string: "mytrack://complete-task?id=\(task.id)")!) {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.title2)
-                        .foregroundColor(brandNeon)
+                        .foregroundColor(task.projectColor != nil ? Color(hex: task.projectColor!) : brandNeon)
                 }
             }
         }
@@ -211,18 +248,26 @@ struct TodayTasksListView: View {
                         .padding(.vertical, 6)
                 } else {
                     ForEach(entry.todayTasks.prefix(maxItems)) { item in
+                        let itemAccent = item.projectColor != nil ? Color(hex: item.projectColor!) : brandNeon
+
                         HStack(spacing: 8) {
                             if #available(iOS 17.0, macOS 14.0, *) {
                                 Button(intent: ToggleTaskIntent(taskId: item.id)) {
                                     Image(systemName: item.isCompleted ? "checkmark.circle.fill" : "circle")
-                                        .foregroundColor(item.isCompleted ? brandNeon : .gray)
+                                        .foregroundColor(item.isCompleted ? itemAccent : .gray)
                                         .font(.system(size: 14))
                                 }
                                 .buttonStyle(.plain)
                             } else {
                                 Image(systemName: item.isCompleted ? "checkmark.circle.fill" : "circle")
-                                    .foregroundColor(item.isCompleted ? brandNeon : .gray)
+                                    .foregroundColor(item.isCompleted ? itemAccent : .gray)
                                     .font(.system(size: 14))
+                            }
+
+                            if let pColor = item.projectColor {
+                                Circle()
+                                    .fill(Color(hex: pColor))
+                                    .frame(width: 5, height: 5)
                             }
 
                             Text(item.title)
