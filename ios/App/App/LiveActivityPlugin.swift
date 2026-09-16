@@ -292,45 +292,42 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
             progress: progress
         )
 
-        do {
+        Task {
             // 1. Fermer l'activité si le même taskId tourne déjà ou s'il y a une activité standby
             for runningActivity in Activity<TaskActivityAttributes>.activities {
                 if runningActivity.attributes.taskId == taskId || runningActivity.attributes.taskId == "standby" {
-                    Task {
-                        await runningActivity.end(nil, dismissalPolicy: .immediate)
-                    }
+                    await runningActivity.end(nil, dismissalPolicy: .immediate)
                 }
             }
 
             // 2. Si on a déjà 2 ou plus d'activités en cours, fermer la plus ancienne pour ne garder que 2 max
             let currentActivities = Activity<TaskActivityAttributes>.activities.filter { $0.attributes.taskId != taskId && $0.attributes.taskId != "standby" }
             if currentActivities.count >= 2 {
-                // Fermer les surplus (toutes sauf la plus récente)
                 for oldActivity in currentActivities.dropFirst() {
-                    Task {
-                        await oldActivity.end(nil, dismissalPolicy: .immediate)
-                    }
+                    await oldActivity.end(nil, dismissalPolicy: .immediate)
                 }
             }
 
-            let activity = try Activity<TaskActivityAttributes>.request(
-                attributes: attributes,
-                content: .init(state: initialContentState, staleDate: nil),
-                pushType: nil
-            )
+            do {
+                let activity = try Activity<TaskActivityAttributes>.request(
+                    attributes: attributes,
+                    content: .init(state: initialContentState, staleDate: nil),
+                    pushType: nil
+                )
 
-            print("[LiveActivityPlugin] Successfully launched Live Activity with ID: \(activity.id) for task: \(taskId)")
+                print("[LiveActivityPlugin] Successfully launched Live Activity with ID: \(activity.id) for task: \(taskId)")
 
-            call.resolve([
-                "activityId": activity.id,
-                "taskId": taskId
-            ])
-        } catch {
-            print("[LiveActivityPlugin] Live Activity request failed: \(error.localizedDescription)")
-            call.resolve([
-                "taskId": taskId,
-                "warning": "Live Activity error: \(error.localizedDescription)"
-            ])
+                call.resolve([
+                    "activityId": activity.id,
+                    "taskId": taskId
+                ])
+            } catch {
+                print("[LiveActivityPlugin] Live Activity request failed: \(error.localizedDescription)")
+                call.resolve([
+                    "taskId": taskId,
+                    "warning": "Live Activity error: \(error.localizedDescription)"
+                ])
+            }
         }
     }
 

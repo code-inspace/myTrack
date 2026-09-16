@@ -306,7 +306,8 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
         <div className="flex items-center justify-between px-6 py-4 border-t border-[#222430] bg-[#101117] flex-shrink-0 gap-3">
           <button
             type="button"
-            onClick={() => {
+            onClick={(e) => {
+              e.stopPropagation();
               onClose();
               onDeleteTask?.(task.id);
             }}

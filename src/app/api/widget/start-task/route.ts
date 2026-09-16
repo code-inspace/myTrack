@@ -42,13 +42,18 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 2. Activer la tâche sélectionnée
+    // 2. Activer la tâche sélectionnée et synchroniser le début d'exécution pour aujourd'hui
+    const nowDate = new Date();
+    const nowIso = nowDate.toISOString();
+    const nowTime = `${String(nowDate.getHours()).padStart(2, "0")}:${String(nowDate.getMinutes()).padStart(2, "0")}`;
+    const today = `${nowDate.getFullYear()}-${String(nowDate.getMonth() + 1).padStart(2, "0")}-${String(nowDate.getDate()).padStart(2, "0")}`;
+
     const { data, error } = await supabase
       .from("tasks")
       .update({
         is_active: true,
-        started_at: now,
-        updated_at: now,
+        started_at: nowIso,
+        updated_at: nowIso,
       })
       .eq("id", taskId)
       .select("*")
@@ -56,6 +61,49 @@ export async function POST(req: NextRequest) {
 
     if (error || !data) {
       return NextResponse.json({ success: false, error: error?.message }, { status: 500 });
+    }
+
+    if (data.user_id) {
+      const isRecurring = data.recurrence && data.recurrence !== "ONCE";
+      if (!isRecurring) {
+        await supabase
+          .from("tasks")
+          .update({
+            start_time: nowTime,
+            updated_at: nowIso,
+          })
+          .eq("id", taskId);
+      } else {
+        const overrides = data.date_overrides || {};
+        await supabase
+          .from("tasks")
+          .update({
+            date_overrides: {
+              ...overrides,
+              [today]: {
+                ...(overrides[today] || {}),
+                startTime: nowTime,
+              },
+            },
+            updated_at: nowIso,
+          })
+          .eq("id", taskId);
+      }
+
+      await supabase.from("task_completions").upsert(
+        [
+          {
+            task_id: taskId,
+            user_id: data.user_id,
+            date: today,
+            completed: false,
+            scheduled_start_time: nowTime,
+            actual_start_time: nowTime,
+            updated_at: nowIso,
+          },
+        ],
+        { onConflict: "task_id,date" }
+      );
     }
 
     let title = data.title;

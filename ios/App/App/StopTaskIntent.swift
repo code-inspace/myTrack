@@ -73,9 +73,7 @@ public struct StopTaskIntent: AppIntent {
         if #available(iOS 16.2, *) {
             for activity in Activity<TaskActivityAttributes>.activities {
                 if taskId.isEmpty || activity.attributes.taskId == taskId {
-                    Task {
-                        await activity.end(nil, dismissalPolicy: .immediate)
-                    }
+                    await activity.end(nil, dismissalPolicy: .immediate)
                 }
             }
 
@@ -172,9 +170,7 @@ public struct StopLiveActivityIntent: LiveActivityIntent {
         if #available(iOS 16.2, *) {
             for activity in Activity<TaskActivityAttributes>.activities {
                 if taskId.isEmpty || activity.attributes.taskId == taskId {
-                    Task {
-                        await activity.end(nil, dismissalPolicy: .immediate)
-                    }
+                    await activity.end(nil, dismissalPolicy: .immediate)
                 }
             }
 
@@ -324,12 +320,10 @@ public struct StartTaskIntent: AppIntent {
                 progress: 0.0
             )
 
-            // Fermer si même taskId ou si activité standby
+            // Fermer proprement si même taskId ou si activité standby avant de créer la nouvelle
             for runningActivity in Activity<TaskActivityAttributes>.activities {
                 if runningActivity.attributes.taskId == taskId || runningActivity.attributes.taskId == "standby" {
-                    Task {
-                        await runningActivity.end(nil, dismissalPolicy: .immediate)
-                    }
+                    await runningActivity.end(nil, dismissalPolicy: .immediate)
                 }
             }
 
@@ -337,17 +331,20 @@ public struct StartTaskIntent: AppIntent {
             let otherActivities = Activity<TaskActivityAttributes>.activities.filter { $0.attributes.taskId != taskId && $0.attributes.taskId != "standby" }
             if otherActivities.count >= 2 {
                 for oldActivity in otherActivities.dropFirst() {
-                    Task {
-                        await oldActivity.end(nil, dismissalPolicy: .immediate)
-                    }
+                    await oldActivity.end(nil, dismissalPolicy: .immediate)
                 }
             }
 
-            _ = try? Activity<TaskActivityAttributes>.request(
-                attributes: attributes,
-                content: .init(state: initialContentState, staleDate: nil),
-                pushType: nil
-            )
+            do {
+                _ = try Activity<TaskActivityAttributes>.request(
+                    attributes: attributes,
+                    content: .init(state: initialContentState, staleDate: nil),
+                    pushType: nil
+                )
+                print("[StartTaskIntent] Successfully started Live Activity for: \(taskId)")
+            } catch {
+                print("[StartTaskIntent] Activity.request failed: \(error)")
+            }
         }
 
         // 4. Recharger immédiatement les widgets
@@ -421,7 +418,7 @@ public struct ChangeTaskPageIntent: AppIntent {
 @available(iOS 16.0, macOS 13.0, *)
 public struct ResetWidgetIntent: AppIntent {
     public static var title: LocalizedStringResource = "Réinitialiser le widget"
-    public static var description = IntentDescription("Réinitialise complètement l'état du widget myTrack et ferme les chronos actifs.")
+    public static var description = IntentDescription("Réinitialise les états de sélection et de tâches actives du widget.")
     public static var openAppWhenRun: Bool = false
 
     public init() {}
@@ -442,9 +439,7 @@ public struct ResetWidgetIntent: AppIntent {
 
         if #available(iOS 16.2, *) {
             for activity in Activity<TaskActivityAttributes>.activities {
-                Task {
-                    await activity.end(nil, dismissalPolicy: .immediate)
-                }
+                await activity.end(nil, dismissalPolicy: .immediate)
             }
         }
 

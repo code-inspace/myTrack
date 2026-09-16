@@ -18,6 +18,7 @@ import {
   syncTaskWithSleepNaps,
   removeTaskFromSleepNaps,
 } from "@/features/sleep/actions";
+import { LiveActivityBridge } from "@/lib/native/liveActivity";
 
 export async function fetchTasks(userId?: string): Promise<Task[]> {
   const supabase = createClient();
@@ -569,11 +570,25 @@ export async function deleteDbTask(
     userId: targetId,
   }).catch(() => {});
 
+  // Stop any active Live Activity for this task
+  try {
+    await LiveActivityBridge.stopActivity(taskId);
+  } catch {}
+
   // Remove corresponding nap from sleep log if any
   removeTaskFromSleepNaps(taskId, undefined, targetId).catch(() => {});
 
+  // 1. Delete from Supabase client directly
   try {
-    // Delete from server
+    await supabase.from("task_completions").delete().eq("task_id", taskId);
+    await supabase.from("reminders").delete().eq("task_id", taskId);
+    await supabase.from("tasks").delete().eq("id", taskId);
+  } catch (supabaseErr) {
+    console.warn("Supabase client deleteDbTask note:", supabaseErr);
+  }
+
+  // 2. Delete from server admin endpoint for reliable backend persistence
+  try {
     await fetch(`/api/tasks?id=${encodeURIComponent(taskId)}&userId=${encodeURIComponent(targetId || "")}`, {
       method: "DELETE",
     });
@@ -581,12 +596,12 @@ export async function deleteDbTask(
     console.warn("API deleteDbTask error:", err);
   }
 
-  // 4. Clean local tasks storage across all keys
+  // 3. Clean local tasks storage across all keys
   const tasks = getStoredTasks(targetId);
   const updatedTasks = tasks.filter((t) => t.id !== taskId);
   saveStoredTasks(updatedTasks, targetId);
 
-  // Clean local completions
+  // 4. Clean local completions
   const comps = getStoredCompletions(targetId);
   const updatedComps = comps.filter((c) => c.taskId !== taskId);
   saveStoredCompletions(updatedComps, targetId);

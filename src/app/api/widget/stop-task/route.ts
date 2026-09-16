@@ -68,6 +68,30 @@ export async function POST(req: NextRequest) {
           ],
           { onConflict: "task_id,date" }
         );
+
+        // 3. Sync project status if linked to a project
+        if (task.project_id) {
+          try {
+            const { data: project } = await supabase
+              .from("projects")
+              .select("columns")
+              .eq("id", task.project_id)
+              .maybeSingle();
+
+            let doneColumnId = "DONE";
+            if (project?.columns && Array.isArray(project.columns)) {
+              const doneCol = project.columns.find((c: any) => c.isDone) || project.columns[project.columns.length - 1];
+              if (doneCol?.id) doneColumnId = doneCol.id;
+            }
+
+            await supabase
+              .from("tasks")
+              .update({ project_status: doneColumnId, updated_at: now.toISOString() })
+              .eq("id", taskId);
+          } catch (projErr) {
+            console.warn("stop-task project sync error:", projErr);
+          }
+        }
       }
     } else {
       // Clôturer toutes les tâches actives s'il n'y a pas d'ID spécifique
