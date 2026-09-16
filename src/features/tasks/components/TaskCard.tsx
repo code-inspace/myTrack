@@ -9,6 +9,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { getTodayDateString } from "@/lib/dates";
 import { getPriorityCardClass, getPriorityTitleClass, getPriorityIconColorClass } from "../priority";
+import { useProjects } from "@/features/projects/hooks";
 
 interface TaskCardProps {
   task: TaskWithCompletion;
@@ -40,6 +41,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   onEditTask,
   onDeleteTask,
 }) => {
+  const { projects } = useProjects();
+  const project = task.projectId ? projects.find((p) => p.id === task.projectId) : null;
+
   const isCompleted = task.isCompletedToday;
   const isRemindersEnabled = task.enableReminders !== false;
 
@@ -136,6 +140,24 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             onClick={() => onEditTask && onEditTask(task)}
             title="Cliquer pour éditer cette tâche"
           >
+            {/* Project Banner Pill if assigned */}
+            {project && (
+              <div className="flex items-center gap-1.5 mb-1 text-[11px] font-semibold">
+                <span
+                  className="w-2 h-2 rounded-full flex-shrink-0 shadow-sm"
+                  style={{ backgroundColor: project.color || "#D4F63D" }}
+                />
+                <span className="text-[#D4F63D] font-bold truncate max-w-[160px]">
+                  {project.name}
+                </span>
+                {task.projectCategory && (
+                  <span className="text-[10px] text-[#A5B4FC] bg-[#818CF8]/15 border border-[#818CF8]/30 px-1.5 py-0.2 rounded-md font-semibold truncate max-w-[120px]">
+                    {task.projectCategory}
+                  </span>
+                )}
+              </div>
+            )}
+
             <h4
               className={cn(
                 "text-base font-bold transition-colors leading-tight text-white break-words hover:text-[#D4F63D] flex items-center gap-1.5",
@@ -220,10 +242,28 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         </div>
       </div>
 
-      {/* Level 2: Metadata Badges (Hours, Recurrence, Category) & Action Controls */}
+      {/* Level 2: Metadata Badges (Hours, Recurrence, Category, Project) & Action Controls */}
       <div className="flex items-center justify-between gap-3 pt-2.5 border-t border-[#252830] text-xs">
         {/* Left Metadata Pills */}
         <div className="flex flex-wrap items-center gap-1.5 min-w-0 flex-1">
+          {project && (
+            <span
+              className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-[#141518] border border-[#282A30] text-[11px] font-semibold text-white whitespace-nowrap shadow-sm"
+              title={`Projet : ${project.name}${task.projectCategory ? ` • ${task.projectCategory}` : ""}`}
+            >
+              <span
+                className="w-2 h-2 rounded-full flex-shrink-0 shadow-sm"
+                style={{ backgroundColor: project.color || "#D4F63D" }}
+              />
+              <span className="truncate max-w-[110px] text-white font-medium">{project.name}</span>
+              {task.projectCategory && (
+                <span className="text-[10px] text-[#9CA3AF] font-normal border-l border-[#343740] pl-1.5">
+                  {task.projectCategory}
+                </span>
+              )}
+            </span>
+          )}
+
           {hasTime ? (
             <span className="inline-flex items-center gap-1 bg-[#141518] px-2.5 py-1 rounded-lg border border-[#252830] font-semibold text-white text-[11px] whitespace-nowrap">
               <Clock className="w-3 h-3 text-[#D4F63D]" />

@@ -5,6 +5,7 @@ import { TaskWithCompletion } from "@/features/tasks/types";
 import { CheckCircle2, Circle, Sparkles, Bell, BellOff, Edit3, Flame, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getPriorityIconColorClass } from "@/features/tasks/priority";
+import { useProjects } from "@/features/projects/hooks";
 
 interface AllDaySectionProps {
   tasks: TaskWithCompletion[];
@@ -34,6 +35,7 @@ export const AllDaySection: React.FC<AllDaySectionProps> = ({
   onDragStartTask,
   onSelectTask,
 }) => {
+  const { projects } = useProjects();
   const [isOver, setIsOver] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -120,8 +122,9 @@ export const AllDaySection: React.FC<AllDaySectionProps> = ({
         ) : (
           tasks.map((task) => {
             const tagKey = task.tag || task.category || "General";
-            const style = TAG_COLORS[tagKey] || TAG_COLORS.General;
+            const style = TAG_COLORS[task.tag || task.category || "General"] || TAG_COLORS.General;
             const isRemindersEnabled = task.enableReminders !== false;
+            const project = task.projectId ? projects.find((p) => p.id === task.projectId) : null;
 
             return (
               <div
@@ -160,6 +163,12 @@ export const AllDaySection: React.FC<AllDaySectionProps> = ({
                     <Circle className="w-3.5 h-3.5 opacity-60" />
                   )}
                 </button>
+                {project && (
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-black/40 text-white font-medium text-[9px] border border-white/10 flex-shrink-0">
+                    <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: project.color || "#D4F63D" }} />
+                    <span className="truncate max-w-[70px]">{project.name}</span>
+                  </span>
+                )}
                 {task.priority && task.priority !== "NORMAL" && !task.isCompletedToday && (
                   <Flame className={cn("w-3 h-3 flex-shrink-0", getPriorityIconColorClass(task.priority))} />
                 )}

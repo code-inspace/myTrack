@@ -5,6 +5,7 @@ import { TaskWithCompletion } from "@/features/tasks/types";
 import { CheckCircle2, Circle, Clock, Play, Check, AlertCircle, ArrowRight, Flame } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getPriorityCardClass, getPriorityTitleClass, getPriorityIconColorClass } from "@/features/tasks/priority";
+import { useProjects } from "@/features/projects/hooks";
 
 interface HistoryTaskCardProps {
   task: TaskWithCompletion;
@@ -23,6 +24,9 @@ export const HistoryTaskCard: React.FC<HistoryTaskCardProps> = ({
   onToggleComplete,
   onEditTask,
 }) => {
+  const { projects } = useProjects();
+  const project = task.projectId ? projects.find((p) => p.id === task.projectId) : null;
+
   const completion = task.completion;
   const isCompleted = Boolean(completion?.completed || task.isCompletedToday);
 
@@ -52,7 +56,18 @@ export const HistoryTaskCard: React.FC<HistoryTaskCardProps> = ({
           onClick={() => onEditTask && onEditTask(task)}
           title="Cliquer pour éditer cette tâche"
         >
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {project && (
+              <span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-0.5 rounded-md bg-[#252830] text-white font-semibold border border-white/10">
+                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: project.color || "#D4F63D" }} />
+                <span className="truncate max-w-[120px]">{project.name}</span>
+                {task.projectCategory && (
+                  <span className="text-[#A5B4FC] text-[10px] font-medium border-l border-white/10 pl-1">
+                    {task.projectCategory}
+                  </span>
+                )}
+              </span>
+            )}
             <span className="text-xs px-2 py-0.5 rounded-md bg-[#252830] text-[#A0A4B0] font-semibold">
               {task.tag || task.category || "Général"}
             </span>

@@ -5,6 +5,7 @@ import { TaskWithCompletion } from "@/features/tasks/types";
 import { CheckCircle2, Circle, Repeat, GripHorizontal, Bell, BellOff, Edit3, Flame } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getPriorityCardClass, getPriorityTitleClass, getPriorityIconColorClass } from "@/features/tasks/priority";
+import { useProjects } from "@/features/projects/hooks";
 
 interface AgendaTaskBlockProps {
   task: TaskWithCompletion;
@@ -74,6 +75,9 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
   onClick,
   onStartResize,
 }) => {
+  const { projects } = useProjects();
+  const project = task.projectId ? projects.find((p) => p.id === task.projectId) : null;
+
   const tagKey = task.tag || task.category || "General";
   const style = TAG_STYLES[tagKey] || TAG_STYLES.General;
   const isRecurring = task.recurrence && task.recurrence !== "ONCE";
@@ -174,6 +178,12 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
                 ""
               )}
             </span>
+            {project && !isVeryNarrow && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-black/40 text-white font-medium text-[9px] border border-white/10 truncate max-w-[90px]">
+                <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: project.color || "#D4F63D" }} />
+                <span className="truncate">{project.name}</span>
+              </span>
+            )}
             {(task.tag || task.category) && !isNarrow && (
               <span className={cn("px-1.5 py-0.2 rounded font-semibold text-[9px]", style.text)}>
                 {task.tag || task.category}

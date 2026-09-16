@@ -5,6 +5,7 @@ import { TaskWithCompletion } from "../types";
 import { Clock, Repeat, Square, Edit3, Flame } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getPriorityIconColorClass } from "../priority";
+import { useProjects } from "@/features/projects/hooks";
 
 interface ActiveTaskBannerProps {
   task: TaskWithCompletion;
@@ -28,6 +29,9 @@ export const ActiveTaskBanner: React.FC<ActiveTaskBannerProps> = ({
   onOpenLogModal,
   onUpdateStartTime,
 }) => {
+  const { projects } = useProjects();
+  const project = task.projectId ? projects.find((p) => p.id === task.projectId) : null;
+
   const calculateElapsed = (startedAtIso?: string | null) => {
     if (startedAtIso) {
       const startTime = new Date(startedAtIso).getTime();
@@ -105,6 +109,22 @@ export const ActiveTaskBanner: React.FC<ActiveTaskBannerProps> = ({
             <div className="w-2.5 h-2.5 rounded-full bg-[#D4F63D]" />
           </div>
           <div>
+            {project && (
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <span
+                  className="w-2 h-2 rounded-full flex-shrink-0 shadow-sm"
+                  style={{ backgroundColor: project.color || "#111214" }}
+                />
+                <span className="text-[11px] font-extrabold text-[#111214]/90 uppercase tracking-wide truncate max-w-[160px]">
+                  {project.name}
+                </span>
+                {task.projectCategory && (
+                  <span className="text-[10px] text-[#111214] bg-black/10 px-1.5 py-0.2 rounded font-semibold truncate max-w-[100px]">
+                    {task.projectCategory}
+                  </span>
+                )}
+              </div>
+            )}
             <h3 className="text-xl font-bold text-[#111214] leading-tight flex items-center gap-1.5">
               {task.priority && task.priority !== "NORMAL" && (
                 <Flame className={cn("w-4 h-4 flex-shrink-0", getPriorityIconColorClass(task.priority))} />
