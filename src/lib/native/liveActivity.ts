@@ -173,12 +173,16 @@ export const LiveActivityBridge = {
       const widgetTasks = tasks.map((t: any) => ({
         id: t.id,
         title: t.title || "Tâche",
-        category: t.tag || t.category || "myTrack",
-        subtitle: t.description || t.category || "Routine",
-        targetFormattedDuration: t.targetValue ? `${t.targetValue} ${t.unit || "min"}` : undefined,
+        category: t.category || t.calendarName || t.tag || "myTrack",
+        subtitle: t.subtitle || t.description || t.category || "Routine",
+        targetFormattedDuration:
+          t.targetFormattedDuration ||
+          (t.targetValue ? `${t.targetValue} ${t.unit || "min"}` : undefined),
         isHabit: t.isHabit ?? false,
-        color: t.color || "#D4F63D",
-        isCompleted: Boolean(t.isCompletedToday || t.completion?.completed),
+        color: t.color || t.calendarColor || "#D4F63D",
+        isCompleted: Boolean(
+          t.isCompletedToday || t.completion?.completed || t.isCompleted
+        ),
       }));
 
       await NativeLiveActivity.syncTasks({

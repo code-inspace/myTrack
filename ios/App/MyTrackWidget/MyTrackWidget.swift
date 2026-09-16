@@ -1036,14 +1036,34 @@ struct SmallTasksListWidgetView: View {
             }
 
             if let firstTask = tasks.first {
+                let isExternal = firstTask.id.starts(with: "ext_")
+                let eventColor = (firstTask.color != nil && !firstTask.color!.isEmpty)
+                    ? Color(hexString: firstTask.color!)
+                    : Color(red: 0.23, green: 0.51, blue: 0.96)
+
                 Text(firstTask.title)
                     .font(.system(size: 13, weight: .bold))
                     .foregroundColor(.white)
                     .lineLimit(2)
 
-                Text(firstTask.category)
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundColor(Color.gray)
+                HStack(spacing: 4) {
+                    if isExternal {
+                        Image(systemName: "calendar")
+                            .font(.system(size: 9))
+                            .foregroundColor(eventColor)
+                    }
+                    Text(firstTask.category)
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(isExternal ? eventColor : Color.gray)
+                        .lineLimit(1)
+                }
+
+                if let timeStr = firstTask.targetFormattedDuration ?? firstTask.subtitle {
+                    Text(timeStr)
+                        .font(.system(size: 9.5))
+                        .foregroundColor(Color(white: 0.7))
+                        .lineLimit(1)
+                }
 
                 Spacer()
 
@@ -1051,7 +1071,7 @@ struct SmallTasksListWidgetView: View {
                     HStack(spacing: 4) {
                         Image(systemName: "play.fill")
                             .font(.system(size: 10, weight: .bold))
-                        Text("Démarrer")
+                        Text(isExternal ? "Suivre" : "Démarrer")
                             .font(.system(size: 11, weight: .bold))
                     }
                     .foregroundColor(darkBg)
@@ -1080,14 +1100,31 @@ struct TaskRowInteractiveView: View {
     let brandNeon: Color
     let darkBg: Color
 
+    var isExternalEvent: Bool {
+        task.id.starts(with: "ext_")
+    }
+
+    var accentColor: Color {
+        if let hex = task.color, !hex.isEmpty {
+            return Color(hexString: hex)
+        }
+        return isExternalEvent ? Color(red: 0.23, green: 0.51, blue: 0.96) : brandNeon
+    }
+
     var body: some View {
         HStack(spacing: 7) {
-            // Bouton de sélection de la tâche
+            // Bouton de sélection de la tâche / événement
             Button(intent: SelectTaskIntent(taskId: task.id)) {
                 HStack(spacing: 7) {
-                    Image(systemName: isSelected ? "checkmark.circle.fill" : (task.isCompleted == true ? "checkmark.circle" : "circle"))
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(isSelected ? brandNeon : (task.isCompleted == true ? Color.gray.opacity(0.5) : Color.gray))
+                    if isExternalEvent {
+                        Image(systemName: isSelected ? "calendar.badge.clock" : "calendar")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(isSelected ? brandNeon : accentColor)
+                    } else {
+                        Image(systemName: isSelected ? "checkmark.circle.fill" : (task.isCompleted == true ? "checkmark.circle" : "circle"))
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(isSelected ? brandNeon : (task.isCompleted == true ? Color.gray.opacity(0.5) : Color.gray))
+                    }
 
                     VStack(alignment: .leading, spacing: 1) {
                         Text(task.title)
@@ -1099,9 +1136,9 @@ struct TaskRowInteractiveView: View {
                         HStack(spacing: 4) {
                             Text(task.category)
                                 .font(.system(size: 9.5, weight: .medium))
-                                .foregroundColor(isSelected ? brandNeon : Color.gray)
+                                .foregroundColor(isSelected ? brandNeon : (isExternalEvent ? accentColor : Color.gray))
                             
-                            if let dur = task.targetFormattedDuration {
+                            if let dur = task.targetFormattedDuration ?? task.subtitle {
                                 Text("• \(dur)")
                                     .font(.system(size: 9.5))
                                     .foregroundColor(Color.gray)
@@ -1142,5 +1179,33 @@ struct TaskRowInteractiveView: View {
                 .stroke(isSelected ? brandNeon.opacity(0.8) : Color.clear, lineWidth: 1.5)
         )
         .cornerRadius(11)
+    }
+}
+
+// MARK: - Extension Color pour codes HEX (#3B82F6, etc.)
+extension Color {
+    init(hexString: String) {
+        let hex = hexString.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int: UInt64 = 0
+        Scanner(string: hex).scanHexInt64(&int)
+        let a, r, g, b: UInt64
+        switch hex.count {
+        case 3:
+            (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
+        case 6:
+            (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
+        case 8:
+            (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
+        default:
+            (a, r, g, b) = (255, 212, 246, 61)
+        }
+
+        self.init(
+            .sRGB,
+            red: Double(r) / 255,
+            green: Double(g) / 255,
+            blue: Double(b) / 255,
+            opacity: Double(a) / 255
+        )
     }
 }

@@ -106,6 +106,11 @@ export function saveStoredExternalEvents(
       storage.setItem(EXTERNAL_EVENTS_STORAGE_PREFIX + userId, json);
     }
     storage.setItem("mytrack_external_events", json);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("mytrack:external-events-updated", { detail: events })
+      );
+    }
   } catch {}
 }
 

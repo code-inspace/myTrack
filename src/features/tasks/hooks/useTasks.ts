@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Task, TaskCompletion, TaskWithCompletion } from "../types";
 import {
@@ -19,11 +19,21 @@ import { useAuth } from "@/providers/AuthProvider";
 import { createClient } from "@/utils/supabase/client";
 import { parseISO } from "date-fns";
 import { LiveActivityBridge } from "@/lib/native/liveActivity";
+import { getStoredExternalEvents } from "@/features/calendar/actions/storage";
 
 export function useTasks(selectedDateStr: string) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const userId = user?.id || "";
+  const [externalEventsVersion, setExternalEventsVersion] = useState(0);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handleEventsUpdated = () => setExternalEventsVersion((v) => v + 1);
+    window.addEventListener("mytrack:external-events-updated", handleEventsUpdated);
+    return () =>
+      window.removeEventListener("mytrack:external-events-updated", handleEventsUpdated);
+  }, []);
 
   // Supabase Realtime Listener across devices
   useEffect(() => {
@@ -246,8 +256,39 @@ export function useTasks(selectedDateStr: string) {
           : undefined,
       }));
 
+      // Récupérer les événements externes stockés pour aujourd'hui (Apple / Google / ICS / CalDAV)
+      const todayDate = getTodayDateString();
+      const storedExternalEvents = getStoredExternalEvents(userId);
+      const todayExternalEvents = storedExternalEvents.filter(
+        (e) => e.date === todayDate
+      );
+
+      const mappedExternalEvents = todayExternalEvents.map((evt) => {
+        const timeLabel = evt.isAllDay
+          ? "Toute la journée"
+          : evt.startTime && evt.endTime
+          ? `${evt.startTime} - ${evt.endTime}`
+          : evt.startTime || "Événement";
+
+        return {
+          id: `ext_${evt.id}`,
+          title: evt.title || "Événement",
+          category: evt.calendarName || "Agenda",
+          subtitle: timeLabel,
+          targetFormattedDuration: timeLabel,
+          isHabit: false,
+          isExternal: true,
+          color: evt.calendarColor || "#3B82F6",
+          startTime: evt.startTime || null,
+          isCompletedToday: false,
+        };
+      });
+
+      // Synchroniser l'ensemble des items (événements d'agenda + tâches)
+      const allWidgetItems = [...mappedExternalEvents, ...sortedTasks];
+
       LiveActivityBridge.syncTasks(
-        sortedTasks,
+        allWidgetItems,
         mappedActiveTasks[0] || null,
         mappedActiveTasks
       );
@@ -266,7 +307,7 @@ export function useTasks(selectedDateStr: string) {
         LiveActivityBridge.syncStandby(firstUncompleted || null, isStandbyEnabled);
       }
     }
-  }, [sortedTasks, activeTasksList]);
+  }, [sortedTasks, activeTasksList, externalEventsVersion, userId]);
 
   const isInitialLoading = (tasksLoading && allTasks.length === 0);
   const isLoading = isInitialLoading || (completionsLoading && allCompletions.length === 0);
