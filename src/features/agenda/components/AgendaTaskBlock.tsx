@@ -161,6 +161,7 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
       draggable
       data-agenda-block="true"
       data-task-id={task.id}
+      data-testid={`agenda-task-block-${task.id}`}
       onClick={(e) => {
         e.stopPropagation();
       }}
@@ -195,6 +196,7 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
         <>
           {/* Top-Right circular resize handle */}
           <div
+            data-testid={`agenda-resize-handle-top-${task.id}`}
             onPointerDown={(e) => {
               e.preventDefault();
               e.stopPropagation();
@@ -205,7 +207,7 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
           >
             {/* Live floating time badge while stretching top handle */}
             {resizingInfo && resizingInfo.edge === "top" && (
-              <div className="absolute -top-8 -right-2 z-50 pointer-events-none flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#0F172A] border-2 border-[#38BDF8] text-[#38BDF8] shadow-[0_4px_20px_rgba(0,0,0,0.9),0_0_12px_rgba(56,189,248,0.6)] animate-in fade-in zoom-in-95 duration-100 whitespace-nowrap">
+              <div data-testid="agenda-resize-badge-top" className="absolute -top-8 -right-2 z-50 pointer-events-none flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#0F172A] border-2 border-[#38BDF8] text-[#38BDF8] shadow-[0_4px_20px_rgba(0,0,0,0.9),0_0_12px_rgba(56,189,248,0.6)] animate-in fade-in zoom-in-95 duration-100 whitespace-nowrap">
                 <Clock className="w-3 h-3 text-[#38BDF8]" />
                 <span className="font-mono text-xs font-black tracking-tight text-white">{resizingInfo.currentTime}</span>
                 <span className="text-[10px] text-[#94A3B8] font-semibold">({resizingInfo.durationStr})</span>
@@ -215,6 +217,7 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
 
           {/* Bottom-Left circular resize handle */}
           <div
+            data-testid={`agenda-resize-handle-bottom-${task.id}`}
             onPointerDown={(e) => {
               e.preventDefault();
               e.stopPropagation();
@@ -225,7 +228,7 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
           >
             {/* Live floating time badge while stretching bottom handle */}
             {resizingInfo && resizingInfo.edge === "bottom" && (
-              <div className="absolute -bottom-8 -left-2 z-50 pointer-events-none flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#0F172A] border-2 border-[#38BDF8] text-[#38BDF8] shadow-[0_4px_20px_rgba(0,0,0,0.9),0_0_12px_rgba(56,189,248,0.6)] animate-in fade-in zoom-in-95 duration-100 whitespace-nowrap">
+              <div data-testid="agenda-resize-badge-bottom" className="absolute -bottom-8 -left-2 z-50 pointer-events-none flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#0F172A] border-2 border-[#38BDF8] text-[#38BDF8] shadow-[0_4px_20px_rgba(0,0,0,0.9),0_0_12px_rgba(56,189,248,0.6)] animate-in fade-in zoom-in-95 duration-100 whitespace-nowrap">
                 <Clock className="w-3 h-3 text-[#38BDF8]" />
                 <span className="font-mono text-xs font-black tracking-tight text-white">{resizingInfo.currentTime}</span>
                 <span className="text-[10px] text-[#94A3B8] font-semibold">({resizingInfo.durationStr})</span>

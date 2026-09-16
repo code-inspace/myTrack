@@ -133,6 +133,7 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
 
   return (
     <div
+      data-testid="agenda-task-detail-modal"
       className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200"
       onClick={onClose}
     >
@@ -146,6 +147,7 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
             {/* Project Selector Dropdown */}
             <div className="relative flex items-center">
               <select
+                data-testid="agenda-detail-project-select"
                 value={selectedProjectId}
                 onChange={(e) => handleProjectChange(e.target.value)}
                 className="appearance-none text-xs font-bold pl-7 pr-7 py-1.5 rounded-full border cursor-pointer focus:outline-none transition-all"
@@ -177,12 +179,12 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
           </div>
 
           <button
+            data-testid="agenda-detail-close-btn"
             type="button"
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-xl text-[#8E929E] hover:text-white hover:bg-[#20222B] transition-colors cursor-pointer flex-shrink-0"
-            title="Fermer"
+            className="w-8 h-8 rounded-full bg-[#20232C] hover:bg-[#2B2F3D] flex items-center justify-center text-[#8E929E] hover:text-white transition-colors cursor-pointer"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
@@ -243,6 +245,7 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
               <div className="flex-1 flex flex-col gap-1">
                 <label className="text-[10px] uppercase font-bold text-[#8E929E] tracking-wider">Début</label>
                 <input
+                  data-testid="agenda-detail-start-time-input"
                   type="time"
                   value={startTime}
                   onChange={(e) => handleStartTimeChange(e.target.value)}
@@ -253,6 +256,7 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
               <div className="flex-1 flex flex-col gap-1">
                 <label className="text-[10px] uppercase font-bold text-[#8E929E] tracking-wider">Fin</label>
                 <input
+                  data-testid="agenda-detail-end-time-input"
                   type="time"
                   value={endTime}
                   onChange={(e) => handleEndTimeChange(e.target.value)}
@@ -272,6 +276,7 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
           {/* Quick Actions (Done & Reminders) */}
           <div className="grid grid-cols-2 gap-3">
             <button
+              data-testid="agenda-detail-toggle-complete-btn"
               type="button"
               onClick={handleToggleClick}
               className={cn(
@@ -295,6 +300,7 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
             </button>
 
             <button
+              data-testid="agenda-detail-toggle-reminder-btn"
               type="button"
               onClick={() => onToggleReminder?.(task.id)}
               className={cn(
@@ -322,6 +328,7 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
         {/* Footer: Full Edit & Delete */}
         <div className="flex items-center justify-between px-6 py-4 border-t border-[#222430] bg-[#101117] flex-shrink-0 gap-3">
           <button
+            data-testid="agenda-detail-delete-btn"
             type="button"
             onPointerDown={() => {
               isDeletingRef.current = true;
@@ -334,6 +341,7 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
           </button>
 
           <button
+            data-testid="agenda-detail-edit-btn"
             type="button"
             onClick={() => {
               onClose();

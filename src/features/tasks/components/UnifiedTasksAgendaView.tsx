@@ -519,6 +519,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
                     </div>
                     <input
                       ref={quickInputRef}
+                      data-testid="task-quick-add-input"
                       type="text"
                       placeholder="Nom de la tâche"
                       value={quickTitle}
@@ -551,6 +552,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
                     {quickTitle.trim() && (
                       <div className="absolute right-2 flex items-center gap-1.5">
                         <button
+                          data-testid="task-quick-add-start-btn"
                           type="button"
                           onClick={(e) => {
                             e.preventDefault();

@@ -113,6 +113,7 @@ export const TasksHeaderWithNav: React.FC<TasksHeaderWithNavProps> = ({
                 return (
                   <button
                     key={v.id}
+                    data-testid={`nav-tab-${v.id}`}
                     type="button"
                     onClick={() => onChangeTab(v.id)}
                     className={cn(
@@ -136,6 +137,7 @@ export const TasksHeaderWithNav: React.FC<TasksHeaderWithNavProps> = ({
               return (
                 <Link
                   key={v.href}
+                  data-testid={`nav-tab-${v.id}`}
                   href={v.href}
                   className={cn(
                     "flex-shrink-0 min-w-[92px] flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer text-center",
