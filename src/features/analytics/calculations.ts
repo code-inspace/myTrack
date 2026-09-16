@@ -265,7 +265,7 @@ export function calculateDashboardStats(
   const last7DaysStatus = calculateLast7DaysStatus(recurringTasks, recurringCompletions, referenceDate);
 
   // Period calculation
-  const daysInPeriod = period === "week" ? 7 : period === "month" ? 30 : 60;
+  const daysInPeriod = period === "day" ? 1 : period === "week" ? 7 : period === "month" ? 30 : 60;
   let totalScheduledInPeriod = 0;
   let totalCompletedInPeriod = 0;
 
@@ -301,10 +301,46 @@ export function calculateDashboardStats(
   const rawMomentum = Math.round(completionRate * 0.6 + streakBonus + Math.min(10, totalCompletedInPeriod * 1.5));
   const momentum = Math.max(0, Math.min(100, rawMomentum || (completionRate > 0 ? completionRate : 50)));
 
-  // Period-aware Curve Points Generation (Semaine | Mois | Tout le temps)
+  // Period-aware Curve Points Generation (Jour | Semaine | Mois | Tout le temps)
   const momentumHistory: MomentumPoint[] = [];
 
-  if (period === "week") {
+  if (period === "day") {
+    // 5 progressive hourly segments across the day
+    const dayDateStr = format(referenceDate, "yyyy-MM-dd");
+    const dayCompleted = recurringCompletions.filter((c) => c.date === dayDateStr && c.completed).length;
+    const dayScheduled = recurringTasks.filter((t) =>
+      isTaskScheduledForDate(t.recurrence, t.recurrenceConfig, referenceDate, t.createdAt)
+    ).length;
+
+    const dayScore =
+      dayScheduled > 0
+        ? Math.round((dayCompleted / dayScheduled) * 100)
+        : dayCompleted > 0
+        ? 100
+        : 0;
+
+    const dayHours = [
+      { label: "8h", ratio: 0.2 },
+      { label: "11h", ratio: 0.4 },
+      { label: "14h", ratio: 0.6 },
+      { label: "17h", ratio: 0.8 },
+      { label: "20h", ratio: 1.0 },
+    ];
+
+    for (const h of dayHours) {
+      const pointCompleted = Math.round(dayCompleted * h.ratio);
+      const pointScheduled = Math.max(1, Math.round(dayScheduled * h.ratio));
+      const pointScore = Math.min(100, Math.round(dayScore * h.ratio));
+
+      momentumHistory.push({
+        date: `${dayDateStr}T${h.label}:00`,
+        label: h.label,
+        score: pointScore,
+        completedCount: pointCompleted,
+        totalScheduled: pointScheduled,
+      });
+    }
+  } else if (period === "week") {
     // 7 days of the reference week (Monday to Sunday)
     for (let i = 0; i < 7; i++) {
       const dayDate = subDays(referenceDate, 6 - i);

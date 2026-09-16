@@ -125,6 +125,14 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
 
   // Period Date Range calculation
   const { startDateStr, endDateStr, periodLabel } = useMemo(() => {
+    if (period === "day") {
+      const formattedDay = format(referenceDate, "yyyy-MM-dd");
+      return {
+        startDateStr: formattedDay,
+        endDateStr: formattedDay,
+        periodLabel: format(referenceDate, "EEEE d MMMM yyyy", { locale: fr }),
+      };
+    }
     if (period === "week") {
       const start = startOfWeek(referenceDate, { weekStartsOn: 1 });
       const end = endOfWeek(referenceDate, { weekStartsOn: 1 });
@@ -476,7 +484,7 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
 
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-[#252830] text-[#8E929E] border border-white/5">
-            {period === "week" ? "Semaine" : period === "month" ? "Mois" : "Global"}
+            {period === "day" ? "Jour" : period === "week" ? "Semaine" : period === "month" ? "Mois" : "Global"}
           </span>
           <Link
             href="/projects"
@@ -627,7 +635,7 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
                       {selectedProjectStats.totalCount !== 1 ? "s" : ""}
                     </span>
                     <span className="text-[9px] text-[#8E929E]">
-                      {period === "all" ? "total" : period === "month" ? "ce mois" : "cette sem."}
+                      {period === "all" ? "total" : period === "month" ? "ce mois" : period === "day" ? "ce jour" : "cette sem."}
                     </span>
                   </>
                 )}

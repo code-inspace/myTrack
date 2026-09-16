@@ -81,4 +81,25 @@ describe("Analytics Calculations", () => {
     expect(stats.habitStreaks.length).toBe(1);
     expect(stats.habitStreaks[0].currentStreak).toBe(2);
   });
+
+  it("calculates dashboard stats accurately for day period", () => {
+    const referenceDate = parseISO("2026-08-23");
+    const tasks: TaskRecord[] = [
+      {
+        id: "t1",
+        title: "Push-ups",
+        category: "Fitness",
+        recurrence: "DAILY",
+        trackingType: "BOOLEAN",
+      },
+    ];
+    const completions: CompletionRecord[] = [
+      { id: "1", taskId: "t1", date: "2026-08-23", completed: true },
+    ];
+
+    const stats = calculateDashboardStats(tasks, completions, "day", referenceDate);
+    expect(stats.momentumHistory.length).toBe(5);
+    expect(stats.completionRate).toBe(100);
+    expect(stats.momentumHistory[stats.momentumHistory.length - 1].score).toBe(100);
+  });
 });

@@ -3,7 +3,7 @@
 import React from "react";
 import { Period } from "../types";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { format, addWeeks, subWeeks, addMonths, subMonths, startOfWeek, endOfWeek } from "date-fns";
+import { format, addDays, subDays, addWeeks, subWeeks, addMonths, subMonths, startOfWeek, endOfWeek } from "date-fns";
 import { fr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 
@@ -21,13 +21,16 @@ export const PeriodSelector: React.FC<PeriodSelectorProps> = ({
   onChangeReferenceDate,
 }) => {
   const options: { id: Period; label: string }[] = [
+    { id: "day", label: "Jour" },
     { id: "week", label: "Semaine" },
     { id: "month", label: "Mois" },
-    { id: "all", label: "Tout le temps" },
+    { id: "all", label: "Global" },
   ];
 
   const handlePrev = () => {
-    if (period === "week") {
+    if (period === "day") {
+      onChangeReferenceDate(subDays(referenceDate, 1));
+    } else if (period === "week") {
       onChangeReferenceDate(subWeeks(referenceDate, 1));
     } else if (period === "month") {
       onChangeReferenceDate(subMonths(referenceDate, 1));
@@ -35,7 +38,9 @@ export const PeriodSelector: React.FC<PeriodSelectorProps> = ({
   };
 
   const handleNext = () => {
-    if (period === "week") {
+    if (period === "day") {
+      onChangeReferenceDate(addDays(referenceDate, 1));
+    } else if (period === "week") {
       onChangeReferenceDate(addWeeks(referenceDate, 1));
     } else if (period === "month") {
       onChangeReferenceDate(addMonths(referenceDate, 1));
@@ -44,7 +49,10 @@ export const PeriodSelector: React.FC<PeriodSelectorProps> = ({
 
   // Label for current navigated period
   let periodSubLabel = "";
-  if (period === "week") {
+  if (period === "day") {
+    const formatted = format(referenceDate, "EEEE d MMMM yyyy", { locale: fr });
+    periodSubLabel = formatted.charAt(0).toUpperCase() + formatted.slice(1);
+  } else if (period === "week") {
     const start = startOfWeek(referenceDate, { weekStartsOn: 1 });
     const end = endOfWeek(referenceDate, { weekStartsOn: 1 });
     periodSubLabel = `${format(start, "d MMM", { locale: fr })} - ${format(end, "d MMM yyyy", { locale: fr })}`;
@@ -55,7 +63,7 @@ export const PeriodSelector: React.FC<PeriodSelectorProps> = ({
 
   return (
     <div className="w-full space-y-2.5">
-      {/* Three main tabs: Semaine | Mois | Tout le temps */}
+      {/* Four main tabs: Jour | Semaine | Mois | Global */}
       <div className="flex items-center p-1 bg-[#1C1D22] border border-[#282A30] rounded-full w-full max-w-sm mx-auto shadow-inner">
         {options.map((opt) => {
           const isSelected = period === opt.id;
@@ -76,13 +84,13 @@ export const PeriodSelector: React.FC<PeriodSelectorProps> = ({
         })}
       </div>
 
-      {/* Period Navigation with Arrows for Semaine & Mois */}
+      {/* Period Navigation with Arrows for Jour, Semaine & Mois */}
       {period !== "all" && (
         <div className="flex items-center justify-between px-3 py-1 bg-[#141518] border border-[#23242A] rounded-2xl max-w-sm mx-auto text-xs font-bold text-white shadow-sm">
           <button
             onClick={handlePrev}
             className="p-1.5 rounded-xl text-[#D4F63D] hover:bg-[#20222A] transition-colors cursor-pointer"
-            title={period === "week" ? "Semaine précédente" : "Mois précédent"}
+            title={period === "day" ? "Jour précédent" : period === "week" ? "Semaine précédente" : "Mois précédent"}
           >
             <ChevronLeft className="w-4 h-4 stroke-[2.5]" />
           </button>
@@ -94,7 +102,7 @@ export const PeriodSelector: React.FC<PeriodSelectorProps> = ({
           <button
             onClick={handleNext}
             className="p-1.5 rounded-xl text-[#D4F63D] hover:bg-[#20222A] transition-colors cursor-pointer"
-            title={period === "week" ? "Semaine suivante" : "Mois suivant"}
+            title={period === "day" ? "Jour suivant" : period === "week" ? "Semaine suivante" : "Mois suivant"}
           >
             <ChevronRight className="w-4 h-4 stroke-[2.5]" />
           </button>

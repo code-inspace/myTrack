@@ -10,6 +10,14 @@ interface WaveChartProps {
   period?: Period;
 }
 
+const DEFAULT_DAY_POINTS: MomentumPoint[] = [
+  { date: "2026-08-23T08:00", label: "8h", score: 20, completedCount: 1, totalScheduled: 4 },
+  { date: "2026-08-23T11:00", label: "11h", score: 50, completedCount: 2, totalScheduled: 4 },
+  { date: "2026-08-23T14:00", label: "14h", score: 75, completedCount: 3, totalScheduled: 4 },
+  { date: "2026-08-23T17:00", label: "17h", score: 100, completedCount: 4, totalScheduled: 4 },
+  { date: "2026-08-23T20:00", label: "20h", score: 100, completedCount: 4, totalScheduled: 4 },
+];
+
 const DEFAULT_WEEK_POINTS: MomentumPoint[] = [
   { date: "2026-08-17", label: "Lun 17", score: 100, completedCount: 4, totalScheduled: 4 },
   { date: "2026-08-18", label: "Mar 18", score: 75, completedCount: 3, totalScheduled: 4 },
@@ -43,7 +51,9 @@ export const WaveChart: React.FC<WaveChartProps> = ({ data, period = "week" }) =
 
   // Select appropriate points depending on period and data validity
   const defaultForPeriod =
-    period === "month"
+    period === "day"
+      ? DEFAULT_DAY_POINTS
+      : period === "month"
       ? DEFAULT_MONTH_POINTS
       : period === "all"
       ? DEFAULT_ALL_POINTS
@@ -94,7 +104,9 @@ export const WaveChart: React.FC<WaveChartProps> = ({ data, period = "week" }) =
       : points[points.length - 1];
 
   const periodBadgeLabel =
-    period === "week"
+    period === "day"
+      ? "Jour (24h)"
+      : period === "week"
       ? "Semaine (7 jours)"
       : period === "month"
       ? "Mois (5 semaines)"

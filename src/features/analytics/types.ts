@@ -1,4 +1,4 @@
-export type Period = "week" | "month" | "all";
+export type Period = "day" | "week" | "month" | "all";
 
 export interface DayStatus {
   date: string;

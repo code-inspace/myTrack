@@ -87,7 +87,7 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
 
   // Sync historical sleep logs (bedtime/wakeTime/naps) from Supabase into the local cache
   useEffect(() => {
-    const daysCount = period === "week" ? 7 : period === "month" ? 30 : 60;
+    const daysCount = period === "day" ? 1 : period === "week" ? 7 : period === "month" ? 30 : 60;
     fetchSleepHistory(daysCount + 5).then((logs) => {
       if (logs && logs.length > 0) {
         setSyncVersion((v) => v + 1);
@@ -96,7 +96,7 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
   }, [period, referenceDate]);
 
   const { points, validNights, averageText, trackHeightPx, axisLabels } = useMemo(() => {
-    const daysCount = period === "week" ? 7 : period === "month" ? 30 : 60;
+    const daysCount = period === "day" ? 1 : period === "week" ? 7 : period === "month" ? 30 : 60;
     const rawPts: Array<{
       dateStr: string;
       label: string;
@@ -125,7 +125,9 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
 
       const dayIndex = d.getDay();
       const label =
-        period === "week"
+        period === "day"
+          ? format(d, "EEEE d", { locale: fr })
+          : period === "week"
           ? FRENCH_DAYS_SHORT[dayIndex]
           : format(d, "d MMM", { locale: fr });
 
@@ -304,7 +306,7 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
 
   // Autoscroll to the latest days (right side) when period is month or all
   useEffect(() => {
-    if (period !== "week" && scrollContainerRef.current) {
+    if (period !== "week" && period !== "day" && scrollContainerRef.current) {
       scrollContainerRef.current.scrollLeft = scrollContainerRef.current.scrollWidth;
     }
   }, [period, points]);
@@ -397,7 +399,7 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
           ref={scrollContainerRef}
           className={cn(
             "relative w-full rounded-2xl bg-[#141519] border border-[#282A30] p-3 select-none",
-            period === "week"
+            period === "week" || period === "day"
               ? "overflow-hidden"
               : "overflow-x-auto overflow-y-hidden scrollbar-thin scrollbar-thumb-[#282A30]"
           )}
@@ -406,7 +408,9 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
           <div
             className={cn(
               "flex items-stretch relative z-10",
-              period === "week"
+              period === "day"
+                ? "w-full justify-center"
+                : period === "week"
                 ? "w-full gap-1.5"
                 : "min-w-max gap-2 pr-2"
             )}
@@ -420,7 +424,9 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
                   onClick={() => setSelectedDateStr(pt.dateStr)}
                   className={cn(
                     "flex flex-col items-center group relative cursor-pointer",
-                    period === "week"
+                    period === "day"
+                      ? "w-24 sm:w-32"
+                      : period === "week"
                       ? "flex-1 min-w-0"
                       : "w-9 sm:w-11 flex-shrink-0"
                   )}
