@@ -319,12 +319,7 @@ export async function PATCH(req: NextRequest) {
       dbPayload.description = updates.description ? await encryptText(updates.description) : null;
     }
 
-    let query = supabase.from("tasks").update(dbPayload).eq("id", taskId);
-    if (userId) {
-      query = query.eq("user_id", userId);
-    }
-
-    const { error } = await query;
+    const { error } = await supabase.from("tasks").update(dbPayload).eq("id", taskId);
     if (error) {
       console.error("API /api/tasks PATCH error:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
@@ -342,16 +337,15 @@ export async function DELETE(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
-    const userId = searchParams.get("userId");
 
-    if (!id || !userId) {
-      return NextResponse.json({ error: "Missing id or userId" }, { status: 400 });
+    if (!id) {
+      return NextResponse.json({ error: "Missing id" }, { status: 400 });
     }
 
     const supabase = getAdminClient();
     await supabase.from("task_completions").delete().eq("task_id", id);
     await supabase.from("reminders").delete().eq("task_id", id);
-    const { error } = await supabase.from("tasks").delete().eq("id", id).eq("user_id", userId);
+    const { error } = await supabase.from("tasks").delete().eq("id", id);
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });

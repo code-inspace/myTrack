@@ -277,7 +277,11 @@ export async function updateTaskSchedule({
   }
 
   const tasks = getStoredTasks(targetId);
-  const target = tasks.find((t) => t.id === taskId);
+  let target = tasks.find((t) => t.id === taskId);
+  if (!target) {
+    const fallbackTasks = getStoredTasks();
+    target = fallbackTasks.find((t) => t.id === taskId);
+  }
   const nowIso = new Date().toISOString();
 
   const isRecurring = target?.recurrence && target.recurrence !== "ONCE";
