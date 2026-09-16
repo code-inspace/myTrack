@@ -46,13 +46,19 @@ export async function createDbReminder(
 
   // 1. Try Supabase insert if not demo
   if (targetUserId) {
+    const isUuid = Boolean(
+      record.taskId &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          record.taskId
+        )
+    );
     try {
       const { data, error } = await supabase
         .from("reminders")
         .insert([
           {
             user_id: targetUserId,
-            task_id: record.taskId,
+            task_id: isUuid ? record.taskId : null,
             title: record.title,
             body: record.body,
             scheduled_at: record.scheduledAt,

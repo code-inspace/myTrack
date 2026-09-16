@@ -835,12 +835,12 @@ struct MediumTasksListWidgetView: View {
                 }
 
                 if totalPages > 1 {
-                    HStack(spacing: 4) {
+                    HStack(spacing: 2) {
                         Button(intent: ChangeTaskPageIntent(delta: -1)) {
                             Image(systemName: "chevron.left")
-                                .font(.system(size: 9.5, weight: .bold))
+                                .font(.system(size: 10, weight: .heavy))
                                 .foregroundColor(.white)
-                                .frame(width: 22, height: 22)
+                                .frame(width: 26, height: 26)
                                 .background(Color.white.opacity(0.12))
                                 .clipShape(Circle())
                         }
@@ -852,9 +852,9 @@ struct MediumTasksListWidgetView: View {
 
                         Button(intent: ChangeTaskPageIntent(delta: 1)) {
                             Image(systemName: "chevron.right")
-                                .font(.system(size: 9.5, weight: .bold))
+                                .font(.system(size: 10, weight: .heavy))
                                 .foregroundColor(.white)
-                                .frame(width: 22, height: 22)
+                                .frame(width: 26, height: 26)
                                 .background(Color.white.opacity(0.12))
                                 .clipShape(Circle())
                         }

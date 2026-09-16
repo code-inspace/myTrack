@@ -391,8 +391,27 @@ public struct ChangeTaskPageIntent: AppIntent {
     public func perform() async throws -> some IntentResult {
         let suite = UserDefaults(suiteName: "group.com.mytrack.app") ?? UserDefaults.standard
         let currentPage = suite.integer(forKey: "mytrack_widget_task_page")
-        let newPage = max(0, currentPage + delta)
+
+        var totalTasks = 0
+        if let rawJson = suite.string(forKey: "mytrack_tasks_list") ?? UserDefaults.standard.string(forKey: "mytrack_tasks_list"),
+           let data = rawJson.data(using: .utf8),
+           let list = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
+            totalTasks = list.count
+        } else if let tempUrlData = try? Data(contentsOf: URL(fileURLWithPath: "/tmp/mytrack_tasks_list.json")),
+                  let list = try? JSONSerialization.jsonObject(with: tempUrlData) as? [[String: Any]] {
+            totalTasks = list.count
+        }
+
+        let pageSize = 2
+        let totalPages = max(1, Int(ceil(Double(totalTasks) / Double(pageSize))))
+
+        var newPage = (currentPage + delta) % totalPages
+        if newPage < 0 {
+            newPage = max(0, totalPages - 1)
+        }
+
         suite.set(newPage, forKey: "mytrack_widget_task_page")
+        UserDefaults.standard.set(newPage, forKey: "mytrack_widget_task_page")
         WidgetCenter.shared.reloadAllTimelines()
         return .result()
     }
