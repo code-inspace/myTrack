@@ -387,11 +387,13 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
                   {/* Track Bar area */}
                   <div
                     className={cn(
-                      "relative w-full transition-all overflow-hidden",
-                      isMonthView ? "rounded-[3px]" : "rounded-xl",
+                      "relative transition-all overflow-hidden",
+                      isMonthView
+                        ? "w-[3px] sm:w-[3.5px] rounded-full"
+                        : "w-full rounded-xl",
                       isSelected
                         ? "bg-[#1C1D24] ring-2 ring-[#818CF8] z-20 shadow-lg"
-                        : "bg-[#17181D]/60 border border-[#24262E] hover:border-[#4B5563]"
+                        : "bg-[#1B1D24] hover:bg-[#2A2D3A]"
                     )}
                     style={{ height: `${trackHeightPx}px` }}
                   >
@@ -399,8 +401,10 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
                     {pt.night && (
                       <div
                         className={cn(
-                          "absolute rounded-sm transition-all",
-                          isMonthView ? "inset-x-0" : "inset-x-[15%]",
+                          "absolute transition-all",
+                          isMonthView
+                            ? "inset-x-0 rounded-full"
+                            : "inset-x-[15%] rounded-md",
                           isSelected
                             ? "bg-gradient-to-b from-[#818CF8] to-[#6366F1] ring-1 ring-white/30"
                             : "bg-gradient-to-b from-[#818CF8] to-[#6366F1] group-hover:from-[#D4F63D] group-hover:to-[#a9d61f]"
@@ -417,8 +421,10 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
                       <div
                         key={nIdx}
                         className={cn(
-                          "absolute rounded-sm bg-[#A5B4FC]/90",
-                          isMonthView ? "inset-x-0" : "inset-x-[25%]",
+                          "absolute bg-[#A5B4FC]/90",
+                          isMonthView
+                            ? "inset-x-0 rounded-full"
+                            : "inset-x-[25%] rounded-md",
                           nap.isOpen && "animate-pulse"
                         )}
                         style={{
