@@ -1,8 +1,10 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { ExternalCalendarEvent } from "../types";
-import { X, Calendar, Clock, MapPin, AlignLeft, ExternalLink, Video } from "lucide-react";
+import { useProjects } from "@/features/projects/hooks";
+import { useCalendarEvents } from "../hooks/useCalendarEvents";
+import { X, Calendar, Clock, MapPin, AlignLeft, ExternalLink, Video, FolderKanban, Tag, Check, Trash2 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 
@@ -49,6 +51,19 @@ export const ExternalEventDetailModal: React.FC<ExternalEventDetailModalProps> =
   event,
   onClose,
 }) => {
+  const { projects } = useProjects();
+  const { assignEventProject } = useCalendarEvents();
+
+  const [selectedProjectId, setSelectedProjectId] = useState<string>("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("Général");
+
+  useEffect(() => {
+    if (event) {
+      setSelectedProjectId(event.projectId || "");
+      setSelectedCategory(event.projectCategory || "Général");
+    }
+  }, [event]);
+
   if (!event) return null;
 
   const calColor = event.calendarColor || "#3B82F6";
@@ -62,6 +77,31 @@ export const ExternalEventDetailModal: React.FC<ExternalEventDetailModalProps> =
   })();
 
   const isLocationUrl = isUrl(event.location);
+
+  const currentAssignedProject = projects.find((p) => p.id === selectedProjectId) || null;
+  const availableCategories = currentAssignedProject?.categories && currentAssignedProject.categories.length > 0
+    ? currentAssignedProject.categories
+    : ["Général"];
+
+  const handleProjectChange = (newProjId: string) => {
+    setSelectedProjectId(newProjId);
+    if (!newProjId) {
+      setSelectedCategory("Général");
+      assignEventProject(event.id, null, null);
+    } else {
+      const proj = projects.find((p) => p.id === newProjId);
+      const cat = proj?.categories?.[0] || "Général";
+      setSelectedCategory(cat);
+      assignEventProject(event.id, newProjId, cat);
+    }
+  };
+
+  const handleCategoryChange = (newCat: string) => {
+    setSelectedCategory(newCat);
+    if (selectedProjectId) {
+      assignEventProject(event.id, selectedProjectId, newCat);
+    }
+  };
 
   return (
     <div
@@ -154,6 +194,99 @@ export const ExternalEventDetailModal: React.FC<ExternalEventDetailModalProps> =
                     <ExternalLink className="w-3 h-3" />
                   </a>
                 )}
+              </div>
+            )}
+          </div>
+
+          {/* Project Association Section */}
+          <div className="pt-3 border-t border-[#222430] space-y-2.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-bold text-[#8E929E] uppercase tracking-wider">
+                <FolderKanban className="w-3.5 h-3.5 text-[#D4F63D]" />
+                <span>Rattacher à un Projet</span>
+              </div>
+              {selectedProjectId && (
+                <button
+                  type="button"
+                  onClick={() => handleProjectChange("")}
+                  className="text-[11px] text-[#EF4444] hover:underline flex items-center gap-1 cursor-pointer"
+                >
+                  <Trash2 className="w-3 h-3" />
+                  <span>Détacher</span>
+                </button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {/* Project Select */}
+              <div>
+                <label className="block text-[10px] text-[#8E929E] font-semibold mb-1">
+                  Projet
+                </label>
+                <div className="relative">
+                  <select
+                    value={selectedProjectId}
+                    onChange={(e) => handleProjectChange(e.target.value)}
+                    className="w-full bg-[#181A22] border border-[#2B2E3C] rounded-xl px-3 py-2 text-xs text-white focus:border-[#D4F63D] focus:outline-none appearance-none pr-8 cursor-pointer"
+                  >
+                    <option value="">-- Aucun projet --</option>
+                    {projects.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                  {currentAssignedProject && (
+                    <div
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full pointer-events-none"
+                      style={{ backgroundColor: currentAssignedProject.color }}
+                    />
+                  )}
+                </div>
+              </div>
+
+              {/* Category Select */}
+              {selectedProjectId && (
+                <div>
+                  <label className="block text-[10px] text-[#8E929E] font-semibold mb-1">
+                    Sous-catégorie
+                  </label>
+                  <select
+                    value={selectedCategory}
+                    onChange={(e) => handleCategoryChange(e.target.value)}
+                    className="w-full bg-[#181A22] border border-[#2B2E3C] rounded-xl px-3 py-2 text-xs text-white focus:border-[#D4F63D] focus:outline-none appearance-none cursor-pointer"
+                  >
+                    <option value="Général">Général</option>
+                    {availableCategories
+                      .filter((c) => c !== "Général")
+                      .map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              )}
+            </div>
+
+            {currentAssignedProject && (
+              <div className="p-2.5 rounded-xl bg-[#1B1D27] border border-[#2D3042] flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span
+                    className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: currentAssignedProject.color }}
+                  />
+                  <span className="font-bold text-white truncate">
+                    {currentAssignedProject.name}
+                  </span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-[#8E929E]">
+                    {selectedCategory}
+                  </span>
+                </div>
+                <span className="text-[10px] text-[#D4F63D] font-semibold flex items-center gap-1">
+                  <Check className="w-3 h-3" />
+                  Comptabilisé dans les stats
+                </span>
               </div>
             )}
           </div>

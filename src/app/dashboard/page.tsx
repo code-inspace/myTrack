@@ -21,6 +21,7 @@ import { getTodayDateString } from "@/lib/dates";
 import { AppHeader } from "@/components/shared/AppHeader";
 import { useAuth } from "@/providers/AuthProvider";
 import { useDisplayMode } from "@/providers/DisplayModeProvider";
+import { useCalendarEvents } from "@/features/calendar/hooks/useCalendarEvents";
 import { Sliders } from "lucide-react";
 
 const DASHBOARD_CONFIG_STORAGE_KEY = "mytrack_dashboard_modules_config";
@@ -62,6 +63,7 @@ export default function DashboardPage() {
 
   const { data: stats, isLoading } = useDashboardStats(period, referenceDate);
   const { allTasks, allCompletions } = useTasks(getTodayDateString());
+  const { events: externalEvents } = useCalendarEvents();
   const { user } = useAuth();
   const { displayMode } = useDisplayMode();
 
@@ -108,6 +110,7 @@ export default function DashboardPage() {
           <DashboardProjectStatsWidget
             key="PROJECT_STATS"
             tasks={allTasks}
+            externalEvents={externalEvents}
             completions={allCompletions}
             period={period}
             referenceDate={referenceDate}

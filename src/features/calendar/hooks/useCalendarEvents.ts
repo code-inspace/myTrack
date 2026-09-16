@@ -9,6 +9,8 @@ import {
   saveStoredCalendarSubscriptions,
   getStoredExternalEvents,
   saveStoredExternalEvents,
+  getStoredEventProjects,
+  saveStoredEventProject,
 } from "../actions/storage";
 import {
   fetchCalendarSubscriptions,
@@ -268,23 +270,41 @@ export function useCalendarEvents(focusedDateStr?: string) {
     updateSubscription(id, { enabled: !target.enabled });
   };
 
-  // Format event start/end times in user's local timezone
+  const assignEventProject = (
+    eventId: string,
+    projectId: string | null,
+    projectCategory?: string | null
+  ) => {
+    saveStoredEventProject(eventId, { projectId, projectCategory }, userId);
+    queryClient.invalidateQueries({ queryKey: ["external-calendar-events"] });
+  };
+
+  // Format event start/end times in user's local timezone & attach project assignments
   const rawEvents = queryResult?.events || [];
+  const eventProjects = getStoredEventProjects(userId);
+
   const localEvents: ExternalCalendarEvent[] = rawEvents.map((evt) => {
-    if (evt.isAllDay) return evt;
-    if (!evt.startIso) return evt;
+    const projectMapping = eventProjects[evt.id];
+    const eventWithProject: ExternalCalendarEvent = {
+      ...evt,
+      projectId: projectMapping?.projectId !== undefined ? projectMapping.projectId : (evt.projectId || null),
+      projectCategory: projectMapping?.projectCategory !== undefined ? projectMapping.projectCategory : (evt.projectCategory || null),
+    };
+
+    if (eventWithProject.isAllDay) return eventWithProject;
+    if (!eventWithProject.startIso) return eventWithProject;
 
     // Only convert pure UTC timestamps (ending with 'Z', e.g. Google Calendar)
-    if (evt.startIso.endsWith("Z")) {
+    if (eventWithProject.startIso.endsWith("Z")) {
       try {
-        const startDate = parseISO(evt.startIso);
-        const endDate = evt.endIso && evt.endIso.endsWith("Z") ? parseISO(evt.endIso) : null;
+        const startDate = parseISO(eventWithProject.startIso);
+        const endDate = eventWithProject.endIso && eventWithProject.endIso.endsWith("Z") ? parseISO(eventWithProject.endIso) : null;
         if (!isNaN(startDate.getTime())) {
           return {
-            ...evt,
+            ...eventWithProject,
             date: format(startDate, "yyyy-MM-dd"),
             startTime: format(startDate, "HH:mm"),
-            endTime: endDate && !isNaN(endDate.getTime()) ? format(endDate, "HH:mm") : evt.endTime,
+            endTime: endDate && !isNaN(endDate.getTime()) ? format(endDate, "HH:mm") : eventWithProject.endTime,
           };
         }
       } catch {
@@ -293,7 +313,7 @@ export function useCalendarEvents(focusedDateStr?: string) {
     }
 
     // Local / Floating / TZID events (Zimbra, Beta.gouv, CalDAV) are already in exact local time
-    return evt;
+    return eventWithProject;
   });
 
   return {
@@ -310,5 +330,6 @@ export function useCalendarEvents(focusedDateStr?: string) {
     updateSubscription,
     deleteSubscription,
     toggleSubscription,
+    assignEventProject,
   };
 }

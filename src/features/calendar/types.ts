@@ -26,6 +26,8 @@ export interface ExternalCalendarEvent {
   isAllDay: boolean;
   startIso: string;
   endIso: string;
+  projectId?: string | null;
+  projectCategory?: string | null;
 }
 
 export const DEFAULT_CALENDAR_COLORS = [

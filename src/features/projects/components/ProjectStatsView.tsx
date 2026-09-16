@@ -2,6 +2,9 @@
 
 import React, { useState, useMemo } from "react";
 import { Task, TaskCompletion } from "@/features/tasks/types";
+import { ExternalCalendarEvent } from "@/features/calendar/types";
+import { getExternalEventDurationMinutes } from "@/features/calendar/lib/duration";
+import { isExternalEventDone } from "@/features/calendar/lib/status";
 import { Project, getProjectColumns } from "../types";
 import {
   ArrowLeft,
@@ -15,12 +18,14 @@ import {
   Tag,
   BarChart3,
   Timer,
+  Calendar,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ProjectStatsViewProps {
   projects: Project[];
   tasks: Task[];
+  externalEvents?: ExternalCalendarEvent[];
   completions?: TaskCompletion[];
   onBack: () => void;
   onEditTask?: (task: Task) => void;
@@ -210,7 +215,7 @@ function DonutChart({
               % du temps
             </span>
             <span className="text-[11px] text-[#8E929E] truncate max-w-[120px] mt-0.5">
-              {data[hoveredIndex].label} ({data[hoveredIndex].taskCount} tâche
+              {data[hoveredIndex].label} ({data[hoveredIndex].taskCount} élém.
               {data[hoveredIndex].taskCount !== 1 ? "s" : ""})
             </span>
           </>
@@ -221,7 +226,7 @@ function DonutChart({
             </span>
             <span className="text-xs text-[#8E929E] font-medium mt-1">{centerLabel}</span>
             <span className="text-[11px] text-[#D4F63D] font-bold mt-0.5">
-              {totalTasks} tâche{totalTasks !== 1 ? "s" : ""}
+              {totalTasks} élément{totalTasks !== 1 ? "s" : ""}
             </span>
           </>
         )}
@@ -245,6 +250,7 @@ const CATEGORY_COLORS = [
 export const ProjectStatsView: React.FC<ProjectStatsViewProps> = ({
   projects,
   tasks,
+  externalEvents = [],
   completions = [],
   onBack,
   onEditTask,
@@ -264,7 +270,12 @@ export const ProjectStatsView: React.FC<ProjectStatsViewProps> = ({
     return tasks.filter((t) => Boolean(t.projectId) && !t.isArchived);
   }, [tasks]);
 
-  // Global project chart data based on duration & tasks
+  // Overall external events assigned to projects
+  const projectEvents = useMemo(() => {
+    return externalEvents.filter((e) => Boolean(e.projectId));
+  }, [externalEvents]);
+
+  // Global project chart data based on duration & tasks + events
   const { projectChartData, totalGlobalMinutes } = useMemo(() => {
     let globalMinutes = 0;
     const projectMap = projects.map((p) => {
@@ -285,19 +296,24 @@ export const ProjectStatsView: React.FC<ProjectStatsViewProps> = ({
         }
       }
 
+      const pEvents = externalEvents.filter((e) => e.projectId === p.id);
+      for (const e of pEvents) {
+        pMinutes += getExternalEventDurationMinutes(e);
+      }
+
       globalMinutes += pMinutes;
 
       return {
         id: p.id,
         label: p.name,
         durationMinutes: pMinutes,
-        taskCount: pTasks.length,
+        taskCount: pTasks.length + pEvents.length,
         color: p.color || "#D4F63D",
       };
     });
 
     return { projectChartData: projectMap, totalGlobalMinutes: globalMinutes };
-  }, [projects, tasks, completions]);
+  }, [projects, tasks, externalEvents, completions]);
 
   // Specific project details if selected
   const singleProjectTasks = useMemo(() => {
@@ -305,7 +321,12 @@ export const ProjectStatsView: React.FC<ProjectStatsViewProps> = ({
     return tasks.filter((t) => t.projectId === selectedProjectId && !t.isArchived);
   }, [tasks, selectedProjectId]);
 
-  // Project categories breakdown based on duration & tasks
+  const singleProjectEvents = useMemo(() => {
+    if (!selectedProjectId) return [];
+    return externalEvents.filter((e) => e.projectId === selectedProjectId);
+  }, [externalEvents, selectedProjectId]);
+
+  // Project categories breakdown based on duration & tasks + events
   const { projectCategoryChartData, totalSingleProjectMinutes } = useMemo(() => {
     if (!selectedProject) return { projectCategoryChartData: [], totalSingleProjectMinutes: 0 };
     const catMap: Record<string, { durationMinutes: number; taskCount: number }> = {};
@@ -335,6 +356,17 @@ export const ProjectStatsView: React.FC<ProjectStatsViewProps> = ({
       totalProjMinutes += tMins;
     }
 
+    for (const e of singleProjectEvents) {
+      const cat = e.projectCategory || "Général";
+      if (!catMap[cat]) {
+        catMap[cat] = { durationMinutes: 0, taskCount: 0 };
+      }
+      catMap[cat].taskCount++;
+      const eMins = getExternalEventDurationMinutes(e);
+      catMap[cat].durationMinutes += eMins;
+      totalProjMinutes += eMins;
+    }
+
     const categories = Object.keys(catMap);
     const chartData = categories.map((cat, idx) => ({
       id: cat,
@@ -345,12 +377,13 @@ export const ProjectStatsView: React.FC<ProjectStatsViewProps> = ({
     }));
 
     return { projectCategoryChartData: chartData, totalSingleProjectMinutes: totalProjMinutes };
-  }, [selectedProject, singleProjectTasks, completions]);
+  }, [selectedProject, singleProjectTasks, singleProjectEvents, completions]);
 
   // Project status breakdown (Kanban columns)
   const projectStatusBreakdown = useMemo(() => {
     if (!selectedProject) return [];
     const columns = getProjectColumns(selectedProject);
+    const totalCount = singleProjectTasks.length + singleProjectEvents.length;
     return columns.map((col) => {
       const count = singleProjectTasks.filter((t) => t.projectStatus === col.id).length;
       return {
@@ -358,12 +391,12 @@ export const ProjectStatsView: React.FC<ProjectStatsViewProps> = ({
         label: col.label,
         isDone: col.isDone,
         count,
-        percent: singleProjectTasks.length > 0 ? Math.round((count / singleProjectTasks.length) * 100) : 0,
+        percent: totalCount > 0 ? Math.round((count / totalCount) * 100) : 0,
       };
     });
-  }, [selectedProject, singleProjectTasks]);
+  }, [selectedProject, singleProjectTasks, singleProjectEvents]);
 
-  // Completed tasks count in current project
+  // Completed elements count in current project
   const projectCompletedCount = useMemo(() => {
     if (!selectedProject) return 0;
     const doneColumnIds = new Set(
@@ -371,12 +404,18 @@ export const ProjectStatsView: React.FC<ProjectStatsViewProps> = ({
         .filter((c) => c.isDone)
         .map((c) => c.id)
     );
-    return singleProjectTasks.filter((t) => t.projectStatus && doneColumnIds.has(t.projectStatus)).length;
-  }, [selectedProject, singleProjectTasks]);
+    const completedTasks = singleProjectTasks.filter(
+      (t) => t.projectStatus && doneColumnIds.has(t.projectStatus)
+    ).length;
+    const completedEvents = singleProjectEvents.filter((e) => isExternalEventDone(e)).length;
+    return completedTasks + completedEvents;
+  }, [selectedProject, singleProjectTasks, singleProjectEvents]);
+
+  const totalSingleElementsCount = singleProjectTasks.length + singleProjectEvents.length;
 
   const completionRate =
-    singleProjectTasks.length > 0
-      ? Math.round((projectCompletedCount / singleProjectTasks.length) * 100)
+    totalSingleElementsCount > 0
+      ? Math.round((projectCompletedCount / totalSingleElementsCount) * 100)
       : 0;
 
   // Filtered task list for drill-down view
@@ -386,6 +425,13 @@ export const ProjectStatsView: React.FC<ProjectStatsViewProps> = ({
       (t) => (t.projectCategory || t.category || "Général") === selectedCategoryFilter
     );
   }, [singleProjectTasks, selectedCategoryFilter]);
+
+  const filteredSingleEvents = useMemo(() => {
+    if (selectedCategoryFilter === "ALL") return singleProjectEvents;
+    return singleProjectEvents.filter(
+      (e) => (e.projectCategory || "Général") === selectedCategoryFilter
+    );
+  }, [singleProjectEvents, selectedCategoryFilter]);
 
   return (
     <div className="flex-1 flex flex-col min-h-0 w-full bg-[#0E0F12] text-white overflow-hidden">
@@ -591,25 +637,46 @@ export const ProjectStatsView: React.FC<ProjectStatsViewProps> = ({
                   </div>
 
                   <div className="max-h-56 overflow-y-auto space-y-1.5 pr-1">
-                    {filteredSingleTasks.length === 0 ? (
+                    {filteredSingleTasks.length === 0 && filteredSingleEvents.length === 0 ? (
                       <p className="text-xs text-[#6B7280] py-3 text-center">
-                        Aucune tâche pour ce filtre
+                        Aucun élément pour ce filtre
                       </p>
                     ) : (
-                      filteredSingleTasks.map((t) => (
-                        <div
-                          key={t.id}
-                          onClick={() => onEditTask && onEditTask(t)}
-                          className="p-2.5 rounded-xl bg-[#202228] hover:bg-[#252830] transition-colors flex items-center justify-between gap-2 cursor-pointer"
-                        >
-                          <span className="text-xs font-medium text-white truncate">
-                            {t.title}
-                          </span>
-                          <span className="text-[10px] px-2 py-0.5 rounded-md bg-white/5 text-[#8E929E] flex-shrink-0">
-                            {t.projectCategory || t.category || "Général"}
-                          </span>
-                        </div>
-                      ))
+                      <>
+                        {filteredSingleEvents.map((e) => (
+                          <div
+                            key={e.id}
+                            className="p-2.5 rounded-xl bg-[#202228] hover:bg-[#252830] transition-colors flex items-center justify-between gap-2"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span
+                                className="w-2 h-2 rounded-full flex-shrink-0"
+                                style={{ backgroundColor: e.calendarColor || "#3B82F6" }}
+                              />
+                              <span className="text-xs font-medium text-white truncate">
+                                {e.title}
+                              </span>
+                            </div>
+                            <span className="text-[10px] px-2 py-0.5 rounded-md bg-[#3B82F6]/10 text-[#60A5FA] flex-shrink-0">
+                              {e.calendarName || "Agenda"}
+                            </span>
+                          </div>
+                        ))}
+                        {filteredSingleTasks.map((t) => (
+                          <div
+                            key={t.id}
+                            onClick={() => onEditTask && onEditTask(t)}
+                            className="p-2.5 rounded-xl bg-[#202228] hover:bg-[#252830] transition-colors flex items-center justify-between gap-2 cursor-pointer"
+                          >
+                            <span className="text-xs font-medium text-white truncate">
+                              {t.title}
+                            </span>
+                            <span className="text-[10px] px-2 py-0.5 rounded-md bg-white/5 text-[#8E929E] flex-shrink-0">
+                              {t.projectCategory || t.category || "Général"}
+                            </span>
+                          </div>
+                        ))}
+                      </>
                     )}
                   </div>
                 </div>

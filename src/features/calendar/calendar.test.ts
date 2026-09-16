@@ -236,3 +236,53 @@ END:VCALENDAR</C:calendar-data>
   });
 });
 
+import { getExternalEventDurationMinutes } from "./lib/duration";
+import { getStoredEventProjects, saveStoredEventProject } from "./actions/storage";
+
+describe("External Calendar Event Duration & Project Association", () => {
+  it("computes duration in minutes accurately from startTime and endTime", () => {
+    const event: ExternalCalendarEvent = {
+      id: "evt-dur-1",
+      calendarId: "cal-1",
+      calendarName: "Google Pro",
+      calendarColor: "#3B82F6",
+      title: "Sprint Review",
+      date: "2026-09-16",
+      startTime: "14:00",
+      endTime: "15:30",
+      startIso: "2026-09-16T14:00:00.000Z",
+      endIso: "2026-09-16T15:30:00.000Z",
+      isAllDay: false,
+    };
+
+    expect(getExternalEventDurationMinutes(event)).toBe(90);
+  });
+
+  it("assigns 60 minutes default block for all-day events", () => {
+    const allDayEvent: ExternalCalendarEvent = {
+      id: "evt-dur-2",
+      calendarId: "cal-1",
+      calendarName: "Google Pro",
+      calendarColor: "#3B82F6",
+      title: "Journée Hackathon",
+      date: "2026-09-16",
+      startIso: "2026-09-16T00:00:00.000Z",
+      endIso: "2026-09-16T23:59:59.000Z",
+      isAllDay: true,
+    };
+
+    expect(getExternalEventDurationMinutes(allDayEvent)).toBe(60);
+  });
+
+  it("persists and reads project and subcategory assignment for an external event", () => {
+    saveStoredEventProject("evt-proj-1", { projectId: "proj-123", projectCategory: "Frontend" }, "user-test");
+    const mapping = getStoredEventProjects("user-test");
+    expect(mapping["evt-proj-1"]).toEqual({ projectId: "proj-123", projectCategory: "Frontend" });
+
+    // Detach project
+    saveStoredEventProject("evt-proj-1", { projectId: null }, "user-test");
+    const updatedMapping = getStoredEventProjects("user-test");
+    expect(updatedMapping["evt-proj-1"]).toBeUndefined();
+  });
+});
+

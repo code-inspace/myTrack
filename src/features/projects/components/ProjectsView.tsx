@@ -109,6 +109,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
           <ProjectStatsView
             projects={projects}
             tasks={allTasks}
+            externalEvents={externalEvents}
             completions={completions}
             onBack={() => setShowProjectStats(false)}
             onEditTask={onEditTask}
@@ -376,6 +377,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
             <ProjectStatsView
               projects={projects}
               tasks={allTasks}
+              externalEvents={externalEvents}
               completions={completions}
               onBack={() => {
                 setShowProjectStats(false);

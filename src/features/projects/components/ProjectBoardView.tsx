@@ -31,27 +31,43 @@ interface ProjectBoardViewProps {
 export const ProjectBoardView: React.FC<ProjectBoardViewProps> = ({
   project,
   tasks,
+  externalEvents = [],
   completions,
   onBack,
   onEditTask,
   onAddTask,
   onChangeStatus,
+  onSelectExternalEvent,
 }) => {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
   const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
+
+  const projectEvents = useMemo(() => {
+    return externalEvents.filter((e) => e.projectId === project.id);
+  }, [externalEvents, project.id]);
 
   const projectCategories = useMemo(() => {
     const cats = new Set<string>(project.categories || []);
     tasks.forEach((t) => {
       if (t.projectCategory) cats.add(t.projectCategory);
     });
+    projectEvents.forEach((e) => {
+      if (e.projectCategory) cats.add(e.projectCategory);
+    });
     return Array.from(cats);
-  }, [project, tasks]);
+  }, [project, tasks, projectEvents]);
 
   const filteredTasks = useMemo(() => {
     if (selectedCategory === "ALL") return tasks;
-    return tasks.filter((t) => t.projectCategory === selectedCategory);
+    return tasks.filter((t) => (t.projectCategory || "Général") === selectedCategory);
   }, [tasks, selectedCategory]);
+
+  const filteredEvents = useMemo(() => {
+    if (selectedCategory === "ALL") return projectEvents;
+    return projectEvents.filter((e) => (e.projectCategory || "Général") === selectedCategory);
+  }, [projectEvents, selectedCategory]);
+
+  const totalElementsCount = filteredTasks.length + filteredEvents.length;
 
   const columns = getProjectColumns(project);
   const tasksByColumn = groupTasksByColumn(filteredTasks, columns, completions);
@@ -88,7 +104,7 @@ export const ProjectBoardView: React.FC<ProjectBoardViewProps> = ({
         </div>
 
         <div className="text-xs font-semibold text-[#8E929E] bg-[#17181F] px-3 py-1.5 rounded-xl border border-[#282B36]">
-          {filteredTasks.length} tâche{filteredTasks.length !== 1 ? "s" : ""}
+          {totalElementsCount} élément{totalElementsCount !== 1 ? "s" : ""}
         </div>
       </div>
 
@@ -105,10 +121,12 @@ export const ProjectBoardView: React.FC<ProjectBoardViewProps> = ({
                 : "bg-[#1C1D22] border border-[#282A30] text-[#8E929E] hover:text-white hover:border-[#4B5563]"
             )}
           >
-            Toutes ({tasks.length})
+            Tous ({tasks.length + projectEvents.length})
           </button>
           {projectCategories.map((cat) => {
-            const count = tasks.filter((t) => t.projectCategory === cat).length;
+            const count =
+              tasks.filter((t) => (t.projectCategory || "Général") === cat).length +
+              projectEvents.filter((e) => (e.projectCategory || "Général") === cat).length;
             const isSelected = selectedCategory === cat;
             return (
               <button
@@ -139,10 +157,11 @@ export const ProjectBoardView: React.FC<ProjectBoardViewProps> = ({
                 key={col.id}
                 column={col}
                 tasks={tasksByColumn.get(col.id) || []}
-                externalEvents={[]}
+                externalEvents={filteredEvents}
                 onEditTask={onEditTask}
                 onAddTask={onAddTask}
                 completions={completions}
+                onSelectExternalEvent={onSelectExternalEvent}
               />
             ))}
           </div>
