@@ -680,7 +680,9 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
             }
         }
 
-        WidgetCenter.shared.reloadAllTimelines()
+        if #available(iOS 14.0, macOS 11.0, *) {
+            WidgetCenter.shared.reloadAllTimelines()
+        }
         call.resolve(["success": true])
     }
 

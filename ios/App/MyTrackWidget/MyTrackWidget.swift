@@ -885,65 +885,6 @@ struct SmallSleepWidgetView: View {
         .padding(10)
     }
 }
-                            Text(nextTask.title)
-                                .font(.system(size: 10.5, weight: .medium))
-                                .lineLimit(1)
-                        }
-                    } else {
-                        Text("🎉 Toutes terminées")
-                            .font(.system(size: 9.5))
-                            .foregroundColor(.secondary)
-                    }
-                }
-            }
-        }
-    }
-}
-
-struct LockScreenAccessoryInlineView: View {
-    let entry: ActiveTaskEntry
-
-    var body: some View {
-        if let active = entry.activeTasks.first {
-            Text("⏱ \(active.taskTitle)")
-        } else if let nextTask = entry.tasks.first(where: { $0.isCompleted != true }) {
-            Text("📋 \(nextTask.title)")
-        } else {
-            Text("myTrack • + Ajouter tâche")
-        }
-    }
-}
-
-struct LockScreenAccessoryCircularView: View {
-    let entry: ActiveTaskEntry
-    let brandNeon: Color
-    let darkBg: Color
-
-    var body: some View {
-        if let active = entry.activeTasks.first {
-            Link(destination: URL(string: "mytrack://tasks")!) {
-                ZStack {
-                    AccessoryWidgetBackground()
-                    VStack(spacing: 1) {
-                        Image(systemName: "timer")
-                            .font(.system(size: 13, weight: .bold))
-                        Text(active.taskTitle)
-                            .font(.system(size: 8, weight: .bold))
-                            .lineLimit(1)
-                    }
-                }
-            }
-        } else {
-            Link(destination: URL(string: "mytrack://tasks?action=new-task")!) {
-                ZStack {
-                    AccessoryWidgetBackground()
-                    Image(systemName: "plus")
-                        .font(.system(size: 16, weight: .heavy))
-                }
-            }
-        }
-    }
-}
 
 // MARK: - 6. Vues Tâche Active Unique (Chrono & Bouton Arrêter)
 
