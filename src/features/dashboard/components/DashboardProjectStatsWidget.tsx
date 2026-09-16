@@ -1030,44 +1030,6 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
       ) : (
         /* ================= WEEK / MONTH: MAIN VERTICAL STACKED BAR CHART ================= */
         <div className="space-y-4 animate-in fade-in duration-200">
-          {/* Selected Column Info Card (if clicked) */}
-          {activeSelectedColumn && (
-            <div className="bg-[#17181D] border border-[#2A2D37] rounded-2xl p-3 space-y-2 animate-in fade-in duration-150">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-white capitalize">
-                  {activeSelectedColumn.fullLabel}
-                </span>
-                <span className="text-xs font-bold text-[#D4F63D] bg-[#D4F63D]/10 px-2.5 py-0.5 rounded-full border border-[#D4F63D]/25">
-                  Total : {formatDurationHoursMinutes(activeSelectedColumn.totalMinutes)}
-                </span>
-              </div>
-              {activeSelectedColumn.projectBreakdown.length > 0 ? (
-                <div className="flex flex-wrap gap-2 pt-1">
-                  {activeSelectedColumn.projectBreakdown.map((slice) => (
-                    <div
-                      key={slice.projectId}
-                      onClick={() => setSelectedProjectId(slice.projectId)}
-                      className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-[#202229] border border-[#2D303C] hover:border-[#D4F63D]/40 cursor-pointer text-xs transition-colors"
-                    >
-                      <span
-                        className="w-2 h-2 rounded-full"
-                        style={{ backgroundColor: slice.projectColor }}
-                      />
-                      <span className="text-white font-medium">{slice.projectName}</span>
-                      <span className="text-[#D4F63D] font-bold">
-                        {formatDurationHoursMinutes(slice.minutes)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-[11px] text-[#8E929E] italic">
-                  Aucun temps enregistré pour cette période.
-                </p>
-              )}
-            </div>
-          )}
-
           {/* Chart Frame matching screenshot design */}
           <div className="relative w-full rounded-2xl bg-[#141519] border border-[#282A30] p-4 select-none overflow-hidden">
             {/* Chart Area */}
@@ -1118,7 +1080,9 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
                         className={cn(
                           "text-[10px] font-mono mb-1.5 transition-colors text-center whitespace-nowrap",
                           col.totalMinutes > 0
-                            ? "font-bold text-white group-hover:text-[#D4F63D]"
+                            ? isSelected
+                              ? "font-bold text-[#D4F63D]"
+                              : "font-bold text-white group-hover:text-[#D4F63D]"
                             : "font-medium text-[#6B7280]"
                         )}
                       >
@@ -1130,7 +1094,7 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
                         className={cn(
                           "w-full max-w-[56px] min-h-[2px] rounded-t-md transition-all relative overflow-hidden flex flex-col justify-end",
                           isSelected
-                            ? "ring-2 ring-[#D4F63D] shadow-lg shadow-[#D4F63D]/10"
+                            ? "ring-2 ring-[#D4F63D] shadow-lg shadow-[#D4F63D]/20 scale-105"
                             : "group-hover:opacity-90"
                         )}
                         style={{
@@ -1193,7 +1157,7 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
                     <span
                       className={cn(
                         "text-[10px] text-[#8E929E] leading-tight truncate max-w-full mt-0.5 transition-colors",
-                        isSelected ? "text-white" : "group-hover:text-[#CBD5E1]"
+                        isSelected ? "text-white font-semibold" : "group-hover:text-[#CBD5E1]"
                       )}
                     >
                       {col.subTitle}
@@ -1204,29 +1168,102 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
             </div>
           </div>
 
-          {/* Bottom Legend with Projects Swatches */}
-          <div className="pt-1">
-            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
-              {activeProjectsList.map((p) => (
-                <button
-                  type="button"
-                  key={p.id}
-                  onClick={() => setSelectedProjectId(p.id)}
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#202229] border border-[#2B2D38] hover:border-[#D4F63D]/40 text-xs text-white transition-all cursor-pointer group"
-                >
-                  <span
-                    className="w-2.5 h-2.5 rounded-sm flex-shrink-0 group-hover:scale-110 transition-transform"
-                    style={{ backgroundColor: p.color }}
-                  />
-                  <span className="font-medium group-hover:text-[#D4F63D] transition-colors">
-                    {p.name}
+          {/* Project List underneath matching Day view format and adapting to clicked column */}
+          <div className="w-full space-y-1.5 pt-1">
+            <div className="text-[10px] font-semibold text-[#8E929E] flex items-center justify-between pb-1 border-b border-[#282A30]">
+              {activeSelectedColumn ? (
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-white font-bold capitalize truncate text-xs">
+                    {activeSelectedColumn.fullLabel}
                   </span>
-                  <span className="text-[11px] font-bold text-[#D4F63D] ml-0.5">
-                    {formatDurationHoursMinutes(p.minutes)}
-                  </span>
-                </button>
-              ))}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedColumnId(null)}
+                    className="text-[10px] text-[#818CF8] hover:text-[#A5B4FC] hover:underline cursor-pointer flex-shrink-0"
+                  >
+                    (Voir toute la {period === "month" ? "période" : "semaine"})
+                  </button>
+                </div>
+              ) : (
+                <span>Projet (clique pour détails)</span>
+              )}
+              <span className="font-bold text-[#D4F63D]">
+                {activeSelectedColumn
+                  ? `Total : ${formatDurationHoursMinutes(activeSelectedColumn.totalMinutes)}`
+                  : "Temps & Part"}
+              </span>
             </div>
+
+            {(() => {
+              const displayedItems = activeSelectedColumn
+                ? activeSelectedColumn.projectBreakdown.map((s) => ({
+                    id: s.projectId,
+                    name: s.projectName,
+                    color: s.projectColor,
+                    durationMinutes: s.minutes,
+                    percent:
+                      activeSelectedColumn.totalMinutes > 0
+                        ? Math.round((s.minutes / activeSelectedColumn.totalMinutes) * 100)
+                        : 0,
+                  }))
+                : activeProjectsList
+                    .filter((p) => p.minutes > 0)
+                    .map((p) => ({
+                      id: p.id,
+                      name: p.name,
+                      color: p.color,
+                      durationMinutes: p.minutes,
+                      percent:
+                        totalPeriodMinutes > 0
+                          ? Math.round((p.minutes / totalPeriodMinutes) * 100)
+                          : 0,
+                    }));
+
+              if (displayedItems.length === 0) {
+                return (
+                  <div className="py-4 text-center text-xs text-[#8E929E] italic">
+                    Aucun temps enregistré {activeSelectedColumn ? "pour ce jour" : "sur cette période"}.
+                  </div>
+                );
+              }
+
+              return displayedItems.map((p, idx) => {
+                const isHovered = hoveredIndex === idx;
+
+                return (
+                  <button
+                    type="button"
+                    key={p.id}
+                    onClick={() => setSelectedProjectId(p.id)}
+                    onMouseEnter={() => setHoveredIndex(idx)}
+                    onMouseLeave={() => setHoveredIndex(null)}
+                    className={cn(
+                      "w-full flex items-center justify-between text-xs p-2 rounded-xl transition-all cursor-pointer text-left group",
+                      isHovered ? "bg-white/10 shadow-sm" : "hover:bg-white/5"
+                    )}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span
+                        className="w-2.5 h-2.5 rounded-full flex-shrink-0 group-hover:scale-125 transition-transform"
+                        style={{ backgroundColor: p.color }}
+                      />
+                      <span className="text-white truncate font-medium group-hover:text-[#D4F63D] transition-colors">
+                        {p.name}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <span className="font-bold text-[#D4F63D]">
+                        {formatDurationHoursMinutes(p.durationMinutes)}
+                      </span>
+                      <span className="text-[10px] text-[#6B7280] w-7 text-right font-mono">
+                        {p.percent}%
+                      </span>
+                      <ChevronRight className="w-3.5 h-3.5 text-[#6B7280] group-hover:text-white group-hover:translate-x-0.5 transition-all" />
+                    </div>
+                  </button>
+                );
+              });
+            })()}
           </div>
         </div>
       )}
