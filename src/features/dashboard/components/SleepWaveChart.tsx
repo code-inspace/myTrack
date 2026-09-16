@@ -241,11 +241,11 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
     { label: "14:00", offsetPct: timeToOffsetPct("14:00") },
   ];
 
-  const trackHeightPx = 230;
+  const trackHeightPx = 180;
   const isMonthView = period === "month" || period === "all";
 
   return (
-    <div className="bg-[#141519] border border-[#24262E] rounded-3xl p-4 sm:p-5 shadow-lg select-none w-full max-w-full overflow-hidden">
+    <div className="bg-[#141519] border border-[#24262E] rounded-3xl p-3 shadow-lg select-none w-full overflow-hidden">
       {/* 1. Top Card Header */}
       <div className="flex items-center justify-between pb-2">
         <div className="flex items-center gap-3 min-w-0">
@@ -282,206 +282,187 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
         </div>
       </div>
 
-      {/* 2. Floating Detail Tooltip (Identical to Apple Health Month Sleep View) */}
-      <div className="flex flex-col items-center justify-center pt-2 pb-1 relative z-20">
-        <div className="bg-[#1B1C22] border border-[#2D303C] rounded-2xl px-6 py-3 shadow-xl flex flex-col items-center text-center transition-all animate-in fade-in duration-150">
-          <div className="flex items-center gap-1.5 text-[11px] font-bold tracking-wider uppercase text-[#818CF8]">
-            <div className="w-2 h-2 rounded-full bg-[#818CF8]" />
-            <span>AU LIT</span>
-          </div>
-
-          <div className="mt-1 flex items-baseline gap-1 text-white">
-            {activeSelectedPoint?.night ? (
-              <>
-                <span className="text-3xl font-black tracking-tight">
-                  {Math.floor(activeSelectedPoint.night.durationMinutes / 60)}
-                </span>
-                <span className="text-sm font-semibold text-[#8E929E]">h</span>
-                <span className="text-3xl font-black tracking-tight ml-1.5">
-                  {String(activeSelectedPoint.night.durationMinutes % 60).padStart(2, "0")}
-                </span>
-                <span className="text-sm font-semibold text-[#8E929E]">min</span>
-              </>
-            ) : (
-              <span className="text-lg font-bold text-[#8E929E] italic py-0.5">
-                Aucune nuit enregistrée
+      {/* 2. Compact Detail Row (inline, no fixed card width) */}
+      <div className="flex items-center justify-between pt-1 pb-2 gap-2">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <div className="w-2 h-2 rounded-full bg-[#818CF8] shrink-0" />
+          <span className="text-[11px] font-bold tracking-wider uppercase text-[#818CF8] shrink-0">Au lit</span>
+          <span className="text-[11px] font-medium text-[#8E929E] truncate capitalize">
+            · {activeSelectedPoint?.fullDateLabel || "—"}
+          </span>
+        </div>
+        <div className="flex items-baseline gap-0.5 shrink-0">
+          {activeSelectedPoint?.night ? (
+            <>
+              <span className="text-base font-black text-white">
+                {Math.floor(activeSelectedPoint.night.durationMinutes / 60)}
               </span>
-            )}
-          </div>
-
-          <div className="text-xs font-semibold text-[#8E929E] mt-1 capitalize">
-            {activeSelectedPoint?.fullDateLabel || "Sélectionnez un jour"}
-          </div>
+              <span className="text-[11px] font-semibold text-[#8E929E]">h</span>
+              <span className="text-base font-black text-white">
+                {String(activeSelectedPoint.night.durationMinutes % 60).padStart(2, "0")}
+              </span>
+              <span className="text-[11px] font-semibold text-[#8E929E]">min</span>
+            </>
+          ) : (
+            <span className="text-[11px] font-medium text-[#8E929E] italic">—</span>
+          )}
         </div>
       </div>
 
-      {/* 3. Sleep Timeline Chart Frame with Exact Apple Health 0-Gap Grid & Bars */}
-      <div className="pt-2 w-full">
-        <div className="relative w-full rounded-2xl bg-[#0B0C0E] border border-[#1E2028] p-3 sm:p-4 overflow-hidden select-none">
-          {/* Main Chart Grid: Left area for contiguous bars, right area for Y-axis labels */}
-          <div className="flex items-stretch w-full relative z-10">
-            {/* Chart Bars Area */}
-            <div className="flex-1 relative flex items-stretch" style={{ height: `${trackHeightPx}px` }}>
-              {/* Horizontal hour grid lines across the entire chart bars area */}
-              {axisLabels.map((axis, i) => (
-                <div
-                  key={i}
-                  className="absolute inset-x-0 border-b border-[#1E2028] pointer-events-none z-0"
-                  style={{ top: `${axis.offsetPct}%` }}
-                />
-              ))}
-
-              {/* Day Columns Container (0 gap between days in month view) */}
+      {/* 3. Sleep Timeline Chart Frame */}
+      <div className="w-full">
+        <div className="relative w-full rounded-xl bg-[#0B0C0E] border border-[#1E2028] overflow-hidden select-none">
+          {/* Chart area: full width, Y-labels overlaid inside */}
+          <div
+            className="relative w-full"
+            style={{ height: `${trackHeightPx}px` }}
+          >
+            {/* Horizontal hour grid lines */}
+            {axisLabels.map((axis, i) => (
               <div
-                className={cn(
-                  "flex items-stretch w-full relative z-10",
-                  isMonthView ? "gap-0" : period === "week" ? "gap-2 sm:gap-3" : "justify-center"
-                )}
+                key={i}
+                className="absolute inset-x-0 border-b border-[#1E2028] pointer-events-none z-0"
+                style={{ top: `${axis.offsetPct}%` }}
+              />
+            ))}
+
+            {/* Y-Axis labels overlaid on the right — no column space taken */}
+            {axisLabels.map((axis, i) => (
+              <div
+                key={i}
+                className="absolute right-1 flex items-center -translate-y-1/2 pointer-events-none z-20"
+                style={{ top: `${axis.offsetPct}%` }}
               >
-                {points.map((pt, idx) => {
-                  const isSelected = activeSelectedPoint?.dateStr === pt.dateStr;
+                <span className="text-[9px] font-mono font-medium text-[#717684] bg-[#0B0C0E]/80 px-0.5 rounded">
+                  {axis.label}
+                </span>
+              </div>
+            ))}
 
-                  return (
-                    <div
-                      key={idx}
-                      onClick={() => setSelectedDateStr(pt.dateStr)}
-                      className={cn(
-                        "flex flex-col items-center group relative cursor-pointer h-full",
-                        isMonthView
-                          ? "flex-1 min-w-0"
-                          : period === "week"
-                          ? "flex-1 max-w-[36px]"
-                          : "w-[48px]"
-                      )}
-                    >
-                      {/* Vertical dashed divider on week start days in month view */}
-                      {isMonthView && pt.isWeekDivider && (
-                        <div className="absolute inset-y-0 left-0 border-l border-dashed border-[#242732] pointer-events-none z-0" />
-                      )}
+            {/* Day Columns: full width, bars only */}
+            <div
+              className={cn(
+                "absolute inset-0 flex items-stretch z-10",
+                isMonthView ? "gap-0" : period === "week" ? "gap-1" : "justify-center"
+              )}
+            >
+              {points.map((pt, idx) => {
+                const isSelected = activeSelectedPoint?.dateStr === pt.dateStr;
 
-                      {/* Selected vertical cursor pointer line */}
-                      {isSelected && (
-                        <div className="absolute inset-y-0 w-[1.5px] bg-[#818CF8]/60 pointer-events-none z-0" />
-                      )}
+                return (
+                  <div
+                    key={idx}
+                    onClick={() => setSelectedDateStr(pt.dateStr)}
+                    className={cn(
+                      "flex flex-col items-center group relative cursor-pointer h-full",
+                      isMonthView
+                        ? "flex-1 min-w-0"
+                        : period === "week"
+                        ? "flex-1"
+                        : "w-12"
+                    )}
+                  >
+                    {/* Vertical dashed divider on week start days in month view */}
+                    {isMonthView && pt.isWeekDivider && (
+                      <div className="absolute inset-y-0 left-0 border-l border-dashed border-[#242732] pointer-events-none z-0" />
+                    )}
 
-                      {/* Bar Column Track */}
-                      <div className="w-full flex-1 flex items-center justify-center relative z-10">
-                        <div
-                          className={cn(
-                            "relative transition-all overflow-hidden h-full",
-                            isMonthView
-                              ? "w-full max-w-[8px] px-[0.5px]"
-                              : period === "week"
-                              ? "w-full max-w-[20px] rounded-md"
-                              : "w-full max-w-[36px] rounded-xl",
-                            isSelected
-                              ? "bg-[#1E202B]"
-                              : "bg-transparent group-hover:bg-[#1A1B22]"
-                          )}
-                        >
-                          {/* Main Night sleep block */}
-                          {pt.night && (
-                            <div
-                              className={cn(
-                                "absolute inset-x-[0.5px] rounded-sm transition-all",
-                                isSelected
-                                  ? "bg-gradient-to-b from-[#818CF8] to-[#6366F1] shadow-[0_0_12px_rgba(129,140,248,0.7)]"
-                                  : "bg-gradient-to-b from-[#5B63D3] to-[#4338CA] group-hover:from-[#818CF8] group-hover:to-[#6366F1]"
-                              )}
-                              style={{
-                                top: `${pt.night.topPct}%`,
-                                height: `${Math.max(pt.night.heightPct, 3)}%`,
-                              }}
-                            />
-                          )}
+                    {/* Selected vertical highlight */}
+                    {isSelected && (
+                      <div className="absolute inset-y-0 w-px bg-[#818CF8]/50 pointer-events-none z-0" />
+                    )}
 
-                          {/* Nap blocks */}
-                          {pt.naps.map((nap, nIdx) => (
-                            <div
-                              key={nIdx}
-                              className={cn(
-                                "absolute inset-x-[0.5px] rounded-sm bg-[#A5B4FC]/80",
-                                nap.isOpen && "animate-pulse"
-                              )}
-                              style={{
-                                top: `${nap.topPct}%`,
-                                height: `${Math.max(nap.heightPct, 2)}%`,
-                              }}
-                            />
-                          ))}
-                        </div>
+                    {/* Bar Track */}
+                    <div className="w-full h-full flex items-center justify-center relative z-10">
+                      <div
+                        className={cn(
+                          "relative overflow-hidden h-full",
+                          isMonthView
+                            ? "w-[3px]"
+                            : period === "week"
+                            ? "w-[14px] rounded-md"
+                            : "w-9 rounded-xl",
+                          isSelected
+                            ? "bg-[#1E202B]"
+                            : "bg-transparent"
+                        )}
+                      >
+                        {/* Night block */}
+                        {pt.night && (
+                          <div
+                            className={cn(
+                              "absolute inset-x-0 rounded-sm transition-all",
+                              isSelected
+                                ? "bg-gradient-to-b from-[#818CF8] to-[#6366F1] shadow-[0_0_8px_rgba(129,140,248,0.6)]"
+                                : "bg-gradient-to-b from-[#5B63D3] to-[#4338CA]"
+                            )}
+                            style={{
+                              top: `${pt.night.topPct}%`,
+                              height: `${Math.max(pt.night.heightPct, 3)}%`,
+                            }}
+                          />
+                        )}
+
+                        {/* Nap blocks */}
+                        {pt.naps.map((nap, nIdx) => (
+                          <div
+                            key={nIdx}
+                            className={cn(
+                              "absolute inset-x-0 rounded-sm bg-[#A5B4FC]/80",
+                              nap.isOpen && "animate-pulse"
+                            )}
+                            style={{
+                              top: `${nap.topPct}%`,
+                              height: `${Math.max(nap.heightPct, 2)}%`,
+                            }}
+                          />
+                        ))}
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Right Y-Axis Time Labels */}
-            <div
-              className="w-12 sm:w-14 shrink-0 relative flex flex-col justify-between pl-2 select-none pointer-events-none"
-              style={{ height: `${trackHeightPx}px` }}
-            >
-              {axisLabels.map((axis, i) => (
-                <div
-                  key={i}
-                  className="absolute right-0 flex items-center -translate-y-1/2"
-                  style={{ top: `${axis.offsetPct}%` }}
-                >
-                  <span className="text-[10px] sm:text-[11px] font-mono font-medium text-[#717684]">
-                    {axis.label}
-                  </span>
-                </div>
-              ))}
+                  </div>
+                );
+              })}
             </div>
           </div>
 
-          {/* Bottom X-Axis (Week numbers / Day letters) */}
-          <div className="flex items-center w-full pt-3 mt-1 border-t border-[#1E2028]">
-            {/* Left area matching chart bars */}
-            <div
-              className={cn(
-                "flex-1 flex items-center",
-                isMonthView ? "gap-0" : period === "week" ? "gap-2 sm:gap-3" : "justify-center"
-              )}
-            >
-              {isMonthView ? (
-                points.map((pt, idx) => (
-                  <div key={idx} className="flex-1 min-w-0 text-left relative h-4">
-                    {pt.isWeekDivider && (
-                      <span className="absolute left-0 text-[11px] font-mono font-semibold text-[#717684]">
-                        {pt.dayNum}
-                      </span>
-                    )}
-                  </div>
-                ))
-              ) : period === "week" ? (
-                points.map((pt, idx) => {
-                  const isSelected = activeSelectedPoint?.dateStr === pt.dateStr;
-                  return (
-                    <div key={idx} className="flex-1 text-center">
-                      <span
-                        className={cn(
-                          "text-[10px] font-mono font-semibold transition-colors",
-                          isSelected ? "text-[#818CF8] font-bold" : "text-[#717684]"
-                        )}
-                      >
-                        {pt.weekdayInitial}
-                      </span>
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="text-center">
-                  <span className="text-xs font-semibold text-[#818CF8]">
-                    {activeSelectedPoint?.fullDateLabel}
-                  </span>
+          {/* Bottom X-Axis */}
+          <div
+            className={cn(
+              "flex items-center w-full border-t border-[#1E2028] pt-1 pb-1",
+              isMonthView ? "gap-0" : period === "week" ? "gap-1" : "justify-center"
+            )}
+          >
+            {isMonthView ? (
+              points.map((pt, idx) => (
+                <div key={idx} className="flex-1 min-w-0 relative h-3">
+                  {pt.isWeekDivider && (
+                    <span className="absolute left-0 text-[9px] font-mono font-semibold text-[#717684]">
+                      {pt.dayNum}
+                    </span>
+                  )}
                 </div>
-              )}
-            </div>
-
-            {/* Right spacer aligning with Y-axis */}
-            <div className="w-12 sm:w-14 shrink-0" />
+              ))
+            ) : period === "week" ? (
+              points.map((pt, idx) => {
+                const isSelected = activeSelectedPoint?.dateStr === pt.dateStr;
+                return (
+                  <div key={idx} className="flex-1 text-center">
+                    <span
+                      className={cn(
+                        "text-[10px] font-mono font-semibold",
+                        isSelected ? "text-[#818CF8]" : "text-[#717684]"
+                      )}
+                    >
+                      {pt.weekdayInitial}
+                    </span>
+                  </div>
+                );
+              })
+            ) : (
+              <span className="text-xs font-semibold text-[#818CF8]">
+                {activeSelectedPoint?.fullDateLabel}
+              </span>
+            )}
           </div>
         </div>
       </div>
