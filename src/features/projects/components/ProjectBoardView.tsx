@@ -77,10 +77,25 @@ export const ProjectBoardView: React.FC<ProjectBoardViewProps> = ({
     if (!over) return;
     const newStatus = String(over.id);
     const task = tasks.find((t) => t.id === active.id);
-    if (task && task.projectStatus !== newStatus) {
-      const targetColumn = columns.find((c) => c.id === newStatus);
-      const previousColumn = columns.find((c) => c.id === task.projectStatus);
-      onChangeStatus(String(active.id), newStatus, Boolean(targetColumn?.isDone), Boolean(previousColumn?.isDone));
+    if (!task) return;
+
+    const doneColumn = columns.find((c) => c.isDone) || columns[columns.length - 1];
+    const targetColumn = columns.find((c) => c.id === newStatus);
+
+    const isCurrentlyCompleted = Boolean(
+      completions?.some((c) => c.taskId === task.id && c.completed) ||
+      task.projectStatus === "DONE" ||
+      (doneColumn && task.projectStatus === doneColumn.id)
+    );
+
+    const currentEffectiveStatus = isCurrentlyCompleted && doneColumn
+      ? doneColumn.id
+      : (task.projectStatus || columns[0]?.id);
+
+    if (currentEffectiveStatus !== newStatus) {
+      const isTargetDone = Boolean(targetColumn?.isDone);
+      const wasDone = isCurrentlyCompleted;
+      onChangeStatus(String(active.id), newStatus, isTargetDone, wasDone);
     }
   };
 
