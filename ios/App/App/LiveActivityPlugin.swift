@@ -47,6 +47,20 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
             }
         }
 
+        // Nettoyage automatique des Live Activities orphelines
+        if #available(iOS 16.2, *) {
+            let activeTaskIds = Set(activeList.compactMap { $0["taskId"] as? String })
+            Task {
+                for activity in Activity<TaskActivityAttributes>.activities {
+                    let actTaskId = activity.attributes.taskId
+                    if actTaskId != "standby" && actTaskId != "sleep" && !activeTaskIds.contains(actTaskId) {
+                        print("[LiveActivityPlugin] getActiveTask: Ending orphan Live Activity for task: \(actTaskId)")
+                        await activity.end(nil, dismissalPolicy: .immediate)
+                    }
+                }
+            }
+        }
+
         if let task = primaryTask {
             call.resolve([
                 "hasActiveTask": true,
@@ -126,6 +140,21 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
             UserDefaults.standard.removeObject(forKey: "mytrack_active_task")
             try? FileManager.default.removeItem(at: URL(fileURLWithPath: "/tmp/mytrack_active_tasks.json"))
             try? FileManager.default.removeItem(at: URL(fileURLWithPath: "/tmp/mytrack_active_task.json"))
+        }
+
+        // Réconcilier immédiatement les Live Activities iOS avec la liste des tâches actives réelles
+        if #available(iOS 16.2, *) {
+            let activeTaskIds = Set(normalizedActiveList.compactMap { $0["taskId"] as? String })
+            Task {
+                for activity in Activity<TaskActivityAttributes>.activities {
+                    let actTaskId = activity.attributes.taskId
+                    // Si l'activité n'est pas dans la liste des tâches actives et n'est ni standby ni sleep, on la ferme immédiatement
+                    if actTaskId != "standby" && actTaskId != "sleep" && !activeTaskIds.contains(actTaskId) {
+                        print("[LiveActivityPlugin] syncTasks: Terminating orphan Live Activity for task ID: \(actTaskId)")
+                        await activity.end(nil, dismissalPolicy: .immediate)
+                    }
+                }
+            }
         }
 
         if #available(iOS 14.0, macOS 11.0, *) {
