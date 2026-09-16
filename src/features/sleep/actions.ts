@@ -572,3 +572,6 @@ export async function fetchSleepHistory(
   }
   return [];
 }
+
+export { isNapTitle, syncTaskWithSleepNaps, removeTaskFromSleepNaps } from "./taskNapSync";
+

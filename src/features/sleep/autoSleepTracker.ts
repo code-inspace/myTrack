@@ -26,8 +26,6 @@ export interface AutoSleepDetectionResult {
 export const SLEEP_CONFIG = {
   MIN_SLEEP_MINUTES: 180, // 3 hours
   MAX_SLEEP_MINUTES: 1080, // 18 hours
-  MIN_NAP_MINUTES: 20,    // 20 minutes
-  MAX_NAP_MINUTES: 179,   // 2h59
 };
 
 /**
@@ -143,59 +141,11 @@ export function processAppForeground(now: Date = new Date()): AutoSleepDetection
       };
     }
 
-    // 2. NAP DETECTION (Absence between 20 min and 3h)
-    if (minutesDiff >= SLEEP_CONFIG.MIN_NAP_MINUTES && minutesDiff < SLEEP_CONFIG.MIN_SLEEP_MINUTES) {
-      const napStartStr = `${String(closedDate.getHours()).padStart(2, "0")}:${String(closedDate.getMinutes()).padStart(2, "0")}`;
-      const napEndStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-
-      const todayLog = getStoredSleepLog(todayStr);
-      const existingNaps = todayLog.naps || [];
-      const alreadyHasNap = existingNaps.some(
-        (n) => n.startTime === napStartStr && n.endTime === napEndStr
-      );
-
-      if (!alreadyHasNap) {
-        const newNap = {
-          id: `nap-${Date.now()}`,
-          startTime: napStartStr,
-          endTime: napEndStr,
-        };
-        saveStoredSleepLog({
-          ...todayLog,
-          naps: [...existingNaps, newNap],
-        });
-
-        window.dispatchEvent(
-          new CustomEvent("mytrack:sleep-auto-detected", {
-            detail: {
-              nap: newNap,
-              wakeDate: todayStr,
-              durationMinutes: minutesDiff,
-              type: "nap",
-            },
-          })
-        );
-
-        console.log(
-          `[AutoSleepTracker] Nap detected: ${napStartStr} -> ${napEndStr} (${minutesDiff}m)`
-        );
-      }
-
-      return {
-        detected: true,
-        bedtime: napStartStr,
-        wakeTime: napEndStr,
-        bedtimeDate: todayStr,
-        wakeDate: todayStr,
-        durationMinutes: minutesDiff,
-      };
-    }
-
-    // 3. Short absence (< 20 min)
-    if (minutesDiff < SLEEP_CONFIG.MIN_NAP_MINUTES) {
+    // 2. Short absence (< 3h)
+    if (minutesDiff < SLEEP_CONFIG.MIN_SLEEP_MINUTES) {
       return {
         detected: false,
-        reason: `Duration too short (${minutesDiff} min < ${SLEEP_CONFIG.MIN_NAP_MINUTES} min)`,
+        reason: `Duration too short for overnight sleep (${minutesDiff} min < ${SLEEP_CONFIG.MIN_SLEEP_MINUTES} min)`,
       };
     }
 

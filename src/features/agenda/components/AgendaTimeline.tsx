@@ -1099,6 +1099,12 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
           if (todayLog.naps && todayLog.naps.length > 0) {
             todayLog.naps.forEach((nap, idx) => {
               if (nap.startTime) {
+                // If this nap is already represented by an existing task on today's timeline, avoid duplicate block
+                const hasMatchingTask = tasks.some(
+                  (t) => t.id === nap.taskId || nap.id === `task-nap-${t.id}`
+                );
+                if (hasMatchingTask) return;
+
                 const startMins = parseTimeToMinutes(nap.startTime);
                 const endMins = nap.endTime ? parseTimeToMinutes(nap.endTime) : startMins + 45;
                 const duration = Math.max(20, endMins - startMins);
@@ -1106,7 +1112,7 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
                   type: "sleep",
                   sleepItem: {
                     id: `sleep-nap-${dayDate}-${nap.id || idx}`,
-                    label: "Sieste",
+                    label: nap.title || "Sieste",
                     subLabel: `${nap.startTime} - ${nap.endTime || "..."}`,
                     isNap: true,
                     sessionData: {

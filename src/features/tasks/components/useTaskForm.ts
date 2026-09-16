@@ -6,6 +6,7 @@ import { useTaskMutations } from "../hooks";
 import { getTodayDateString, addHoursToTimeString } from "@/lib/dates";
 import { DEFAULT_PROJECT_COLUMNS } from "@/features/projects/types";
 import { TaskPriority } from "@/features/tasks/priority";
+import { isNapTitle } from "@/features/sleep/actions";
 
 interface UseTaskFormProps {
   isOpen: boolean;
@@ -27,6 +28,18 @@ export function useTaskForm({
   const [tag, setTag] = useState("General");
   const category = tag;
   const setCategory = setTag;
+
+  const handleTitleChange = (newTitle: string) => {
+    setTitle(newTitle);
+    if (!isEditing && (tag === "General" || !tag) && isNapTitle(newTitle)) {
+      setTag("Santé");
+      if (!hasScheduledTime) {
+        setHasScheduledTime(true);
+        setStartTime("13:30");
+        setEndTime("14:00");
+      }
+    }
+  };
   const [trackingType, setTrackingType] = useState<
     "BOOLEAN" | "NUMBER" | "DURATION" | "QUANTITY"
   >("BOOLEAN");
@@ -305,7 +318,7 @@ export function useTaskForm({
     isEditing,
     // Fields
     title,
-    setTitle,
+    setTitle: handleTitleChange,
     description,
     setDescription,
     tag,

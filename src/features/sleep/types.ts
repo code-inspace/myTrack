@@ -2,6 +2,8 @@ export interface NapSession {
   id: string;
   startTime: string; // "HH:MM" local
   endTime: string | null; // "HH:MM" local, null while the nap is still ongoing
+  taskId?: string;
+  title?: string;
 }
 
 export interface DailySleepLog {

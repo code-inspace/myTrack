@@ -14,6 +14,10 @@ import {
   scheduleTaskPushNotification,
   cancelTaskPushNotifications,
 } from "@/lib/onesignal/client";
+import {
+  syncTaskWithSleepNaps,
+  removeTaskFromSleepNaps,
+} from "@/features/sleep/actions";
 
 export async function fetchTasks(userId?: string): Promise<Task[]> {
   const supabase = createClient();
@@ -136,6 +140,8 @@ export async function createDbTask(
           }).catch((e) => console.warn("scheduleTaskPushNotification note:", e));
         }
 
+        syncTaskWithSleepNaps(created, taskDate).catch(() => {});
+
         return created;
       }
     }
@@ -181,6 +187,8 @@ export async function createDbTask(
   const current = getStoredTasks(targetId);
   const updated = [createdLocal, ...current];
   saveStoredTasks(updated, targetId);
+
+  syncTaskWithSleepNaps(createdLocal, taskDate).catch(() => {});
 
   return createdLocal;
 }
@@ -321,6 +329,10 @@ export async function updateDbTask(
           userId: targetId,
         }).catch(() => {});
       }
+
+      const targetDate = updates.date || (target?.createdAt ? target.createdAt.split("T")[0] : undefined);
+      const prevDate = target?.createdAt ? target.createdAt.split("T")[0] : undefined;
+      syncTaskWithSleepNaps(updated, targetDate, prevDate).catch(() => {});
 
       return updated;
     }
@@ -474,6 +486,10 @@ export async function updateDbTask(
     }).catch(() => {});
   }
 
+  const targetDate = updates.date || (target?.createdAt ? target.createdAt.split("T")[0] : undefined);
+  const prevDate = target?.createdAt ? target.createdAt.split("T")[0] : undefined;
+  syncTaskWithSleepNaps(updatedTask, targetDate, prevDate).catch(() => {});
+
   return updatedTask;
 }
 
@@ -495,6 +511,9 @@ export async function deleteDbTask(
     taskId,
     userId: targetId,
   }).catch(() => {});
+
+  // Remove corresponding nap from sleep log if any
+  removeTaskFromSleepNaps(taskId, undefined, targetId).catch(() => {});
 
   try {
     // Delete from server

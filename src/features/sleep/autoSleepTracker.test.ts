@@ -33,7 +33,13 @@ import {
   processAppForeground,
   STORAGE_KEY_LAST_CLOSED,
 } from "./autoSleepTracker";
-import { getStoredSleepLog, saveStoredSleepLog } from "./actions";
+import {
+  getStoredSleepLog,
+  saveStoredSleepLog,
+  isNapTitle,
+  syncTaskWithSleepNaps,
+  removeTaskFromSleepNaps,
+} from "./actions";
 
 describe("AutoSleepTracker", () => {
   let memoryStore: Record<string, string> = {};
@@ -45,6 +51,8 @@ describe("AutoSleepTracker", () => {
       setItem: (k: string, v: string) => { memoryStore[k] = v; },
       removeItem: (k: string) => { delete memoryStore[k]; },
       clear: () => { memoryStore = {}; },
+      get length() { return Object.keys(memoryStore).length; },
+      key: (i: number) => Object.keys(memoryStore)[i] || null,
     };
 
     (globalThis as any).window = {
@@ -121,7 +129,7 @@ describe("AutoSleepTracker", () => {
     expect(result.durationMinutes).toBe(510);
   });
 
-  it("automatically records a nap for absence between 20 min and 3h", () => {
+  it("does NOT automatically record a nap for absence < 3h (e.g. 75 min)", () => {
     // App closed at 13:30
     const closeDate = new Date("2026-09-16T13:30:00");
     recordAppBackground(closeDate);
@@ -130,26 +138,90 @@ describe("AutoSleepTracker", () => {
     const openDate = new Date("2026-09-16T14:45:00");
     const result = processAppForeground(openDate);
 
-    expect(result.detected).toBe(true);
-    expect(result.durationMinutes).toBe(75);
+    expect(result.detected).toBe(false);
+    expect(result.reason).toContain("Duration too short for overnight sleep");
 
     const log = getStoredSleepLog("2026-09-16");
-    expect(log.naps?.length).toBeGreaterThan(0);
-    expect(log.naps?.[0].startTime).toBe("13:30");
-    expect(log.naps?.[0].endTime).toBe("14:45");
+    expect(log.naps?.length || 0).toBe(0);
   });
 
-  it("does not detect sleep for very short absence (< 20 minutes)", () => {
-    // App closed at 10:00
-    const closeDate = new Date("2026-09-16T10:00:00");
-    recordAppBackground(closeDate);
+  it("correctly identifies nap keywords with isNapTitle", () => {
+    expect(isNapTitle("Sieste")).toBe(true);
+    expect(isNapTitle("sieste 20min")).toBe(true);
+    expect(isNapTitle("Faire une sieste")).toBe(true);
+    expect(isNapTitle("Micro-sieste")).toBe(true);
+    expect(isNapTitle("Micro-siestes")).toBe(true);
+    expect(isNapTitle("Power nap")).toBe(true);
+    expect(isNapTitle("nap")).toBe(true);
 
-    // App reopened at 10:10 (10 minutes)
-    const openDate = new Date("2026-09-16T10:10:00");
-    const result = processAppForeground(openDate);
+    // Negative matches
+    expect(isNapTitle("Assiette")).toBe(false);
+    expect(isNapTitle("Réunion avec client")).toBe(false);
+    expect(isNapTitle("Séance de sport")).toBe(false);
+    expect(isNapTitle("")).toBe(false);
+    expect(isNapTitle(null)).toBe(false);
+  });
 
-    expect(result.detected).toBe(false);
-    expect(result.reason).toContain("Duration too short");
+  it("automatically syncs task with 'sieste' in title to DailySleepLog.naps", async () => {
+    const taskDate = "2026-09-16";
+    const napTask = {
+      id: "task-12345",
+      title: "Sieste réparatrice",
+      startTime: "13:30",
+      endTime: "14:15",
+      createdAt: `${taskDate}T12:00:00.000Z`,
+      userId: "user-1",
+    };
+
+    // 1. Sync task creation
+    await syncTaskWithSleepNaps(napTask, taskDate);
+
+    const logAfterCreate = getStoredSleepLog(taskDate, "user-1");
+    expect(logAfterCreate.naps?.length).toBe(1);
+    expect(logAfterCreate.naps?.[0].startTime).toBe("13:30");
+    expect(logAfterCreate.naps?.[0].endTime).toBe("14:15");
+    expect(logAfterCreate.naps?.[0].taskId).toBe("task-12345");
+
+    // 2. Sync task update (e.g. changed time)
+    const updatedNapTask = {
+      ...napTask,
+      startTime: "14:00",
+      endTime: "14:45",
+    };
+    await syncTaskWithSleepNaps(updatedNapTask, taskDate);
+
+    const logAfterUpdate = getStoredSleepLog(taskDate, "user-1");
+    expect(logAfterUpdate.naps?.length).toBe(1);
+    expect(logAfterUpdate.naps?.[0].startTime).toBe("14:00");
+    expect(logAfterUpdate.naps?.[0].endTime).toBe("14:45");
+
+    // 3. Renamed task away from nap -> should remove nap
+    const renamedTask = {
+      ...napTask,
+      title: "Lecture livre",
+    };
+    await syncTaskWithSleepNaps(renamedTask, taskDate);
+
+    const logAfterRename = getStoredSleepLog(taskDate, "user-1");
+    expect(logAfterRename.naps?.length).toBe(0);
+  });
+
+  it("removes nap when task is deleted via removeTaskFromSleepNaps", async () => {
+    const taskDate = "2026-09-16";
+    const napTask = {
+      id: "task-999",
+      title: "Micro-sieste",
+      startTime: "15:00",
+      endTime: "15:20",
+      createdAt: `${taskDate}T12:00:00.000Z`,
+      userId: "user-1",
+    };
+
+    await syncTaskWithSleepNaps(napTask, taskDate);
+    expect(getStoredSleepLog(taskDate, "user-1").naps?.length).toBe(1);
+
+    await removeTaskFromSleepNaps("task-999", taskDate, "user-1");
+    expect(getStoredSleepLog(taskDate, "user-1").naps?.length).toBe(0);
   });
 
   it("does not overwrite manually validated bedtime or wake time", () => {
@@ -207,3 +279,4 @@ describe("AutoSleepTracker", () => {
     expect(retrievedEnd.wakeTimeValidated).toBe(true);
   });
 });
+
