@@ -145,7 +145,17 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
   const [isAllDayExpanded, setIsAllDayExpanded] = useState(false);
   const [isCalendarModalOpen, setIsCalendarModalOpen] = useState(false);
   const [selectedExternalEvent, setSelectedExternalEvent] = useState<ExternalCalendarEvent | null>(null);
-  const [selectedTaskForDetail, setSelectedTaskForDetail] = useState<TaskWithCompletion | null>(null);
+  const [selectedTaskIdForDetail, setSelectedTaskIdForDetail] = useState<string | null>(null);
+  const [selectedTaskForDetailSnapshot, setSelectedTaskForDetailSnapshot] = useState<TaskWithCompletion | null>(null);
+
+  const activeTaskForDetail = useMemo(() => {
+    if (!selectedTaskIdForDetail) return null;
+    const taskList = allTasks.length > 0 ? allTasks : tasks;
+    const foundTask = taskList.find((t) => t.id === selectedTaskIdForDetail) ||
+      (selectedTaskForDetailSnapshot?.id === selectedTaskIdForDetail ? selectedTaskForDetailSnapshot : null);
+    if (!foundTask) return null;
+    return mapTaskWithCompletion(foundTask, allCompletions, selectedDate);
+  }, [selectedTaskIdForDetail, allTasks, tasks, allCompletions, selectedDate, selectedTaskForDetailSnapshot]);
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [dragHoverInfo, setDragHoverInfo] = useState<{ date: string; minute: number } | null>(null);
@@ -755,6 +765,8 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
                               }}
                               onClick={() => {
                                 setSelectedTaskId(task.id);
+                                setSelectedTaskIdForDetail(task.id);
+                                setSelectedTaskForDetailSnapshot(task);
                                 onSelectTask?.(task);
                               }}
                               className={cn(
@@ -876,7 +888,8 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
                   onCreateTaskAtTime={onCreateTaskAtTime}
                   onDragStartTask={onDragStartTask}
                   onSelectTask={(t) => {
-                    setSelectedTaskForDetail(t);
+                    setSelectedTaskIdForDetail(t.id);
+                    setSelectedTaskForDetailSnapshot(t);
                     onSelectTask?.(t);
                   }}
                   onSelectForResize={(t) => {
@@ -920,18 +933,23 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
 
       {/* Task Details & Edit Modal (Apple Calendar style) */}
       <AgendaTaskDetailModal
-        task={selectedTaskForDetail}
-        isOpen={Boolean(selectedTaskForDetail)}
+        task={activeTaskForDetail}
+        isOpen={Boolean(selectedTaskIdForDetail && activeTaskForDetail)}
         selectedDate={selectedDate}
-        onClose={() => setSelectedTaskForDetail(null)}
+        onClose={() => {
+          setSelectedTaskIdForDetail(null);
+          setSelectedTaskForDetailSnapshot(null);
+        }}
         onToggleComplete={onToggleComplete}
         onToggleReminder={onToggleReminder}
         onDeleteTask={(taskId) => {
-          setSelectedTaskForDetail(null);
+          setSelectedTaskIdForDetail(null);
+          setSelectedTaskForDetailSnapshot(null);
           onDeleteTask?.(taskId);
         }}
         onEditTask={(t) => {
-          setSelectedTaskForDetail(null);
+          setSelectedTaskIdForDetail(null);
+          setSelectedTaskForDetailSnapshot(null);
           onEditTask?.(t);
         }}
         onUpdateTask={onUpdateTask}

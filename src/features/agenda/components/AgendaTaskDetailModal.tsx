@@ -52,6 +52,8 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
   const [selectedProjectId, setSelectedProjectId] = useState<string>(task?.projectId || "");
   const [startTime, setStartTime] = useState(task?.effectiveStartTime || task?.startTime || "09:00");
   const [endTime, setEndTime] = useState(task?.effectiveEndTime || task?.endTime || "10:00");
+  const [isDone, setIsDone] = useState(Boolean(task?.isCompletedToday));
+  const [isRemindersEnabled, setIsRemindersEnabled] = useState(task?.enableReminders !== false);
 
   const isDeletingRef = React.useRef(false);
 
@@ -63,8 +65,10 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
       setSelectedProjectId(task.projectId || "");
       setStartTime(task.effectiveStartTime || task.startTime || "09:00");
       setEndTime(task.effectiveEndTime || task.endTime || "10:00");
+      setIsDone(Boolean(task.isCompletedToday));
+      setIsRemindersEnabled(task.enableReminders !== false);
     }
-  }, [task]);
+  }, [task, task?.isCompletedToday, task?.enableReminders]);
 
   if (!isOpen || !task) return null;
 
@@ -74,12 +78,12 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
     ? projects.find((p) => p.id === task.projectId)
     : null;
 
-  const isDone = Boolean(task.isCompletedToday);
-  const isRemindersEnabled = task.enableReminders !== false;
   const isRecurring = Boolean(task.recurrence && task.recurrence !== "ONCE");
 
   const handleToggleClick = () => {
-    if (!isDone) {
+    const nextDone = !isDone;
+    setIsDone(nextDone);
+    if (nextDone) {
       confetti({
         particleCount: 30,
         spread: 60,
@@ -88,6 +92,12 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
       });
     }
     onToggleComplete?.(task.id);
+  };
+
+  const handleToggleReminderClick = () => {
+    const nextReminders = !isRemindersEnabled;
+    setIsRemindersEnabled(nextReminders);
+    onToggleReminder?.(task.id);
   };
 
   const handleTitleBlur = () => {
@@ -206,6 +216,7 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
                   Nom de la tâche
                 </label>
                 <input
+                  data-testid="agenda-detail-title-input"
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
@@ -302,7 +313,7 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
             <button
               data-testid="agenda-detail-toggle-reminder-btn"
               type="button"
-              onClick={() => onToggleReminder?.(task.id)}
+              onClick={handleToggleReminderClick}
               className={cn(
                 "flex items-center justify-center gap-2 py-3 px-3 rounded-2xl border text-sm font-bold transition-all cursor-pointer shadow-sm",
                 isRemindersEnabled

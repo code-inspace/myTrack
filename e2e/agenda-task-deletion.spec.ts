@@ -68,16 +68,28 @@ test.describe("Agenda Task Modal & Deletion", () => {
     }
   });
 
-  test("toggles completion from detail modal", async ({ page }) => {
+  test("toggles completion from detail modal with immediate visual feedback", async ({ page }) => {
     const taskBlock = page.locator('[data-testid="agenda-task-block-task-delete-test-1"]');
     if (await taskBlock.count() > 0) {
       await taskBlock.click();
 
       const toggleCompleteBtn = page.locator('[data-testid="agenda-detail-toggle-complete-btn"]');
       await expect(toggleCompleteBtn).toBeVisible();
+      await expect(toggleCompleteBtn).toContainText("Marquer fait");
+
+      // Click to mark completed
       await toggleCompleteBtn.click();
 
-      await page.waitForTimeout(300);
+      // Visually changes immediately to "Terminé"
+      await expect(toggleCompleteBtn).toContainText("Terminé");
+
+      const titleInput = page.locator('[data-testid="agenda-detail-title-input"]');
+      await expect(titleInput).toHaveClass(/line-through/);
+
+      // Click again to reopen/uncomplete
+      await toggleCompleteBtn.click();
+      await expect(toggleCompleteBtn).toContainText("Marquer fait");
+      await expect(titleInput).not.toHaveClass(/line-through/);
 
       // Close modal
       const closeBtn = page.locator('[data-testid="agenda-detail-close-btn"]');
