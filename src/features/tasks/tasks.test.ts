@@ -1,8 +1,56 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll, vi } from "vitest";
 import { isTaskScheduledForDate, isOnceTaskCarriedOver } from "@/lib/dates";
 import { mapTaskWithCompletion, sortTasksByPriority } from "./mappers";
 import { Task, TaskCompletion } from "./types";
 import { parseISO } from "date-fns";
+
+vi.mock("@/utils/supabase/client", () => ({
+  createClient: () => ({
+    auth: {
+      getSession: vi.fn().mockResolvedValue({ data: { session: null } }),
+    },
+    from: vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({ data: null }),
+        }),
+      }),
+      update: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            select: vi.fn().mockReturnValue({
+              single: vi.fn().mockResolvedValue({ data: null, error: null }),
+            }),
+          }),
+          select: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({ data: null, error: null }),
+          }),
+        }),
+      }),
+      insert: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({ data: null }),
+        }),
+      }),
+    }),
+  }),
+}));
+
+beforeAll(() => {
+  const store = new Map<string, string>();
+  (global as any).window = {};
+  (global as any).localStorage = {
+    getItem: (k: string) => store.get(k) || null,
+    setItem: (k: string, v: string) => store.set(k, v),
+    removeItem: (k: string) => store.delete(k),
+    clear: () => store.clear(),
+  };
+
+  global.fetch = vi.fn().mockResolvedValue({
+    ok: true,
+    json: async () => ({}),
+  } as any);
+});
 
 describe("Tasks Feature Logic", () => {
   it("matches daily and weekday recurrence accurately", () => {
@@ -587,6 +635,116 @@ describe("Tasks Feature Logic", () => {
 
       // Verify that it is treated as a recurring habit in habit streak calculations (recurrence !== "ONCE")
       expect(updatedTask.recurrence !== "ONCE").toBe(true);
+    });
+  });
+
+  describe("closeTaskAsCompleted - End Time Preservation", () => {
+    it("preserves task endTime (e.g., 14:00 - 18:00) when closed as completed and never changes endTime to now", async () => {
+      const { closeTaskAsCompleted } = await import("./actions/taskCompletions");
+      const { saveStoredTasks, getStoredCompletions, saveStoredCompletions, getStoredTasks } = await import("./actions/storage");
+
+      const userId = "test-user-preserve-endtime";
+      const testDate = "2026-09-16";
+
+      const taskWithSchedule: Task = {
+        id: "task-scheduled-afternoon",
+        userId,
+        title: "Session de travail après-midi",
+        category: "Travail",
+        startTime: "14:00",
+        endTime: "18:00",
+        recurrence: "ONCE",
+        recurrenceConfig: null,
+        dateOverrides: {},
+        trackingType: "BOOLEAN",
+        targetValue: null,
+        unit: null,
+        isActive: false,
+        isArchived: false,
+        createdAt: "2026-09-16T08:00:00.000Z",
+        updatedAt: "2026-09-16T08:00:00.000Z",
+      };
+
+      saveStoredTasks([taskWithSchedule], userId);
+      saveStoredCompletions([], userId);
+
+      // Call closeTaskAsCompleted
+      await closeTaskAsCompleted(taskWithSchedule.id, testDate, userId);
+
+      // Check completions stored
+      const completions = getStoredCompletions(userId);
+      const completion = completions.find((c) => c.taskId === taskWithSchedule.id && c.date === testDate);
+
+      expect(completion).toBeDefined();
+      expect(completion?.completed).toBe(true);
+      expect(completion?.scheduledStartTime).toBe("14:00");
+      expect(completion?.scheduledEndTime).toBe("18:00");
+      expect(completion?.actualStartTime).toBe("14:00");
+      expect(completion?.actualEndTime).toBe("18:00");
+
+      // Check task in storage did NOT have its endTime overwritten
+      const tasks = getStoredTasks(userId);
+      const savedTask = tasks.find((t) => t.id === taskWithSchedule.id);
+      expect(savedTask?.startTime).toBe("14:00");
+      expect(savedTask?.endTime).toBe("18:00");
+
+      // Verify mapping also preserves 14:00 - 18:00
+      const mapped = mapTaskWithCompletion(savedTask!, completions, testDate);
+      expect(mapped.effectiveStartTime).toBe("14:00");
+      expect(mapped.effectiveEndTime).toBe("18:00");
+      expect(mapped.isCompletedToday).toBe(true);
+    });
+
+    it("preserves dateOverrides startTime and endTime when closed as completed", async () => {
+      const { closeTaskAsCompleted } = await import("./actions/taskCompletions");
+      const { saveStoredTasks, getStoredCompletions, saveStoredCompletions, getStoredTasks } = await import("./actions/storage");
+
+      const userId = "test-user-preserve-override";
+      const testDate = "2026-09-16";
+
+      const recurringTask: Task = {
+        id: "task-recurring-override",
+        userId,
+        title: "Tâche récurrente avec override",
+        category: "Projet",
+        startTime: "09:00",
+        endTime: "10:00",
+        recurrence: "DAILY",
+        recurrenceConfig: null,
+        dateOverrides: {
+          "2026-09-16": { startTime: "15:30", endTime: "17:45" },
+        },
+        trackingType: "BOOLEAN",
+        targetValue: null,
+        unit: null,
+        isActive: false,
+        isArchived: false,
+        createdAt: "2026-09-01T08:00:00.000Z",
+        updatedAt: "2026-09-01T08:00:00.000Z",
+      };
+
+      saveStoredTasks([recurringTask], userId);
+      saveStoredCompletions([], userId);
+
+      await closeTaskAsCompleted(recurringTask.id, testDate, userId);
+
+      const completions = getStoredCompletions(userId);
+      const completion = completions.find((c) => c.taskId === recurringTask.id && c.date === testDate);
+
+      expect(completion?.completed).toBe(true);
+      expect(completion?.scheduledStartTime).toBe("15:30");
+      expect(completion?.scheduledEndTime).toBe("17:45");
+      expect(completion?.actualStartTime).toBe("15:30");
+      expect(completion?.actualEndTime).toBe("17:45");
+
+      const tasks = getStoredTasks(userId);
+      const savedTask = tasks.find((t) => t.id === recurringTask.id);
+      expect(savedTask?.dateOverrides?.["2026-09-16"]?.startTime).toBe("15:30");
+      expect(savedTask?.dateOverrides?.["2026-09-16"]?.endTime).toBe("17:45");
+
+      const mapped = mapTaskWithCompletion(savedTask!, completions, testDate);
+      expect(mapped.effectiveStartTime).toBe("15:30");
+      expect(mapped.effectiveEndTime).toBe("17:45");
     });
   });
 });

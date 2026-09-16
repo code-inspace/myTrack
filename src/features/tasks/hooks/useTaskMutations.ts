@@ -543,6 +543,15 @@ export function useTaskMutations() {
               : c,
           );
         }
+        const effectiveStart =
+          targetTask?.dateOverrides?.[date]?.startTime !== undefined
+            ? targetTask.dateOverrides[date].startTime
+            : targetTask?.startTime || null;
+        const effectiveEnd =
+          targetTask?.dateOverrides?.[date]?.endTime !== undefined
+            ? targetTask.dateOverrides[date].endTime
+            : targetTask?.endTime || null;
+
         return [
           {
             id: "comp-" + Date.now(),
@@ -553,10 +562,10 @@ export function useTaskMutations() {
             value: value ?? null,
             duration: null,
             notes: null,
-            scheduledStartTime: null,
-            scheduledEndTime: null,
-            actualStartTime: null,
-            actualEndTime: null,
+            scheduledStartTime: effectiveStart,
+            scheduledEndTime: effectiveEnd,
+            actualStartTime: effectiveStart,
+            actualEndTime: effectiveEnd,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           },
@@ -617,6 +626,15 @@ export function useTaskMutations() {
         ),
       );
 
+      const effectiveStart =
+        targetTask?.dateOverrides?.[date]?.startTime !== undefined
+          ? targetTask.dateOverrides[date].startTime
+          : targetTask?.startTime || null;
+      const effectiveEnd =
+        targetTask?.dateOverrides?.[date]?.endTime !== undefined
+          ? targetTask.dateOverrides[date].endTime
+          : targetTask?.endTime || null;
+
       queryClient.setQueryData<TaskCompletion[]>(
         ["completions", userId],
         (old = []) => {
@@ -636,10 +654,10 @@ export function useTaskMutations() {
               value: null,
               duration: null,
               notes: null,
-              scheduledStartTime: null,
-              scheduledEndTime: null,
-              actualStartTime: null,
-              actualEndTime: null,
+              scheduledStartTime: effectiveStart,
+              scheduledEndTime: effectiveEnd,
+              actualStartTime: effectiveStart,
+              actualEndTime: effectiveEnd,
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
             },

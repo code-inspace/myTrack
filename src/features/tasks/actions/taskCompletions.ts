@@ -12,6 +12,7 @@ import { createClient } from "@/utils/supabase/client";
 import {
   convertLocalTimeToUtc,
   subtractMinutesFromTime,
+  addHoursToTimeString,
 } from "@/lib/dates";
 import { cancelTaskPushNotifications } from "@/lib/onesignal/client";
 import { getStoredProjects } from "@/features/projects/actions";
@@ -154,8 +155,8 @@ export async function upsertDbCompletion(
 }
 
 /**
- * Marks a task as completed "now". If it had no schedule or was not started yet,
- * records a 30-minute block ending now and reflects that window in the Agenda for that day.
+ * Marks a task as completed. If it already has an end time indicated, preserves it.
+ * Never sets the end time to 'now' if an end time is already known.
  * Idempotent — safe to call on an already-completed task.
  */
 export async function closeTaskAsCompleted(
@@ -180,13 +181,35 @@ export async function closeTaskAsCompleted(
   const now = new Date();
   const nowTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
   const wasStarted = Boolean(existing?.actualStartTime);
+
+  const effectiveStart =
+    target?.dateOverrides?.[date]?.startTime !== undefined
+      ? target.dateOverrides[date].startTime
+      : target?.startTime;
+
+  const effectiveEnd =
+    target?.dateOverrides?.[date]?.endTime !== undefined
+      ? target.dateOverrides[date].endTime
+      : target?.endTime;
+
   const actualStartTime = wasStarted
     ? existing!.actualStartTime!
-    : target?.startTime || subtractMinutesFromTime(nowTime, 30);
-  const actualEndTime = existing?.actualEndTime || nowTime;
+    : effectiveStart || existing?.scheduledStartTime || subtractMinutesFromTime(nowTime, 30);
 
-  // If the task had no explicit time or was unstarted, position this day's occurrence in the Agenda timeline
-  if (!wasStarted) {
+  // CRITICAL: NEVER set end time to nowTime if an end time is already indicated on the task / override / completion
+  const actualEndTime =
+    existing?.actualEndTime ||
+    effectiveEnd ||
+    existing?.scheduledEndTime ||
+    (effectiveStart ? addHoursToTimeString(effectiveStart, 1) : nowTime);
+
+  const scheduledStartTime =
+    effectiveStart || existing?.scheduledStartTime || actualStartTime;
+  const scheduledEndTime =
+    effectiveEnd || existing?.scheduledEndTime || actualEndTime;
+
+  // ONLY if the task had NO explicit schedule anywhere and was unstarted, position this day's occurrence in the Agenda timeline
+  if (!wasStarted && !effectiveStart && !effectiveEnd) {
     const isRecurring = target?.recurrence && target.recurrence !== "ONCE";
     await updateTaskSchedule({
       taskId,
@@ -209,9 +232,8 @@ export async function closeTaskAsCompleted(
       options?.duration !== undefined
         ? options.duration
         : existing?.duration || null,
-    scheduledStartTime:
-      target?.startTime || existing?.scheduledStartTime || actualStartTime,
-    scheduledEndTime: target?.endTime || existing?.scheduledEndTime || actualEndTime,
+    scheduledStartTime,
+    scheduledEndTime,
     actualStartTime,
     actualEndTime,
     notes: null,
