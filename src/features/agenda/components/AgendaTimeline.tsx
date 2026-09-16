@@ -384,7 +384,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
           initialStartMins,
           initialEndMins,
           deltaY,
-          1
+          5
         );
         setResizingState({
           taskId: task.id,
@@ -401,7 +401,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
           initialStartMins,
           initialDuration,
           deltaY,
-          1
+          5
         );
         setResizingState({
           taskId: task.id,
@@ -434,7 +434,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
           initialStartMins,
           initialEndMins,
           deltaY,
-          1
+          5
         );
         finalStartMins = newStart;
       } else {
@@ -442,7 +442,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
           initialStartMins,
           initialDuration,
           deltaY,
-          1
+          5
         );
         finalEndMins = newEnd;
       }
@@ -990,6 +990,7 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
   onEditTask,
   onDragStartTask,
   onSelectTask,
+  onSelectForResize,
   onSelectExternalEvent,
   onSelectSleepSession,
   onStartResize,
@@ -1365,7 +1366,7 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
                   onSelectTask?.(item.task!);
                 }}
                 onSelectForResize={(t) => {
-                  onSelectTask?.(t);
+                  onSelectForResize?.(t);
                 }}
                 onStartResize={(e, t, edge) => onStartResize(e, t, edge, dayDate)}
               />
