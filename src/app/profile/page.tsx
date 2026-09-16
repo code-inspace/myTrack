@@ -37,7 +37,7 @@ const DISPLAY_MODE_OPTIONS: Array<{
   {
     id: "modern",
     label: "Nouveau",
-    description: "Onglets Liste/Agenda/Sommeil/Bilan/Projets dans le menu du bas — dashboard et profil dans l'en-tête",
+    description: "Onglets Liste/Agenda/Projets/Bilan dans le menu du bas — dashboard et profil dans l'en-tête",
     icon: PanelsTopLeft,
     isDefault: true,
   },

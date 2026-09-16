@@ -27,9 +27,8 @@ interface DesktopSidebarProps {
 
 const MAIN_NAV = [
   { id: "habits" as TasksTab, label: "Liste", icon: ListTodo, href: "/tasks", paths: ["/tasks", "/"] },
-  { id: "agenda" as TasksTab, label: "Agenda", icon: Calendar, href: "/agenda", paths: ["/agenda"] },
+  { id: "agenda" as TasksTab, label: "Agenda", icon: Calendar, href: "/agenda", paths: ["/agenda", "/sleep"] },
   { id: "projects" as TasksTab, label: "Projets", icon: FolderKanban, href: "/projects", paths: ["/projects"] },
-  { id: "sleep" as TasksTab, label: "Sommeil", icon: Moon, href: "/sleep", paths: ["/sleep"] },
   { id: "bilan" as TasksTab, label: "Bilan", icon: BookOpen, href: "/bilan", paths: ["/bilan"] },
 ];
 
@@ -53,10 +52,8 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
 
   const currentTab: TasksTab =
     activeTab ||
-    (pathname.includes("/agenda")
+    (pathname.includes("/agenda") || pathname.includes("/sleep")
       ? "agenda"
-      : pathname.includes("/sleep")
-      ? "sleep"
       : pathname.includes("/bilan")
       ? "bilan"
       : pathname.includes("/projects")

@@ -255,7 +255,7 @@ export const DesktopWidgetsPane: React.FC<DesktopWidgetsPaneProps> = ({
           </div>
           <button
             type="button"
-            onClick={() => onSelectTab?.("sleep")}
+            onClick={() => onSelectTab?.("agenda")}
             className="p-2 rounded-xl bg-[#1F212B] hover:bg-[#282B38] text-[#8E929E] hover:text-white transition-all cursor-pointer"
           >
             <ArrowRight className="w-3.5 h-3.5" />

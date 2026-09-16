@@ -403,8 +403,6 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
         "",
         tab === "agenda"
           ? "/agenda"
-          : tab === "sleep"
-          ? "/sleep"
           : tab === "bilan"
           ? "/bilan"
           : tab === "projects"
@@ -431,8 +429,6 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
                   ? "Ma Liste"
                   : activeTab === "agenda"
                   ? "Mon Agenda"
-                  : activeTab === "sleep"
-                  ? "Sommeil"
                   : activeTab === "projects"
                   ? "Projets"
                   : "Journal & Bilan"
@@ -469,29 +465,6 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
                 <div className="flex-1 min-h-0 overflow-y-auto">
                   <div className="max-w-5xl mx-auto px-6 py-6 w-full">
                     <DailyBilanView selectedDate={selectedDate} />
-                  </div>
-                </div>
-              </div>
-            </>
-          ) : activeTab === "sleep" ? (
-            /* SOMMEIL TAB */
-            <>
-              {/* Mobile */}
-              <div className="flex-1 min-h-0 overflow-y-auto md:hidden">
-                <SleepJournalView selectedDate={selectedDate} />
-              </div>
-              {/* Desktop */}
-              <div className="hidden md:flex md:flex-1 md:min-h-0 flex-col bg-[#0E0F12] overflow-hidden">
-                <div className="flex items-center justify-between px-8 py-5 border-b border-[#17181F] flex-shrink-0 select-none">
-                  <div>
-                    <h1 className="text-2xl font-extrabold text-white tracking-tight">Sommeil &amp; Récupération</h1>
-                    <p className="text-xs text-[#8E929E] mt-0.5">Horaires, rappels du coucher &amp; mode nuit</p>
-                  </div>
-                  <DesktopDatePicker selectedDate={selectedDate} onSelectDate={setSelectedDate} />
-                </div>
-                <div className="flex-1 min-h-0 overflow-y-auto">
-                  <div className="max-w-5xl mx-auto px-6 py-6 w-full">
-                    <SleepJournalView selectedDate={selectedDate} />
                   </div>
                 </div>
               </div>

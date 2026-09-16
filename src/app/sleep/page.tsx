@@ -1,8 +1,5 @@
-"use client";
-
-import React from "react";
-import { UnifiedTasksAgendaView } from "@/features/tasks/components/UnifiedTasksAgendaView";
+import { redirect } from "next/navigation";
 
 export default function SleepPage() {
-  return <UnifiedTasksAgendaView initialTab="sleep" />;
+  redirect("/agenda");
 }

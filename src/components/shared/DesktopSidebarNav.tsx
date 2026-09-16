@@ -31,10 +31,8 @@ export const DesktopSidebarNav: React.FC<DesktopSidebarNavProps> = ({
 
   const currentTab: TasksTab =
     activeTab ||
-    (pathname.includes("/agenda")
+    (pathname.includes("/agenda") || pathname.includes("/sleep")
       ? "agenda"
-      : pathname.includes("/sleep")
-      ? "sleep"
       : pathname.includes("/bilan")
       ? "bilan"
       : pathname.includes("/projects")

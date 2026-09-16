@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import { useDisplayMode } from "@/providers/DisplayModeProvider";
 import { useAuth } from "@/providers/AuthProvider";
 
-export type TasksTab = "habits" | "agenda" | "sleep" | "bilan" | "projects";
+export type TasksTab = "habits" | "agenda" | "projects" | "bilan";
 
 export interface TaskTabDef {
   id: TasksTab;
@@ -20,13 +20,12 @@ export interface TaskTabDef {
   activePaths: string[];
 }
 
-/** Shared with BottomNav, which renders these same 5 tabs in "modern" display mode. */
+/** Shared with BottomNav, which renders these same tabs in "modern" display mode. */
 export const TASK_TABS: TaskTabDef[] = [
   { id: "habits", href: "/tasks", label: "Liste", icon: ListTodo, activePaths: ["/tasks", "/"] },
-  { id: "agenda", href: "/agenda", label: "Agenda", icon: Calendar, activePaths: ["/agenda"] },
-  { id: "sleep", href: "/sleep", label: "Sommeil", icon: Moon, activePaths: ["/sleep"] },
-  { id: "bilan", href: "/bilan", label: "Bilan", icon: BookOpen, activePaths: ["/bilan"] },
+  { id: "agenda", href: "/agenda", label: "Agenda", icon: Calendar, activePaths: ["/agenda", "/sleep"] },
   { id: "projects", href: "/projects", label: "Projets", icon: FolderKanban, activePaths: ["/projects"] },
+  { id: "bilan", href: "/bilan", label: "Bilan", icon: BookOpen, activePaths: ["/bilan"] },
 ];
 
 interface TasksHeaderWithNavProps {
@@ -57,10 +56,8 @@ export const TasksHeaderWithNav: React.FC<TasksHeaderWithNavProps> = ({
 
   const currentTab: TasksTab =
     activeTab ||
-    (pathname.includes("/agenda")
+    (pathname.includes("/agenda") || pathname.includes("/sleep")
       ? "agenda"
-      : pathname.includes("/sleep")
-      ? "sleep"
       : pathname.includes("/bilan")
       ? "bilan"
       : pathname.includes("/projects")
