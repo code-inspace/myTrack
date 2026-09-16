@@ -142,7 +142,12 @@ export function useTaskMutations() {
     },
     onMutate: async ({ taskId, values }) => {
       await queryClient.cancelQueries({ queryKey: ["tasks", userId] });
+      await queryClient.cancelQueries({ queryKey: ["completions", userId] });
       const prevTasks = queryClient.getQueryData<Task[]>(["tasks", userId]);
+      const prevCompletions = queryClient.getQueryData<TaskCompletion[]>([
+        "completions",
+        userId,
+      ]);
 
       queryClient.setQueryData<Task[]>(["tasks", userId], (old = []) =>
         old.map((t) => {
@@ -177,11 +182,37 @@ export function useTaskMutations() {
         }),
       );
 
-      return { prevTasks };
+      if (values.startTime !== undefined || values.endTime !== undefined) {
+        queryClient.setQueryData<TaskCompletion[]>(
+          ["completions", userId],
+          (old = []) =>
+            old.map((c) => {
+              if (c.taskId === taskId && (!values.date || c.date === values.date)) {
+                return {
+                  ...c,
+                  scheduledStartTime: values.startTime !== undefined ? values.startTime : c.scheduledStartTime,
+                  scheduledEndTime: values.endTime !== undefined ? values.endTime : c.scheduledEndTime,
+                  actualStartTime: c.completed
+                    ? (values.startTime !== undefined ? values.startTime : c.actualStartTime)
+                    : (c.actualStartTime ? (values.startTime !== undefined ? values.startTime : c.actualStartTime) : null),
+                  actualEndTime: c.completed
+                    ? (values.endTime !== undefined ? values.endTime : c.actualEndTime)
+                    : (c.actualEndTime ? (values.endTime !== undefined ? values.endTime : c.actualEndTime) : null),
+                };
+              }
+              return c;
+            }),
+        );
+      }
+
+      return { prevTasks, prevCompletions };
     },
     onError: (_err, _vars, context) => {
       if (context?.prevTasks) {
         queryClient.setQueryData(["tasks", userId], context.prevTasks);
+      }
+      if (context?.prevCompletions) {
+        queryClient.setQueryData(["completions", userId], context.prevCompletions);
       }
     },
     onSuccess: (updatedTask) => {
@@ -255,7 +286,12 @@ export function useTaskMutations() {
     },
     onMutate: async ({ taskId, date, startTime, endTime, applyToAll }) => {
       await queryClient.cancelQueries({ queryKey: ["tasks", userId] });
+      await queryClient.cancelQueries({ queryKey: ["completions", userId] });
       const prevTasks = queryClient.getQueryData<Task[]>(["tasks", userId]);
+      const prevCompletions = queryClient.getQueryData<TaskCompletion[]>([
+        "completions",
+        userId,
+      ]);
 
       queryClient.setQueryData<Task[]>(["tasks", userId], (old = []) =>
         old.map((t) => {
@@ -274,15 +310,40 @@ export function useTaskMutations() {
         }),
       );
 
-      return { prevTasks };
+      queryClient.setQueryData<TaskCompletion[]>(
+        ["completions", userId],
+        (old = []) =>
+          old.map((c) => {
+            if (c.taskId === taskId && (applyToAll || c.date === date)) {
+              return {
+                ...c,
+                scheduledStartTime: startTime ?? c.scheduledStartTime,
+                scheduledEndTime: endTime ?? c.scheduledEndTime,
+                actualStartTime: c.completed
+                  ? (startTime ?? c.actualStartTime)
+                  : (c.actualStartTime ? (startTime ?? c.actualStartTime) : null),
+                actualEndTime: c.completed
+                  ? (endTime ?? c.actualEndTime)
+                  : (c.actualEndTime ? (endTime ?? c.actualEndTime) : null),
+              };
+            }
+            return c;
+          }),
+      );
+
+      return { prevTasks, prevCompletions };
     },
     onError: (_err, _vars, context) => {
       if (context?.prevTasks) {
         queryClient.setQueryData(["tasks", userId], context.prevTasks);
       }
+      if (context?.prevCompletions) {
+        queryClient.setQueryData(["completions", userId], context.prevCompletions);
+      }
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["completions"] });
     },
   });
 

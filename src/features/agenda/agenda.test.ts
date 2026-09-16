@@ -116,4 +116,56 @@ describe("Agenda Multi-Day Task Distribution & Moving Logic", () => {
     expect(tasksFuture.some((t) => t.id === "t-once")).toBe(false);
     expect(tasksFuture.some((t) => t.id === "t-daily")).toBe(true);
   });
+
+  it("accurately updates effective start and end times for completed/archived tasks when resized", async () => {
+    const { mapTaskWithCompletion } = await import("../tasks/mappers");
+    const task: any = {
+      id: "t-completed",
+      userId: "u1",
+      title: "Completed Task",
+      startTime: "10:00",
+      endTime: "11:00",
+      recurrence: "ONCE",
+      createdAt: "2026-09-16T12:00:00.000Z",
+      trackingType: "BOOLEAN",
+      isActive: false,
+      isArchived: false,
+    };
+
+    const completion: any = {
+      id: "comp-1",
+      taskId: "t-completed",
+      userId: "u1",
+      date: "2026-09-16",
+      completed: true,
+      actualStartTime: "10:00",
+      actualEndTime: "11:00",
+      scheduledStartTime: "10:00",
+      scheduledEndTime: "11:00",
+    };
+
+    const mappedInitial = mapTaskWithCompletion(task, [completion], "2026-09-16");
+    expect(mappedInitial.effectiveStartTime).toBe("10:00");
+    expect(mappedInitial.effectiveEndTime).toBe("11:00");
+    expect(mappedInitial.isCompletedToday).toBe(true);
+
+    // After resizing: task schedule and completion execution times both updated to 09:30 - 11:30
+    const updatedTask = {
+      ...task,
+      startTime: "09:30",
+      endTime: "11:30",
+    };
+    const updatedCompletion = {
+      ...completion,
+      actualStartTime: "09:30",
+      actualEndTime: "11:30",
+      scheduledStartTime: "09:30",
+      scheduledEndTime: "11:30",
+    };
+
+    const mappedResized = mapTaskWithCompletion(updatedTask, [updatedCompletion], "2026-09-16");
+    expect(mappedResized.effectiveStartTime).toBe("09:30");
+    expect(mappedResized.effectiveEndTime).toBe("11:30");
+    expect(mappedResized.isCompletedToday).toBe(true);
+  });
 });

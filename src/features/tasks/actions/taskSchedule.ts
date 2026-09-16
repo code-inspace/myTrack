@@ -6,6 +6,7 @@ import {
   saveStoredCompletions,
 } from "./storage";
 import { updateDbTask } from "./taskCrud";
+import { upsertDbCompletion } from "./taskCompletions";
 import { createClient } from "@/utils/supabase/client";
 import {
   getTodayDateString,
@@ -336,10 +337,7 @@ export async function updateTaskSchedule({
         : t,
     );
     saveStoredTasks(updated, targetId);
-    return;
-  }
-
-  if (isRecurring && !applyToAll) {
+  } else if (isRecurring && !applyToAll) {
     // Specific day override
     const currentOverrides = target?.dateOverrides || {};
     const updatedOverrides = {
@@ -448,6 +446,28 @@ export async function updateTaskSchedule({
       taskId: target.id,
       userId: targetId,
     }).catch(() => {});
+  }
+
+  // Also synchronize any existing completion actual/scheduled execution times for completed tasks on this date
+  try {
+    const completions = getStoredCompletions(targetId);
+    const existingComp = completions.find((c) => c.taskId === taskId && c.date === date);
+    if (existingComp) {
+      await upsertDbCompletion({
+        taskId,
+        userId: targetId,
+        date,
+        completed: existingComp.completed,
+        value: existingComp.value,
+        duration: existingComp.duration,
+        scheduledStartTime: startTime,
+        scheduledEndTime: endTime,
+        actualStartTime: existingComp.completed ? startTime : (existingComp.actualStartTime ? startTime : null),
+        actualEndTime: existingComp.completed ? endTime : (existingComp.actualEndTime ? endTime : null),
+      });
+    }
+  } catch (e) {
+    console.warn("updateTaskSchedule completion update note:", e);
   }
 }
 

@@ -337,6 +337,30 @@ export async function updateDbTask(
       const prevDate = target?.createdAt ? target.createdAt.split("T")[0] : undefined;
       syncTaskWithSleepNaps(updated, targetDate, prevDate).catch(() => {});
 
+      if (updates.startTime !== undefined || updates.endTime !== undefined) {
+        try {
+          const completions = getStoredCompletions(targetId);
+          const compDate = targetDate || getTodayDateString();
+          const existingComp = completions.find((c) => c.taskId === taskId && c.date === compDate);
+          if (existingComp) {
+            await upsertDbCompletion({
+              taskId,
+              userId: targetId,
+              date: compDate,
+              completed: existingComp.completed,
+              value: existingComp.value,
+              duration: existingComp.duration,
+              scheduledStartTime: updated.startTime,
+              scheduledEndTime: updated.endTime,
+              actualStartTime: existingComp.completed ? updated.startTime : (existingComp.actualStartTime ? updated.startTime : null),
+              actualEndTime: existingComp.completed ? updated.endTime : (existingComp.actualEndTime ? updated.endTime : null),
+            });
+          }
+        } catch (compErr) {
+          console.warn("updateDbTask completion sync error:", compErr);
+        }
+      }
+
       return updated;
     }
   } catch (err) {
@@ -498,6 +522,30 @@ export async function updateDbTask(
   const targetDate = updates.date || (target?.createdAt ? target.createdAt.split("T")[0] : undefined);
   const prevDate = target?.createdAt ? target.createdAt.split("T")[0] : undefined;
   syncTaskWithSleepNaps(updatedTask, targetDate, prevDate).catch(() => {});
+
+  if (updates.startTime !== undefined || updates.endTime !== undefined) {
+    try {
+      const completions = getStoredCompletions(targetId);
+      const compDate = targetDate || getTodayDateString();
+      const existingComp = completions.find((c) => c.taskId === taskId && c.date === compDate);
+      if (existingComp) {
+        await upsertDbCompletion({
+          taskId,
+          userId: targetId,
+          date: compDate,
+          completed: existingComp.completed,
+          value: existingComp.value,
+          duration: existingComp.duration,
+          scheduledStartTime: updatedTask.startTime,
+          scheduledEndTime: updatedTask.endTime,
+          actualStartTime: existingComp.completed ? updatedTask.startTime : (existingComp.actualStartTime ? updatedTask.startTime : null),
+          actualEndTime: existingComp.completed ? updatedTask.endTime : (existingComp.actualEndTime ? updatedTask.endTime : null),
+        });
+      }
+    } catch (compErr) {
+      console.warn("updateDbTask completion fallback sync error:", compErr);
+    }
+  }
 
   return updatedTask;
 }
