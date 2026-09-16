@@ -28,6 +28,8 @@ import { ExternalEventDetailModal } from "@/features/calendar/components/Externa
 import { ExternalCalendarEvent } from "@/features/calendar/types";
 import { AgendaSleepBlock } from "./AgendaSleepBlock";
 import { getStoredSleepLog, computeSleepDuration } from "@/features/sleep/actions";
+import { SleepEditModal, SleepSessionData } from "@/features/sleep/components/SleepEditModal";
+import { addHoursToTimeString } from "@/lib/dates";
 
 export type AgendaViewMode = "day" | "3days" | "week";
 
@@ -151,6 +153,8 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
   const parsedSelectedDate = parseISO(selectedDate);
   const isSelectedDateToday = isSameDay(parsedSelectedDate, new Date());
   const [sleepSyncVersion, setSleepSyncVersion] = useState(0);
+  const [isSleepModalOpen, setIsSleepModalOpen] = useState(false);
+  const [editingSleepSession, setEditingSleepSession] = useState<SleepSessionData | null>(null);
 
   useEffect(() => {
     const handleSleepAutoDetected = () => {
@@ -771,6 +775,10 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
                     onSelectTask?.(t);
                   }}
                   onSelectExternalEvent={(ext) => setSelectedExternalEvent(ext)}
+                  onSelectSleepSession={(session) => {
+                    setEditingSleepSession(session);
+                    setIsSleepModalOpen(true);
+                  }}
                   onStartResize={handleStartResize}
                   sleepSyncVersion={sleepSyncVersion}
                 />
@@ -801,6 +809,19 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
         event={selectedExternalEvent}
         onClose={() => setSelectedExternalEvent(null)}
       />
+
+      {/* Sleep Session Edit Modal (Dodo & Siestes) */}
+      <SleepEditModal
+        isOpen={isSleepModalOpen}
+        initialSession={editingSleepSession}
+        onClose={() => {
+          setIsSleepModalOpen(false);
+          setEditingSleepSession(null);
+        }}
+        onSaved={() => {
+          setSleepSyncVersion((v) => v + 1);
+        }}
+      />
     </>
   );
 };
@@ -823,6 +844,7 @@ interface DayGridColumnProps {
   onDragStartTask: (e: React.DragEvent, task: TaskWithCompletion) => void;
   onSelectTask?: (task: TaskWithCompletion) => void;
   onSelectExternalEvent?: (event: ExternalCalendarEvent) => void;
+  onSelectSleepSession?: (session: SleepSessionData) => void;
   onStartResize: (e: React.PointerEvent, task: TaskWithCompletion, dayDate: string) => void;
   sleepSyncVersion?: number;
 }
@@ -845,6 +867,7 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
   onDragStartTask,
   onSelectTask,
   onSelectExternalEvent,
+  onSelectSleepSession,
   onStartResize,
   sleepSyncVersion,
 }) => {
@@ -905,6 +928,7 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
             label: string;
             subLabel?: string;
             isNap?: boolean;
+            sessionData: SleepSessionData;
           };
           id: string;
           startMins: number;
@@ -986,23 +1010,23 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
           const yesterdayDateStr = format(subDays(d, 1), "yyyy-MM-dd");
           const yesterdayLog = getStoredSleepLog(yesterdayDateStr);
           const todayLog = getStoredSleepLog(dayDate);
+          const tomorrowDateStr = format(addDays(d, 1), "yyyy-MM-dd");
+          const tomorrowLog = getStoredSleepLog(tomorrowDateStr);
 
           // 3a. Morning Sleep (night leading into dayDate)
           if (todayLog.wakeTime) {
             const wakeMins = parseTimeToMinutes(todayLog.wakeTime);
             if (wakeMins > 0) {
-              const yesterdayBedtime = yesterdayLog.bedtime;
+              const yesterdayBedtime = yesterdayLog.bedtime || "23:00";
               let startMins = 0;
               let durationText = "";
 
-              if (yesterdayBedtime) {
-                const dur = computeSleepDuration(yesterdayBedtime, todayLog.wakeTime);
-                if (dur) durationText = dur.text;
+              const dur = computeSleepDuration(yesterdayBedtime, todayLog.wakeTime);
+              if (dur) durationText = dur.text;
 
-                const bedMins = parseTimeToMinutes(yesterdayBedtime);
-                if (bedMins < 12 * 60 && bedMins < wakeMins) {
-                  startMins = bedMins;
-                }
+              const bedMins = parseTimeToMinutes(yesterdayBedtime);
+              if (bedMins < 12 * 60 && bedMins < wakeMins) {
+                startMins = bedMins;
               }
 
               const duration = Math.max(20, wakeMins - startMins);
@@ -1017,6 +1041,13 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
                   label: "Dodo",
                   subLabel,
                   isNap: false,
+                  sessionData: {
+                    sessionType: "night",
+                    startDate: yesterdayDateStr,
+                    startTime: yesterdayBedtime,
+                    endDate: dayDate,
+                    endTime: todayLog.wakeTime,
+                  },
                 },
                 id: `sleep-morning-${dayDate}`,
                 startMins,
@@ -1031,15 +1062,28 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
           // 3b. Evening Bedtime Onset
           if (todayLog.bedtime) {
             const bedMins = parseTimeToMinutes(todayLog.bedtime);
-            if (bedMins >= 19 * 60 && bedMins < 1440) {
+            if (bedMins >= 18 * 60 && bedMins < 1440) {
               const duration = 1440 - bedMins;
+              const tomorrowWakeTime = tomorrowLog.wakeTime || "07:00";
+              const dur = computeSleepDuration(todayLog.bedtime, tomorrowWakeTime);
+              const subLabel = dur?.text
+                ? `${dur.text} • Coucher ${todayLog.bedtime}`
+                : `Coucher ${todayLog.bedtime}`;
+
               sleepItems.push({
                 type: "sleep",
                 sleepItem: {
                   id: `sleep-evening-${dayDate}`,
                   label: "Dodo",
-                  subLabel: `Coucher ${todayLog.bedtime}`,
+                  subLabel,
                   isNap: false,
+                  sessionData: {
+                    sessionType: "night",
+                    startDate: dayDate,
+                    startTime: todayLog.bedtime,
+                    endDate: tomorrowDateStr,
+                    endTime: tomorrowWakeTime,
+                  },
                 },
                 id: `sleep-evening-${dayDate}`,
                 startMins: bedMins,
@@ -1065,6 +1109,14 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
                     label: "Sieste",
                     subLabel: `${nap.startTime} - ${nap.endTime || "..."}`,
                     isNap: true,
+                    sessionData: {
+                      sessionType: "nap",
+                      startDate: dayDate,
+                      startTime: nap.startTime,
+                      endDate: dayDate,
+                      endTime: nap.endTime || addHoursToTimeString(nap.startTime, 1),
+                      napId: nap.id,
+                    },
                   },
                   id: `sleep-nap-${dayDate}-${nap.id || idx}`,
                   startMins,
@@ -1080,38 +1132,34 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
           console.warn("Error calculating sleep items for timeline:", e);
         }
 
+        // 4. Combine all items
         const allItems = [...taskItems, ...externalItems, ...sleepItems];
         if (allItems.length === 0) return null;
 
-        // 4. Sort by start time ascending
-        allItems.sort((a, b) => {
-          if (a.startMins !== b.startMins) return a.startMins - b.startMins;
-          return (b.layoutEndMins - b.startMins) - (a.layoutEndMins - a.startMins);
-        });
-
-        // 5. Group into clusters
+        // 5. Build overlap clusters
+        const sorted = [...allItems].sort((a, b) => a.startMins - b.startMins);
         const clusters: TimedLayoutItem[][] = [];
-        let currentCluster: TimedLayoutItem[] = [];
-        let clusterEnd = 0;
+        let curCluster: TimedLayoutItem[] = [];
+        let curClusterEnd = -1;
 
-        for (const item of allItems) {
-          if (currentCluster.length === 0) {
-            currentCluster.push(item);
-            clusterEnd = item.layoutEndMins;
-          } else if (item.startMins < clusterEnd) {
-            currentCluster.push(item);
-            clusterEnd = Math.max(clusterEnd, item.layoutEndMins);
+        for (const item of sorted) {
+          if (curCluster.length === 0) {
+            curCluster.push(item);
+            curClusterEnd = item.layoutEndMins;
+          } else if (item.startMins < curClusterEnd) {
+            curCluster.push(item);
+            curClusterEnd = Math.max(curClusterEnd, item.layoutEndMins);
           } else {
-            clusters.push(currentCluster);
-            currentCluster = [item];
-            clusterEnd = item.layoutEndMins;
+            clusters.push(curCluster);
+            curCluster = [item];
+            curClusterEnd = item.layoutEndMins;
           }
         }
-        if (currentCluster.length > 0) {
-          clusters.push(currentCluster);
+        if (curCluster.length > 0) {
+          clusters.push(curCluster);
         }
 
-        // 6. Allocate columns
+        // 6. Assign columns within each cluster (Greedy interval coloring)
         for (const cluster of clusters) {
           const cols: TimedLayoutItem[][] = [];
           for (const item of cluster) {
@@ -1152,6 +1200,7 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
                 leftPercent={leftPercent}
                 widthPercent={widthPercent}
                 isNap={item.sleepItem.isNap}
+                onClick={() => onSelectSleepSession?.(item.sleepItem!.sessionData)}
               />
             );
           }

@@ -172,4 +172,38 @@ describe("AutoSleepTracker", () => {
     const log = getStoredSleepLog("2026-09-16");
     expect(log.wakeTime).toBe("06:45"); // Preserved user's manually validated time!
   });
+
+  it("accurately handles manual multi-day sleep editing starting one day and finishing the next day", () => {
+    // 1. Save bedtime for day 1
+    const startDate = "2026-09-15";
+    const endDate = "2026-09-16";
+    const startTime = "23:15";
+    const endTime = "07:45";
+
+    const startLog = getStoredSleepLog(startDate);
+    saveStoredSleepLog({
+      ...startLog,
+      bedtime: startTime,
+      bedtimeValidated: true,
+      updatedAt: new Date().toISOString(),
+    });
+
+    const endLog = getStoredSleepLog(endDate);
+    saveStoredSleepLog({
+      ...endLog,
+      wakeTime: endTime,
+      wakeTimeValidated: true,
+      updatedAt: new Date().toISOString(),
+    });
+
+    // 2. Verify both days hold their respective part of the cross-day sleep session
+    const retrievedStart = getStoredSleepLog(startDate);
+    const retrievedEnd = getStoredSleepLog(endDate);
+
+    expect(retrievedStart.bedtime).toBe("23:15");
+    expect(retrievedStart.bedtimeValidated).toBe(true);
+
+    expect(retrievedEnd.wakeTime).toBe("07:45");
+    expect(retrievedEnd.wakeTimeValidated).toBe(true);
+  });
 });
