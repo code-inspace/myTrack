@@ -54,8 +54,37 @@ export function recordAppBackground(now: Date = new Date()): void {
   const dateStr = hour < 12
     ? format(subDays(now, 1), "yyyy-MM-dd")
     : format(now, "yyyy-MM-dd");
+  const todayStr = format(now, "yyyy-MM-dd");
 
   try {
+    const todayLog = getStoredSleepLog(todayStr);
+    const lastWakeIso = localStorage.getItem("mytrack_last_wake_iso");
+    const lastWakeDate = lastWakeIso ? parseISO(lastWakeIso) : null;
+    const minutesSinceWake = lastWakeDate ? differenceInMinutes(now, lastWakeDate) : null;
+
+    // Si l'utilisateur s'est réveillé aujourd'hui :
+    // On ne redéclenche le mode sommeil QUE SI l'inactivité dépasse 60 minutes (1 heure)
+    if (todayLog.wakeTime || lastWakeDate) {
+      if (minutesSinceWake !== null && minutesSinceWake < 60) {
+        console.log(`[AutoSleepTracker] App backgrounded ${minutesSinceWake}min after wake (< 60min) -> Keep normal mode.`);
+        return;
+      }
+
+      // Si inactivité >= 60 minutes en matinée (< 12h) : 2ème phase de sommeil automatique
+      if (hour < 12) {
+        console.log(`[AutoSleepTracker] 1h+ inactivity post-wake detected -> Triggering 2nd sleep mode (phase 2) with "Je ne dors pas" option.`);
+        LiveActivityBridge.syncSleepMode({
+          isActive: true,
+          bedtime: timeStr,
+          phaseIndex: 2,
+          isSecondSleep: true,
+          startedAtTimestamp: now.getTime() / 1000,
+        });
+        return;
+      }
+    }
+
+    // Premier sommeil standard
     const currentLog = getStoredSleepLog(dateStr);
     if (!currentLog.bedtimeValidated) {
       saveStoredSleepLog({
@@ -69,6 +98,8 @@ export function recordAppBackground(now: Date = new Date()): void {
     LiveActivityBridge.syncSleepMode({
       isActive: true,
       bedtime: timeStr,
+      phaseIndex: 1,
+      isSecondSleep: false,
       startedAtTimestamp: now.getTime() / 1000,
     });
   } catch {}

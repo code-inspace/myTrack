@@ -25,6 +25,7 @@ import {
   getNightModeInactivityTimeoutMs,
 } from "../nightModeUtils";
 import { NightModeOverlay } from "../components/NightModeOverlay";
+import { LiveActivityBridge } from "@/lib/native/liveActivity";
 
 interface NightModeContextValue {
   isNightModeActive: boolean;
@@ -206,6 +207,15 @@ export const NightModeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setIsSleeping(true);
     setSleepingStartedAt(nowIso);
     if (updated.bedtime) setBedtime(updated.bedtime);
+
+    // Synchroniser immédiatement la Live Activity et le Widget
+    LiveActivityBridge.syncSleepMode({
+      isActive: true,
+      bedtime: updated.bedtime || bedtime || "23:00",
+      phaseIndex: 1,
+      isSecondSleep: false,
+      startedAtTimestamp: Date.now() / 1000,
+    });
   };
 
   // Handler: "Je me réveille"
@@ -217,6 +227,20 @@ export const NightModeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setSleepingStartTime(null);
     setIsSleeping(false);
     setSleepingStartedAt(null);
+
+    const nowIso = new Date().toISOString();
+    try {
+      localStorage.setItem("mytrack_last_wake_iso", nowIso);
+    } catch {}
+
+    // Synchroniser immédiatement l'arrêt avec la Live Activity et le Widget
+    LiveActivityBridge.syncSleepMode({
+      isActive: false,
+      bedtime: updated.bedtime || bedtime || "23:00",
+      wakeTime: updated.wakeTime,
+      isSecondSleep: false,
+      startedAtTimestamp: Date.now() / 1000,
+    });
 
     // Dismiss until the next bedtime
     dismissNightModeUntilNextBedtime(bedtime);

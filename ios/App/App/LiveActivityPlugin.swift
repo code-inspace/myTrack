@@ -633,21 +633,33 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
             UserDefaults.standard.set(jsonStr, forKey: "mytrack_sleep_sessions")
         }
 
+        let isSecondSleep = call.getBool("isSecondSleep") ?? (phaseIndex > 1)
+        suite.set(isSecondSleep, forKey: "mytrack_sleep_is_second_sleep")
+        UserDefaults.standard.set(isSecondSleep, forKey: "mytrack_sleep_is_second_sleep")
+
         // Mettre à jour ou lancer la Live Activity Sommeil
         if #available(iOS 16.2, *) {
             if isActive {
+                // Fermer l'activité standby si elle existe pour laisser la place au sommeil
+                for act in Activity<TaskActivityAttributes>.activities.filter({ $0.attributes.taskId == "standby" }) {
+                    Task {
+                        await act.end(nil, dismissalPolicy: .immediate)
+                    }
+                }
+
                 let sleepActivities = Activity<TaskActivityAttributes>.activities.filter { $0.attributes.taskId == "sleep" }
                 let contentState = TaskActivityAttributes.ContentState(
                     currentStatus: "SLEEP",
                     startedAtTimestamp: startedAtTimestamp,
                     elapsedSeconds: 0,
-                    subtitle: phaseIndex > 1 ? "Phase de sommeil \(phaseIndex)" : "En sommeil",
+                    subtitle: phaseIndex > 1 ? "2nd Sommeil • Phase \(phaseIndex)" : "En sommeil",
                     isSleepMode: true,
                     bedtime: bedtime,
                     wakeTime: wakeTime,
                     sleepPhaseIndex: phaseIndex,
                     sleepPhaseCount: phaseIndex,
-                    isAwakeBetweenPhases: false
+                    isAwakeBetweenPhases: false,
+                    isSecondSleep: isSecondSleep
                 )
 
                 if let existing = sleepActivities.first {
@@ -667,24 +679,15 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
                     )
                 }
             } else {
-                // Si réveil en cours de nuit mais phase terminée
-                if let w = wakeTime {
-                    for activity in Activity<TaskActivityAttributes>.activities.filter({ $0.attributes.taskId == "sleep" }) {
-                        Task {
-                            let contentState = TaskActivityAttributes.ContentState(
-                                currentStatus: "SLEEP_AWAKE",
-                                startedAtTimestamp: startedAtTimestamp,
-                                elapsedSeconds: 0,
-                                subtitle: "Réveillé à \(w) • Phase \(phaseIndex) terminée",
-                                isSleepMode: true,
-                                bedtime: bedtime,
-                                wakeTime: w,
-                                sleepPhaseIndex: phaseIndex,
-                                sleepPhaseCount: phaseIndex,
-                                isAwakeBetweenPhases: true
-                            )
-                            await activity.update(.init(state: contentState, staleDate: nil))
-                        }
+                // Si le sommeil s'arrête (réveil), on termine immédiatement l'activité Live Sommeil
+                suite.set(false, forKey: "mytrack_sleep_is_awake_between_phases")
+                UserDefaults.standard.set(false, forKey: "mytrack_sleep_is_awake_between_phases")
+                suite.set(startedAtTimestamp, forKey: "mytrack_sleep_last_wake_timestamp")
+                UserDefaults.standard.set(startedAtTimestamp, forKey: "mytrack_sleep_last_wake_timestamp")
+
+                for activity in Activity<TaskActivityAttributes>.activities.filter({ $0.attributes.taskId == "sleep" }) {
+                    Task {
+                        await activity.end(nil, dismissalPolicy: .immediate)
                     }
                 }
             }

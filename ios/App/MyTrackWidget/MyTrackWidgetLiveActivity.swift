@@ -168,39 +168,73 @@ struct MyTrackWidgetLiveActivity: Widget {
                 // Région étendue bas (Appui long)
                 DynamicIslandExpandedRegion(.bottom) {
                     if context.state.isSleepMode == true || context.state.currentStatus == "SLEEP" || context.state.currentStatus == "SLEEP_AWAKE" {
-                        // 2 Boutons Interactifs pour le Mode Sommeil
+                        let isSecond = context.state.isSecondSleep == true || (context.state.sleepPhaseIndex ?? 1) > 1
                         HStack(spacing: 8) {
-                            Button(intent: SleepStartNowIntent()) {
-                                HStack(spacing: 4) {
-                                    Image(systemName: "bed.double.fill")
-                                        .font(.system(size: 10, weight: .bold))
-                                    Text("Je me couche")
-                                        .font(.system(size: 11, weight: .bold))
+                            if isSecond {
+                                Button(intent: SleepNotSleepingIntent()) {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "xmark.circle.fill")
+                                            .font(.system(size: 10, weight: .bold))
+                                        Text("Je ne dors pas")
+                                            .font(.system(size: 11, weight: .bold))
+                                    }
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 6)
+                                    .background(Color.white.opacity(0.16))
+                                    .clipShape(Capsule())
                                 }
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 6)
-                                .background(sleepIndigo.opacity(0.85))
-                                .clipShape(Capsule())
-                            }
-                            .buttonStyle(.plain)
+                                .buttonStyle(.plain)
 
-                            Spacer()
+                                Spacer()
 
-                            Button(intent: SleepWakeNowIntent()) {
-                                HStack(spacing: 4) {
-                                    Image(systemName: "sun.max.fill")
-                                        .font(.system(size: 10, weight: .bold))
-                                    Text("Je me réveille")
-                                        .font(.system(size: 11, weight: .bold))
+                                Button(intent: SleepWakeNowIntent()) {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "sun.max.fill")
+                                            .font(.system(size: 10, weight: .bold))
+                                        Text("Je me réveille")
+                                            .font(.system(size: 11, weight: .bold))
+                                    }
+                                    .foregroundColor(Color(red: 0.07, green: 0.07, blue: 0.08))
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 6)
+                                    .background(brandNeon)
+                                    .clipShape(Capsule())
                                 }
-                                .foregroundColor(Color(red: 0.07, green: 0.07, blue: 0.08))
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 6)
-                                .background(brandNeon)
-                                .clipShape(Capsule())
+                                .buttonStyle(.plain)
+                            } else {
+                                Button(intent: SleepStartNowIntent()) {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "bed.double.fill")
+                                            .font(.system(size: 10, weight: .bold))
+                                        Text("Je me couche")
+                                            .font(.system(size: 11, weight: .bold))
+                                    }
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 6)
+                                    .background(sleepIndigo.opacity(0.85))
+                                    .clipShape(Capsule())
+                                }
+                                .buttonStyle(.plain)
+
+                                Spacer()
+
+                                Button(intent: SleepWakeNowIntent()) {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "sun.max.fill")
+                                            .font(.system(size: 10, weight: .bold))
+                                        Text("Je me réveille")
+                                            .font(.system(size: 11, weight: .bold))
+                                    }
+                                    .foregroundColor(Color(red: 0.07, green: 0.07, blue: 0.08))
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 6)
+                                    .background(brandNeon)
+                                    .clipShape(Capsule())
+                                }
+                                .buttonStyle(.plain)
                             }
-                            .buttonStyle(.plain)
                         }
                         .padding(.horizontal, 4)
                         .padding(.top, 4)
@@ -370,6 +404,7 @@ struct LockScreenLiveActivityView: View {
             // ============================================================
             let phaseIdx = context.state.sleepPhaseIndex ?? 1
             let isAwake = context.state.isAwakeBetweenPhases == true || context.state.currentStatus == "SLEEP_AWAKE"
+            let isSecond = context.state.isSecondSleep == true || phaseIdx > 1
 
             VStack(alignment: .leading, spacing: 10) {
                 // Header Mode Sommeil
@@ -378,14 +413,14 @@ struct LockScreenLiveActivityView: View {
                         RoundedRectangle(cornerRadius: 8)
                             .fill(sleepIndigo.opacity(0.2))
                             .frame(width: 28, height: 28)
-                        Image(systemName: isAwake ? "sun.haze.fill" : "moon.stars.fill")
+                        Image(systemName: isAwake ? "sun.haze.fill" : (isSecond ? "moon.zzz.fill" : "moon.stars.fill"))
                             .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(isAwake ? brandNeon : sleepIndigo)
+                            .foregroundColor(isAwake ? brandNeon : (isSecond ? Color(red: 0.65, green: 0.72, blue: 1.0) : sleepIndigo))
                     }
 
                     VStack(alignment: .leading, spacing: 1) {
                         HStack(spacing: 6) {
-                            Text("Mode Sommeil")
+                            Text(isSecond ? "2nd Sommeil" : "Mode Sommeil")
                                 .font(.system(size: 14, weight: .bold))
                                 .foregroundColor(.white)
 
@@ -405,7 +440,7 @@ struct LockScreenLiveActivityView: View {
                                 .font(.system(size: 10.5, weight: .medium))
                                 .foregroundColor(Color.gray)
                         } else if let bTime = context.state.bedtime {
-                            Text(isAwake ? "Réveillé • Prêt pour nouvelle phase" : "Couché à \(bTime)")
+                            Text(isSecond ? "Détecté après inactivité" : (isAwake ? "Réveillé" : "Couché à \(bTime)"))
                                 .font(.system(size: 10.5, weight: .medium))
                                 .foregroundColor(Color.gray)
                         }
@@ -415,7 +450,7 @@ struct LockScreenLiveActivityView: View {
 
                     if let bTime = context.state.bedtime {
                         VStack(alignment: .trailing, spacing: 1) {
-                            Text("Couché")
+                            Text(isSecond ? "Début" : "Couché")
                                 .font(.system(size: 9, weight: .semibold))
                                 .foregroundColor(Color.gray)
                             Text(bTime)
@@ -425,41 +460,76 @@ struct LockScreenLiveActivityView: View {
                     }
                 }
 
-                // 2 Boutons d'Action Principaux
+                // Boutons d'Action Principaux
                 HStack(spacing: 10) {
-                    // Bouton 1 : Je me couche maintenant
-                    Button(intent: SleepStartNowIntent()) {
-                        HStack(spacing: 5) {
-                            Image(systemName: "bed.double.fill")
-                                .font(.system(size: 11, weight: .bold))
-                            Text(phaseIdx > 1 && isAwake ? "2nd Couché" : "Je me couche")
-                                .font(.system(size: 12.5, weight: .bold))
+                    if isSecond {
+                        // Bouton 1 : Je ne dors pas (annuler)
+                        Button(intent: SleepNotSleepingIntent()) {
+                            HStack(spacing: 5) {
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(.system(size: 11, weight: .bold))
+                                Text("Je ne dors pas")
+                                    .font(.system(size: 12.5, weight: .bold))
+                            }
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 9)
+                            .background(Color.white.opacity(0.14))
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
                         }
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 9)
-                        .background(sleepIndigo.opacity(0.9))
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                        .shadow(color: sleepIndigo.opacity(0.3), radius: 3, x: 0, y: 1)
-                    }
-                    .buttonStyle(.plain)
+                        .buttonStyle(.plain)
 
-                    // Bouton 2 : Je me réveille maintenant
-                    Button(intent: SleepWakeNowIntent()) {
-                        HStack(spacing: 5) {
-                            Image(systemName: "sun.max.fill")
-                                .font(.system(size: 11, weight: .bold))
-                            Text("Je me réveille")
-                                .font(.system(size: 12.5, weight: .bold))
+                        // Bouton 2 : Je me réveille maintenant
+                        Button(intent: SleepWakeNowIntent()) {
+                            HStack(spacing: 5) {
+                                Image(systemName: "sun.max.fill")
+                                    .font(.system(size: 11, weight: .bold))
+                                Text("Je me réveille")
+                                    .font(.system(size: 12.5, weight: .bold))
+                            }
+                            .foregroundColor(Color(red: 0.07, green: 0.07, blue: 0.08))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 9)
+                            .background(brandNeon)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .shadow(color: brandNeon.opacity(0.25), radius: 3, x: 0, y: 1)
                         }
-                        .foregroundColor(Color(red: 0.07, green: 0.07, blue: 0.08))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 9)
-                        .background(brandNeon)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                        .shadow(color: brandNeon.opacity(0.25), radius: 3, x: 0, y: 1)
+                        .buttonStyle(.plain)
+                    } else {
+                        // Bouton 1 : Je me couche maintenant
+                        Button(intent: SleepStartNowIntent()) {
+                            HStack(spacing: 5) {
+                                Image(systemName: "bed.double.fill")
+                                    .font(.system(size: 11, weight: .bold))
+                                Text("Je me couche")
+                                    .font(.system(size: 12.5, weight: .bold))
+                            }
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 9)
+                            .background(sleepIndigo.opacity(0.9))
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .shadow(color: sleepIndigo.opacity(0.3), radius: 3, x: 0, y: 1)
+                        }
+                        .buttonStyle(.plain)
+
+                        // Bouton 2 : Je me réveille maintenant
+                        Button(intent: SleepWakeNowIntent()) {
+                            HStack(spacing: 5) {
+                                Image(systemName: "sun.max.fill")
+                                    .font(.system(size: 11, weight: .bold))
+                                Text("Je me réveille")
+                                    .font(.system(size: 12.5, weight: .bold))
+                            }
+                            .foregroundColor(Color(red: 0.07, green: 0.07, blue: 0.08))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 9)
+                            .background(brandNeon)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .shadow(color: brandNeon.opacity(0.25), radius: 3, x: 0, y: 1)
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
             }
             .padding(.horizontal, 15)

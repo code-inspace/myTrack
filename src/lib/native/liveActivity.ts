@@ -47,9 +47,10 @@ interface LiveActivityPluginInterface {
   syncSleepMode(options: {
     isActive: boolean;
     bedtime: string;
-    wakeTime?: string;
+    wakeTime?: string | null;
     phaseIndex?: number;
     startedAtTimestamp?: number;
+    isSecondSleep?: boolean;
     sessions?: Array<{
       id: string;
       phaseIndex: number;
@@ -231,9 +232,10 @@ export const LiveActivityBridge = {
   async syncSleepMode(options: {
     isActive: boolean;
     bedtime: string;
-    wakeTime?: string;
+    wakeTime?: string | null;
     phaseIndex?: number;
     startedAtTimestamp?: number;
+    isSecondSleep?: boolean;
     sessions?: Array<{
       id: string;
       phaseIndex: number;

@@ -5,8 +5,8 @@ export async function POST(req: Request) {
     const body = await req.json();
     console.log("[API Widget Sleep Action] Received background sleep action:", body);
 
-    // action can be: "BEDTIME_NOW" or "WAKE_NOW"
-    // payload includes: { action, time, timestamp, phaseIndex, bedtime? }
+    // action can be: "BEDTIME_NOW", "WAKE_NOW", or "NOT_SLEEPING"
+    // payload includes: { action, time, timestamp, phaseIndex?, bedtime? }
 
     return NextResponse.json({
       success: true,

@@ -23,6 +23,7 @@ public struct TaskActivityAttributes: ActivityAttributes {
         public var sleepPhaseIndex: Int?
         public var sleepPhaseCount: Int?
         public var isAwakeBetweenPhases: Bool?
+        public var isSecondSleep: Bool?
 
         public init(
             currentStatus: String = "IN_PROGRESS",
@@ -40,7 +41,8 @@ public struct TaskActivityAttributes: ActivityAttributes {
             wakeTime: String? = nil,
             sleepPhaseIndex: Int? = 1,
             sleepPhaseCount: Int? = 1,
-            isAwakeBetweenPhases: Bool? = false
+            isAwakeBetweenPhases: Bool? = false,
+            isSecondSleep: Bool? = false
         ) {
             self.currentStatus = currentStatus
             self.startedAtTimestamp = startedAtTimestamp
@@ -58,6 +60,7 @@ public struct TaskActivityAttributes: ActivityAttributes {
             self.sleepPhaseIndex = sleepPhaseIndex
             self.sleepPhaseCount = sleepPhaseCount
             self.isAwakeBetweenPhases = isAwakeBetweenPhases
+            self.isSecondSleep = isSecondSleep
         }
     }
 
