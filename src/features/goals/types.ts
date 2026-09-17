@@ -3,6 +3,7 @@ import { fr } from "date-fns/locale";
 import { Period } from "@/features/dashboard/types";
 
 export type GoalPeriodType = "day" | "week" | "month";
+export type GoalTargetType = "duration" | "count"; // "duration" = en temps (minutes/heures), "count" = nombre de fois / séances
 
 export interface Goal {
   id: string;
@@ -12,15 +13,21 @@ export interface Goal {
   projectCategory?: string;   // Optionnel : Nom du sous-projet / sous-catégorie
   periodType: GoalPeriodType; // "day" | "week" | "month"
   periodKey?: string;         // Clé de période unique (ex: "2026-09-17", "week_2026-09-15", "month_2026-09")
-  targetMinutes: number;      // Durée cible en minutes (ex: 180 pour 3h, 600 pour 10h)
+  targetType?: GoalTargetType;// "duration" (par défaut) | "count"
+  targetMinutes: number;      // Durée cible en minutes (si targetType === "duration")
+  targetCount?: number;       // Nombre de séances / occurrences visées (si targetType === "count", ex: 2, 3, 5)
+  unit?: string;              // Optionnel : Libellé de l'unité (ex: "séance", "fois")
   color?: string;             // Couleur personnalisée ou couleur du projet
   createdAt: string;
   updatedAt: string;
 }
 
 export interface GoalProgressResult {
+  targetType: GoalTargetType;
   actualMinutes: number;
   targetMinutes: number;
+  actualCount?: number;
+  targetCount?: number;
   percentage: number;
   isCompleted: boolean;
   isOverachieved: boolean;
@@ -35,6 +42,21 @@ export function formatMinutesToHours(minutes: number): string {
   if (h === 0) return `${m} min`;
   if (m === 0) return `${h}h`;
   return `${h}h ${String(m).padStart(2, "0")}m`;
+}
+
+export function formatCountUnit(count: number, customUnit?: string): string {
+  if (customUnit && customUnit.trim()) {
+    const u = customUnit.trim();
+    if (u.toLowerCase() === "fois") return `${count} fois`;
+    if (u.toLowerCase() === "séance" || u.toLowerCase() === "séances") {
+      return `${count} ${count > 1 ? "séances" : "séance"}`;
+    }
+    if (u.toLowerCase() === "session" || u.toLowerCase() === "sessions") {
+      return `${count} ${count > 1 ? "sessions" : "session"}`;
+    }
+    return `${count} ${u}`;
+  }
+  return `${count} ${count > 1 ? "séances" : "séance"}`;
 }
 
 export function getGoalPeriodKey(period: Period, referenceDate: Date): string {

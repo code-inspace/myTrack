@@ -108,23 +108,48 @@ export default function GoalsPage() {
 
   // Summary aggregation
   const summaryStats = useMemo(() => {
-    let totalTarget = 0;
-    let totalActual = 0;
+    let totalTargetMinutes = 0;
+    let totalActualMinutes = 0;
+    let totalTargetCount = 0;
+    let totalActualCount = 0;
     let completedCount = 0;
+    let totalPercentageSum = 0;
+    let hasCountGoals = false;
+    let hasDurationGoals = false;
 
     for (const item of goalsWithProgress) {
-      totalTarget += item.progress.targetMinutes;
-      totalActual += item.progress.actualMinutes;
+      if (item.goal.targetType === "count") {
+        hasCountGoals = true;
+        totalTargetCount += item.progress.targetCount || 0;
+        totalActualCount += item.progress.actualCount || 0;
+      } else {
+        hasDurationGoals = true;
+        totalTargetMinutes += item.progress.targetMinutes;
+        totalActualMinutes += item.progress.actualMinutes;
+      }
+
+      totalPercentageSum += item.progress.percentage;
+
       if (item.progress.isCompleted) {
         completedCount++;
       }
     }
 
+    const averagePercentage =
+      goalsWithProgress.length > 0
+        ? Math.round(totalPercentageSum / goalsWithProgress.length)
+        : 0;
+
     return {
-      totalTargetMinutes: totalTarget,
-      totalActualMinutes: totalActual,
+      totalTargetMinutes,
+      totalActualMinutes,
+      totalTargetCount,
+      totalActualCount,
       completedGoalsCount: completedCount,
       totalGoalsCount: goalsWithProgress.length,
+      averagePercentage,
+      hasCountGoals,
+      hasDurationGoals,
     };
   }, [goalsWithProgress]);
 
@@ -204,8 +229,13 @@ export default function GoalsPage() {
           <GoalSummaryHeader
             totalTargetMinutes={summaryStats.totalTargetMinutes}
             totalActualMinutes={summaryStats.totalActualMinutes}
+            totalTargetCount={summaryStats.totalTargetCount}
+            totalActualCount={summaryStats.totalActualCount}
             completedGoalsCount={summaryStats.completedGoalsCount}
             totalGoalsCount={summaryStats.totalGoalsCount}
+            averagePercentage={summaryStats.averagePercentage}
+            hasCountGoals={summaryStats.hasCountGoals}
+            hasDurationGoals={summaryStats.hasDurationGoals}
             period={period}
           />
         )}

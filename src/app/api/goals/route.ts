@@ -96,11 +96,14 @@ export async function POST(req: NextRequest) {
       projectCategory,
       periodType,
       periodKey,
+      targetType = "duration",
       targetMinutes,
+      targetCount,
+      unit,
       color,
     } = body;
 
-    if (!userId || !projectId || !targetMinutes) {
+    if (!userId || !projectId || (!targetMinutes && !targetCount)) {
       return NextResponse.json(
         { success: false, error: "Missing required fields" },
         { status: 400 }
@@ -118,7 +121,10 @@ export async function POST(req: NextRequest) {
       projectCategory: projectCategory || null,
       periodType: periodType || "week",
       periodKey: periodKey || null,
+      targetType: targetType || "duration",
       targetMinutes: Number(targetMinutes) || 60,
+      targetCount: targetCount ? Number(targetCount) : null,
+      unit: unit || null,
       color: color || null,
       createdAt: now,
       updatedAt: now,
@@ -142,8 +148,20 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   try {
     const body = await req.json();
-    const { id, userId, title, projectId, projectCategory, periodType, periodKey, targetMinutes, color } =
-      body;
+    const {
+      id,
+      userId,
+      title,
+      projectId,
+      projectCategory,
+      periodType,
+      periodKey,
+      targetType,
+      targetMinutes,
+      targetCount,
+      unit,
+      color,
+    } = body;
 
     if (!id || !userId) {
       return NextResponse.json({ success: false, error: "Missing goal id or userId" }, { status: 400 });
@@ -163,7 +181,10 @@ export async function PUT(req: NextRequest) {
         ...(projectCategory !== undefined && { projectCategory }),
         ...(periodType !== undefined && { periodType }),
         ...(periodKey !== undefined && { periodKey }),
+        ...(targetType !== undefined && { targetType }),
         ...(targetMinutes !== undefined && { targetMinutes: Number(targetMinutes) }),
+        ...(targetCount !== undefined && { targetCount: targetCount ? Number(targetCount) : null }),
+        ...(unit !== undefined && { unit }),
         ...(color !== undefined && { color }),
         updatedAt: now,
       };
@@ -177,7 +198,10 @@ export async function PUT(req: NextRequest) {
         projectCategory: projectCategory || null,
         periodType: periodType || "week",
         periodKey: periodKey || null,
+        targetType: targetType || "duration",
         targetMinutes: Number(targetMinutes) || 60,
+        targetCount: targetCount ? Number(targetCount) : null,
+        unit: unit || null,
         color: color || null,
         createdAt: now,
         updatedAt: now,

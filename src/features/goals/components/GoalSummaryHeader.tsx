@@ -8,21 +8,35 @@ import { Period } from "@/features/dashboard/types";
 interface GoalSummaryHeaderProps {
   totalTargetMinutes: number;
   totalActualMinutes: number;
+  totalTargetCount?: number;
+  totalActualCount?: number;
   completedGoalsCount: number;
   totalGoalsCount: number;
+  averagePercentage?: number;
+  hasCountGoals?: boolean;
+  hasDurationGoals?: boolean;
   period: Period;
 }
 
 export const GoalSummaryHeader: React.FC<GoalSummaryHeaderProps> = ({
   totalTargetMinutes,
   totalActualMinutes,
+  totalTargetCount = 0,
+  totalActualCount = 0,
   completedGoalsCount,
   totalGoalsCount,
+  averagePercentage,
+  hasCountGoals = false,
+  hasDurationGoals = true,
   period,
 }) => {
   const globalPercentage =
-    totalTargetMinutes > 0
+    averagePercentage !== undefined
+      ? averagePercentage
+      : totalTargetMinutes > 0
       ? Math.round((totalActualMinutes / totalTargetMinutes) * 100)
+      : totalTargetCount > 0
+      ? Math.round((totalActualCount / totalTargetCount) * 100)
       : 0;
 
   const fillPercentage = Math.min(100, globalPercentage);
@@ -77,9 +91,20 @@ export const GoalSummaryHeader: React.FC<GoalSummaryHeaderProps> = ({
             <span className="text-[#8E929E] flex items-center gap-1.5">
               <Clock className="w-3.5 h-3.5 text-[#D4F63D]" />
               <span>
-                <strong className="text-white">{formatMinutesToHours(totalActualMinutes)}</strong>{" "}
-                réalisé sur{" "}
-                <strong className="text-white">{formatMinutesToHours(totalTargetMinutes)}</strong> visés
+                {hasDurationGoals ? (
+                  <>
+                    <strong className="text-white">{formatMinutesToHours(totalActualMinutes)}</strong>{" "}
+                    réalisé sur{" "}
+                    <strong className="text-white">{formatMinutesToHours(totalTargetMinutes)}</strong> visés
+                    {hasCountGoals && totalTargetCount > 0 ? ` • ${totalActualCount}/${totalTargetCount} séances` : ""}
+                  </>
+                ) : (
+                  <>
+                    <strong className="text-white">{totalActualCount}</strong>{" "}
+                    séance{totalActualCount > 1 ? "s" : ""} réalisée{totalActualCount > 1 ? "s" : ""} sur{" "}
+                    <strong className="text-white">{totalTargetCount}</strong> visée{totalTargetCount > 1 ? "s" : ""}
+                  </>
+                )}
               </span>
             </span>
             <span className="text-[#D4F63D] font-bold">{globalPercentage}%</span>
@@ -106,9 +131,13 @@ export const GoalSummaryHeader: React.FC<GoalSummaryHeaderProps> = ({
               <TrendingUp className="w-4 h-4" />
             </div>
             <div>
-              <p className="text-[10px] uppercase font-bold text-[#717684]">Temps réalisé</p>
+              <p className="text-[10px] uppercase font-bold text-[#717684]">
+                {hasDurationGoals ? "Temps réalisé" : "Séances réalisées"}
+              </p>
               <p className="text-sm font-black text-white">
-                {formatMinutesToHours(totalActualMinutes)}
+                {hasDurationGoals
+                  ? formatMinutesToHours(totalActualMinutes)
+                  : `${totalActualCount} séance${totalActualCount > 1 ? "s" : ""}`}
               </p>
             </div>
           </div>
@@ -118,9 +147,13 @@ export const GoalSummaryHeader: React.FC<GoalSummaryHeaderProps> = ({
               <Clock className="w-4 h-4" />
             </div>
             <div>
-              <p className="text-[10px] uppercase font-bold text-[#717684]">Temps visé</p>
+              <p className="text-[10px] uppercase font-bold text-[#717684]">
+                {hasDurationGoals ? "Temps visé" : "Séances visées"}
+              </p>
               <p className="text-sm font-black text-white">
-                {formatMinutesToHours(totalTargetMinutes)}
+                {hasDurationGoals
+                  ? formatMinutesToHours(totalTargetMinutes)
+                  : `${totalTargetCount} séance${totalTargetCount > 1 ? "s" : ""}`}
               </p>
             </div>
           </div>

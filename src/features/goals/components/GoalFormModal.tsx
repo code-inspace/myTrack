@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { X, Target, Clock, Calendar, Folder, Tag, Trash2, Check, Sparkles, Info } from "lucide-react";
-import { Goal, GoalPeriodType, getGoalPeriodKey, getGoalPeriodHumanLabel } from "../types";
+import { X, Target, Clock, Calendar, Folder, Tag, Trash2, Check, Sparkles, Hash, Repeat } from "lucide-react";
+import { Goal, GoalPeriodType, GoalTargetType, getGoalPeriodKey, getGoalPeriodHumanLabel } from "../types";
 import { Project } from "@/features/projects/types";
 import { Period } from "@/features/dashboard/types";
 import { cn } from "@/lib/utils";
@@ -19,6 +19,7 @@ interface GoalFormModalProps {
 }
 
 const PRESET_HOURS = [1, 2, 3, 5, 8, 10, 15, 20];
+const PRESET_COUNTS = [1, 2, 3, 4, 5, 6, 7, 10];
 
 export const GoalFormModal: React.FC<GoalFormModalProps> = ({
   isOpen,
@@ -36,8 +37,11 @@ export const GoalFormModal: React.FC<GoalFormModalProps> = ({
   const initialType: GoalPeriodType =
     currentPeriod === "day" ? "day" : currentPeriod === "month" ? "month" : "week";
   const [periodType, setPeriodType] = useState<GoalPeriodType>(initialType);
+  const [targetType, setTargetType] = useState<GoalTargetType>("duration");
   const [hours, setHours] = useState<number>(3);
   const [minutes, setMinutes] = useState<number>(0);
+  const [targetCount, setTargetCount] = useState<number>(2);
+  const [unit, setUnit] = useState<string>("séance");
   const [title, setTitle] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
@@ -54,9 +58,12 @@ export const GoalFormModal: React.FC<GoalFormModalProps> = ({
       setProjectId(initialGoal.projectId || (projects[0]?.id ?? ""));
       setProjectCategory(initialGoal.projectCategory || "");
       setPeriodType(initialGoal.periodType || "week");
+      setTargetType(initialGoal.targetType || "duration");
       const totalMins = initialGoal.targetMinutes || 180;
       setHours(Math.floor(totalMins / 60));
       setMinutes(totalMins % 60);
+      setTargetCount(initialGoal.targetCount || 2);
+      setUnit(initialGoal.unit || "séance");
       setTitle(initialGoal.title || "");
     } else {
       setProjectId(projects[0]?.id ?? "");
@@ -64,8 +71,11 @@ export const GoalFormModal: React.FC<GoalFormModalProps> = ({
       const resolvedType: GoalPeriodType =
         currentPeriod === "day" ? "day" : currentPeriod === "month" ? "month" : "week";
       setPeriodType(resolvedType);
+      setTargetType("duration");
       setHours(resolvedType === "day" ? 2 : resolvedType === "week" ? 5 : 20);
       setMinutes(0);
+      setTargetCount(resolvedType === "day" ? 1 : resolvedType === "week" ? 2 : 8);
+      setUnit("séance");
       setTitle("");
     }
   }, [isOpen, initialGoal, projects, currentPeriod]);
@@ -97,7 +107,10 @@ export const GoalFormModal: React.FC<GoalFormModalProps> = ({
           projectCategory: projectCategory.trim() ? projectCategory.trim() : undefined,
           periodType,
           periodKey: initialGoal?.periodKey || periodKey,
-          targetMinutes: totalMinutes,
+          targetType,
+          targetMinutes: targetType === "duration" ? totalMinutes : 0,
+          targetCount: targetType === "count" ? Math.max(1, targetCount) : undefined,
+          unit: targetType === "count" ? (unit.trim() || "séance") : undefined,
           title: title.trim() ? title.trim() : undefined,
           color: selectedProject?.color || "#D4F63D",
         },
@@ -286,65 +299,164 @@ export const GoalFormModal: React.FC<GoalFormModalProps> = ({
             </div>
           </div>
 
-          {/* 4. Durée Cible */}
+          {/* 4. Type de Cible: Temps vs Nombre de fois */}
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-[#8E929E] mb-2 flex items-center justify-between">
               <span className="flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5" />
-                <span>Objectif de temps *</span>
+                <Target className="w-3.5 h-3.5" />
+                <span>Objectif cible *</span>
               </span>
               <span className="text-[#D4F63D] font-bold lowercase">
-                {hours}h {minutes > 0 ? `${minutes}m` : ""} pour {periodType === "day" ? "ce jour" : periodType === "week" ? "cette semaine" : "ce mois"}
+                {targetType === "duration"
+                  ? `${hours}h ${minutes > 0 ? `${minutes}m` : ""} ${periodType === "day" ? "ce jour" : periodType === "week" ? "cette semaine" : "ce mois"}`
+                  : `${targetCount} ${targetCount > 1 ? (unit === "fois" ? "fois" : "séances") : (unit === "fois" ? "fois" : "séance")} ${periodType === "day" ? "ce jour" : periodType === "week" ? "cette semaine" : "ce mois"}`}
               </span>
             </label>
 
-            {/* Presets rapides */}
-            <div className="flex flex-wrap gap-1.5 mb-3">
-              {PRESET_HOURS.map((pH) => (
-                <button
-                  key={pH}
-                  type="button"
-                  onClick={() => handlePresetSelect(pH)}
-                  className={cn(
-                    "px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer",
-                    hours === pH && minutes === 0
-                      ? "bg-[#D4F63D] text-black border-[#D4F63D] font-bold"
-                      : "bg-[#181920] border-[#252832] text-[#8E929E] hover:text-white"
-                  )}
-                >
-                  {pH}h
-                </button>
-              ))}
+            <div className="grid grid-cols-2 gap-2 bg-[#101114] p-1 rounded-2xl border border-[#23252E] mb-3">
+              <button
+                type="button"
+                onClick={() => setTargetType("duration")}
+                className={cn(
+                  "py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer",
+                  targetType === "duration"
+                    ? "bg-[#252834] text-white shadow-sm border border-white/10"
+                    : "text-[#8E929E] hover:text-white"
+                )}
+              >
+                <Clock className="w-4 h-4 text-[#D4F63D]" />
+                <span>En temps (durée)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setTargetType("count")}
+                className={cn(
+                  "py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer",
+                  targetType === "count"
+                    ? "bg-[#252834] text-white shadow-sm border border-white/10"
+                    : "text-[#8E929E] hover:text-white"
+                )}
+              >
+                <Hash className="w-4 h-4 text-[#818CF8]" />
+                <span>Nombre de fois (séances)</span>
+              </button>
             </div>
 
-            {/* Inputs précis heures et minutes */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <span className="text-[11px] text-[#8E929E] block mb-1">Heures</span>
-                <input
-                  type="number"
-                  min="0"
-                  max="168"
-                  value={hours}
-                  onChange={(e) => setHours(Math.max(0, parseInt(e.target.value) || 0))}
-                  className="w-full bg-[#181920] border border-[#252832] focus:border-[#D4F63D] focus:outline-none rounded-xl px-3 py-2 text-white font-bold text-sm"
-                />
+            {targetType === "duration" ? (
+              <div className="space-y-3 animate-in fade-in duration-150">
+                {/* Presets rapides d'heures */}
+                <div className="flex flex-wrap gap-1.5">
+                  {PRESET_HOURS.map((pH) => (
+                    <button
+                      key={pH}
+                      type="button"
+                      onClick={() => handlePresetSelect(pH)}
+                      className={cn(
+                        "px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer",
+                        hours === pH && minutes === 0
+                          ? "bg-[#D4F63D] text-black border-[#D4F63D] font-bold"
+                          : "bg-[#181920] border-[#252832] text-[#8E929E] hover:text-white"
+                      )}
+                    >
+                      {pH}h
+                    </button>
+                  ))}
+                </div>
+
+                {/* Inputs précis heures et minutes */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <span className="text-[11px] text-[#8E929E] block mb-1">Heures</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max="168"
+                      value={hours}
+                      onChange={(e) => setHours(Math.max(0, parseInt(e.target.value) || 0))}
+                      className="w-full bg-[#181920] border border-[#252832] focus:border-[#D4F63D] focus:outline-none rounded-xl px-3 py-2 text-white font-bold text-sm"
+                    />
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-[#8E929E] block mb-1">Minutes</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max="59"
+                      step="5"
+                      value={minutes}
+                      onChange={(e) =>
+                        setMinutes(Math.min(59, Math.max(0, parseInt(e.target.value) || 0)))
+                      }
+                      className="w-full bg-[#181920] border border-[#252832] focus:border-[#D4F63D] focus:outline-none rounded-xl px-3 py-2 text-white font-bold text-sm"
+                    />
+                  </div>
+                </div>
               </div>
-              <div>
-                <span className="text-[11px] text-[#8E929E] block mb-1">Minutes</span>
-                <input
-                  type="number"
-                  min="0"
-                  max="59"
-                  step="5"
-                  value={minutes}
-                  onChange={(e) =>
-                    setMinutes(Math.min(59, Math.max(0, parseInt(e.target.value) || 0)))
-                  }
-                  className="w-full bg-[#181920] border border-[#252832] focus:border-[#D4F63D] focus:outline-none rounded-xl px-3 py-2 text-white font-bold text-sm"
-                />
+            ) : (
+              <div className="space-y-3 animate-in fade-in duration-150">
+                {/* Presets rapides de nombre de fois */}
+                <div className="flex flex-wrap gap-1.5">
+                  {PRESET_COUNTS.map((pC) => (
+                    <button
+                      key={pC}
+                      type="button"
+                      onClick={() => setTargetCount(pC)}
+                      className={cn(
+                        "px-3 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer",
+                        targetCount === pC
+                          ? "bg-[#818CF8] text-white border-[#818CF8] font-bold shadow-sm"
+                          : "bg-[#181920] border-[#252832] text-[#8E929E] hover:text-white"
+                      )}
+                    >
+                      {pC} {pC > 1 ? "fois" : "fois"}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Input nombre de fois & Libellé unité */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <span className="text-[11px] text-[#8E929E] block mb-1">Nombre de séances / fois</span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setTargetCount((c) => Math.max(1, c - 1))}
+                        className="w-9 h-9 rounded-xl bg-[#181920] border border-[#252832] hover:bg-[#252834] text-white font-bold text-base flex items-center justify-center cursor-pointer shrink-0"
+                      >
+                        -
+                      </button>
+                      <input
+                        type="number"
+                        min="1"
+                        max="365"
+                        value={targetCount}
+                        onChange={(e) => setTargetCount(Math.max(1, parseInt(e.target.value) || 1))}
+                        className="flex-1 bg-[#181920] border border-[#252832] focus:border-[#818CF8] focus:outline-none rounded-xl px-3 py-2 text-white font-bold text-sm text-center"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setTargetCount((c) => c + 1)}
+                        className="w-9 h-9 rounded-xl bg-[#181920] border border-[#252832] hover:bg-[#252834] text-white font-bold text-base flex items-center justify-center cursor-pointer shrink-0"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <span className="text-[11px] text-[#8E929E] block mb-1">Unité (ex: séance, fois)</span>
+                    <input
+                      type="text"
+                      value={unit}
+                      onChange={(e) => setUnit(e.target.value)}
+                      placeholder="séance, fois, session..."
+                      className="w-full bg-[#181920] border border-[#252832] focus:border-[#818CF8] focus:outline-none rounded-xl px-3 py-2 text-white text-sm"
+                    />
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* 5. Titre Optionnel */}
@@ -358,7 +470,7 @@ export const GoalFormModal: React.FC<GoalFormModalProps> = ({
               placeholder={
                 selectedProject
                   ? `Ex: ${selectedProject.name}${projectCategory ? ` - ${projectCategory}` : ""}`
-                  : "Ex: Session Deep Work"
+                  : "Ex: 2 séances de sport"
               }
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -416,7 +528,12 @@ export const GoalFormModal: React.FC<GoalFormModalProps> = ({
             </button>
             <button
               type="submit"
-              disabled={isSubmitting || !projectId || (hours === 0 && minutes === 0)}
+              disabled={
+                isSubmitting ||
+                !projectId ||
+                (targetType === "duration" && hours === 0 && minutes === 0) ||
+                (targetType === "count" && targetCount <= 0)
+              }
               className="px-5 py-2.5 rounded-xl bg-[#D4F63D] hover:bg-[#bce028] disabled:opacity-50 text-black text-xs font-bold transition-all shadow-lg flex items-center gap-1.5 cursor-pointer"
             >
               <Check className="w-4 h-4" />

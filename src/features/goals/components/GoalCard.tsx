@@ -99,6 +99,10 @@ export const GoalCard: React.FC<GoalCardProps> = ({
                   ? "Objectif Semaine"
                   : "Objectif Mois"}
               </span>
+              <span>•</span>
+              <span className="text-[#8E929E] font-medium">
+                {goal.targetType === "count" ? "Séances" : "Temps"}
+              </span>
             </p>
           </div>
         </div>
@@ -209,11 +213,15 @@ export const GoalCard: React.FC<GoalCardProps> = ({
       {/* 4. Bottom Contextual Footer */}
       <div className="flex items-center justify-between pt-2 text-[11px] text-[#8E929E]">
         <div className="flex items-center gap-1.5">
-          <Clock className="w-3.5 h-3.5 text-[#717684]" />
+          {progress.targetType === "count" ? (
+            <Target className="w-3.5 h-3.5 text-[#717684]" />
+          ) : (
+            <Clock className="w-3.5 h-3.5 text-[#717684]" />
+          )}
           <span>
             {progress.isCompleted
               ? progress.isOverachieved
-                ? `Objectif dépassé (+${progress.formattedActual}) !`
+                ? `Objectif dépassé (${progress.formattedActual}) !`
                 : "Objectif atteint avec succès 🎉"
               : `Encore ${progress.formattedRemaining} pour valider`}
           </span>

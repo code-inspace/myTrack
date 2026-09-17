@@ -310,4 +310,187 @@ describe("computeGoalProgress", () => {
     expect(result.actualMinutes).toBe(31);
     expect(result.formattedActual).toBe("31 min");
   });
+
+  describe("Count-based goals (targetType: 'count')", () => {
+    const sportGoal: Goal = {
+      id: "goal_sport_weekly",
+      userId: "user_123",
+      projectId: "proj_sport",
+      periodType: "week",
+      periodKey: "week_2026-09-15",
+      targetType: "count",
+      targetCount: 2,
+      unit: "séance",
+      targetMinutes: 0,
+      createdAt: "2026-09-15T00:00:00.000Z",
+      updatedAt: "2026-09-15T00:00:00.000Z",
+    };
+
+    const sportTask: Task = {
+      id: "task_sport_1",
+      userId: "user_123",
+      title: "Séance Musculation / Cardio",
+      category: "General",
+      projectId: "proj_sport",
+      recurrence: "DAILY",
+      trackingType: "DURATION",
+      targetValue: 45,
+      isActive: false,
+      startedAt: null,
+      isArchived: false,
+      createdAt: "2026-09-15T08:00:00.000Z",
+      updatedAt: "2026-09-15T08:00:00.000Z",
+    };
+
+    it("should return 0 séances when no sessions are completed during the week", () => {
+      const result = computeGoalProgress({
+        goal: sportGoal,
+        period: "week",
+        referenceDate: new Date("2026-09-17T12:00:00.000Z"),
+        tasks: [sportTask],
+        completions: [],
+      });
+
+      expect(result.targetType).toBe("count");
+      expect(result.actualCount).toBe(0);
+      expect(result.targetCount).toBe(2);
+      expect(result.percentage).toBe(0);
+      expect(result.formattedActual).toBe("0 séance");
+      expect(result.formattedTarget).toBe("2 séances");
+      expect(result.formattedRemaining).toBe("2 séances");
+      expect(result.isCompleted).toBe(false);
+      expect(result.isOverachieved).toBe(false);
+    });
+
+    it("should calculate 50% and 1 séance remaining when 1 session is completed", () => {
+      const completions: TaskCompletion[] = [
+        {
+          id: "comp_sport_tuesday",
+          userId: "user_123",
+          taskId: "task_sport_1",
+          date: "2026-09-15",
+          completed: true,
+          duration: 50,
+          createdAt: "2026-09-15T18:00:00.000Z",
+          updatedAt: "2026-09-15T18:50:00.000Z",
+        },
+      ];
+
+      const result = computeGoalProgress({
+        goal: sportGoal,
+        period: "week",
+        referenceDate: new Date("2026-09-17T12:00:00.000Z"),
+        tasks: [sportTask],
+        completions,
+      });
+
+      expect(result.targetType).toBe("count");
+      expect(result.actualCount).toBe(1);
+      expect(result.targetCount).toBe(2);
+      expect(result.percentage).toBe(50);
+      expect(result.formattedActual).toBe("1 séance");
+      expect(result.formattedTarget).toBe("2 séances");
+      expect(result.formattedRemaining).toBe("1 séance");
+      expect(result.isCompleted).toBe(false);
+    });
+
+    it("should mark goal as 100% completed when 2 sessions are completed in the week", () => {
+      const completions: TaskCompletion[] = [
+        {
+          id: "comp_sport_tuesday",
+          userId: "user_123",
+          taskId: "task_sport_1",
+          date: "2026-09-15",
+          completed: true,
+          duration: 50,
+          createdAt: "2026-09-15T18:00:00.000Z",
+          updatedAt: "2026-09-15T18:50:00.000Z",
+        },
+        {
+          id: "comp_sport_thursday",
+          userId: "user_123",
+          taskId: "task_sport_1",
+          date: "2026-09-17",
+          completed: true,
+          duration: 60,
+          createdAt: "2026-09-17T17:00:00.000Z",
+          updatedAt: "2026-09-17T18:00:00.000Z",
+        },
+      ];
+
+      const result = computeGoalProgress({
+        goal: sportGoal,
+        period: "week",
+        referenceDate: new Date("2026-09-17T12:00:00.000Z"),
+        tasks: [sportTask],
+        completions,
+      });
+
+      expect(result.actualCount).toBe(2);
+      expect(result.targetCount).toBe(2);
+      expect(result.percentage).toBe(100);
+      expect(result.formattedActual).toBe("2 séances");
+      expect(result.formattedTarget).toBe("2 séances");
+      expect(result.formattedRemaining).toBe("0 séance");
+      expect(result.isCompleted).toBe(true);
+      expect(result.isOverachieved).toBe(false);
+    });
+
+    it("should handle custom unit like 'fois' and overachievement correctly", () => {
+      const customGoal: Goal = {
+        ...sportGoal,
+        unit: "fois",
+        targetCount: 2,
+      };
+
+      const completions: TaskCompletion[] = [
+        {
+          id: "comp_1",
+          userId: "user_123",
+          taskId: "task_sport_1",
+          date: "2026-09-15",
+          completed: true,
+          duration: 40,
+          createdAt: "2026-09-15T18:00:00.000Z",
+          updatedAt: "2026-09-15T18:40:00.000Z",
+        },
+        {
+          id: "comp_2",
+          userId: "user_123",
+          taskId: "task_sport_1",
+          date: "2026-09-16",
+          completed: true,
+          duration: 45,
+          createdAt: "2026-09-16T18:00:00.000Z",
+          updatedAt: "2026-09-16T18:45:00.000Z",
+        },
+        {
+          id: "comp_3",
+          userId: "user_123",
+          taskId: "task_sport_1",
+          date: "2026-09-17",
+          completed: true,
+          duration: 50,
+          createdAt: "2026-09-17T18:00:00.000Z",
+          updatedAt: "2026-09-17T18:50:00.000Z",
+        },
+      ];
+
+      const result = computeGoalProgress({
+        goal: customGoal,
+        period: "week",
+        referenceDate: new Date("2026-09-17T12:00:00.000Z"),
+        tasks: [sportTask],
+        completions,
+      });
+
+      expect(result.actualCount).toBe(3);
+      expect(result.targetCount).toBe(2);
+      expect(result.percentage).toBe(150);
+      expect(result.formattedActual).toBe("3 fois");
+      expect(result.formattedTarget).toBe("2 fois");
+      expect(result.isCompleted).toBe(true);
+      expect(result.isOverachieved).toBe(true);
+    });
+  });
 });

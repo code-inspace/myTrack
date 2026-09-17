@@ -1,4 +1,4 @@
-import { Goal, GoalProgressResult, formatMinutesToHours } from "./types";
+import { Goal, GoalProgressResult, formatMinutesToHours, formatCountUnit } from "./types";
 import { Period } from "@/features/dashboard/types";
 import { Task, TaskCompletion } from "@/features/tasks/types";
 import { ExternalCalendarEvent } from "@/features/calendar/types";
@@ -82,7 +82,10 @@ export async function fetchGoals(userId?: string): Promise<Goal[]> {
         projectCategory: row.project_category || undefined,
         periodType: row.period_type || "week",
         periodKey: row.period_key || undefined,
+        targetType: row.target_type || "duration",
         targetMinutes: Number(row.target_minutes) || 60,
+        targetCount: row.target_count ? Number(row.target_count) : undefined,
+        unit: row.unit || undefined,
         color: row.color || undefined,
         createdAt: row.created_at || new Date().toISOString(),
         updatedAt: row.updated_at || new Date().toISOString(),
@@ -333,6 +336,52 @@ export function computeGoalProgress(params: {
     }
   }
 
+  // Calculate total sessions / count for count-based goals
+  let totalCount = 0;
+  // Completed completions in the period
+  totalCount += periodCompletions.filter((c) => c.completed).length;
+
+  // Completed non-recurring tasks marked DONE without a completion row in the period
+  for (const t of matchingTasks) {
+    const isRecurring = t.recurrence && t.recurrence !== "ONCE";
+    if (t.projectStatus === "DONE" && !t.isActive && !isRecurring) {
+      const hasComp = periodCompletions.some((c) => c.taskId === t.id && c.completed);
+      if (!hasComp) {
+        const taskDate = (t as any).date || t.deadline || (t.createdAt ? t.createdAt.split("T")[0] : null);
+        if (taskDate && taskDate >= startDateStr && taskDate <= endDateStr) {
+          totalCount += 1;
+        }
+      }
+    }
+  }
+
+  // External calendar events matched
+  totalCount += matchingEvents.length;
+
+  const isCountGoal = goal.targetType === "count";
+
+  if (isCountGoal) {
+    const targetCount = Math.max(1, goal.targetCount || 1);
+    const percentage = Math.round((totalCount / targetCount) * 100);
+    const isCompleted = totalCount >= targetCount;
+    const isOverachieved = totalCount > targetCount;
+    const remainingCount = Math.max(0, targetCount - totalCount);
+
+    return {
+      targetType: "count",
+      actualMinutes: totalMinutes,
+      targetMinutes: goal.targetMinutes || 0,
+      actualCount: totalCount,
+      targetCount,
+      percentage,
+      isCompleted,
+      isOverachieved,
+      formattedActual: formatCountUnit(totalCount, goal.unit),
+      formattedTarget: formatCountUnit(targetCount, goal.unit),
+      formattedRemaining: formatCountUnit(remainingCount, goal.unit),
+    };
+  }
+
   const targetMinutes = Math.max(1, goal.targetMinutes);
   const percentage = Math.round((totalMinutes / targetMinutes) * 100);
   const isCompleted = totalMinutes >= targetMinutes;
@@ -340,8 +389,11 @@ export function computeGoalProgress(params: {
   const remainingMinutes = Math.max(0, targetMinutes - totalMinutes);
 
   return {
+    targetType: "duration",
     actualMinutes: totalMinutes,
     targetMinutes,
+    actualCount: totalCount,
+    targetCount: goal.targetCount,
     percentage,
     isCompleted,
     isOverachieved,
