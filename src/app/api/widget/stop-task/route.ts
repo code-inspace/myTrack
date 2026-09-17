@@ -51,6 +51,17 @@ export async function POST(req: NextRequest) {
 
       // 2. Record completion
       if (task?.user_id) {
+        const { data: existingComp } = await supabase
+          .from("task_completions")
+          .select("*")
+          .eq("task_id", taskId)
+          .eq("date", today)
+          .maybeSingle();
+
+        const prevDuration = existingComp?.completed && typeof existingComp?.duration === "number" ? existingComp.duration : 0;
+        const totalDuration = prevDuration + durationMinutes;
+        const earliestStart = existingComp?.actual_start_time || actualStart;
+
         await supabase.from("task_completions").upsert(
           [
             {
@@ -58,10 +69,10 @@ export async function POST(req: NextRequest) {
               user_id: task.user_id,
               date: today,
               completed: true,
-              duration: durationMinutes,
-              actual_start_time: actualStart,
+              duration: totalDuration,
+              actual_start_time: earliestStart,
               actual_end_time: nowTime,
-              scheduled_start_time: actualStart,
+              scheduled_start_time: earliestStart,
               scheduled_end_time: nowTime,
               updated_at: now.toISOString(),
             },

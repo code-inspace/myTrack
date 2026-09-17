@@ -901,19 +901,24 @@ export function useTaskMutations() {
           durationMinutes = Math.max(1, diffMinutes);
           targetDate = date || format(startDate, "yyyy-MM-dd");
         }
-      } else {
-        const completions =
-          queryClient.getQueryData<TaskCompletion[]>(["completions", userId]) ||
-          getStoredCompletions(userId);
-        const existing = completions.find(
-          (c) => c.taskId === taskId && c.date === targetDate,
-        );
+      const completions =
+        queryClient.getQueryData<TaskCompletion[]>(["completions", userId]) ||
+        getStoredCompletions(userId);
+      const existing = completions.find(
+        (c) => c.taskId === taskId && c.date === targetDate,
+      );
+
+      if (!targetTask?.startedAt) {
         if (existing?.actualStartTime) {
           actualStart = existing.actualStartTime;
         } else if (targetTask?.startTime) {
           actualStart = targetTask.startTime;
         }
       }
+
+      const prevDuration = existing?.completed && typeof existing.duration === "number" ? existing.duration : 0;
+      const totalAccumulatedDuration = prevDuration + durationMinutes;
+      const earliestStart = existing?.actualStartTime || actualStart;
 
       // 1. Immediately deactivate task in database and local storage
       await updateDbTaskActive(taskId, false, userId);
@@ -928,7 +933,7 @@ export function useTaskMutations() {
         await updateTaskSchedule({
           taskId,
           date: targetDate,
-          startTime: actualStart,
+          startTime: earliestStart,
           endTime: nowTime,
           applyToAll: !isRecurring,
           userId,
@@ -937,17 +942,17 @@ export function useTaskMutations() {
         console.warn("finishTaskExecution updateTaskSchedule error:", err);
       }
 
-      // 4. Log completion with exact start time, end time, and duration
+      // 4. Log completion with exact start time, end time, and accumulated duration
       try {
         await upsertDbCompletion({
           taskId,
           userId,
           date: targetDate,
           completed: true,
-          duration: durationMinutes,
-          actualStartTime: actualStart,
+          duration: totalAccumulatedDuration,
+          actualStartTime: earliestStart,
           actualEndTime: nowTime,
-          scheduledStartTime: actualStart,
+          scheduledStartTime: earliestStart,
           scheduledEndTime: nowTime,
         });
       } catch (err) {

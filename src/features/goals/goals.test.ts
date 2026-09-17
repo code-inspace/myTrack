@@ -262,4 +262,52 @@ describe("computeGoalProgress", () => {
     expect(weekResult.actualMinutes).toBe(137); // 136 + 1
     expect(weekResult.formattedActual).toBe("2h 17m");
   });
+
+  it("should accumulate earlier completed session today (iteration 1) with current active running session (iteration 2)", () => {
+    const oneMinuteAgoIso = new Date(Date.now() - 60 * 1000).toISOString();
+
+    const recurringTask: Task = {
+      id: "task_repeated_multisession",
+      userId: "user_123",
+      title: "Routine Sport / Travail",
+      category: "General",
+      projectId: "proj_code",
+      recurrence: "DAILY",
+      trackingType: "DURATION",
+      targetValue: 60,
+      isActive: true,
+      startedAt: oneMinuteAgoIso, // Started session 2, 1 minute ago
+      isArchived: false,
+      createdAt: "2026-09-17T08:00:00.000Z",
+      updatedAt: oneMinuteAgoIso,
+    };
+
+    // Session 1 was completed earlier today for 30 minutes
+    const completions: TaskCompletion[] = [
+      {
+        id: "comp_session_1",
+        userId: "user_123",
+        taskId: "task_repeated_multisession",
+        date: "2026-09-17",
+        completed: true,
+        duration: 30, // 30 minutes done in session 1
+        actualStartTime: "09:00",
+        actualEndTime: "09:30",
+        createdAt: "2026-09-17T09:30:00.000Z",
+        updatedAt: "2026-09-17T09:30:00.000Z",
+      },
+    ];
+
+    const result = computeGoalProgress({
+      goal: sampleGoal,
+      period: "day",
+      referenceDate: new Date("2026-09-17T12:00:00.000Z"),
+      tasks: [recurringTask],
+      completions,
+    });
+
+    // 30 min from session 1 + 1 min from active session 2 = 31 min
+    expect(result.actualMinutes).toBe(31);
+    expect(result.formattedActual).toBe("31 min");
+  });
 });

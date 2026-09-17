@@ -273,14 +273,17 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
           for (const c of tComps) {
             pMinutes += getTaskCompletionDurationMinutes(c, t);
           }
-        } else if (t.isActive && t.startedAt) {
+        }
+        if (t.isActive && t.startedAt) {
           const startDayStr = format(new Date(t.startedAt), "yyyy-MM-dd");
           if (isAllPeriod || (startDayStr >= startDateStr && startDayStr <= endDateStr)) {
-            activeTasksCount++;
+            if (tComps.length === 0) {
+              activeTasksCount++;
+            }
             const elapsedMins = Math.max(1, Math.floor((Date.now() - new Date(t.startedAt).getTime()) / 60000));
             pMinutes += elapsedMins;
           }
-        } else if (isAllPeriod) {
+        } else if (tComps.length === 0 && isAllPeriod) {
           activeTasksCount++;
           pMinutes += getTaskScheduledDurationMinutes(t);
         }

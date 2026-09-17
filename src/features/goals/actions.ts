@@ -250,11 +250,6 @@ export function computeGoalProgress(params: {
     const matchingTask = matchingTasks.find((t) => t.id === c.taskId);
     if (!matchingTask) continue;
 
-    // Si la tâche est actuellement active aujourd'hui, on compte son temps écoulé réel en section B
-    if (matchingTask.isActive && c.date === todayStr) {
-      continue;
-    }
-
     if (c.completed) {
       if (typeof c.duration === "number" && c.duration > 0) {
         totalMinutes += c.duration;
