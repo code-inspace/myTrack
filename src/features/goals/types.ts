@@ -10,7 +10,8 @@ export interface Goal {
   userId: string;
   title?: string;
   projectId: string;          // ID du projet associé
-  projectCategory?: string;   // Optionnel : Nom du sous-projet / sous-catégorie
+  projectCategory?: string;   // Optionnel : Nom du sous-projet unique (rétrocompatibilité)
+  projectCategories?: string[]; // Optionnel : Liste de plusieurs sous-projets / sous-catégories ciblés
   periodType: GoalPeriodType; // "day" | "week" | "month"
   periodKey?: string;         // Clé de période unique (ex: "2026-09-17", "week_2026-09-15", "month_2026-09")
   targetType?: GoalTargetType;// "duration" (par défaut) | "count"

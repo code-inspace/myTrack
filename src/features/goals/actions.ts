@@ -80,6 +80,11 @@ export async function fetchGoals(userId?: string): Promise<Goal[]> {
         title: row.title,
         projectId: row.project_id,
         projectCategory: row.project_category || undefined,
+        projectCategories: Array.isArray(row.project_categories)
+          ? row.project_categories
+          : row.project_category
+          ? [row.project_category]
+          : undefined,
         periodType: row.period_type || "week",
         periodKey: row.period_key || undefined,
         targetType: row.target_type || "duration",
@@ -224,12 +229,23 @@ export function computeGoalProgress(params: {
     endDateStr = format(end, "yyyy-MM-dd");
   }
 
-  // 2. Filtrer les tâches correspondant au projet de l'objectif
+  // 2. Définir les sous-projets ciblés
+  const targetCategories: string[] =
+    goal.projectCategories && goal.projectCategories.length > 0
+      ? goal.projectCategories
+      : goal.projectCategory
+      ? [goal.projectCategory]
+      : [];
+
+  // Filtrer les tâches correspondant au projet et aux sous-projets ciblés de l'objectif
   const matchingTasks = tasks.filter((t) => {
     if (t.projectId !== goal.projectId) return false;
-    if (goal.projectCategory) {
+    if (targetCategories.length > 0) {
       const cat = t.projectCategory || t.tag || t.category;
-      return cat?.toLowerCase() === goal.projectCategory.toLowerCase();
+      if (!cat) return false;
+      return targetCategories.some(
+        (targetCat) => targetCat.toLowerCase() === cat.toLowerCase()
+      );
     }
     return true;
   });
@@ -315,9 +331,12 @@ export function computeGoalProgress(params: {
   // D. Filtrer et ajouter les événements de calendrier externes associés au projet/sous-projet
   const matchingEvents = externalEvents.filter((e) => {
     if (e.projectId !== goal.projectId) return false;
-    if (goal.projectCategory) {
+    if (targetCategories.length > 0) {
       const cat = e.projectCategory || e.calendarName;
-      if (cat?.toLowerCase() !== goal.projectCategory.toLowerCase()) return false;
+      if (!cat) return false;
+      return targetCategories.some(
+        (targetCat) => targetCat.toLowerCase() === cat.toLowerCase()
+      );
     }
     return e.date >= startDateStr && e.date <= endDateStr;
   });

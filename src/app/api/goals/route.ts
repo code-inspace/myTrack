@@ -94,6 +94,7 @@ export async function POST(req: NextRequest) {
       title,
       projectId,
       projectCategory,
+      projectCategories,
       periodType,
       periodKey,
       targetType = "duration",
@@ -110,6 +111,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const resolvedCategories: string[] | null = Array.isArray(projectCategories) && projectCategories.length > 0
+      ? projectCategories
+      : projectCategory
+      ? [projectCategory]
+      : null;
+
     const now = new Date().toISOString();
     const goalId = id || `goal_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
@@ -118,7 +125,8 @@ export async function POST(req: NextRequest) {
       userId,
       title: title || null,
       projectId,
-      projectCategory: projectCategory || null,
+      projectCategory: (resolvedCategories && resolvedCategories.length === 1) ? resolvedCategories[0] : (projectCategory || null),
+      projectCategories: resolvedCategories,
       periodType: periodType || "week",
       periodKey: periodKey || null,
       targetType: targetType || "duration",
@@ -154,6 +162,7 @@ export async function PUT(req: NextRequest) {
       title,
       projectId,
       projectCategory,
+      projectCategories,
       periodType,
       periodKey,
       targetType,
@@ -174,11 +183,20 @@ export async function PUT(req: NextRequest) {
     let updatedGoal: any = null;
 
     if (existingIndex >= 0) {
+      const resolvedCategories: string[] | null | undefined =
+        projectCategories !== undefined
+          ? (Array.isArray(projectCategories) && projectCategories.length > 0 ? projectCategories : null)
+          : undefined;
+
       updatedGoal = {
         ...currentGoals[existingIndex],
         ...(title !== undefined && { title }),
         ...(projectId !== undefined && { projectId }),
         ...(projectCategory !== undefined && { projectCategory }),
+        ...(resolvedCategories !== undefined && {
+          projectCategories: resolvedCategories,
+          projectCategory: (resolvedCategories && resolvedCategories.length === 1) ? resolvedCategories[0] : (resolvedCategories ? null : projectCategory || null),
+        }),
         ...(periodType !== undefined && { periodType }),
         ...(periodKey !== undefined && { periodKey }),
         ...(targetType !== undefined && { targetType }),
@@ -190,12 +208,19 @@ export async function PUT(req: NextRequest) {
       };
       currentGoals[existingIndex] = updatedGoal;
     } else {
+      const resolvedCategories: string[] | null = Array.isArray(projectCategories) && projectCategories.length > 0
+        ? projectCategories
+        : projectCategory
+        ? [projectCategory]
+        : null;
+
       updatedGoal = {
         id,
         userId,
         title: title || null,
         projectId: projectId || "",
-        projectCategory: projectCategory || null,
+        projectCategory: (resolvedCategories && resolvedCategories.length === 1) ? resolvedCategories[0] : (projectCategory || null),
+        projectCategories: resolvedCategories,
         periodType: periodType || "week",
         periodKey: periodKey || null,
         targetType: targetType || "duration",

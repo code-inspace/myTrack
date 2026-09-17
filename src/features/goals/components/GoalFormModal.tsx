@@ -32,7 +32,7 @@ export const GoalFormModal: React.FC<GoalFormModalProps> = ({
   onDelete,
 }) => {
   const [projectId, setProjectId] = useState<string>("");
-  const [projectCategory, setProjectCategory] = useState<string>("");
+  const [projectCategories, setProjectCategories] = useState<string[]>([]);
   
   const initialType: GoalPeriodType =
     currentPeriod === "day" ? "day" : currentPeriod === "month" ? "month" : "week";
@@ -56,7 +56,13 @@ export const GoalFormModal: React.FC<GoalFormModalProps> = ({
 
     if (initialGoal) {
       setProjectId(initialGoal.projectId || (projects[0]?.id ?? ""));
-      setProjectCategory(initialGoal.projectCategory || "");
+      const initCats =
+        Array.isArray(initialGoal.projectCategories) && initialGoal.projectCategories.length > 0
+          ? initialGoal.projectCategories
+          : initialGoal.projectCategory
+          ? [initialGoal.projectCategory]
+          : [];
+      setProjectCategories(initCats);
       setPeriodType(initialGoal.periodType || "week");
       setTargetType(initialGoal.targetType || "duration");
       const totalMins = initialGoal.targetMinutes || 180;
@@ -67,7 +73,7 @@ export const GoalFormModal: React.FC<GoalFormModalProps> = ({
       setTitle(initialGoal.title || "");
     } else {
       setProjectId(projects[0]?.id ?? "");
-      setProjectCategory("");
+      setProjectCategories([]);
       const resolvedType: GoalPeriodType =
         currentPeriod === "day" ? "day" : currentPeriod === "month" ? "month" : "week";
       setPeriodType(resolvedType);
@@ -93,6 +99,16 @@ export const GoalFormModal: React.FC<GoalFormModalProps> = ({
     setMinutes(0);
   };
 
+  const handleToggleCategory = (cat: string) => {
+    setProjectCategories((prev) => {
+      if (prev.includes(cat)) {
+        return prev.filter((c) => c !== cat);
+      } else {
+        return [...prev, cat];
+      }
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!projectId) return;
@@ -104,7 +120,8 @@ export const GoalFormModal: React.FC<GoalFormModalProps> = ({
       await onSubmit(
         {
           projectId,
-          projectCategory: projectCategory.trim() ? projectCategory.trim() : undefined,
+          projectCategory: projectCategories.length === 1 ? projectCategories[0] : undefined,
+          projectCategories: projectCategories.length > 0 ? projectCategories : undefined,
           periodType,
           periodKey: initialGoal?.periodKey || periodKey,
           targetType,
@@ -189,9 +206,11 @@ export const GoalFormModal: React.FC<GoalFormModalProps> = ({
                       type="button"
                       onClick={() => {
                         setProjectId(p.id);
-                        // Reset category if not in new project
-                        if (projectCategory && !p.categories?.includes(projectCategory)) {
-                          setProjectCategory("");
+                        // Filter categories to only keep those that exist in new project
+                        if (projectCategories.length > 0) {
+                          setProjectCategories((prev) =>
+                            prev.filter((c) => p.categories?.includes(c))
+                          );
                         }
                       }}
                       className={cn(
@@ -213,45 +232,57 @@ export const GoalFormModal: React.FC<GoalFormModalProps> = ({
             )}
           </div>
 
-          {/* 2. Sous-projet / Catégorie Selector */}
+          {/* 2. Sous-projet / Catégorie Selector (Multi-sélection possible) */}
           {selectedProject && (
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-[#8E929E] mb-2 flex items-center gap-1.5">
-                <Tag className="w-3.5 h-3.5" />
-                <span>Sous-projet / Catégorie (optionnel)</span>
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs font-bold uppercase tracking-wider text-[#8E929E] flex items-center gap-1.5">
+                  <Tag className="w-3.5 h-3.5" />
+                  <span>Sous-projets / Catégories</span>
+                </label>
+                {projectCategories.length > 1 && (
+                  <span className="text-[11px] font-bold text-[#D4F63D] bg-[#D4F63D]/10 px-2 py-0.5 rounded-full border border-[#D4F63D]/20">
+                    {projectCategories.length} sous-projets sélectionnés
+                  </span>
+                )}
+              </div>
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
-                  onClick={() => setProjectCategory("")}
+                  onClick={() => setProjectCategories([])}
                   className={cn(
-                    "px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer",
-                    projectCategory === ""
+                    "px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5",
+                    projectCategories.length === 0
                       ? "bg-[#D4F63D]/20 border-[#D4F63D] text-[#D4F63D]"
                       : "bg-[#181920] border-[#252832] text-[#8E929E] hover:text-white hover:border-[#353948]"
                   )}
                 >
-                  Tout le projet
+                  {projectCategories.length === 0 && <Check className="w-3.5 h-3.5" />}
+                  <span>Tout le projet</span>
                 </button>
                 {availableCategories.map((cat) => {
-                  const isCatSelected = projectCategory === cat;
+                  const isCatSelected = projectCategories.includes(cat);
                   return (
                     <button
                       key={cat}
                       type="button"
-                      onClick={() => setProjectCategory(cat)}
+                      onClick={() => handleToggleCategory(cat)}
                       className={cn(
-                        "px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer",
+                        "px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5",
                         isCatSelected
                           ? "bg-[#D4F63D]/20 border-[#D4F63D] text-[#D4F63D]"
                           : "bg-[#181920] border-[#252832] text-[#8E929E] hover:text-white hover:border-[#353948]"
                       )}
                     >
-                      {cat}
+                      {isCatSelected && <Check className="w-3.5 h-3.5" />}
+                      <span>{cat}</span>
                     </button>
                   );
                 })}
               </div>
+              <p className="text-[11px] text-[#8E929E] mt-1.5">
+                Vous pouvez sélectionner plusieurs sous-projets à agréger dans cet objectif.
+              </p>
             </div>
           )}
 
@@ -469,7 +500,7 @@ export const GoalFormModal: React.FC<GoalFormModalProps> = ({
               type="text"
               placeholder={
                 selectedProject
-                  ? `Ex: ${selectedProject.name}${projectCategory ? ` - ${projectCategory}` : ""}`
+                  ? `Ex: ${selectedProject.name}${projectCategories.length > 0 ? ` - ${projectCategories.join(", ")}` : ""}`
                   : "Ex: 2 séances de sport"
               }
               value={title}

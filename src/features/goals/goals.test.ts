@@ -493,4 +493,186 @@ describe("computeGoalProgress", () => {
       expect(result.isOverachieved).toBe(true);
     });
   });
+
+  describe("Multi-subproject goals (projectCategories: string[])", () => {
+    const multiSubprojectGoal: Goal = {
+      id: "goal_multi_sub",
+      userId: "user_123",
+      projectId: "proj_fitness",
+      projectCategories: ["Musculation", "Cardio"],
+      periodType: "week",
+      periodKey: "week_2026-09-15",
+      targetType: "count",
+      targetCount: 3,
+      unit: "séance",
+      targetMinutes: 0,
+      createdAt: "2026-09-15T00:00:00.000Z",
+      updatedAt: "2026-09-15T00:00:00.000Z",
+    };
+
+    const taskMuscu: Task = {
+      id: "task_muscu",
+      userId: "user_123",
+      title: "Séance Pectoraux",
+      category: "Musculation",
+      projectCategory: "Musculation",
+      projectId: "proj_fitness",
+      recurrence: "DAILY",
+      trackingType: "DURATION",
+      targetValue: 60,
+      isActive: false,
+      startedAt: null,
+      isArchived: false,
+      createdAt: "2026-09-15T08:00:00.000Z",
+      updatedAt: "2026-09-15T08:00:00.000Z",
+    };
+
+    const taskCardio: Task = {
+      id: "task_cardio",
+      userId: "user_123",
+      title: "Running 10km",
+      category: "Cardio",
+      projectCategory: "Cardio",
+      projectId: "proj_fitness",
+      recurrence: "DAILY",
+      trackingType: "DURATION",
+      targetValue: 45,
+      isActive: false,
+      startedAt: null,
+      isArchived: false,
+      createdAt: "2026-09-15T08:00:00.000Z",
+      updatedAt: "2026-09-15T08:00:00.000Z",
+    };
+
+    const taskNutrition: Task = {
+      id: "task_nutrition",
+      userId: "user_123",
+      title: "Meal Prep",
+      category: "Nutrition",
+      projectCategory: "Nutrition",
+      projectId: "proj_fitness",
+      recurrence: "DAILY",
+      trackingType: "DURATION",
+      targetValue: 30,
+      isActive: false,
+      startedAt: null,
+      isArchived: false,
+      createdAt: "2026-09-15T08:00:00.000Z",
+      updatedAt: "2026-09-15T08:00:00.000Z",
+    };
+
+    it("should aggregate completed sessions from all targeted sub-projects and ignore other sub-projects", () => {
+      const completions: TaskCompletion[] = [
+        {
+          id: "comp_muscu_1",
+          userId: "user_123",
+          taskId: "task_muscu",
+          date: "2026-09-15",
+          completed: true,
+          duration: 60,
+          createdAt: "2026-09-15T18:00:00.000Z",
+          updatedAt: "2026-09-15T19:00:00.000Z",
+        },
+        {
+          id: "comp_cardio_1",
+          userId: "user_123",
+          taskId: "task_cardio",
+          date: "2026-09-16",
+          completed: true,
+          duration: 45,
+          createdAt: "2026-09-16T18:00:00.000Z",
+          updatedAt: "2026-09-16T18:45:00.000Z",
+        },
+        {
+          id: "comp_nutrition_1",
+          userId: "user_123",
+          taskId: "task_nutrition", // Should NOT count towards Musculation + Cardio goal
+          date: "2026-09-17",
+          completed: true,
+          duration: 30,
+          createdAt: "2026-09-17T18:00:00.000Z",
+          updatedAt: "2026-09-17T18:30:00.000Z",
+        },
+      ];
+
+      const result = computeGoalProgress({
+        goal: multiSubprojectGoal,
+        period: "week",
+        referenceDate: new Date("2026-09-17T12:00:00.000Z"),
+        tasks: [taskMuscu, taskCardio, taskNutrition],
+        completions,
+      });
+
+      // Musculation (1) + Cardio (1) = 2, Nutrition (1) ignored
+      expect(result.actualCount).toBe(2);
+      expect(result.targetCount).toBe(3);
+      expect(result.percentage).toBe(67);
+      expect(result.formattedActual).toBe("2 séances");
+      expect(result.formattedRemaining).toBe("1 séance");
+      expect(result.isCompleted).toBe(false);
+    });
+
+    it("should correctly compute duration progress across multiple sub-projects", () => {
+      const durationGoal: Goal = {
+        id: "goal_multi_duration",
+        userId: "user_123",
+        projectId: "proj_fitness",
+        projectCategories: ["Musculation", "Cardio"],
+        periodType: "week",
+        periodKey: "week_2026-09-15",
+        targetType: "duration",
+        targetMinutes: 120, // 2h target
+        createdAt: "2026-09-15T00:00:00.000Z",
+        updatedAt: "2026-09-15T00:00:00.000Z",
+      };
+
+      const completions: TaskCompletion[] = [
+        {
+          id: "comp_muscu_1",
+          userId: "user_123",
+          taskId: "task_muscu",
+          date: "2026-09-15",
+          completed: true,
+          duration: 60,
+          createdAt: "2026-09-15T18:00:00.000Z",
+          updatedAt: "2026-09-15T19:00:00.000Z",
+        },
+        {
+          id: "comp_cardio_1",
+          userId: "user_123",
+          taskId: "task_cardio",
+          date: "2026-09-16",
+          completed: true,
+          duration: 60,
+          createdAt: "2026-09-16T18:00:00.000Z",
+          updatedAt: "2026-09-16T19:00:00.000Z",
+        },
+        {
+          id: "comp_nutrition_1",
+          userId: "user_123",
+          taskId: "task_nutrition",
+          date: "2026-09-17",
+          completed: true,
+          duration: 40, // Should NOT count
+          createdAt: "2026-09-17T18:00:00.000Z",
+          updatedAt: "2026-09-17T18:40:00.000Z",
+        },
+      ];
+
+      const result = computeGoalProgress({
+        goal: durationGoal,
+        period: "week",
+        referenceDate: new Date("2026-09-17T12:00:00.000Z"),
+        tasks: [taskMuscu, taskCardio, taskNutrition],
+        completions,
+      });
+
+      // 60 min (Muscu) + 60 min (Cardio) = 120 min = 2h
+      expect(result.actualMinutes).toBe(120);
+      expect(result.formattedActual).toBe("2h");
+      expect(result.percentage).toBe(100);
+      expect(result.isCompleted).toBe(true);
+      expect(result.formattedRemaining).toBe("0 min");
+    });
+  });
 });

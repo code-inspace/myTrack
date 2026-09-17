@@ -38,7 +38,12 @@ export const GoalCard: React.FC<GoalCardProps> = ({
 
   const projectColor = goal.color || project?.color || "#D4F63D";
   const projectName = project?.name || "Projet";
-  const subCategoryName = goal.projectCategory;
+  const targetCategories =
+    Array.isArray(goal.projectCategories) && goal.projectCategories.length > 0
+      ? goal.projectCategories
+      : goal.projectCategory
+      ? [goal.projectCategory]
+      : [];
 
   // Clamped percentage for the fill width
   const fillPercentage = Math.min(100, progress.percentage);
@@ -72,16 +77,21 @@ export const GoalCard: React.FC<GoalCardProps> = ({
                 {goal.title || projectName}
               </span>
 
-              {subCategoryName && (
-                <span
-                  className="text-[10px] font-bold px-2 py-0.5 rounded-full border border-white/10"
-                  style={{
-                    backgroundColor: `${projectColor}15`,
-                    color: projectColor,
-                  }}
-                >
-                  {subCategoryName}
-                </span>
+              {targetCategories.length > 0 && (
+                <div className="flex items-center gap-1 flex-wrap">
+                  {targetCategories.map((cat) => (
+                    <span
+                      key={cat}
+                      className="text-[10px] font-bold px-2 py-0.5 rounded-full border border-white/10"
+                      style={{
+                        backgroundColor: `${projectColor}15`,
+                        color: projectColor,
+                      }}
+                    >
+                      {cat}
+                    </span>
+                  ))}
+                </div>
               )}
             </div>
 
