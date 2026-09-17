@@ -13,7 +13,8 @@ export interface Goal {
   projectCategory?: string;   // Optionnel : Nom du sous-projet unique (rétrocompatibilité)
   projectCategories?: string[]; // Optionnel : Liste de plusieurs sous-projets / sous-catégories ciblés
   periodType: GoalPeriodType; // "day" | "week" | "month"
-  periodKey?: string;         // Clé de période unique (ex: "2026-09-17", "week_2026-09-15", "month_2026-09")
+  periodKey?: string;         // Clé de période unique (ex: "2026-09-17", "week_2026-09-15") si non récurrent
+  isRecurring?: boolean;      // Si vrai, se répète automatiquement d'une période à l'autre (chaque jour, semaine, mois)
   targetType?: GoalTargetType;// "duration" (par défaut) | "count"
   targetMinutes: number;      // Durée cible en minutes (si targetType === "duration")
   targetCount?: number;       // Nombre de séances / occurrences visées (si targetType === "count", ex: 2, 3, 5)

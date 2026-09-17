@@ -14,6 +14,7 @@ import {
   Clock,
   ChevronRight,
   Sparkles,
+  Repeat,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -38,6 +39,7 @@ export const GoalCard: React.FC<GoalCardProps> = ({
 
   const projectColor = goal.color || project?.color || "#D4F63D";
   const projectName = project?.name || "Projet";
+  const isRecurring = goal.isRecurring !== false && (!goal.periodKey || goal.isRecurring);
   const targetCategories =
     Array.isArray(goal.projectCategories) && goal.projectCategories.length > 0
       ? goal.projectCategories
@@ -77,6 +79,13 @@ export const GoalCard: React.FC<GoalCardProps> = ({
                 {goal.title || projectName}
               </span>
 
+              {isRecurring && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#232634] text-[#A5B4FC] border border-[#3730A3]/30">
+                  <Repeat className="w-2.5 h-2.5" />
+                  <span>Récurrent</span>
+                </span>
+              )}
+
               {targetCategories.length > 0 && (
                 <div className="flex items-center gap-1 flex-wrap">
                   {targetCategories.map((cat) => (
@@ -104,10 +113,10 @@ export const GoalCard: React.FC<GoalCardProps> = ({
               <span>•</span>
               <span className="capitalize">
                 {goal.periodType === "day"
-                  ? "Objectif Jour"
+                  ? isRecurring ? "Chaque jour" : "Objectif Jour"
                   : goal.periodType === "week"
-                  ? "Objectif Semaine"
-                  : "Objectif Mois"}
+                  ? isRecurring ? "Chaque semaine" : "Objectif Semaine"
+                  : isRecurring ? "Chaque mois" : "Objectif Mois"}
               </span>
               <span>•</span>
               <span className="text-[#8E929E] font-medium">

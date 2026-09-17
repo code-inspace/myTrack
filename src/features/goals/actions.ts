@@ -87,6 +87,7 @@ export async function fetchGoals(userId?: string): Promise<Goal[]> {
           : undefined,
         periodType: row.period_type || "week",
         periodKey: row.period_key || undefined,
+        isRecurring: row.is_recurring !== undefined ? Boolean(row.is_recurring) : (row.isRecurring !== undefined ? Boolean(row.isRecurring) : true),
         targetType: row.target_type || "duration",
         targetMinutes: Number(row.target_minutes) || 60,
         targetCount: row.target_count ? Number(row.target_count) : undefined,
@@ -237,15 +238,59 @@ export function computeGoalProgress(params: {
       ? [goal.projectCategory]
       : [];
 
+  const matchesCategoryOrTitle = (targetCat: string, t: Task) => {
+    const normTarget = targetCat.trim().toLowerCase();
+    if (!normTarget) return false;
+
+    // 1. Explicit projectCategory or dateOverrides
+    const explicitCat = (t.projectCategory || t.dateOverrides?._projectCategory || "")
+      .trim()
+      .toLowerCase();
+    if (explicitCat) {
+      if (
+        explicitCat === normTarget ||
+        explicitCat.includes(normTarget) ||
+        normTarget.includes(explicitCat)
+      ) {
+        return true;
+      }
+    }
+
+    // 2. Tag or category
+    const tag = (t.tag || "").trim().toLowerCase();
+    if (tag && tag !== "general") {
+      if (tag === normTarget || tag.includes(normTarget) || normTarget.includes(tag)) {
+        return true;
+      }
+    }
+
+    const category = (t.category || "").trim().toLowerCase();
+    if (category && category !== "general") {
+      if (category === normTarget || category.includes(normTarget) || normTarget.includes(category)) {
+        return true;
+      }
+    }
+
+    // 3. Task title matching (e.g. "Sport : bas du corps" contains "bas", "Sport : abdos" contains "abdos")
+    const title = (t.title || "").trim().toLowerCase();
+    if (title) {
+      if (title === normTarget || title.includes(normTarget)) {
+        return true;
+      }
+      const singularTarget = normTarget.endsWith("s") ? normTarget.slice(0, -1) : normTarget;
+      if (singularTarget.length >= 3 && title.includes(singularTarget)) {
+        return true;
+      }
+    }
+
+    return false;
+  };
+
   // Filtrer les tâches correspondant au projet et aux sous-projets ciblés de l'objectif
   const matchingTasks = tasks.filter((t) => {
     if (t.projectId !== goal.projectId) return false;
     if (targetCategories.length > 0) {
-      const cat = t.projectCategory || t.tag || t.category;
-      if (!cat) return false;
-      return targetCategories.some(
-        (targetCat) => targetCat.toLowerCase() === cat.toLowerCase()
-      );
+      return targetCategories.some((targetCat) => matchesCategoryOrTitle(targetCat, t));
     }
     return true;
   });
@@ -332,11 +377,22 @@ export function computeGoalProgress(params: {
   const matchingEvents = externalEvents.filter((e) => {
     if (e.projectId !== goal.projectId) return false;
     if (targetCategories.length > 0) {
-      const cat = e.projectCategory || e.calendarName;
-      if (!cat) return false;
-      return targetCategories.some(
-        (targetCat) => targetCat.toLowerCase() === cat.toLowerCase()
-      );
+      return targetCategories.some((targetCat) => {
+        const normTarget = targetCat.trim().toLowerCase();
+        const cat = (e.projectCategory || e.calendarName || "").trim().toLowerCase();
+        const title = (e.title || "").trim().toLowerCase();
+        if (cat && (cat === normTarget || cat.includes(normTarget) || normTarget.includes(cat))) {
+          return true;
+        }
+        if (title && (title === normTarget || title.includes(normTarget))) {
+          return true;
+        }
+        const singularTarget = normTarget.endsWith("s") ? normTarget.slice(0, -1) : normTarget;
+        if (singularTarget.length >= 3 && (cat.includes(singularTarget) || title.includes(singularTarget))) {
+          return true;
+        }
+        return false;
+      });
     }
     return e.date >= startDateStr && e.date <= endDateStr;
   });

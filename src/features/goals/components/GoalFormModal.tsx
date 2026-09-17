@@ -37,6 +37,7 @@ export const GoalFormModal: React.FC<GoalFormModalProps> = ({
   const initialType: GoalPeriodType =
     currentPeriod === "day" ? "day" : currentPeriod === "month" ? "month" : "week";
   const [periodType, setPeriodType] = useState<GoalPeriodType>(initialType);
+  const [isRecurring, setIsRecurring] = useState<boolean>(true);
   const [targetType, setTargetType] = useState<GoalTargetType>("duration");
   const [hours, setHours] = useState<number>(3);
   const [minutes, setMinutes] = useState<number>(0);
@@ -64,6 +65,11 @@ export const GoalFormModal: React.FC<GoalFormModalProps> = ({
           : [];
       setProjectCategories(initCats);
       setPeriodType(initialGoal.periodType || "week");
+      setIsRecurring(
+        initialGoal.isRecurring !== undefined
+          ? initialGoal.isRecurring
+          : !initialGoal.periodKey
+      );
       setTargetType(initialGoal.targetType || "duration");
       const totalMins = initialGoal.targetMinutes || 180;
       setHours(Math.floor(totalMins / 60));
@@ -77,6 +83,7 @@ export const GoalFormModal: React.FC<GoalFormModalProps> = ({
       const resolvedType: GoalPeriodType =
         currentPeriod === "day" ? "day" : currentPeriod === "month" ? "month" : "week";
       setPeriodType(resolvedType);
+      setIsRecurring(true);
       setTargetType("duration");
       setHours(resolvedType === "day" ? 2 : resolvedType === "week" ? 5 : 20);
       setMinutes(0);
@@ -123,7 +130,8 @@ export const GoalFormModal: React.FC<GoalFormModalProps> = ({
           projectCategory: projectCategories.length === 1 ? projectCategories[0] : undefined,
           projectCategories: projectCategories.length > 0 ? projectCategories : undefined,
           periodType,
-          periodKey: initialGoal?.periodKey || periodKey,
+          periodKey: isRecurring ? undefined : (initialGoal?.periodKey || periodKey),
+          isRecurring,
           targetType,
           targetMinutes: targetType === "duration" ? totalMinutes : 0,
           targetCount: targetType === "count" ? Math.max(1, targetCount) : undefined,
@@ -316,17 +324,63 @@ export const GoalFormModal: React.FC<GoalFormModalProps> = ({
               ))}
             </div>
 
-            {/* Période précise & indication de non-récurrence */}
-            <div className="mt-2.5 p-3 rounded-2xl bg-[#181A22] border border-[#262936] flex items-start gap-2.5">
-              <Calendar className="w-4 h-4 text-[#D4F63D] shrink-0 mt-0.5" />
-              <div className="space-y-0.5 min-w-0">
-                <p className="text-xs font-bold text-white truncate">
-                  {periodLabel}
-                </p>
-                <p className="text-[11px] text-[#8E929E] leading-relaxed">
-                  Objectif unique lié à cette période (non-récurrent).
-                </p>
+            {/* Recurrence Selector (Récurrent vs Ponctuel/Unique) */}
+            <div className="mt-3 space-y-2">
+              <label className="block text-xs font-bold uppercase tracking-wider text-[#8E929E] flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <Repeat className="w-3.5 h-3.5" />
+                  <span>Fréquence / Récurrence *</span>
+                </span>
+                <span className="text-[#D4F63D] font-bold text-xs">
+                  {isRecurring
+                    ? periodType === "day"
+                      ? "Chaque jour"
+                      : periodType === "week"
+                      ? "Chaque semaine"
+                      : "Chaque mois"
+                    : "Période unique"}
+                </span>
+              </label>
+
+              <div className="grid grid-cols-2 gap-2 bg-[#101114] p-1 rounded-2xl border border-[#23252E]">
+                <button
+                  type="button"
+                  onClick={() => setIsRecurring(true)}
+                  className={cn(
+                    "py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer",
+                    isRecurring
+                      ? "bg-[#252834] text-white shadow-sm border border-white/10"
+                      : "text-[#8E929E] hover:text-white"
+                  )}
+                >
+                  <Repeat className="w-3.5 h-3.5 text-[#D4F63D]" />
+                  <span>
+                    Récurrent ({periodType === "day" ? "Quotidien" : periodType === "week" ? "Hebdo" : "Mensuel"})
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsRecurring(false)}
+                  className={cn(
+                    "py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer",
+                    !isRecurring
+                      ? "bg-[#252834] text-white shadow-sm border border-white/10"
+                      : "text-[#8E929E] hover:text-white"
+                  )}
+                >
+                  <Calendar className="w-3.5 h-3.5 text-[#818CF8]" />
+                  <span>Unique ({periodLabel})</span>
+                </button>
               </div>
+
+              <p className="text-[11px] text-[#8E929E] leading-relaxed">
+                {isRecurring
+                  ? `Cet objectif sera automatiquement reconduit chaque ${
+                      periodType === "day" ? "jour" : periodType === "week" ? "semaine" : "mois"
+                    } avec suivi indépendant de la progression.`
+                  : `Cet objectif est ponctuel et ne s'appliquera que pour : ${periodLabel}.`}
+              </p>
             </div>
           </div>
 

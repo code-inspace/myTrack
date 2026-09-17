@@ -79,11 +79,15 @@ export default function GoalsPage() {
   // Filter goals specifically for the active period & reference date
   const displayedGoals = useMemo(() => {
     return goals.filter((g) => {
-      if (g.periodKey) {
-        return g.periodKey === activePeriodKey;
+      if (period !== "all" && g.periodType !== period) {
+        return false;
       }
-      if (period === "all") return true;
-      return g.periodType === period;
+      // Objectifs récurrents : proposés à chaque date/semaine/mois de ce type
+      if (g.isRecurring || !g.periodKey) {
+        return true;
+      }
+      // Objectifs ponctuels liés à une période spécifique
+      return g.periodKey === activePeriodKey;
     });
   }, [goals, activePeriodKey, period]);
 

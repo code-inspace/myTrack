@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { format, subDays } from "date-fns";
 import { computeGoalProgress } from "./actions";
 import { Goal } from "./types";
 import { Task, TaskCompletion } from "@/features/tasks/types";
@@ -15,7 +16,13 @@ describe("computeGoalProgress", () => {
     updatedAt: new Date().toISOString(),
   };
 
-  const referenceDate = new Date("2026-09-17T12:00:00.000Z");
+  const referenceDate = new Date();
+  const todayStr = new Date().toISOString().split("T")[0];
+
+  const todayGoal: Goal = {
+    ...sampleGoal,
+    periodKey: todayStr,
+  };
 
   it("should calculate exactly 1 minute when a repeated task has been started 1 minute ago (active running task)", () => {
     const oneMinuteAgoIso = new Date(Date.now() - 60 * 1000).toISOString();
@@ -32,7 +39,7 @@ describe("computeGoalProgress", () => {
       isActive: true,
       startedAt: oneMinuteAgoIso,
       isArchived: false,
-      createdAt: "2026-09-17T08:00:00.000Z",
+      createdAt: `${todayStr}T08:00:00.000Z`,
       updatedAt: oneMinuteAgoIso,
     };
 
@@ -41,17 +48,17 @@ describe("computeGoalProgress", () => {
         id: "comp_1",
         userId: "user_123",
         taskId: "task_repeated_1",
-        date: "2026-09-17",
+        date: todayStr,
         completed: false,
         actualStartTime: "16:16",
         actualEndTime: null,
-        createdAt: "2026-09-17T16:16:00.000Z",
-        updatedAt: "2026-09-17T16:16:00.000Z",
+        createdAt: `${todayStr}T16:16:00.000Z`,
+        updatedAt: `${todayStr}T16:16:00.000Z`,
       },
     ];
 
     const result = computeGoalProgress({
-      goal: sampleGoal,
+      goal: todayGoal,
       period: "day",
       referenceDate,
       tasks: [activeRepeatedTask],
@@ -98,7 +105,7 @@ describe("computeGoalProgress", () => {
     const result = computeGoalProgress({
       goal: sampleGoal,
       period: "day",
-      referenceDate,
+      referenceDate: new Date("2026-09-17T12:00:00.000Z"),
       tasks: [task],
       completions,
     });
@@ -141,7 +148,7 @@ describe("computeGoalProgress", () => {
     const result = computeGoalProgress({
       goal: sampleGoal,
       period: "day",
-      referenceDate,
+      referenceDate: new Date("2026-09-17T12:00:00.000Z"),
       tasks: [task],
       completions,
     });
@@ -181,6 +188,10 @@ describe("computeGoalProgress", () => {
   });
 
   it("should keep repeated task time strictly independent per day (e.g. 2h16 yesterday vs 1 min today)", () => {
+    const now = new Date();
+    const todayStr = format(now, "yyyy-MM-dd");
+    const yesterdayDate = subDays(now, 1);
+    const yesterdayStr = format(yesterdayDate, "yyyy-MM-dd");
     const oneMinuteAgoIso = new Date(Date.now() - 60 * 1000).toISOString();
 
     const recurringTask: Task = {
@@ -205,32 +216,32 @@ describe("computeGoalProgress", () => {
         id: "comp_yesterday",
         userId: "user_123",
         taskId: "task_repeated_daily",
-        date: "2026-09-16", // Yesterday
+        date: yesterdayStr, // Yesterday
         completed: true,
         duration: 136, // 2h16
         actualStartTime: "10:00",
         actualEndTime: "12:16",
-        createdAt: "2026-09-16T12:16:00.000Z",
-        updatedAt: "2026-09-16T12:16:00.000Z",
+        createdAt: `${yesterdayStr}T12:16:00.000Z`,
+        updatedAt: `${yesterdayStr}T12:16:00.000Z`,
       },
       {
         id: "comp_today",
         userId: "user_123",
         taskId: "task_repeated_daily",
-        date: "2026-09-17", // Today
+        date: todayStr, // Today
         completed: false,
         actualStartTime: "16:20",
         actualEndTime: null,
-        createdAt: "2026-09-17T16:20:00.000Z",
-        updatedAt: "2026-09-17T16:20:00.000Z",
+        createdAt: `${todayStr}T16:20:00.000Z`,
+        updatedAt: `${todayStr}T16:20:00.000Z`,
       },
     ];
 
-    // Today's progress (Day view for 2026-09-17)
+    // Today's progress (Day view for today)
     const todayResult = computeGoalProgress({
-      goal: sampleGoal,
+      goal: { ...sampleGoal, periodKey: todayStr },
       period: "day",
-      referenceDate: new Date("2026-09-17T12:00:00.000Z"),
+      referenceDate: now,
       tasks: [recurringTask],
       completions,
     });
@@ -238,11 +249,11 @@ describe("computeGoalProgress", () => {
     expect(todayResult.actualMinutes).toBe(1);
     expect(todayResult.formattedActual).toBe("1 min");
 
-    // Yesterday's progress (Day view for 2026-09-16)
+    // Yesterday's progress (Day view for yesterday)
     const yesterdayResult = computeGoalProgress({
-      goal: sampleGoal,
+      goal: { ...sampleGoal, periodKey: yesterdayStr },
       period: "day",
-      referenceDate: new Date("2026-09-16T12:00:00.000Z"),
+      referenceDate: yesterdayDate,
       tasks: [recurringTask],
       completions,
     });
@@ -252,9 +263,9 @@ describe("computeGoalProgress", () => {
 
     // Week progress (Week view containing both days)
     const weekResult = computeGoalProgress({
-      goal: sampleGoal,
+      goal: { ...sampleGoal, periodType: "week", periodKey: `week_${todayStr}` },
       period: "week",
-      referenceDate: new Date("2026-09-17T12:00:00.000Z"),
+      referenceDate: now,
       tasks: [recurringTask],
       completions,
     });
@@ -264,6 +275,8 @@ describe("computeGoalProgress", () => {
   });
 
   it("should accumulate earlier completed session today (iteration 1) with current active running session (iteration 2)", () => {
+    const now = new Date();
+    const todayStr = format(now, "yyyy-MM-dd");
     const oneMinuteAgoIso = new Date(Date.now() - 60 * 1000).toISOString();
 
     const recurringTask: Task = {
@@ -278,7 +291,7 @@ describe("computeGoalProgress", () => {
       isActive: true,
       startedAt: oneMinuteAgoIso, // Started session 2, 1 minute ago
       isArchived: false,
-      createdAt: "2026-09-17T08:00:00.000Z",
+      createdAt: `${todayStr}T08:00:00.000Z`,
       updatedAt: oneMinuteAgoIso,
     };
 
@@ -288,20 +301,20 @@ describe("computeGoalProgress", () => {
         id: "comp_session_1",
         userId: "user_123",
         taskId: "task_repeated_multisession",
-        date: "2026-09-17",
+        date: todayStr,
         completed: true,
         duration: 30, // 30 minutes done in session 1
         actualStartTime: "09:00",
         actualEndTime: "09:30",
-        createdAt: "2026-09-17T09:30:00.000Z",
-        updatedAt: "2026-09-17T09:30:00.000Z",
+        createdAt: `${todayStr}T09:30:00.000Z`,
+        updatedAt: `${todayStr}T09:30:00.000Z`,
       },
     ];
 
     const result = computeGoalProgress({
-      goal: sampleGoal,
+      goal: { ...sampleGoal, periodKey: todayStr },
       period: "day",
-      referenceDate: new Date("2026-09-17T12:00:00.000Z"),
+      referenceDate: now,
       tasks: [recurringTask],
       completions,
     });
@@ -675,4 +688,223 @@ describe("computeGoalProgress", () => {
       expect(result.formattedRemaining).toBe("0 min");
     });
   });
+
+  describe("Smart category matching via task title and tags", () => {
+    const basBodyGoal: Goal = {
+      id: "goal_bas_pecs_epaules",
+      userId: "user_123",
+      projectId: "proj_sport",
+      projectCategories: ["Bas", "Pecs", "Epaules"],
+      periodType: "week",
+      periodKey: "week_2026-09-14",
+      targetType: "count",
+      targetCount: 3,
+      unit: "séance",
+      targetMinutes: 60,
+      createdAt: "2026-09-17T20:22:52.000Z",
+      updatedAt: "2026-09-17T20:22:52.000Z",
+    };
+
+    const abdosGoal: Goal = {
+      id: "goal_abdos",
+      userId: "user_123",
+      projectId: "proj_sport",
+      projectCategory: "Abdos",
+      periodType: "week",
+      periodKey: "week_2026-09-14",
+      targetType: "count",
+      targetCount: 3,
+      unit: "séance",
+      targetMinutes: 0,
+      createdAt: "2026-09-17T20:15:23.000Z",
+      updatedAt: "2026-09-17T20:15:23.000Z",
+    };
+
+    const taskBas: Task = {
+      id: "task_bas_corps",
+      userId: "user_123",
+      title: "Sport : bas du corps",
+      category: "General",
+      projectCategory: undefined, // null in DB
+      projectId: "proj_sport",
+      recurrence: "DAILY",
+      trackingType: "DURATION",
+      targetValue: 60,
+      isActive: false,
+      startedAt: null,
+      isArchived: false,
+      createdAt: "2026-09-17T08:00:00.000Z",
+      updatedAt: "2026-09-17T08:00:00.000Z",
+    };
+
+    const taskAbdos: Task = {
+      id: "task_abdos_routine",
+      userId: "user_123",
+      title: "Sport : abdos",
+      category: "General",
+      projectCategory: undefined, // null in DB
+      projectId: "proj_sport",
+      recurrence: "DAILY",
+      trackingType: "DURATION",
+      targetValue: 20,
+      isActive: false,
+      startedAt: null,
+      isArchived: false,
+      createdAt: "2026-09-17T08:00:00.000Z",
+      updatedAt: "2026-09-17T08:00:00.000Z",
+    };
+
+    it("should match task 'Sport : bas du corps' to Bas/Pecs/Epaules goal and compute 1/3 (33%)", () => {
+      const completions: TaskCompletion[] = [
+        {
+          id: "comp_bas_1",
+          userId: "user_123",
+          taskId: "task_bas_corps",
+          date: "2026-09-17",
+          completed: true,
+          duration: 60,
+          createdAt: "2026-09-17T18:00:00.000Z",
+          updatedAt: "2026-09-17T19:00:00.000Z",
+        },
+      ];
+
+      const result = computeGoalProgress({
+        goal: basBodyGoal,
+        period: "week",
+        referenceDate: new Date("2026-09-17T12:00:00.000Z"),
+        tasks: [taskBas, taskAbdos],
+        completions,
+      });
+
+      expect(result.actualCount).toBe(1);
+      expect(result.targetCount).toBe(3);
+      expect(result.percentage).toBe(33);
+      expect(result.formattedActual).toBe("1 séance");
+      expect(result.formattedRemaining).toBe("2 séances");
+    });
+
+    it("should match task 'Sport : abdos' to Abdos goal and compute 1/3 (33%)", () => {
+      const completions: TaskCompletion[] = [
+        {
+          id: "comp_abdos_1",
+          userId: "user_123",
+          taskId: "task_abdos_routine",
+          date: "2026-09-17",
+          completed: true,
+          duration: 20,
+          createdAt: "2026-09-17T18:00:00.000Z",
+          updatedAt: "2026-09-17T18:20:00.000Z",
+        },
+      ];
+
+      const result = computeGoalProgress({
+        goal: abdosGoal,
+        period: "week",
+        referenceDate: new Date("2026-09-17T12:00:00.000Z"),
+        tasks: [taskBas, taskAbdos],
+        completions,
+      });
+
+      expect(result.actualCount).toBe(1);
+      expect(result.targetCount).toBe(3);
+      expect(result.percentage).toBe(33);
+      expect(result.formattedActual).toBe("1 séance");
+      expect(result.formattedRemaining).toBe("2 séances");
+    });
+  });
+
+  describe("Recurring goals (isRecurring: true)", () => {
+    const recurringWeeklyGoal: Goal = {
+      id: "goal_recurring_weekly",
+      userId: "user_123",
+      projectId: "proj_sport",
+      isRecurring: true,
+      periodType: "week",
+      periodKey: "week_2026-09-14",
+      targetType: "count",
+      targetCount: 2,
+      unit: "séance",
+      targetMinutes: 0,
+      createdAt: "2026-09-14T00:00:00.000Z",
+      updatedAt: "2026-09-14T00:00:00.000Z",
+    };
+
+    const sportTask: Task = {
+      id: "task_sport_recurring",
+      userId: "user_123",
+      title: "Workout",
+      category: "Sport",
+      projectId: "proj_sport",
+      recurrence: "DAILY",
+      trackingType: "DURATION",
+      targetValue: 45,
+      isActive: false,
+      startedAt: null,
+      isArchived: false,
+      createdAt: "2026-09-01T08:00:00.000Z",
+      updatedAt: "2026-09-01T08:00:00.000Z",
+    };
+
+    it("should compute progress dynamically for Week 1 and reset for Week 2", () => {
+      const completions: TaskCompletion[] = [
+        // Week 1 (2026-09-14 to 2026-09-20): 2 completions -> 100%
+        {
+          id: "comp_w1_1",
+          userId: "user_123",
+          taskId: "task_sport_recurring",
+          date: "2026-09-15",
+          completed: true,
+          duration: 45,
+          createdAt: "2026-09-15T18:00:00.000Z",
+          updatedAt: "2026-09-15T18:45:00.000Z",
+        },
+        {
+          id: "comp_w1_2",
+          userId: "user_123",
+          taskId: "task_sport_recurring",
+          date: "2026-09-17",
+          completed: true,
+          duration: 45,
+          createdAt: "2026-09-17T18:00:00.000Z",
+          updatedAt: "2026-09-17T18:45:00.000Z",
+        },
+        // Week 2 (2026-09-21 to 2026-09-27): 1 completion -> 50%
+        {
+          id: "comp_w2_1",
+          userId: "user_123",
+          taskId: "task_sport_recurring",
+          date: "2026-09-22",
+          completed: true,
+          duration: 45,
+          createdAt: "2026-09-22T18:00:00.000Z",
+          updatedAt: "2026-09-22T18:45:00.000Z",
+        },
+      ];
+
+      // Test Week 1
+      const resultWeek1 = computeGoalProgress({
+        goal: recurringWeeklyGoal,
+        period: "week",
+        referenceDate: new Date("2026-09-16T12:00:00.000Z"),
+        tasks: [sportTask],
+        completions,
+      });
+      expect(resultWeek1.actualCount).toBe(2);
+      expect(resultWeek1.percentage).toBe(100);
+      expect(resultWeek1.isCompleted).toBe(true);
+
+      // Test Week 2
+      const resultWeek2 = computeGoalProgress({
+        goal: recurringWeeklyGoal,
+        period: "week",
+        referenceDate: new Date("2026-09-23T12:00:00.000Z"),
+        tasks: [sportTask],
+        completions,
+      });
+      expect(resultWeek2.actualCount).toBe(1);
+      expect(resultWeek2.percentage).toBe(50);
+      expect(resultWeek2.isCompleted).toBe(false);
+    });
+  });
 });
+
