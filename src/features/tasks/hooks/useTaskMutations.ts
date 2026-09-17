@@ -901,6 +901,8 @@ export function useTaskMutations() {
           durationMinutes = Math.max(1, diffMinutes);
           targetDate = date || format(startDate, "yyyy-MM-dd");
         }
+      }
+
       const completions =
         queryClient.getQueryData<TaskCompletion[]>(["completions", userId]) ||
         getStoredCompletions(userId);
