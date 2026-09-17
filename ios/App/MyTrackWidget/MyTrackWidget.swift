@@ -68,6 +68,8 @@ public struct TaskItemWidgetModel: Codable, Identifiable {
     public let isHabit: Bool?
     public let color: String?
     public let isCompleted: Bool?
+    public let projectName: String?
+    public let projectColor: String?
 
     public init(
         id: String,
@@ -77,7 +79,9 @@ public struct TaskItemWidgetModel: Codable, Identifiable {
         targetFormattedDuration: String? = nil,
         isHabit: Bool? = false,
         color: String? = "#D4F63D",
-        isCompleted: Bool? = false
+        isCompleted: Bool? = false,
+        projectName: String? = nil,
+        projectColor: String? = nil
     ) {
         self.id = id
         self.title = title
@@ -87,6 +91,8 @@ public struct TaskItemWidgetModel: Codable, Identifiable {
         self.isHabit = isHabit
         self.color = color
         self.isCompleted = isCompleted
+        self.projectName = projectName
+        self.projectColor = projectColor
     }
 }
 
@@ -167,6 +173,11 @@ struct Provider: TimelineProvider {
 
         let isSecondSleep = isSecondSleepStored || phaseIndex > 1 || sessionCount >= 1
 
+        let canceledTs = suite.double(forKey: "mytrack_sleep_canceled_second_sleep_ts")
+        let startedSleepTs = suite.double(forKey: "mytrack_sleep_started_timestamp")
+        let nowTs = Date().timeIntervalSince1970
+        let isRecentlyCanceled = canceledTs > 0 && (nowTs - canceledTs < 8 * 3600) && (startedSleepTs <= canceledTs)
+
         let calendar = Calendar.current
         let hour = calendar.component(.hour, from: Date())
         let isInSleepWindow = hour >= 23 || hour < 12
@@ -180,7 +191,10 @@ struct Provider: TimelineProvider {
         }()
 
         let shouldShowSleep: Bool
-        if isActive {
+        if isRecentlyCanceled {
+            // L'utilisateur a explicitement cliqué sur "Je ne dors pas" : interdiction formelle d'afficher le sommeil
+            shouldShowSleep = false
+        } else if isActive {
             shouldShowSleep = true
         } else if hasWokenUpToday {
             // L'utilisateur s'est déjà réveillé aujourd'hui : le widget doit afficher le mode normal immédiatement
@@ -369,6 +383,16 @@ struct MyTrackWidgetEntryView: View {
     let brandNeon = Color(red: 0.83, green: 0.96, blue: 0.24) // #D4F63D
     let darkBg = Color(red: 0.07, green: 0.07, blue: 0.08) // #111214
 
+    private var accessoryDestinationURL: URL {
+        if !entry.activeTasks.isEmpty {
+            return URL(string: "mytrack://tasks")!
+        } else if entry.isSleepMode {
+            return URL(string: "mytrack://sleep")!
+        } else {
+            return URL(string: "mytrack://tasks?action=new-task")!
+        }
+    }
+
     var body: some View {
         Group {
             // --- Vues Écran Verrouillé (Accessory Widgets) ---
@@ -435,6 +459,7 @@ struct MyTrackWidgetEntryView: View {
                 }
             }
         }
+        .widgetURL(family == .accessoryRectangular || family == .accessoryInline || family == .accessoryCircular ? accessoryDestinationURL : nil)
         .containerBackground(for: .widget) {
             if family == .accessoryRectangular || family == .accessoryInline || family == .accessoryCircular {
                 Color.clear
@@ -468,7 +493,7 @@ struct LockScreenAccessoryRectangularView: View {
                         .lineLimit(1)
                 }
                 
-                Text(active.subtitle ?? active.category ?? "En cours")
+                Text(active.projectName ?? active.subtitle ?? (active.category != "Général" ? active.category : nil) ?? "En cours")
                     .font(.system(size: 10))
                     .foregroundColor(.secondary)
                     .lineLimit(1)
@@ -509,33 +534,31 @@ struct LockScreenAccessoryRectangularView: View {
             }
         } else {
             // Mode Inactif sur Écran Verrouillé : Input / Ajouter + Prochaine tâche sur la liste
-            Link(destination: URL(string: "mytrack://tasks?action=new-task")!) {
-                VStack(alignment: .leading, spacing: 3) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 10, weight: .bold))
-                        Text("Ajouter...")
-                            .font(.system(size: 11, weight: .bold))
-                        Spacer()
-                    }
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2.5)
-                    .background(Color.white.opacity(0.15))
-                    .cornerRadius(6)
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 4) {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 10, weight: .bold))
+                    Text("Ajouter...")
+                        .font(.system(size: 11, weight: .bold))
+                    Spacer()
+                }
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2.5)
+                .background(Color.white.opacity(0.15))
+                .cornerRadius(6)
 
-                    if let nextTask = entry.tasks.first(where: { $0.isCompleted != true }) {
-                        HStack(spacing: 3) {
-                            Text("📋")
-                                .font(.system(size: 9))
-                            Text(nextTask.title)
-                                .font(.system(size: 10.5, weight: .medium))
-                                .lineLimit(1)
-                        }
-                    } else {
-                        Text("🎉 Toutes terminées")
-                            .font(.system(size: 9.5))
-                            .foregroundColor(.secondary)
+                if let nextTask = entry.tasks.first(where: { $0.isCompleted != true }) {
+                    HStack(spacing: 3) {
+                        Text("📋")
+                            .font(.system(size: 9))
+                        Text(nextTask.title)
+                            .font(.system(size: 10.5, weight: .medium))
+                            .lineLimit(1)
                     }
+                } else {
+                    Text("🎉 Toutes terminées")
+                        .font(.system(size: 9.5))
+                        .foregroundColor(.secondary)
                 }
             }
         }
@@ -569,37 +592,31 @@ struct LockScreenAccessoryCircularView: View {
 
     var body: some View {
         if let active = entry.activeTasks.first {
-            Link(destination: URL(string: "mytrack://tasks")!) {
-                ZStack {
-                    AccessoryWidgetBackground()
-                    VStack(spacing: 1) {
-                        Image(systemName: "timer")
-                            .font(.system(size: 13, weight: .bold))
-                        Text(active.taskTitle)
-                            .font(.system(size: 8, weight: .bold))
-                            .lineLimit(1)
-                    }
+            ZStack {
+                AccessoryWidgetBackground()
+                VStack(spacing: 1) {
+                    Image(systemName: "timer")
+                        .font(.system(size: 13, weight: .bold))
+                    Text(active.taskTitle)
+                        .font(.system(size: 8, weight: .bold))
+                        .lineLimit(1)
                 }
             }
         } else if entry.isSleepMode {
-            Link(destination: URL(string: "mytrack://sleep")!) {
-                ZStack {
-                    AccessoryWidgetBackground()
-                    VStack(spacing: 1) {
-                        Image(systemName: "moon.stars.fill")
-                            .font(.system(size: 13, weight: .bold))
-                        Text("Sommeil")
-                            .font(.system(size: 7.5, weight: .bold))
-                    }
+            ZStack {
+                AccessoryWidgetBackground()
+                VStack(spacing: 1) {
+                    Image(systemName: "moon.stars.fill")
+                        .font(.system(size: 13, weight: .bold))
+                    Text("Sommeil")
+                        .font(.system(size: 7.5, weight: .bold))
                 }
             }
         } else {
-            Link(destination: URL(string: "mytrack://tasks?action=new-task")!) {
-                ZStack {
-                    AccessoryWidgetBackground()
-                    Image(systemName: "plus")
-                        .font(.system(size: 16, weight: .heavy))
-                }
+            ZStack {
+                AccessoryWidgetBackground()
+                Image(systemName: "plus")
+                    .font(.system(size: 16, weight: .heavy))
             }
         }
     }
@@ -1685,7 +1702,7 @@ struct SmallTasksListWidgetView: View {
                         .clipShape(Capsule())
                     }
                 } else {
-                    Button(intent: StartTaskIntent(taskId: firstTask.id, taskTitle: firstTask.title, category: firstTask.category)) {
+                    Button(intent: StartTaskIntent(taskId: firstTask.id, taskTitle: firstTask.title, category: firstTask.category, projectName: firstTask.projectName, projectColor: firstTask.projectColor)) {
                         HStack(spacing: 4) {
                             Image(systemName: "play.fill")
                                 .font(.system(size: 10, weight: .bold))
@@ -1752,7 +1769,7 @@ struct TaskRowInteractiveView: View {
                                 Circle()
                                     .fill(accentColor)
                                     .frame(width: 5, height: 5)
-                                Text(task.category)
+                                Text(task.projectName ?? (task.category != "Général" ? task.category : nil) ?? "myTrack")
                                     .font(.system(size: 9.5, weight: .medium))
                                     .foregroundColor(accentColor)
 
@@ -1804,7 +1821,7 @@ struct TaskRowInteractiveView: View {
                                     Circle()
                                         .fill(accentColor)
                                         .frame(width: 5, height: 5)
-                                    Text(task.category)
+                                    Text(task.projectName ?? (task.category != "Général" ? task.category : nil) ?? "myTrack")
                                         .font(.system(size: 9.5, weight: .medium))
                                         .foregroundColor(isSelected ? brandNeon : accentColor.opacity(0.85))
 
@@ -1824,7 +1841,7 @@ struct TaskRowInteractiveView: View {
 
                     // BOUTON PLAY qui apparaît quand la tâche est sélectionnée
                     if isSelected {
-                        Button(intent: StartTaskIntent(taskId: task.id, taskTitle: task.title, category: task.category)) {
+                        Button(intent: StartTaskIntent(taskId: task.id, taskTitle: task.title, category: task.category, projectName: task.projectName, projectColor: task.projectColor)) {
                             HStack(spacing: 4) {
                                 Image(systemName: "play.fill")
                                     .font(.system(size: 9.5, weight: .heavy))

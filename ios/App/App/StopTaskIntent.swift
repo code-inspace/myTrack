@@ -247,16 +247,26 @@ public struct StartTaskIntent: AppIntent {
     @Parameter(title: "Category")
     public var category: String
 
+    @Parameter(title: "Project Name")
+    public var projectName: String?
+
+    @Parameter(title: "Project Color")
+    public var projectColor: String?
+
     public init() {
         self.taskId = ""
         self.taskTitle = "Tâche"
         self.category = "myTrack"
+        self.projectName = nil
+        self.projectColor = nil
     }
 
-    public init(taskId: String, taskTitle: String = "Tâche", category: String = "myTrack") {
+    public init(taskId: String, taskTitle: String = "Tâche", category: String = "myTrack", projectName: String? = nil, projectColor: String? = nil) {
         self.taskId = taskId
         self.taskTitle = taskTitle
         self.category = category
+        self.projectName = projectName
+        self.projectColor = projectColor
     }
 
     public func perform() async throws -> some IntentResult {
@@ -264,14 +274,20 @@ public struct StartTaskIntent: AppIntent {
         let suite = UserDefaults(suiteName: "group.com.mytrack.app") ?? UserDefaults.standard
 
         // 1. Sauvegarder localement pour le widget (conserve jusqu'à 2 tâches actives)
-        let dict: [String: Any] = [
+        var dict: [String: Any] = [
             "taskId": taskId,
             "taskTitle": taskTitle,
             "category": category,
-            "subtitle": category,
+            "subtitle": projectName ?? category,
             "startedAtTimestamp": startedAtTimestamp,
             "totalFormattedDuration": ""
         ]
+        if let pn = projectName, !pn.isEmpty {
+            dict["projectName"] = pn
+        }
+        if let pc = projectColor, !pc.isEmpty {
+            dict["projectColor"] = pc
+        }
 
         var currentActiveList: [[String: Any]] = []
         if let rawListJson = suite.string(forKey: "mytrack_active_tasks"),
@@ -308,7 +324,9 @@ public struct StartTaskIntent: AppIntent {
             let attributes = TaskActivityAttributes(
                 taskId: taskId,
                 taskTitle: taskTitle,
-                category: category
+                category: category,
+                projectColor: projectColor,
+                projectName: projectName
             )
             let initialContentState = TaskActivityAttributes.ContentState(
                 currentStatus: "IN_PROGRESS",
@@ -316,7 +334,7 @@ public struct StartTaskIntent: AppIntent {
                 elapsedSeconds: 0,
                 targetDurationSeconds: nil,
                 totalFormattedDuration: "",
-                subtitle: category,
+                subtitle: projectName ?? category,
                 progress: 0.0
             )
 
@@ -665,6 +683,10 @@ public struct SleepNotSleepingIntent: AppIntent, LiveActivityIntent {
         UserDefaults.standard.set(nowTs, forKey: "mytrack_sleep_last_wake_timestamp")
         suite.set(nowTs, forKey: "mytrack_sleep_canceled_second_sleep_ts")
         UserDefaults.standard.set(nowTs, forKey: "mytrack_sleep_canceled_second_sleep_ts")
+        suite.removeObject(forKey: "mytrack_sleep_sessions")
+        UserDefaults.standard.removeObject(forKey: "mytrack_sleep_sessions")
+        suite.removeObject(forKey: "mytrack_sleep_started_timestamp")
+        UserDefaults.standard.removeObject(forKey: "mytrack_sleep_started_timestamp")
 
         // Fermer immédiatement la Live Activity de Sommeil sur l'écran verrouillé
         if #available(iOS 16.2, *) {
@@ -678,7 +700,7 @@ public struct SleepNotSleepingIntent: AppIntent, LiveActivityIntent {
         // Recharger immédiatement tous les widgets
         WidgetCenter.shared.reloadAllTimelines()
 
-        // Notification API distante en tâche de fond non bloquante
+        // Notification API distante en tâche de fond
         Task.detached(priority: .background) {
             guard let url = URL(string: "https://mytrack-nine.vercel.app/api/widget/sleep-action") else { return }
             var request = URLRequest(url: url)

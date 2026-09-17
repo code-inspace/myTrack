@@ -252,7 +252,7 @@ struct MyTrackWidgetLiveActivity: Widget {
 
                                 Spacer()
 
-                                Button(intent: StartTaskIntent(taskId: nextId, taskTitle: nextTitle, category: context.state.nextTaskCategory ?? "myTrack")) {
+                                Button(intent: StartTaskIntent(taskId: nextId, taskTitle: nextTitle, category: context.state.nextTaskCategory ?? "myTrack", projectName: context.state.nextTaskCategory)) {
                                     HStack(spacing: 4) {
                                         Image(systemName: "play.fill")
                                             .font(.system(size: 9, weight: .bold))
@@ -610,7 +610,7 @@ struct LockScreenLiveActivityView: View {
 
                         Spacer()
 
-                        Button(intent: StartTaskIntent(taskId: nextId, taskTitle: nextTitle, category: context.state.nextTaskCategory ?? "myTrack")) {
+                        Button(intent: StartTaskIntent(taskId: nextId, taskTitle: nextTitle, category: context.state.nextTaskCategory ?? "myTrack", projectName: context.state.nextTaskCategory)) {
                             HStack(spacing: 4) {
                                 Image(systemName: "play.fill")
                                     .font(.system(size: 9.5, weight: .bold))

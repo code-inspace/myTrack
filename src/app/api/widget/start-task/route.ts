@@ -121,15 +121,29 @@ export async function POST(req: NextRequest) {
     const targetVal = data.target_value ? Number(data.target_value) : null;
     const durationStr = targetVal ? `${targetVal} ${data.unit || "min"}` : undefined;
 
+    let projectInfo: { name: string; color: string } | null = null;
+    if (data.project_id) {
+      const { data: pData } = await supabase
+        .from("projects")
+        .select("name, color")
+        .eq("id", data.project_id)
+        .maybeSingle();
+      if (pData) projectInfo = pData;
+    }
+
     return NextResponse.json({
       success: true,
       task: {
         taskId: data.id,
         taskTitle: title || "Tâche en cours",
         category: data.tag || data.category || "myTrack",
-        subtitle: description || data.category || "En cours",
+        subtitle: description || projectInfo?.name || data.category || "En cours",
         startedAtTimestamp: Date.now() / 1000.0,
         totalFormattedDuration: durationStr,
+        projectId: data.project_id || null,
+        projectName: projectInfo?.name || null,
+        projectColor: projectInfo?.color || null,
+        color: projectInfo?.color || data.color || "#D4F63D",
       }
     }, {
       headers: { "Cache-Control": "no-store, max-age=0" }

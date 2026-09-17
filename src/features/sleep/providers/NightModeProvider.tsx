@@ -102,11 +102,21 @@ export const NightModeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const { bedtime: bt, wakeTime: wt } = refreshSleepLog();
     const now = new Date();
 
+    // Vérifier si l'utilisateur a annulé le sommeil récemment (< 8h)
+    let isRecentlyCanceled = false;
+    try {
+      const canceledTsRaw = localStorage.getItem("mytrack_sleep_canceled_second_sleep_ts");
+      const canceledTs = canceledTsRaw ? parseFloat(canceledTsRaw) : 0;
+      if (canceledTs > 0 && now.getTime() / 1000 - canceledTs < 8 * 3600) {
+        isRecentlyCanceled = true;
+      }
+    } catch {}
+
     const inWindow = isCurrentlyInSleepWindow(now, bt, wt);
     const dismissedUntilBedtime = isNightModeDismissedUntilBedtime(now);
     const sessionUnlocked = isNightModeUnlockedForSession();
 
-    if (inWindow && !dismissedUntilBedtime && !sessionUnlocked) {
+    if (inWindow && !dismissedUntilBedtime && !sessionUnlocked && !isRecentlyCanceled) {
       setIsNightModeActive(true);
     } else {
       setIsNightModeActive(false);

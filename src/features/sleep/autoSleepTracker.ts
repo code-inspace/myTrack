@@ -62,15 +62,25 @@ export function recordAppBackground(now: Date = new Date()): void {
     const lastWakeDate = lastWakeIso ? parseISO(lastWakeIso) : null;
     const minutesSinceWake = lastWakeDate ? differenceInMinutes(now, lastWakeDate) : null;
 
+    // Vérifier si l'utilisateur a annulé le 2ème sommeil ("Je ne dors pas") récemment (< 8 heures)
+    const canceledTsRaw = localStorage.getItem("mytrack_sleep_canceled_second_sleep_ts");
+    const canceledTs = canceledTsRaw ? parseFloat(canceledTsRaw) : 0;
+    const isRecentlyCanceled = canceledTs > 0 && (now.getTime() / 1000 - canceledTs < 8 * 3600);
+
     // Si l'utilisateur s'est réveillé aujourd'hui :
-    // On ne redéclenche le mode sommeil QUE SI l'inactivité dépasse 60 minutes (1 heure)
+    // On ne redéclenche le mode sommeil QUE SI l'inactivité dépasse 60 minutes (1 heure) et qu'il n'a pas annulé
     if (todayLog.wakeTime || lastWakeDate) {
+      if (isRecentlyCanceled) {
+        console.log("[AutoSleepTracker] 2nd sleep canceled recently by user ('Je ne dors pas') -> Keep normal mode.");
+        return;
+      }
+
       if (minutesSinceWake !== null && minutesSinceWake < 60) {
         console.log(`[AutoSleepTracker] App backgrounded ${minutesSinceWake}min after wake (< 60min) -> Keep normal mode.`);
         return;
       }
 
-      // Si inactivité >= 60 minutes en matinée (< 12h) : 2ème phase de sommeil automatique
+      // Si inactivité >= 60 minutes en matinée (< 12h) et non annulé : 2ème phase de sommeil
       if (hour < 12) {
         console.log(`[AutoSleepTracker] 1h+ inactivity post-wake detected -> Triggering 2nd sleep mode (phase 2) with "Je ne dors pas" option.`);
         LiveActivityBridge.syncSleepMode({
