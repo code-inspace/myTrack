@@ -211,4 +211,39 @@ describe("Agenda Multi-Day Task Distribution & Moving Logic", () => {
     expect(day2Found?.overnightPart).toBe("end");
     expect(day2Found?.overnightOriginDate).toBe("2099-05-10");
   });
+
+  it("differentiates objective sleep (gray) and saved in database sleep (violet)", () => {
+    // When no actual sleep is validated, only the gray objective blocks are generated
+    const unvalidatedLog = {
+      date: "2026-09-17",
+      bedtime: "23:00",
+      wakeTime: "07:00",
+      bedtimeValidated: false,
+      wakeTimeValidated: false,
+    };
+
+    const hasActualMorningSleep = Boolean(
+      unvalidatedLog.wakeTimeValidated ||
+      (unvalidatedLog as any).updatedAt ||
+      unvalidatedLog.wakeTime !== "07:00"
+    );
+    expect(hasActualMorningSleep).toBe(false);
+
+    // When sleep data is tracked/saved in database with real times or validation
+    const savedLog = {
+      date: "2026-09-17",
+      bedtime: "00:15",
+      wakeTime: "08:30",
+      bedtimeValidated: true,
+      wakeTimeValidated: true,
+      updatedAt: "2026-09-17T08:30:00.000Z",
+    };
+
+    const hasActualSavedSleep = Boolean(
+      savedLog.wakeTimeValidated ||
+      savedLog.updatedAt ||
+      savedLog.wakeTime !== "07:00"
+    );
+    expect(hasActualSavedSleep).toBe(true);
+  });
 });

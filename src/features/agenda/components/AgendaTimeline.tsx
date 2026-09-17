@@ -27,7 +27,7 @@ import { ExternalEventBlock } from "@/features/calendar/components/ExternalEvent
 import { ExternalEventDetailModal } from "@/features/calendar/components/ExternalEventDetailModal";
 import { ExternalCalendarEvent } from "@/features/calendar/types";
 import { AgendaSleepBlock } from "./AgendaSleepBlock";
-import { getStoredSleepLog, computeSleepDuration } from "@/features/sleep/actions";
+import { getStoredSleepLog, computeSleepDuration, fetchSleepHistory } from "@/features/sleep/actions";
 import { SleepEditModal, SleepSessionData } from "@/features/sleep/components/SleepEditModal";
 import { useProjects } from "@/features/projects/hooks";
 
@@ -227,11 +227,21 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
   const [editingSleepSession, setEditingSleepSession] = useState<SleepSessionData | null>(null);
 
   useEffect(() => {
+    fetchSleepHistory(30).then(() => {
+      setSleepSyncVersion((v) => v + 1);
+    });
+  }, [selectedDate]);
+
+  useEffect(() => {
     const handleSleepAutoDetected = () => {
       setSleepSyncVersion((v) => v + 1);
     };
     window.addEventListener("mytrack:sleep-auto-detected", handleSleepAutoDetected);
-    return () => window.removeEventListener("mytrack:sleep-auto-detected", handleSleepAutoDetected);
+    window.addEventListener("focus", handleSleepAutoDetected);
+    return () => {
+      window.removeEventListener("mytrack:sleep-auto-detected", handleSleepAutoDetected);
+      window.removeEventListener("focus", handleSleepAutoDetected);
+    };
   }, []);
 
   // External Calendar Subscriptions & Events
@@ -1342,7 +1352,7 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
           })
           .filter(Boolean) as TimedLayoutItem[];
 
-        // 3. Map Auto-detected Dodo Sleep & Nap Blocks
+        // 3. Map Sleep Blocks: Sommeil Objectif (Gris) & Sommeil Sauvegardé en base (Violet)
         const sleepItems: TimedLayoutItem[] = [];
         try {
           const d = parseISO(dayDate);
@@ -1352,21 +1362,60 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
           const tomorrowDateStr = format(addDays(d, 1), "yyyy-MM-dd");
           const tomorrowLog = getStoredSleepLog(tomorrowDateStr);
 
-          // 3a. Morning Sleep (night leading into dayDate)
-          if (todayLog.wakeTime) {
+          // Cibles de sommeil objectif (par défaut 23:00 -> 07:00 ou objectif personnalisé)
+          const targetBedtime = "23:00";
+          const targetWakeTime = "07:00";
+          const targetWakeMins = parseTimeToMinutes(targetWakeTime); // 420 mins (07:00)
+          const targetBedMins = parseTimeToMinutes(targetBedtime);   // 1380 mins (23:00)
+
+          // 3a. Morning Sleep (00:00 -> Réveil)
+          // Objectif de Sommeil Matin (Gris)
+          const targetMorningDuration = targetWakeMins;
+          sleepItems.push({
+            type: "sleep",
+            sleepItem: {
+              id: `sleep-target-morning-${dayDate}`,
+              label: "Objectif Sommeil",
+              subLabel: `Prévu ${targetWakeTime} • 8h`,
+              isNap: false,
+              variant: "objective",
+              sessionData: {
+                sessionType: "night",
+                startDate: yesterdayDateStr,
+                startTime: targetBedtime,
+                endDate: dayDate,
+                endTime: targetWakeTime,
+              },
+            },
+            id: `sleep-target-morning-${dayDate}`,
+            startMins: 0,
+            layoutEndMins: targetMorningDuration,
+            height: targetMorningDuration,
+            column: 0,
+            totalColumns: 1,
+          });
+
+          // Sommeil Sauvegardé en base de données / Repéré (Violet)
+          const hasActualMorningSleep = Boolean(
+            yesterdayLog.bedtimeValidated ||
+            yesterdayLog.updatedAt ||
+            todayLog.wakeTimeValidated ||
+            todayLog.updatedAt ||
+            (yesterdayLog.bedtime && yesterdayLog.bedtime !== "23:00") ||
+            (todayLog.wakeTime && todayLog.wakeTime !== "07:00")
+          );
+
+          if (hasActualMorningSleep && todayLog.wakeTime) {
             const wakeMins = parseTimeToMinutes(todayLog.wakeTime);
             if (wakeMins > 0) {
-              const yesterdayBedtime =
-                (yesterdayLog.bedtimeValidated || yesterdayLog.updatedAt || yesterdayLog.bedtime !== "23:00")
-                  ? (yesterdayLog.bedtime || "23:00")
-                  : (todayLog.bedtime || "23:00");
+              const actualBedtime = yesterdayLog.bedtime || "23:00";
               let startMins = 0;
               let durationText = "";
 
-              const dur = computeSleepDuration(yesterdayBedtime, todayLog.wakeTime);
+              const dur = computeSleepDuration(actualBedtime, todayLog.wakeTime);
               if (dur) durationText = dur.text;
 
-              const bedMins = parseTimeToMinutes(yesterdayBedtime);
+              const bedMins = parseTimeToMinutes(actualBedtime);
               if (bedMins < 12 * 60 && bedMins < wakeMins) {
                 startMins = bedMins;
               }
@@ -1376,20 +1425,21 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
                 ? `${durationText} • Réveil ${todayLog.wakeTime}`
                 : `Réveil ${todayLog.wakeTime}`;
 
-              const bedHour = parseInt(yesterdayBedtime.split(":")[0], 10) || 0;
+              const bedHour = parseInt(actualBedtime.split(":")[0], 10) || 0;
               const actualBedDateStr = bedHour < 12 ? dayDate : yesterdayDateStr;
 
               sleepItems.push({
                 type: "sleep",
                 sleepItem: {
                   id: `sleep-morning-${dayDate}`,
-                  label: "Dodo",
+                  label: "Sommeil",
                   subLabel,
                   isNap: false,
+                  variant: "saved",
                   sessionData: {
                     sessionType: "night",
                     startDate: actualBedDateStr,
-                    startTime: yesterdayBedtime,
+                    startTime: actualBedtime,
                     endDate: dayDate,
                     endTime: todayLog.wakeTime,
                   },
@@ -1404,8 +1454,41 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
             }
           }
 
-          // 3b. Evening Bedtime Onset
-          if (todayLog.bedtime) {
+          // 3b. Evening Sleep Onset (Coucher -> 24:00)
+          // Objectif Coucher Soir (Gris)
+          const targetEveningDuration = 1440 - targetBedMins;
+          sleepItems.push({
+            type: "sleep",
+            sleepItem: {
+              id: `sleep-target-evening-${dayDate}`,
+              label: "Objectif Coucher",
+              subLabel: `Coucher ${targetBedtime} (Prévu)`,
+              isNap: false,
+              variant: "objective",
+              sessionData: {
+                sessionType: "night",
+                startDate: dayDate,
+                startTime: targetBedtime,
+                endDate: tomorrowDateStr,
+                endTime: targetWakeTime,
+              },
+            },
+            id: `sleep-target-evening-${dayDate}`,
+            startMins: targetBedMins,
+            layoutEndMins: 1440,
+            height: targetEveningDuration,
+            column: 0,
+            totalColumns: 1,
+          });
+
+          // Sommeil Sauvegardé en base de données / Repéré (Violet)
+          const hasActualEveningBedtime = Boolean(
+            todayLog.bedtimeValidated ||
+            (todayLog.updatedAt && todayLog.bedtime) ||
+            (todayLog.bedtime && todayLog.bedtime !== "23:00")
+          );
+
+          if (hasActualEveningBedtime && todayLog.bedtime) {
             const bedMins = parseTimeToMinutes(todayLog.bedtime);
             if (bedMins >= 18 * 60 && bedMins < 1440) {
               const duration = 1440 - bedMins;
@@ -1419,9 +1502,10 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
                 type: "sleep",
                 sleepItem: {
                   id: `sleep-evening-${dayDate}`,
-                  label: "Dodo",
+                  label: "Sommeil",
                   subLabel,
                   isNap: false,
+                  variant: "saved",
                   sessionData: {
                     sessionType: "night",
                     startDate: dayDate,
@@ -1440,7 +1524,7 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
             }
           }
 
-          // 3c. Daytime Naps
+          // 3c. Daytime Naps (Sauvegardées en base -> Violet)
           if (todayLog.naps && todayLog.naps.length > 0) {
             todayLog.naps.forEach((nap, idx) => {
               if (nap.startTime) {
@@ -1460,6 +1544,7 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
                     label: nap.title || "Sieste",
                     subLabel: `${nap.startTime} - ${nap.endTime || "..."}`,
                     isNap: true,
+                    variant: "saved",
                     sessionData: {
                       sessionType: "nap",
                       startDate: dayDate,
@@ -1551,6 +1636,7 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
                 leftPercent={leftPercent}
                 widthPercent={widthPercent}
                 isNap={item.sleepItem.isNap}
+                variant={item.sleepItem.variant}
                 onClick={() => onSelectSleepSession?.(item.sleepItem!.sessionData)}
               />
             );
