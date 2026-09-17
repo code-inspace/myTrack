@@ -14,6 +14,7 @@ import {
   Settings,
   ChevronRight,
   Zap,
+  Target,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TasksTab } from "@/components/shared/TasksHeaderWithNav";
@@ -33,6 +34,7 @@ const MAIN_NAV = [
 
 const SECONDARY_NAV = [
   { label: "Dashboard", icon: TrendingUp, href: "/dashboard", paths: ["/dashboard"] },
+  { label: "Objectifs", icon: Target, href: "/goals", paths: ["/goals", "/objectifs"] },
   { label: "Coach IA", icon: MessageSquare, href: "/chat", paths: ["/chat"] },
 ];
 

@@ -23,7 +23,8 @@ import { useAuth } from "@/providers/AuthProvider";
 import { useDisplayMode } from "@/providers/DisplayModeProvider";
 import { useCalendarEvents } from "@/features/calendar/hooks/useCalendarEvents";
 import { addWeeks, subWeeks, addMonths, subMonths } from "date-fns";
-import { Sliders } from "lucide-react";
+import Link from "next/link";
+import { Sliders, Target } from "lucide-react";
 
 const DASHBOARD_CONFIG_STORAGE_KEY = "mytrack_dashboard_modules_config";
 
@@ -78,7 +79,9 @@ export default function DashboardPage() {
             return merged;
           }
         }
-      } catch {}
+      } catch {
+        // ignore
+      }
     }
     return DEFAULT_DASHBOARD_MODULES;
   });
@@ -86,7 +89,10 @@ export default function DashboardPage() {
   const handleSaveModules = (newModules: DashboardModuleConfig[]) => {
     setModules(newModules);
     if (typeof window !== "undefined") {
-      localStorage.setItem(DASHBOARD_CONFIG_STORAGE_KEY, JSON.stringify(newModules));
+      localStorage.setItem(
+        DASHBOARD_CONFIG_STORAGE_KEY,
+        JSON.stringify(newModules)
+      );
     }
   };
 
@@ -203,6 +209,15 @@ export default function DashboardPage() {
               <Sliders className="w-4 h-4 text-[#D4F63D]" />
               <span>Personnaliser</span>
             </button>
+
+            <Link
+              href="/goals"
+              className="px-3.5 py-2 rounded-2xl bg-[#1C1D22] hover:bg-[#252830] border border-[#282A30] hover:border-[#383C48] text-xs font-semibold text-white flex items-center gap-2 transition-all cursor-pointer shadow-sm"
+              title="Gérer mes objectifs"
+            >
+              <Target className="w-4 h-4 text-[#D4F63D]" />
+              <span>Objectifs</span>
+            </Link>
 
             <div>
               <h1 className="text-2xl lg:text-3xl font-extrabold text-white tracking-tight">

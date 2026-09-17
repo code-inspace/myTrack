@@ -13,6 +13,7 @@ import {
   User as UserIcon,
   ChevronDown,
   Sparkles,
+  Target,
 } from "lucide-react";
 import { useAuth } from "@/providers/AuthProvider";
 import { cn } from "@/lib/utils";
@@ -163,11 +164,19 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
                 Mon Profil
               </Link>
               <Link
+                href="/goals"
+                onClick={() => setShowProfileMenu(false)}
+                className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium text-[#D1D5DB] hover:text-white hover:bg-[#282B38] transition-colors"
+              >
+                <Target className="w-3.5 h-3.5 text-[#D4F63D]" />
+                Objectifs & Cibles
+              </Link>
+              <Link
                 href="/dashboard"
                 onClick={() => setShowProfileMenu(false)}
                 className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium text-[#D1D5DB] hover:text-white hover:bg-[#282B38] transition-colors"
               >
-                <Sparkles className="w-3.5 h-3.5 text-[#D4F63D]" />
+                <Sparkles className="w-3.5 h-3.5 text-[#818CF8]" />
                 Analytics & Bilan
               </Link>
             </div>
