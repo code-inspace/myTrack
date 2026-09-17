@@ -449,9 +449,9 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
 
         cols.push({
           id: `week-${weekNum}-${format(wStart, "yyyy-MM-dd")}`,
-          title: `Semaine ${weekNum}`,
-          subTitle: `${format(wStart, "M/d")} - ${format(wEnd, "M/d")}`,
-          fullLabel: `Semaine ${weekNum} (${format(wStart, "d MMM", { locale: fr })} - ${format(wEnd, "d MMM", { locale: fr })})`,
+          title: `S${weekNum}`,
+          subTitle: format(wStart, "dd/MM"),
+          fullLabel: `Semaine ${weekNum} (du ${format(wStart, "dd/MM")} au ${format(wEnd, "dd/MM")})`,
           isHighlighted: isSameDay(wStart, startOfWeek(new Date(), { weekStartsOn: 1 })),
           projectBreakdown: weekSlices,
           totalMinutes: weekTotal,
@@ -476,14 +476,14 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
 
         periodSum += totalMins;
 
-        const dayName = format(dayDate, "EEE", { locale: fr }) + ".";
-        const dayMonth = format(dayDate, "M/d");
+        const dayInitial = format(dayDate, "EEEEE", { locale: fr }).toUpperCase();
+        const dayMonth = format(dayDate, "dd/MM");
 
         const isToday = isSameDay(dayDate, new Date());
 
         cols.push({
           id: dStr,
-          title: dayName,
+          title: dayInitial,
           subTitle: dayMonth,
           fullLabel: format(dayDate, "EEEE d MMMM yyyy", { locale: fr }),
           isHighlighted: isToday,
@@ -1092,7 +1092,7 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
                       {/* Stacked Bar Container */}
                       <div
                         className={cn(
-                          "w-full max-w-[56px] min-h-[2px] rounded-t-md transition-all relative overflow-hidden flex flex-col justify-end",
+                          "w-full max-w-[22px] sm:max-w-[26px] min-h-[2px] rounded-t-md transition-all relative overflow-hidden flex flex-col justify-end",
                           isSelected
                             ? "ring-2 ring-[#D4F63D] shadow-lg shadow-[#D4F63D]/20 scale-105"
                             : "group-hover:opacity-90"
