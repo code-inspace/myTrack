@@ -16,7 +16,7 @@ import { SleepJournalView } from "@/features/sleep/components/SleepJournalView";
 import { DailyBilanView } from "@/features/sleep/components/DailyBilanView";
 import { DesktopTasksView } from "@/features/tasks/components/desktop/DesktopTasksView";
 import { DesktopDatePicker } from "@/features/tasks/components/desktop/DesktopDatePicker";
-import { getNightSleepDuration } from "@/features/sleep/actions";
+import { getNightSleepDuration, fetchSleepHistory } from "@/features/sleep/actions";
 import { useTasks, useTaskMutations } from "@/features/tasks/hooks";
 import { useProjects } from "@/features/projects/hooks";
 import { Task, TaskWithCompletion, TaskFormValues } from "@/features/tasks/types";
@@ -151,8 +151,24 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
     deleteTask,
   } = useTaskMutations();
 
-  const sleepDuration = useMemo(() => getNightSleepDuration(selectedDate), [selectedDate]);
-  const sleepDurationText = sleepDuration?.duration?.text;
+  const [sleepDurationText, setSleepDurationText] = useState<string | undefined>(() => {
+    return getNightSleepDuration(selectedDate)?.duration?.text;
+  });
+
+  useEffect(() => {
+    const updateSleep = () => {
+      const dur = getNightSleepDuration(selectedDate);
+      setSleepDurationText(dur?.duration?.text);
+    };
+
+    updateSleep();
+    fetchSleepHistory(30).then(() => {
+      updateSleep();
+    });
+
+    window.addEventListener("mytrack:sleep-auto-detected", updateSleep);
+    return () => window.removeEventListener("mytrack:sleep-auto-detected", updateSleep);
+  }, [selectedDate]);
 
   // dnd-kit: shared drag context for habit reordering + drag-onto-day rescheduling
   const dndSensors = useSensors(

@@ -270,6 +270,9 @@ export function cacheSleepHistoryLocally(logs: DailySleepLog[], userId?: string)
       console.warn("cacheSleepHistoryLocally error:", err);
     }
   }
+  try {
+    window.dispatchEvent(new CustomEvent("mytrack:sleep-auto-detected"));
+  } catch {}
 }
 
 export function getStoredSleepLog(date: string, userId?: string): DailySleepLog {
@@ -329,10 +332,6 @@ export function getStoredSleepLog(date: string, userId?: string): DailySleepLog 
   };
 }
 
-/**
- * Calculates sleep duration for a night leading into day D:
- * Requires bedtime of eve (D-1) and wakeTime of morning (D) to be validated.
- */
 export function getNightSleepDuration(
   wakeDateStr: string,
   userId?: string
@@ -349,23 +348,30 @@ export function getNightSleepDuration(
     const todayLog = getStoredSleepLog(wakeDateStr, userId);
 
     const hasYesterdayBedtime = Boolean(
-      yesterdayLog.bedtime && (yesterdayLog.bedtimeValidated || yesterdayLog.updatedAt)
+      yesterdayLog.bedtime && (yesterdayLog.bedtimeValidated || yesterdayLog.updatedAt || yesterdayLog.bedtime !== "23:00")
     );
     const hasTodayWakeTime = Boolean(
-      todayLog.wakeTime && (todayLog.wakeTimeValidated || todayLog.updatedAt)
+      todayLog.wakeTime && (todayLog.wakeTimeValidated || todayLog.updatedAt || todayLog.wakeTime !== "07:00")
     );
 
-    if (!hasYesterdayBedtime || !hasTodayWakeTime) {
+    if (!hasYesterdayBedtime && !hasTodayWakeTime) {
       return null;
     }
 
-    const duration = computeSleepDuration(yesterdayLog.bedtime, todayLog.wakeTime);
+    const bedtime = hasYesterdayBedtime
+      ? (yesterdayLog.bedtime || "23:00")
+      : (todayLog.bedtime || "23:00");
+    const wakeTime = hasTodayWakeTime
+      ? (todayLog.wakeTime || "07:00")
+      : (todayLog.wakeTime || "07:00");
+
+    const duration = computeSleepDuration(bedtime, wakeTime);
     if (!duration) return null;
 
     return {
       duration,
-      yesterdayBedtime: yesterdayLog.bedtime || "23:00",
-      todayWakeTime: todayLog.wakeTime || "07:00",
+      yesterdayBedtime: bedtime,
+      todayWakeTime: wakeTime,
     };
   } catch (err) {
     console.warn("getNightSleepDuration error:", err);

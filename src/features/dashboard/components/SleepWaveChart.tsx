@@ -132,14 +132,24 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
       const prevDateStr = format(subDays(d, 1), "yyyy-MM-dd");
       const prevLog = logsMap.get(prevDateStr);
 
-      const bedtime =
-        prevLog?.bedtime && (prevLog.bedtimeValidated || prevLog.updatedAt)
-          ? prevLog.bedtime
-          : null;
-      const wakeTime =
-        log?.wakeTime && (log.wakeTimeValidated || log.updatedAt)
-          ? log.wakeTime
-          : null;
+      const hasPrevBedtime = Boolean(
+        prevLog?.bedtime && (prevLog.bedtimeValidated || prevLog.updatedAt || prevLog.bedtime !== "23:00")
+      );
+      const hasTodayWake = Boolean(
+        log?.wakeTime && (log.wakeTimeValidated || log.updatedAt || log.wakeTime !== "07:00")
+      );
+
+      const bedtime = hasPrevBedtime
+        ? (prevLog?.bedtime || "23:00")
+        : hasTodayWake
+        ? (prevLog?.bedtime || log?.bedtime || "23:00")
+        : null;
+
+      const wakeTime = hasTodayWake
+        ? (log?.wakeTime || "07:00")
+        : hasPrevBedtime
+        ? (log?.wakeTime || "07:00")
+        : null;
 
       let nightBlock: {
         startTime: string;
