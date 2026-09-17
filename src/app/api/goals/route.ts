@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 const supabaseUrl =
   process.env.NEXT_PUBLIC_SUPABASE_URL || "https://bvdyjpxngcdindqhprmc.supabase.co";
@@ -7,10 +6,61 @@ const serviceRoleKey =
   process.env.SUPABASE_SERVICE_ROLE_KEY ||
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2ZHlqcHhuZ2NkaW5kcWhwcm1jIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NzQzNjYwMywiZXhwIjoyMTAzMDEyNjAzfQ.IlUB0n1mLfapf60gWlUZsJiOm7YpRYHiv0mlcTJgby0";
 
-function getAdminClient() {
-  return createSupabaseClient(supabaseUrl, serviceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+const headers = {
+  apikey: serviceRoleKey,
+  Authorization: `Bearer ${serviceRoleKey}`,
+  "Content-Type": "application/json",
+};
+
+async function getGoalsForUser(userId: string): Promise<any[]> {
+  try {
+    const res = await fetch(`${supabaseUrl}/auth/v1/admin/users/${userId}`, {
+      method: "GET",
+      headers,
+    });
+    if (res.ok) {
+      const user = await res.json();
+      const goals = user?.user_metadata?.goals;
+      if (Array.isArray(goals)) {
+        return goals;
+      }
+    }
+  } catch (e) {
+    console.error("[API Goals] Error fetching user goals:", e);
+  }
+  return [];
+}
+
+async function saveGoalsForUser(userId: string, goals: any[]): Promise<boolean> {
+  try {
+    // 1. Get current metadata to preserve existing fields
+    const getRes = await fetch(`${supabaseUrl}/auth/v1/admin/users/${userId}`, {
+      method: "GET",
+      headers,
+    });
+    let currentMetadata = {};
+    if (getRes.ok) {
+      const user = await getRes.json();
+      currentMetadata = user?.user_metadata || {};
+    }
+
+    // 2. Update with new goals list
+    const updateRes = await fetch(`${supabaseUrl}/auth/v1/admin/users/${userId}`, {
+      method: "PUT",
+      headers,
+      body: JSON.stringify({
+        user_metadata: {
+          ...currentMetadata,
+          goals,
+        },
+      }),
+    });
+
+    return updateRes.ok;
+  } catch (e) {
+    console.error("[API Goals] Error saving user goals:", e);
+    return false;
+  }
 }
 
 // GET /api/goals?userId=xxx
@@ -23,33 +73,11 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Missing userId" }, { status: 400 });
     }
 
-    const supabase = getAdminClient();
-    const { data, error } = await supabase
-      .from("goals")
-      .select("*")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      // If table doesn't exist yet, return empty list gracefully
-      console.warn("Supabase goals fetch error (table may not exist yet):", error.message);
-      return NextResponse.json({ success: true, goals: [] });
-    }
-
-    const goals = (data || []).map((row: any) => ({
-      id: row.id,
-      userId: row.user_id,
-      title: row.title,
-      projectId: row.project_id,
-      projectCategory: row.project_category || undefined,
-      periodType: row.period_type || "week",
-      targetMinutes: Number(row.target_minutes) || 60,
-      color: row.color || undefined,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-    }));
-
-    return NextResponse.json({ success: true, goals });
+    const goals = await getGoalsForUser(userId);
+    return NextResponse.json(
+      { success: true, goals },
+      { headers: { "Cache-Control": "no-store, max-age=0" } }
+    );
   } catch (err: any) {
     console.error("GET /api/goals error:", err);
     return NextResponse.json({ success: false, error: err.message, goals: [] }, { status: 500 });
@@ -78,64 +106,29 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const supabase = getAdminClient();
     const now = new Date().toISOString();
     const goalId = id || `goal_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
-    const { data, error } = await supabase
-      .from("goals")
-      .upsert(
-        {
-          id: goalId,
-          user_id: userId,
-          title: title || null,
-          project_id: projectId,
-          project_category: projectCategory || null,
-          period_type: periodType || "week",
-          target_minutes: targetMinutes,
-          color: color || null,
-          created_at: now,
-          updated_at: now,
-        },
-        { onConflict: "id" }
-      )
-      .select()
-      .single();
+    const newGoal = {
+      id: goalId,
+      userId,
+      title: title || null,
+      projectId,
+      projectCategory: projectCategory || null,
+      periodType: periodType || "week",
+      targetMinutes: Number(targetMinutes) || 60,
+      color: color || null,
+      createdAt: now,
+      updatedAt: now,
+    };
 
-    if (error) {
-      console.warn("Supabase goals upsert error:", error.message);
-      // Return created object even if table doesn't exist yet for local cache persistence
-      return NextResponse.json({
-        success: true,
-        goal: {
-          id: goalId,
-          userId,
-          title,
-          projectId,
-          projectCategory,
-          periodType: periodType || "week",
-          targetMinutes,
-          color,
-          createdAt: now,
-          updatedAt: now,
-        },
-      });
-    }
+    const currentGoals = await getGoalsForUser(userId);
+    const updatedGoals = [newGoal, ...currentGoals.filter((g: any) => g.id !== goalId)];
+    await saveGoalsForUser(userId, updatedGoals);
 
     return NextResponse.json({
       success: true,
-      goal: {
-        id: data.id,
-        userId: data.user_id,
-        title: data.title,
-        projectId: data.project_id,
-        projectCategory: data.project_category || undefined,
-        periodType: data.period_type,
-        targetMinutes: Number(data.target_minutes),
-        color: data.color || undefined,
-        createdAt: data.created_at,
-        updatedAt: data.updated_at,
-      },
+      goal: newGoal,
     });
   } catch (err: any) {
     console.error("POST /api/goals error:", err);
@@ -150,33 +143,47 @@ export async function PUT(req: NextRequest) {
     const { id, userId, title, projectId, projectCategory, periodType, targetMinutes, color } =
       body;
 
-    if (!id) {
-      return NextResponse.json({ success: false, error: "Missing goal id" }, { status: 400 });
+    if (!id || !userId) {
+      return NextResponse.json({ success: false, error: "Missing goal id or userId" }, { status: 400 });
     }
 
-    const supabase = getAdminClient();
     const now = new Date().toISOString();
+    const currentGoals = await getGoalsForUser(userId);
+    const existingIndex = currentGoals.findIndex((g: any) => g.id === id);
 
-    const updates: Record<string, any> = { updated_at: now };
-    if (title !== undefined) updates.title = title || null;
-    if (projectId !== undefined) updates.project_id = projectId;
-    if (projectCategory !== undefined) updates.project_category = projectCategory || null;
-    if (periodType !== undefined) updates.period_type = periodType;
-    if (targetMinutes !== undefined) updates.target_minutes = targetMinutes;
-    if (color !== undefined) updates.color = color || null;
+    let updatedGoal: any = null;
 
-    const { data, error } = await supabase
-      .from("goals")
-      .update(updates)
-      .eq("id", id)
-      .select()
-      .maybeSingle();
-
-    if (error) {
-      console.warn("Supabase goals update error:", error.message);
+    if (existingIndex >= 0) {
+      updatedGoal = {
+        ...currentGoals[existingIndex],
+        ...(title !== undefined && { title }),
+        ...(projectId !== undefined && { projectId }),
+        ...(projectCategory !== undefined && { projectCategory }),
+        ...(periodType !== undefined && { periodType }),
+        ...(targetMinutes !== undefined && { targetMinutes: Number(targetMinutes) }),
+        ...(color !== undefined && { color }),
+        updatedAt: now,
+      };
+      currentGoals[existingIndex] = updatedGoal;
+    } else {
+      updatedGoal = {
+        id,
+        userId,
+        title: title || null,
+        projectId: projectId || "",
+        projectCategory: projectCategory || null,
+        periodType: periodType || "week",
+        targetMinutes: Number(targetMinutes) || 60,
+        color: color || null,
+        createdAt: now,
+        updatedAt: now,
+      };
+      currentGoals.unshift(updatedGoal);
     }
 
-    return NextResponse.json({ success: true, goal: data });
+    await saveGoalsForUser(userId, currentGoals);
+
+    return NextResponse.json({ success: true, goal: updatedGoal });
   } catch (err: any) {
     console.error("PUT /api/goals error:", err);
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
@@ -188,17 +195,15 @@ export async function DELETE(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
+    const userId = searchParams.get("userId");
 
-    if (!id) {
-      return NextResponse.json({ success: false, error: "Missing goal id" }, { status: 400 });
+    if (!id || !userId) {
+      return NextResponse.json({ success: false, error: "Missing goal id or userId" }, { status: 400 });
     }
 
-    const supabase = getAdminClient();
-    const { error } = await supabase.from("goals").delete().eq("id", id);
-
-    if (error) {
-      console.warn("Supabase goals delete error:", error.message);
-    }
+    const currentGoals = await getGoalsForUser(userId);
+    const filteredGoals = currentGoals.filter((g: any) => g.id !== id);
+    await saveGoalsForUser(userId, filteredGoals);
 
     return NextResponse.json({ success: true, id });
   } catch (err: any) {

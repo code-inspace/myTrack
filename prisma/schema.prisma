@@ -42,6 +42,7 @@ model User {
   reminders               Reminder[]
   sleepLogs               SleepLog[]
   conversations           ChatConversation[]
+  goals                   Goal[]
 
   @@map("users")
 }
@@ -243,4 +244,23 @@ model ProjectMember {
   @@index([userId])
   @@index([projectId])
   @@map("project_members")
+}
+
+model Goal {
+  id              String   @id @default(uuid())
+  userId          String   @map("user_id")
+  title           String?
+  projectId       String   @map("project_id")
+  projectCategory String?  @map("project_category")
+  periodType      String   @default("week") @map("period_type")
+  targetMinutes   Int      @default(60) @map("target_minutes")
+  color           String?
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([projectId])
+  @@map("goals")
 }
