@@ -468,7 +468,7 @@ export async function updateDbTask(
     enableReminders:
       updates.enableReminders !== undefined
         ? updates.enableReminders
-        : baseTask.enableReminders ?? true,
+        : baseTask.enableReminders ?? false,
     reminderOffsetMinutes:
       updates.reminderOffsetMinutes !== undefined
         ? updates.reminderOffsetMinutes

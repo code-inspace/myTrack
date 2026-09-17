@@ -436,7 +436,7 @@ export async function updateTaskSchedule({
         userId: targetId,
       }).catch(() => {});
     }
-  } else if (target && target.enableReminders !== false) {
+  } else if (target && Boolean(target.enableReminders)) {
     const scheduledIso = startTime
       ? createUtcIsoFromLocalDateTime(startTime, date)
       : undefined;

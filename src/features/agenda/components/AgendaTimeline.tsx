@@ -834,7 +834,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
                         {dayAllDayTasks.map((task) => {
                           const tagKey = task.tag || task.category || "General";
                           const style = TAG_COLORS[tagKey] || TAG_COLORS.General;
-                          const isRemindersEnabled = task.enableReminders !== false;
+                          const isRemindersEnabled = Boolean(task.enableReminders);
                           const project = task.projectId ? projects.find((p) => p.id === task.projectId) : null;
 
                           return (

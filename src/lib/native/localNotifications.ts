@@ -122,7 +122,7 @@ export const NativeNotifications = {
 
     try {
       const notifId = typeof id === "number" ? id : stringToNumericId(id);
-      await LocalNotifications.removeDeliveredNotifications({
+      await (LocalNotifications as any).removeDeliveredNotifications({
         notifications: [{ id: notifId }],
       });
       console.log(`[NativeNotifications] Removed delivered notification #${notifId}`);

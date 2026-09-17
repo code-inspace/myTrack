@@ -18,9 +18,11 @@ import {
   ChevronDown,
   Copy,
   Moon,
+  Tag,
+  Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useProjects } from "@/features/projects/hooks";
+import { useProjects, useProjectMutations } from "@/features/projects/hooks";
 import { getPriorityTitleClass, getPriorityIconColorClass } from "@/features/tasks/priority";
 import confetti from "canvas-confetti";
 import { isOvernightTimeRange } from "@/lib/dates";
@@ -53,12 +55,15 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
   onUpdateTask,
 }) => {
   const { projects } = useProjects();
+  const { updateProject } = useProjectMutations();
   const [title, setTitle] = useState(task?.title || "");
   const [selectedProjectId, setSelectedProjectId] = useState<string>(task?.projectId || "");
+  const [projectCategory, setProjectCategory] = useState<string>(task?.projectCategory || "");
+  const [newSubprojectInput, setNewSubprojectInput] = useState("");
   const [startTime, setStartTime] = useState(task?.effectiveStartTime || task?.startTime || "09:00");
   const [endTime, setEndTime] = useState(task?.effectiveEndTime || task?.endTime || "10:00");
   const [isDone, setIsDone] = useState(Boolean(task?.isCompletedToday));
-  const [isRemindersEnabled, setIsRemindersEnabled] = useState(task?.enableReminders !== false);
+  const [isRemindersEnabled, setIsRemindersEnabled] = useState(Boolean(task?.enableReminders));
 
   const isDeletingRef = React.useRef(false);
 
@@ -68,12 +73,14 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
       isDeletingRef.current = false;
       setTitle(task.title || "");
       setSelectedProjectId(task.projectId || "");
+      setProjectCategory(task.projectCategory || "");
       setStartTime(task.effectiveStartTime || task.startTime || "09:00");
       setEndTime(task.effectiveEndTime || task.endTime || "10:00");
       setIsDone(Boolean(task.isCompletedToday));
-      setIsRemindersEnabled(task.enableReminders !== false);
+      setIsRemindersEnabled(Boolean(task.enableReminders));
+      setNewSubprojectInput("");
     }
-  }, [task, task?.isCompletedToday, task?.enableReminders]);
+  }, [task, task?.isCompletedToday, task?.enableReminders, task?.projectCategory, task?.projectId]);
 
   if (!isOpen || !task) return null;
 
@@ -126,9 +133,33 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
   const handleProjectChange = (newProjId: string) => {
     if (isDeletingRef.current) return;
     setSelectedProjectId(newProjId);
+    setProjectCategory("");
     if (task) {
-      onUpdateTask?.(task.id, { projectId: newProjId || null });
+      onUpdateTask?.(task.id, { projectId: newProjId || null, projectCategory: null });
     }
+  };
+
+  const handleSelectSubproject = (cat: string) => {
+    if (isDeletingRef.current) return;
+    setProjectCategory(cat);
+    if (task) {
+      onUpdateTask?.(task.id, { projectCategory: cat || null });
+    }
+  };
+
+  const handleAddNewSubproject = () => {
+    const trimmed = newSubprojectInput.trim();
+    if (!trimmed || !currentProject) return;
+    handleSelectSubproject(trimmed);
+    const currentCats = currentProject.categories || [];
+    if (!currentCats.includes(trimmed)) {
+      const nextCats = [...currentCats, trimmed];
+      updateProject.mutate({
+        projectId: currentProject.id,
+        updates: { categories: nextCats },
+      });
+    }
+    setNewSubprojectInput("");
   };
 
   const handleStartTimeChange = (newStart: string) => {
@@ -145,6 +176,10 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
       onUpdateTimes(task.id, startTime, newEnd, selectedDate);
     }
   };
+
+  const availableCategories = Array.from(
+    new Set([...(currentProject?.categories || []), ...(projectCategory ? [projectCategory] : [])])
+  );
 
   return (
     <div
@@ -186,9 +221,10 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
               <ChevronDown className="w-3.5 h-3.5 absolute right-2 pointer-events-none opacity-60" />
             </div>
 
-            {task.projectCategory && (
-              <span className="text-[11px] text-[#A5B4FC] bg-[#818CF8]/15 border border-[#818CF8]/30 px-2 py-0.5 rounded-md font-semibold truncate">
-                {task.projectCategory}
+            {projectCategory && (
+              <span className="text-[11px] text-[#A5B4FC] bg-[#818CF8]/15 border border-[#818CF8]/30 px-2 py-0.5 rounded-md font-semibold truncate flex items-center gap-1">
+                <Tag className="w-3 h-3 text-[#818CF8]" />
+                <span>{projectCategory}</span>
               </span>
             )}
           </div>
@@ -246,6 +282,85 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
               </p>
             )}
           </div>
+
+          {/* Subproject / Category Section (if project is assigned) */}
+          {currentProject && (
+            <div className="p-3.5 rounded-2xl bg-[#1C1E28] border border-[#2B2F40] space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs sm:text-sm text-[#CBD5E1] font-semibold">
+                  <Tag className="w-4 h-4 text-[#818CF8]" />
+                  <span>Sous-projet / Catégorie</span>
+                </div>
+                {projectCategory && (
+                  <button
+                    type="button"
+                    onClick={() => handleSelectSubproject("")}
+                    className="text-[10px] font-semibold text-[#8E929E] hover:text-[#EF4444] transition-colors cursor-pointer"
+                  >
+                    Effacer
+                  </button>
+                )}
+              </div>
+
+              {/* Subproject Pills */}
+              <div className="flex flex-wrap gap-1.5 pt-0.5">
+                <button
+                  type="button"
+                  onClick={() => handleSelectSubproject("")}
+                  className={cn(
+                    "px-2.5 py-1 rounded-xl text-xs font-medium border transition-all cursor-pointer",
+                    !projectCategory
+                      ? "bg-[#D4F63D]/15 border-[#D4F63D] text-[#D4F63D] font-bold"
+                      : "bg-[#14161F] border-[#2D3142] text-[#9CA3AF] hover:border-[#4B5563]"
+                  )}
+                >
+                  Aucun
+                </button>
+
+                {availableCategories.map((cat) => (
+                  <button
+                    type="button"
+                    key={cat}
+                    onClick={() => handleSelectSubproject(cat)}
+                    className={cn(
+                      "px-2.5 py-1 rounded-xl text-xs font-medium border transition-all cursor-pointer flex items-center gap-1.5",
+                      projectCategory === cat
+                        ? "bg-[#818CF8]/25 border-[#818CF8] text-[#C7D2FE] font-bold shadow-sm"
+                        : "bg-[#14161F] border-[#2D3142] text-[#9CA3AF] hover:border-[#4B5563]"
+                    )}
+                  >
+                    <Tag className="w-3 h-3 text-[#818CF8]" />
+                    <span>{cat}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Inline input to create new subproject */}
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="text"
+                  placeholder="Nouveau sous-projet..."
+                  value={newSubprojectInput}
+                  onChange={(e) => setNewSubprojectInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleAddNewSubproject();
+                    }
+                  }}
+                  className="flex-1 px-3 py-1.5 rounded-xl bg-[#14161F] border border-[#2D3142] focus:border-[#818CF8] text-xs text-white outline-none placeholder-[#6B7280]"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddNewSubproject}
+                  disabled={!newSubprojectInput.trim()}
+                  className="px-3 py-1.5 rounded-xl bg-[#818CF8]/20 hover:bg-[#818CF8]/30 text-[#818CF8] border border-[#818CF8]/40 text-xs font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex-shrink-0"
+                >
+                  + Ajouter
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Date & Timing Section (Auto-saved directly on change) */}
           <div className="p-3.5 rounded-2xl bg-[#1C1E28] border border-[#2B2F40] flex flex-col gap-2.5">
