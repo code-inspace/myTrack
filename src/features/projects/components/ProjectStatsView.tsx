@@ -34,17 +34,27 @@ interface ProjectStatsViewProps {
 
 // Helpers for duration calculation
 function getTaskCompletionDurationMinutes(c: TaskCompletion, task?: Task): number {
-  if (c.duration && c.duration > 0) return c.duration;
   if (c.actualStartTime && c.actualEndTime) {
     const [h1, m1] = c.actualStartTime.split(":").map(Number);
     const [h2, m2] = c.actualEndTime.split(":").map(Number);
-    const diff = h2 * 60 + m2 - (h1 * 60 + m1);
-    if (diff > 0) return diff;
+    let diff = h2 * 60 + m2 - (h1 * 60 + m1);
+    if (diff < 0) diff += 24 * 60;
+    if (diff > 0) {
+      if (typeof c.duration === "number" && c.duration > diff) {
+        return c.duration;
+      }
+      return diff;
+    }
+  }
+  if (c.duration && c.duration > 0) return c.duration;
+  if (task?.isActive && task?.startedAt) {
+    return Math.max(1, Math.floor((Date.now() - new Date(task.startedAt).getTime()) / 60000));
   }
   if (task?.startTime && task?.endTime) {
     const [h1, m1] = task.startTime.split(":").map(Number);
     const [h2, m2] = task.endTime.split(":").map(Number);
-    const diff = h2 * 60 + m2 - (h1 * 60 + m1);
+    let diff = h2 * 60 + m2 - (h1 * 60 + m1);
+    if (diff < 0) diff += 24 * 60;
     if (diff > 0) return diff;
   }
   if (task?.trackingType === "DURATION" && task.targetValue) {

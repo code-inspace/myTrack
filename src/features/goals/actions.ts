@@ -251,18 +251,33 @@ export function computeGoalProgress(params: {
     if (!matchingTask) continue;
 
     if (c.completed) {
-      if (typeof c.duration === "number" && c.duration > 0) {
-        totalMinutes += c.duration;
-      } else if (c.actualStartTime && c.actualEndTime) {
+      let sessionMinutes = 0;
+      if (c.actualStartTime && c.actualEndTime) {
         const [h1, m1] = c.actualStartTime.split(":").map(Number);
         const [h2, m2] = c.actualEndTime.split(":").map(Number);
-        const diff = h2 * 60 + m2 - (h1 * 60 + m1);
-        totalMinutes += diff > 0 ? diff : 1;
-      } else if (matchingTask.targetValue) {
-        totalMinutes += Number(matchingTask.targetValue) || 30;
-      } else {
-        totalMinutes += 30;
+        let diff = h2 * 60 + m2 - (h1 * 60 + m1);
+        if (diff < 0) diff += 24 * 60;
+        if (diff > 0) {
+          sessionMinutes = typeof c.duration === "number" && c.duration > diff ? c.duration : diff;
+        }
       }
+      if (sessionMinutes === 0 && typeof c.duration === "number" && c.duration > 0) {
+        sessionMinutes = c.duration;
+      }
+      if (sessionMinutes === 0 && matchingTask.startTime && matchingTask.endTime) {
+        const [h1, m1] = matchingTask.startTime.split(":").map(Number);
+        const [h2, m2] = matchingTask.endTime.split(":").map(Number);
+        let diff = h2 * 60 + m2 - (h1 * 60 + m1);
+        if (diff < 0) diff += 24 * 60;
+        if (diff > 0) sessionMinutes = diff;
+      }
+      if (sessionMinutes === 0 && matchingTask.targetValue) {
+        sessionMinutes = Number(matchingTask.targetValue) || 30;
+      }
+      if (sessionMinutes === 0) {
+        sessionMinutes = 30;
+      }
+      totalMinutes += sessionMinutes;
     }
   }
 

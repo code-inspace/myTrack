@@ -916,6 +916,13 @@ export function useTaskMutations() {
         } else if (targetTask?.startTime) {
           actualStart = targetTask.startTime;
         }
+        const [sH, sM] = actualStart.split(":").map(Number);
+        const [eH, eM] = nowTime.split(":").map(Number);
+        if (!isNaN(sH) && !isNaN(eH)) {
+          let diff = eH * 60 + eM - (sH * 60 + sM);
+          if (diff < 0) diff += 24 * 60;
+          durationMinutes = Math.max(1, diff);
+        }
       }
 
       const prevDuration = existing?.completed && typeof existing.duration === "number" ? existing.duration : 0;
