@@ -120,4 +120,89 @@ describe("Projects Logic", () => {
     expect(excluded.length).toBe(1);
     expect(excluded[0].id).toBe("t3");
   });
+
+  it("deduplicates concurrent project creations to prevent creating duplicate projects", async () => {
+    let createCallCount = 0;
+    let updateCallCount = 0;
+    let activeProjectId: string | null = null;
+    let lastSavedSignature = "";
+    let savePromise: Promise<any> | null = null;
+    let queuedSave = false;
+
+    const mockOnSubmit = async (
+      payload: { name: string; color: string; columns: any[]; categories?: string[] },
+      projectId?: string
+    ) => {
+      // Simulate network delay
+      await new Promise((r) => setTimeout(r, 50));
+      if (projectId) {
+        updateCallCount++;
+        return;
+      } else {
+        createCallCount++;
+        const createdId = "proj-new-123";
+        return { id: createdId, ...payload, userId: "user-1", createdAt: "", updatedAt: "" };
+      }
+    };
+
+    const performSave = async (payload: { name: string; color: string; columns: any[]; categories?: string[] }) => {
+      if (savePromise) {
+        queuedSave = true;
+        return savePromise;
+      }
+
+      const signature = JSON.stringify(payload);
+      if (signature === lastSavedSignature) return;
+
+      const doSave = async () => {
+        try {
+          const currentId = activeProjectId;
+          if (currentId) {
+            await mockOnSubmit(payload, currentId);
+            lastSavedSignature = signature;
+          } else {
+            const result = await mockOnSubmit(payload);
+            if (result && result.id) {
+              activeProjectId = result.id;
+            }
+            lastSavedSignature = signature;
+          }
+        } finally {
+          savePromise = null;
+          if (queuedSave) {
+            queuedSave = false;
+            await performSave(payload);
+          }
+        }
+      };
+
+      savePromise = doSave();
+      return savePromise;
+    };
+
+    const initialPayload = {
+      name: "Super Projet",
+      color: "#D4F63D",
+      columns: DEFAULT_PROJECT_COLUMNS,
+      categories: ["Tech"],
+    };
+
+    // Simulate simultaneous triggers (e.g. debounced auto-save + onBlur + modal close)
+    const p1 = performSave(initialPayload);
+    const p2 = performSave(initialPayload);
+    const p3 = performSave(initialPayload);
+
+    await Promise.all([p1, p2, p3]);
+
+    expect(createCallCount).toBe(1);
+    expect(updateCallCount).toBe(0);
+    expect(activeProjectId).toBe("proj-new-123");
+
+    // Subsequent save with modified name should perform an update, NOT a new create
+    const updatedPayload = { ...initialPayload, name: "Super Projet Renommé" };
+    await performSave(updatedPayload);
+
+    expect(createCallCount).toBe(1);
+    expect(updateCallCount).toBe(1);
+  });
 });

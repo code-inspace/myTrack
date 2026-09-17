@@ -53,6 +53,8 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
   const autoSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedSignatureRef = useRef<string>("");
   const activeProjectIdRef = useRef<string | null>(null);
+  const savePromiseRef = useRef<Promise<any> | null>(null);
+  const queuedSaveRef = useRef<boolean>(false);
   activeProjectIdRef.current = activeProjectId;
 
   const isEditing = Boolean(activeProjectId || initialProject);
@@ -60,6 +62,13 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
   // Initialize or reset form when modal opens
   useEffect(() => {
     if (isOpen && !prevIsOpenRef.current) {
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+        autoSaveTimeoutRef.current = null;
+      }
+      savePromiseRef.current = null;
+      queuedSaveRef.current = false;
+      isSavingRef.current = false;
       setConfirmDelete(false);
       setColumnToDeleteId(null);
       setNewCatInput("");
@@ -72,6 +81,7 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
         const cats = Array.isArray(initialProject.categories) ? [...initialProject.categories] : [];
         setCategories(cats);
         setActiveProjectId(initialProject.id);
+        activeProjectIdRef.current = initialProject.id;
         lastSavedSignatureRef.current = JSON.stringify({
           name: (initialProject.name || "").trim(),
           color: initialProject.color || COLOR_OPTIONS[0],
@@ -85,6 +95,7 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
         setColumns(cols);
         setCategories([]);
         setActiveProjectId(null);
+        activeProjectIdRef.current = null;
         lastSavedSignatureRef.current = "";
       }
     }
@@ -111,7 +122,12 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
     };
   }, [name, color, columns, categories]);
 
-  const performSave = useCallback(async () => {
+  const performSave = useCallback(async (): Promise<any> => {
+    if (savePromiseRef.current) {
+      queuedSaveRef.current = true;
+      return savePromiseRef.current;
+    }
+
     const payload = getCleanPayload();
     if (!payload.name) return;
 
@@ -120,27 +136,40 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
 
     setSaveStatus("saving");
     isSavingRef.current = true;
-    try {
-      const currentId = activeProjectIdRef.current;
-      if (currentId) {
-        await onSubmit(payload, currentId);
-        lastSavedSignatureRef.current = signature;
-        setSaveStatus("saved");
-      } else {
-        const result = await onSubmit(payload);
-        if (result && typeof result === "object" && (result as any).id) {
-          setActiveProjectId((result as any).id);
-          activeProjectIdRef.current = (result as any).id;
+
+    const doSave = async () => {
+      try {
+        const currentId = activeProjectIdRef.current;
+        if (currentId) {
+          await onSubmit(payload, currentId);
+          lastSavedSignatureRef.current = signature;
+          setSaveStatus("saved");
+        } else {
+          const result = await onSubmit(payload);
+          if (result && typeof result === "object" && (result as any).id) {
+            const newId = (result as any).id;
+            setActiveProjectId(newId);
+            activeProjectIdRef.current = newId;
+          }
+          lastSavedSignatureRef.current = signature;
+          setSaveStatus("saved");
         }
-        lastSavedSignatureRef.current = signature;
-        setSaveStatus("saved");
+      } catch (err) {
+        console.error("Auto-save project error:", err);
+        setSaveStatus("idle");
+      } finally {
+        isSavingRef.current = false;
+        savePromiseRef.current = null;
+        if (queuedSaveRef.current) {
+          queuedSaveRef.current = false;
+          performSave();
+        }
       }
-    } catch (err) {
-      console.error("Auto-save project error:", err);
-      setSaveStatus("idle");
-    } finally {
-      isSavingRef.current = false;
-    }
+    };
+
+    const promise = doSave();
+    savePromiseRef.current = promise;
+    return promise;
   }, [getCleanPayload, onSubmit]);
 
   // Debounced auto-save effect
