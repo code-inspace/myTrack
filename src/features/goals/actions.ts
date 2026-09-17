@@ -81,6 +81,7 @@ export async function fetchGoals(userId?: string): Promise<Goal[]> {
         projectId: row.project_id,
         projectCategory: row.project_category || undefined,
         periodType: row.period_type || "week",
+        periodKey: row.period_key || undefined,
         targetMinutes: Number(row.target_minutes) || 60,
         color: row.color || undefined,
         createdAt: row.created_at || new Date().toISOString(),

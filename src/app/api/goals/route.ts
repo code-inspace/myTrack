@@ -95,6 +95,7 @@ export async function POST(req: NextRequest) {
       projectId,
       projectCategory,
       periodType,
+      periodKey,
       targetMinutes,
       color,
     } = body;
@@ -116,6 +117,7 @@ export async function POST(req: NextRequest) {
       projectId,
       projectCategory: projectCategory || null,
       periodType: periodType || "week",
+      periodKey: periodKey || null,
       targetMinutes: Number(targetMinutes) || 60,
       color: color || null,
       createdAt: now,
@@ -140,7 +142,7 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   try {
     const body = await req.json();
-    const { id, userId, title, projectId, projectCategory, periodType, targetMinutes, color } =
+    const { id, userId, title, projectId, projectCategory, periodType, periodKey, targetMinutes, color } =
       body;
 
     if (!id || !userId) {
@@ -160,6 +162,7 @@ export async function PUT(req: NextRequest) {
         ...(projectId !== undefined && { projectId }),
         ...(projectCategory !== undefined && { projectCategory }),
         ...(periodType !== undefined && { periodType }),
+        ...(periodKey !== undefined && { periodKey }),
         ...(targetMinutes !== undefined && { targetMinutes: Number(targetMinutes) }),
         ...(color !== undefined && { color }),
         updatedAt: now,
@@ -173,6 +176,7 @@ export async function PUT(req: NextRequest) {
         projectId: projectId || "",
         projectCategory: projectCategory || null,
         periodType: periodType || "week",
+        periodKey: periodKey || null,
         targetMinutes: Number(targetMinutes) || 60,
         color: color || null,
         createdAt: now,

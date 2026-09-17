@@ -9,13 +9,13 @@ import { GoalCard } from "@/features/goals/components/GoalCard";
 import { GoalSummaryHeader } from "@/features/goals/components/GoalSummaryHeader";
 import { GoalFormModal } from "@/features/goals/components/GoalFormModal";
 import { computeGoalProgress } from "@/features/goals/actions";
-import { Goal, GoalPeriodType } from "@/features/goals/types";
+import { Goal, GoalPeriodType, getGoalPeriodKey, getGoalPeriodHumanLabel } from "@/features/goals/types";
 import { useProjects } from "@/features/projects/hooks";
 import { useTasks } from "@/features/tasks/hooks";
 import { getTodayDateString } from "@/lib/dates";
 import { useCalendarEvents } from "@/features/calendar/hooks/useCalendarEvents";
 import { addWeeks, subWeeks, addMonths, subMonths, addDays, subDays } from "date-fns";
-import { Plus, Target, Sparkles, Filter, AlertCircle, ArrowUpDown } from "lucide-react";
+import { Plus, Target, Sparkles, Filter, AlertCircle, ArrowUpDown, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function GoalsPage() {
@@ -23,7 +23,6 @@ export default function GoalsPage() {
   const [referenceDate, setReferenceDate] = useState<Date>(() => new Date());
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
-  const [filterPeriodOnly, setFilterPeriodOnly] = useState(false);
 
   // Swipe navigation handling
   const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
@@ -69,11 +68,24 @@ export default function GoalsPage() {
     return map;
   }, [projects]);
 
-  // Filter goals depending on frequency option or active period
+  const activePeriodKey = useMemo(() => {
+    return getGoalPeriodKey(period, referenceDate);
+  }, [period, referenceDate]);
+
+  const activePeriodLabel = useMemo(() => {
+    return getGoalPeriodHumanLabel(period, referenceDate);
+  }, [period, referenceDate]);
+
+  // Filter goals specifically for the active period & reference date
   const displayedGoals = useMemo(() => {
-    if (!filterPeriodOnly || period === "all") return goals;
-    return goals.filter((g) => g.periodType === period);
-  }, [goals, filterPeriodOnly, period]);
+    return goals.filter((g) => {
+      if (g.periodKey) {
+        return g.periodKey === activePeriodKey;
+      }
+      if (period === "all") return true;
+      return g.periodType === period;
+    });
+  }, [goals, activePeriodKey, period]);
 
   // Compute progress for each goal for the selected period & referenceDate
   const goalsWithProgress = useMemo(() => {
@@ -201,8 +213,9 @@ export default function GoalsPage() {
         {/* Section Header with Quick Actions & Filters */}
         <div className="flex items-center justify-between pt-1">
           <div className="flex items-center gap-2">
-            <h2 className="text-sm font-bold text-white uppercase tracking-wider">
-              Mes Objectifs ({goalsWithProgress.length})
+            <h2 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+              <span>Mes Objectifs ({goalsWithProgress.length})</span>
+              <span className="text-[#8E929E] font-normal text-xs lowercase">• {activePeriodLabel}</span>
             </h2>
           </div>
 
@@ -227,10 +240,11 @@ export default function GoalsPage() {
             </div>
 
             <div className="max-w-md mx-auto space-y-1.5">
-              <h3 className="text-lg font-bold text-white">Aucun objectif configuré</h3>
+              <h3 className="text-lg font-bold text-white">
+                Aucun objectif pour {period === "day" ? "ce jour" : period === "week" ? "cette semaine" : "ce mois"}
+              </h3>
               <p className="text-xs text-[#8E929E]">
-                Créez votre premier objectif temporel pour un projet ou un sous-projet (ex: 3h de
-                Projet A par semaine, 10h de sous-projet X par mois).
+                Définissez un objectif temporel pour <strong className="text-white">{activePeriodLabel}</strong> (ex: 3h de Projet A, 10h de sous-projet X).
               </p>
             </div>
 
@@ -240,7 +254,7 @@ export default function GoalsPage() {
               className="px-5 py-3 rounded-2xl bg-[#D4F63D] hover:bg-[#bce028] text-black text-xs font-bold transition-all shadow-lg inline-flex items-center gap-2 cursor-pointer"
             >
               <Plus className="w-4 h-4" />
-              <span>Créer un objectif</span>
+              <span>Créer un objectif pour cette période</span>
             </button>
           </div>
         ) : (
@@ -265,7 +279,8 @@ export default function GoalsPage() {
         isOpen={isModalOpen}
         initialGoal={editingGoal}
         projects={projects}
-        defaultPeriod={defaultModalPeriod}
+        referenceDate={referenceDate}
+        currentPeriod={period}
         onClose={() => {
           setIsModalOpen(false);
           setEditingGoal(null);

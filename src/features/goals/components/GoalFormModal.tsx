@@ -1,16 +1,18 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { X, Target, Clock, Calendar, Folder, Tag, Trash2, Check, Sparkles } from "lucide-react";
-import { Goal, GoalPeriodType } from "../types";
+import { X, Target, Clock, Calendar, Folder, Tag, Trash2, Check, Sparkles, Info } from "lucide-react";
+import { Goal, GoalPeriodType, getGoalPeriodKey, getGoalPeriodHumanLabel } from "../types";
 import { Project } from "@/features/projects/types";
+import { Period } from "@/features/dashboard/types";
 import { cn } from "@/lib/utils";
 
 interface GoalFormModalProps {
   isOpen: boolean;
   initialGoal?: Goal | null;
   projects: Project[];
-  defaultPeriod?: GoalPeriodType;
+  referenceDate?: Date;
+  currentPeriod?: Period;
   onClose: () => void;
   onSubmit: (goalData: Omit<Goal, "id" | "userId" | "createdAt" | "updatedAt">, goalId?: string) => Promise<void> | void;
   onDelete?: (goalId: string) => Promise<void> | void;
@@ -22,14 +24,18 @@ export const GoalFormModal: React.FC<GoalFormModalProps> = ({
   isOpen,
   initialGoal,
   projects,
-  defaultPeriod = "week",
+  referenceDate = new Date(),
+  currentPeriod = "week",
   onClose,
   onSubmit,
   onDelete,
 }) => {
   const [projectId, setProjectId] = useState<string>("");
   const [projectCategory, setProjectCategory] = useState<string>("");
-  const [periodType, setPeriodType] = useState<GoalPeriodType>(defaultPeriod);
+  
+  const initialType: GoalPeriodType =
+    currentPeriod === "day" ? "day" : currentPeriod === "month" ? "month" : "week";
+  const [periodType, setPeriodType] = useState<GoalPeriodType>(initialType);
   const [hours, setHours] = useState<number>(3);
   const [minutes, setMinutes] = useState<number>(0);
   const [title, setTitle] = useState<string>("");
@@ -55,17 +61,22 @@ export const GoalFormModal: React.FC<GoalFormModalProps> = ({
     } else {
       setProjectId(projects[0]?.id ?? "");
       setProjectCategory("");
-      setPeriodType(defaultPeriod);
-      setHours(3);
+      const resolvedType: GoalPeriodType =
+        currentPeriod === "day" ? "day" : currentPeriod === "month" ? "month" : "week";
+      setPeriodType(resolvedType);
+      setHours(resolvedType === "day" ? 2 : resolvedType === "week" ? 5 : 20);
       setMinutes(0);
       setTitle("");
     }
-  }, [isOpen, initialGoal, projects, defaultPeriod]);
+  }, [isOpen, initialGoal, projects, currentPeriod]);
 
   if (!isOpen) return null;
 
   const selectedProject = projects.find((p) => p.id === projectId);
   const availableCategories = selectedProject?.categories || [];
+
+  const periodLabel = getGoalPeriodHumanLabel(periodType, referenceDate);
+  const periodKey = getGoalPeriodKey(periodType, referenceDate);
 
   const handlePresetSelect = (presetHours: number) => {
     setHours(presetHours);
@@ -85,6 +96,7 @@ export const GoalFormModal: React.FC<GoalFormModalProps> = ({
           projectId,
           projectCategory: projectCategory.trim() ? projectCategory.trim() : undefined,
           periodType,
+          periodKey: initialGoal?.periodKey || periodKey,
           targetMinutes: totalMinutes,
           title: title.trim() ? title.trim() : undefined,
           color: selectedProject?.color || "#D4F63D",
@@ -230,11 +242,11 @@ export const GoalFormModal: React.FC<GoalFormModalProps> = ({
             </div>
           )}
 
-          {/* 3. Période (Jour / Semaine / Mois) */}
+          {/* 3. Période Ciblée (Jour / Semaine / Mois) */}
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-[#8E929E] mb-2 flex items-center gap-1.5">
               <Calendar className="w-3.5 h-3.5" />
-              <span>Fréquence / Périodicité *</span>
+              <span>Période ciblée *</span>
             </label>
             <div className="grid grid-cols-3 gap-2 bg-[#101114] p-1 rounded-2xl border border-[#23252E]">
               {(
@@ -259,6 +271,19 @@ export const GoalFormModal: React.FC<GoalFormModalProps> = ({
                 </button>
               ))}
             </div>
+
+            {/* Période précise & indication de non-récurrence */}
+            <div className="mt-2.5 p-3 rounded-2xl bg-[#181A22] border border-[#262936] flex items-start gap-2.5">
+              <Calendar className="w-4 h-4 text-[#D4F63D] shrink-0 mt-0.5" />
+              <div className="space-y-0.5 min-w-0">
+                <p className="text-xs font-bold text-white truncate">
+                  {periodLabel}
+                </p>
+                <p className="text-[11px] text-[#8E929E] leading-relaxed">
+                  Objectif unique lié à cette période (non-récurrent).
+                </p>
+              </div>
+            </div>
           </div>
 
           {/* 4. Durée Cible */}
@@ -269,7 +294,7 @@ export const GoalFormModal: React.FC<GoalFormModalProps> = ({
                 <span>Objectif de temps *</span>
               </span>
               <span className="text-[#D4F63D] font-bold lowercase">
-                {hours}h {minutes > 0 ? `${minutes}m` : ""} / {periodType === "day" ? "jour" : periodType === "week" ? "semaine" : "mois"}
+                {hours}h {minutes > 0 ? `${minutes}m` : ""} pour {periodType === "day" ? "ce jour" : periodType === "week" ? "cette semaine" : "ce mois"}
               </span>
             </label>
 
