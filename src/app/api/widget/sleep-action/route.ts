@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
+import { convertLocalTimeToUtc } from "@/lib/dates";
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://bvdyjpxngcdindqhprmc.supabase.co";
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2ZHlqcHhuZ2NkaW5kcWhwcm1jIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NzQzNjYwMywiZXhwIjoyMTAzMDEyNjAzfQ.IlUB0n1mLfapf60gWlUZsJiOm7YpRYHiv0mlcTJgby0";
 
@@ -44,6 +46,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (userId) {
+      const utcNowTime = convertLocalTimeToUtc(nowTimeStr, todayStr);
+
       if (action === "NOT_SLEEPING") {
         // L'utilisateur a cliqué sur "Je ne dors pas" :
         // Valider le réveil du matin, annuler tout 2ème sommeil, et persister dans sleep_logs
@@ -58,7 +62,7 @@ export async function POST(req: NextRequest) {
         let naps = Array.isArray(existingLog?.naps) ? existingLog.naps : [];
         naps = naps.map((n: any) => ({
           ...n,
-          endTime: n.endTime || nowTimeStr,
+          endTime: n.endTime || utcNowTime,
         }));
 
         await supabase.from("sleep_logs").upsert(
@@ -66,8 +70,8 @@ export async function POST(req: NextRequest) {
             {
               user_id: userId,
               date: todayStr,
-              bedtime: existingLog?.bedtime || "23:00",
-              wake_time: existingLog?.wake_time || nowTimeStr,
+              bedtime: existingLog?.bedtime || convertLocalTimeToUtc("23:00", todayStr),
+              wake_time: existingLog?.wake_time || utcNowTime,
               bedtime_validated: Boolean(existingLog?.bedtime_validated),
               wake_time_validated: true,
               naps,
@@ -89,8 +93,8 @@ export async function POST(req: NextRequest) {
             {
               user_id: userId,
               date: todayStr,
-              bedtime: existingLog?.bedtime || "23:00",
-              wake_time: nowTimeStr,
+              bedtime: existingLog?.bedtime || convertLocalTimeToUtc("23:00", todayStr),
+              wake_time: utcNowTime,
               bedtime_validated: Boolean(existingLog?.bedtime_validated),
               wake_time_validated: true,
               updated_at: new Date().toISOString(),
@@ -111,8 +115,8 @@ export async function POST(req: NextRequest) {
             {
               user_id: userId,
               date: todayStr,
-              bedtime: nowTimeStr,
-              wake_time: existingLog?.wake_time || "07:00",
+              bedtime: utcNowTime,
+              wake_time: existingLog?.wake_time || convertLocalTimeToUtc("07:00", todayStr),
               bedtime_validated: true,
               wake_time_validated: false,
               updated_at: new Date().toISOString(),

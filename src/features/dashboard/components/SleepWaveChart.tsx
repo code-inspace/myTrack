@@ -15,10 +15,10 @@ import { fr } from "date-fns/locale";
 import {
   computeSleepDuration,
   fetchSleepHistory,
-  purgeOldSleepLogsExceptYesterday,
 } from "@/features/sleep/actions";
 import { DailySleepLog } from "@/features/sleep/types";
 import { getTodayDateString } from "@/lib/dates";
+import { createClient } from "@/utils/supabase/client";
 import { Moon, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -50,24 +50,55 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
   const [selectedDateStr, setSelectedDateStr] = useState<string | null>(null);
   const [historyLogs, setHistoryLogs] = useState<DailySleepLog[]>([]);
 
-  // Fetch real sleep history
+  // Fetch real sleep history & listen to realtime updates from iPhone/Widget
   useEffect(() => {
-    purgeOldSleepLogsExceptYesterday().finally(() => {
+    const loadLogs = () => {
       fetchSleepHistory(180).then((logs) => {
-        if (logs) {
+        if (logs && Array.isArray(logs)) {
           setHistoryLogs(logs);
         }
       });
-    });
+    };
 
+    loadLogs();
+
+    // 1. Listen for local app sleep detection events
     const handleAutoSleep = () => {
-      fetchSleepHistory(180).then((logs) => {
-        if (logs) setHistoryLogs(logs);
-      });
+      loadLogs();
     };
     window.addEventListener("mytrack:sleep-auto-detected", handleAutoSleep);
-    return () =>
+    window.addEventListener("focus", loadLogs);
+
+    // 2. Realtime Supabase subscription for cross-device sync (iPhone -> Desktop)
+    let channel: any = null;
+    try {
+      const supabase = createClient();
+      channel = supabase
+        .channel("sleep_logs_changes")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "sleep_logs" },
+          () => {
+            loadLogs();
+          }
+        )
+        .subscribe();
+    } catch {}
+
+    // Polling fallback every 30s
+    const interval = setInterval(loadLogs, 30000);
+
+    return () => {
       window.removeEventListener("mytrack:sleep-auto-detected", handleAutoSleep);
+      window.removeEventListener("focus", loadLogs);
+      clearInterval(interval);
+      if (channel) {
+        try {
+          const supabase = createClient();
+          supabase.removeChannel(channel);
+        } catch {}
+      }
+    };
   }, []);
 
   const logsMap = useMemo(() => {

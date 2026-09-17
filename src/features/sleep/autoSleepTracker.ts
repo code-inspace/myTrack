@@ -32,9 +32,11 @@ import { LiveActivityBridge } from "@/lib/native/liveActivity";
 
 /**
  * Records when the app goes into the background or is closed.
+ * Restricted to native mobile platforms (iPhone) as desktop web cannot track sleep absence.
  */
 export function recordAppBackground(now: Date = new Date()): void {
   if (typeof window === "undefined") return;
+  if (!Capacitor.isNativePlatform()) return;
 
   const nowIso = now.toISOString();
   try {
@@ -121,6 +123,9 @@ export function recordAppBackground(now: Date = new Date()): void {
 export function processAppForeground(now: Date = new Date()): AutoSleepDetectionResult {
   if (typeof window === "undefined") {
     return { detected: false, reason: "Server environment" };
+  }
+  if (!Capacitor.isNativePlatform()) {
+    return { detected: false, reason: "Desktop web does not manage sleep tracking" };
   }
 
   const nowIso = now.toISOString();

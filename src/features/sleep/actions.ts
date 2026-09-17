@@ -530,57 +530,11 @@ export async function fetchSleepHistory(
 }
 
 /**
- * Purges pre-recorded / mock sleep logs from localStorage and Supabase,
- * keeping only yesterday's and today's legitimate sleep logs.
+ * Preserved for backwards compatibility, no-op to protect actual sleep records.
  */
 export async function purgeOldSleepLogsExceptYesterday(userId?: string): Promise<void> {
-  if (typeof window === "undefined") return;
-
-  const today = new Date();
-  const todayStr = format(today, "yyyy-MM-dd");
-  const yesterdayStr = format(subDays(today, 1), "yyyy-MM-dd");
-
-  // 1. Purge localStorage entries that do not match yesterday or today
-  try {
-    const keysToRemove: string[] = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith(SLEEP_STORAGE_PREFIX)) {
-        const parts = key.split("_");
-        const datePart = parts[parts.length - 1];
-        if (datePart && datePart !== todayStr && datePart !== yesterdayStr) {
-          keysToRemove.push(key);
-        }
-      }
-    }
-    keysToRemove.forEach((k) => {
-      try {
-        localStorage.removeItem(k);
-      } catch {}
-    });
-  } catch (e) {
-    console.warn("purgeOldSleepLogsExceptYesterday localStorage error:", e);
-  }
-
-  // 2. Clean remote Supabase table for current user
-  try {
-    const supabase = createClient();
-    let targetId = userId;
-    if (!targetId) {
-      const { data: { session } } = await supabase.auth.getSession();
-      targetId = session?.user?.id || getEffectiveUserId();
-    }
-    if (targetId) {
-      await supabase
-        .from("sleep_logs")
-        .delete()
-        .eq("user_id", targetId)
-        .neq("date", yesterdayStr)
-        .neq("date", todayStr);
-    }
-  } catch (e) {
-    console.warn("purgeOldSleepLogsExceptYesterday remote db error:", e);
-  }
+  // No-op: Sleep history must be preserved permanently in the database
+  return;
 }
 
 export { isNapTitle, syncTaskWithSleepNaps, removeTaskFromSleepNaps } from "./taskNapSync";
