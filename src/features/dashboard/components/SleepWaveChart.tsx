@@ -15,6 +15,7 @@ import { fr } from "date-fns/locale";
 import {
   computeSleepDuration,
   fetchSleepHistory,
+  getStoredSleepLog,
 } from "@/features/sleep/actions";
 import { DailySleepLog } from "@/features/sleep/types";
 import { getTodayDateString } from "@/lib/dates";
@@ -62,11 +63,12 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
 
     loadLogs();
 
-    // 1. Listen for local app sleep detection events
+    // 1. Listen for local app sleep detection events & storage updates
     const handleAutoSleep = () => {
       loadLogs();
     };
     window.addEventListener("mytrack:sleep-auto-detected", handleAutoSleep);
+    window.addEventListener("storage", handleAutoSleep);
     window.addEventListener("focus", loadLogs);
 
     // 2. Realtime Supabase subscription for cross-device sync (iPhone -> Desktop)
@@ -90,6 +92,7 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
 
     return () => {
       window.removeEventListener("mytrack:sleep-auto-detected", handleAutoSleep);
+      window.removeEventListener("storage", handleAutoSleep);
       window.removeEventListener("focus", loadLogs);
       clearInterval(interval);
       if (channel) {
@@ -126,12 +129,12 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
   const points = useMemo(() => {
     return daysInterval.map((d, index) => {
       const dateStr = format(d, "yyyy-MM-dd");
-      const log = logsMap.get(dateStr);
+      const prevDateStr = format(subDays(d, 1), "yyyy-MM-dd");
+
+      const log = logsMap.get(dateStr) || getStoredSleepLog(dateStr);
+      const prevLog = logsMap.get(prevDateStr) || getStoredSleepLog(prevDateStr);
 
       // Night sleep: bedtime from eve (D-1) + wakeTime from this day (D)
-      const prevDateStr = format(subDays(d, 1), "yyyy-MM-dd");
-      const prevLog = logsMap.get(prevDateStr);
-
       const hasPrevBedtime = Boolean(
         prevLog?.bedtime && (prevLog.bedtimeValidated || prevLog.updatedAt || prevLog.bedtime !== "23:00")
       );
@@ -226,6 +229,7 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
       return {
         date: d,
         dateStr,
+        prevDateStr,
         dayNum,
         weekdayInitial,
         fullDateLabel,
@@ -363,7 +367,7 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
 
       {/* 2. Apple Health Floating Detail Tooltip Card (Exact image design) */}
       <div className="relative w-full flex justify-center pt-1 pb-1">
-        <div className="bg-[#14151B] border border-[#232532] shadow-[0_8px_20px_rgba(0,0,0,0.6)] rounded-2xl px-4 py-2 flex flex-col items-center min-w-[150px] max-w-[220px]">
+        <div className="bg-[#14151B] border border-[#232532] shadow-[0_8px_20px_rgba(0,0,0,0.6)] rounded-2xl px-4 py-2 flex flex-col items-center min-w-[150px] max-w-[240px]">
           {/* Tag "AU LIT" with purple bullet */}
           <div className="flex items-center gap-1.5 mb-0.5">
             <div className="w-2 h-2 rounded-full bg-[#7B82EE] shadow-[0_0_6px_#7B82EE]" />
@@ -392,10 +396,17 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
             )}
           </div>
 
-          {/* Date Label: ex: 21 mai 2024 */}
+          {/* Explicit Night Range: ex: Nuit du 16 au 17 sept (23:00 - 07:00) */}
           <span className="text-[10px] font-medium text-[#8E929E] capitalize truncate max-w-full text-center">
-            {activeSelectedPoint?.fullDateLabel || "—"}
+            {activeSelectedPoint?.night
+              ? `Nuit du ${format(subDays(activeSelectedPoint.date, 1), "d MMM", { locale: fr })} au ${format(activeSelectedPoint.date, "d MMM", { locale: fr })}`
+              : activeSelectedPoint?.fullDateLabel || "—"}
           </span>
+          {activeSelectedPoint?.night && (
+            <span className="text-[9px] text-[#7B82EE]/90 font-mono font-semibold mt-0.5">
+              {activeSelectedPoint.yesterdayBedtime} → {activeSelectedPoint.todayWakeTime}
+            </span>
+          )}
         </div>
       </div>
 
