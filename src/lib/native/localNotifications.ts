@@ -111,8 +111,34 @@ export const NativeNotifications = {
           notifications: pending.notifications.map((n) => ({ id: n.id })),
         });
       }
+      await this.clearAllDeliveredNotifications();
     } catch (err) {
       console.warn("[NativeNotifications] cancelAll error:", err);
+    }
+  },
+
+  async removeDeliveredNotification(id: string | number): Promise<void> {
+    if (!this.isSupported()) return;
+
+    try {
+      const notifId = typeof id === "number" ? id : stringToNumericId(id);
+      await LocalNotifications.removeDeliveredNotifications({
+        notifications: [{ id: notifId }],
+      });
+      console.log(`[NativeNotifications] Removed delivered notification #${notifId}`);
+    } catch (err) {
+      console.warn("[NativeNotifications] removeDeliveredNotification error:", err);
+    }
+  },
+
+  async clearAllDeliveredNotifications(): Promise<void> {
+    if (!this.isSupported()) return;
+
+    try {
+      await LocalNotifications.removeAllDeliveredNotifications();
+      console.log("[NativeNotifications] Cleared all delivered notifications from lock screen");
+    } catch (err) {
+      console.warn("[NativeNotifications] clearAllDeliveredNotifications error:", err);
     }
   },
 

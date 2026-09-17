@@ -220,6 +220,7 @@ export async function cancelTaskPushNotifications(params: {
   try {
     if (NativeNotifications.isSupported() && params.taskId) {
       await NativeNotifications.cancelNotification(params.taskId);
+      await NativeNotifications.removeDeliveredNotification(params.taskId);
     }
 
     const res = await fetch("/api/notifications/cancel", {
