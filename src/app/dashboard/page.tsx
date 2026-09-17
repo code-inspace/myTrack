@@ -195,7 +195,7 @@ export default function DashboardPage() {
       <div
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
-        className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain pb-28 md:pb-10 space-y-4 max-w-md md:max-w-6xl mx-auto w-full px-4 md:px-8 pt-3 md:pt-6"
+        className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-y-contain pb-28 md:pb-10 space-y-4 max-w-md md:max-w-6xl mx-auto w-full px-3 sm:px-4 md:px-8 pt-3 md:pt-6"
       >
         {/* Desktop Header */}
         <div className="hidden md:flex items-center justify-between pb-2 select-none flex-shrink-0">

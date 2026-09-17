@@ -62,9 +62,9 @@ export const PeriodSelector: React.FC<PeriodSelectorProps> = ({
   }
 
   return (
-    <div className="w-full space-y-2.5">
+    <div className="w-full space-y-2 overflow-hidden select-none">
       {/* Four main tabs: Jour | Semaine | Mois | Global */}
-      <div className="flex items-center p-1 bg-[#1C1D22] border border-[#282A30] rounded-full w-full max-w-sm mx-auto shadow-inner">
+      <div className="flex items-center p-1 bg-[#1C1D22] border border-[#282A30] rounded-full w-full max-w-sm mx-auto shadow-inner overflow-hidden">
         {options.map((opt) => {
           const isSelected = period === opt.id;
           return (
@@ -72,9 +72,9 @@ export const PeriodSelector: React.FC<PeriodSelectorProps> = ({
               key={opt.id}
               onClick={() => onChangePeriod(opt.id)}
               className={cn(
-                "flex-1 py-2 px-3 rounded-full text-xs font-semibold transition-all duration-200 cursor-pointer text-center",
+                "flex-1 py-1.5 sm:py-2 px-1 sm:px-2.5 rounded-full text-[11px] sm:text-xs font-semibold transition-all duration-200 cursor-pointer text-center truncate",
                 isSelected
-                  ? "bg-white text-black shadow-md font-bold scale-[1.02]"
+                  ? "bg-white text-black shadow-md font-bold"
                   : "text-[#8E929E] hover:text-white"
               )}
             >
@@ -86,22 +86,22 @@ export const PeriodSelector: React.FC<PeriodSelectorProps> = ({
 
       {/* Period Navigation with Arrows for Jour, Semaine & Mois */}
       {period !== "all" && (
-        <div className="flex items-center justify-between px-3 py-1 bg-[#141518] border border-[#23242A] rounded-2xl max-w-sm mx-auto text-xs font-bold text-white shadow-sm">
+        <div className="flex items-center justify-between px-2 sm:px-3 py-1 bg-[#141518] border border-[#23242A] rounded-2xl w-full max-w-sm mx-auto text-xs font-bold text-white shadow-sm overflow-hidden">
           <button
             onClick={handlePrev}
-            className="p-1.5 rounded-xl text-[#D4F63D] hover:bg-[#20222A] transition-colors cursor-pointer"
+            className="p-1 sm:p-1.5 rounded-xl text-[#D4F63D] hover:bg-[#20222A] transition-colors cursor-pointer shrink-0"
             title={period === "day" ? "Jour précédent" : period === "week" ? "Semaine précédente" : "Mois précédent"}
           >
             <ChevronLeft className="w-4 h-4 stroke-[2.5]" />
           </button>
 
-          <span className="capitalize text-[#E2E8F0] tracking-tight font-semibold">
+          <span className="capitalize text-[#E2E8F0] tracking-tight font-semibold text-[11px] sm:text-xs truncate px-1 text-center">
             {periodSubLabel}
           </span>
 
           <button
             onClick={handleNext}
-            className="p-1.5 rounded-xl text-[#D4F63D] hover:bg-[#20222A] transition-colors cursor-pointer"
+            className="p-1 sm:p-1.5 rounded-xl text-[#D4F63D] hover:bg-[#20222A] transition-colors cursor-pointer shrink-0"
             title={period === "day" ? "Jour suivant" : period === "week" ? "Semaine suivante" : "Mois suivant"}
           >
             <ChevronRight className="w-4 h-4 stroke-[2.5]" />
