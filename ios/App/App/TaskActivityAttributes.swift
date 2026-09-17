@@ -64,10 +64,20 @@ public struct TaskActivityAttributes: ActivityAttributes {
     public var taskId: String
     public var taskTitle: String
     public var category: String?
+    public var projectColor: String? // Couleur hex du projet (ex: "#FF5733")
+    public var projectName: String?  // Nom du projet
 
-    public init(taskId: String, taskTitle: String, category: String? = nil) {
+    public init(
+        taskId: String,
+        taskTitle: String,
+        category: String? = nil,
+        projectColor: String? = nil,
+        projectName: String? = nil
+    ) {
         self.taskId = taskId
         self.taskTitle = taskTitle
         self.category = category
+        self.projectColor = projectColor
+        self.projectName = projectName
     }
 }

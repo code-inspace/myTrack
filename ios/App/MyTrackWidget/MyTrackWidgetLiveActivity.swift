@@ -149,10 +149,11 @@ struct MyTrackWidgetLiveActivity: Widget {
                         }
                         .padding(.trailing, 4)
                     } else {
+                        let taskAccent: Color = context.attributes.projectColor.flatMap { h in h.isEmpty ? nil : Color(hexString: h) } ?? Color(red: 0.83, green: 0.96, blue: 0.24)
                         VStack(alignment: .trailing, spacing: 2) {
                             Text(timerInterval: Date(timeIntervalSince1970: context.state.startedAtTimestamp)...Date(timeIntervalSinceNow: 86400), countsDown: false)
                                 .font(.system(size: 18, weight: .heavy, design: .monospaced))
-                                .foregroundColor(brandNeon)
+                                .foregroundColor(taskAccent)
 
                             if let total = context.state.totalFormattedDuration {
                                 Text(total)
@@ -253,6 +254,7 @@ struct MyTrackWidgetLiveActivity: Widget {
                             .padding(.top, 4)
                         }
                     } else {
+                        let taskAccent: Color = context.attributes.projectColor.flatMap { h in h.isEmpty ? nil : Color(hexString: h) } ?? Color(red: 0.83, green: 0.96, blue: 0.24)
                         HStack {
                             GeometryReader { geo in
                                 ZStack(alignment: .leading) {
@@ -260,7 +262,7 @@ struct MyTrackWidgetLiveActivity: Widget {
                                         .fill(Color.white.opacity(0.15))
                                         .frame(height: 4)
                                     Capsule()
-                                        .fill(brandNeon)
+                                        .fill(taskAccent)
                                         .frame(width: max(8, geo.size.width * CGFloat(min(1.0, max(0.05, context.state.progress)))), height: 4)
                                 }
                             }
@@ -345,6 +347,14 @@ struct LockScreenLiveActivityView: View {
     let context: ActivityViewContext<TaskActivityAttributes>
     let brandNeon: Color
     var sleepIndigo: Color = Color(red: 0.38, green: 0.45, blue: 0.98)
+
+    /// Couleur d'accent du projet (brandNeon #D4F63D si non défini)
+    var accentColor: Color {
+        if let hex = context.attributes.projectColor, !hex.isEmpty {
+            return Color(hexString: hex)
+        }
+        return brandNeon
+    }
 
     var isSleep: Bool {
         context.state.isSleepMode == true ||
@@ -570,10 +580,15 @@ struct LockScreenLiveActivityView: View {
                                 .foregroundColor(.white)
                                 .lineLimit(1)
 
-                            Text(context.state.subtitle ?? (context.attributes.category ?? "En cours"))
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundColor(Color.white.opacity(0.8))
-                                .lineLimit(1)
+                            HStack(spacing: 5) {
+                                Circle()
+                                    .fill(accentColor)
+                                    .frame(width: 6, height: 6)
+                                Text(context.state.subtitle ?? (context.attributes.projectName ?? context.attributes.category ?? "En cours"))
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundColor(Color.white.opacity(0.8))
+                                    .lineLimit(1)
+                            }
                         }
                     }
 
@@ -611,7 +626,7 @@ struct LockScreenLiveActivityView: View {
                             .frame(height: 4)
 
                         Capsule()
-                            .fill(brandNeon)
+                            .fill(accentColor)
                             .frame(
                                 width: max(10, geo.size.width * CGFloat(min(1.0, max(0.05, context.state.progress)))),
                                 height: 4
@@ -628,7 +643,7 @@ struct LockScreenLiveActivityView: View {
                             .font(.system(size: 13, weight: .semibold, design: .monospaced))
                             .monospacedDigit()
                     }
-                    .foregroundColor(brandNeon)
+                    .foregroundColor(accentColor)
 
                     Spacer()
                 }

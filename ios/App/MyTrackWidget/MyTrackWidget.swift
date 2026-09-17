@@ -18,6 +18,8 @@ public struct ActiveTaskWidgetModel: Codable, Identifiable {
     public let subtitle: String?
     public let startedAtTimestamp: Double
     public let totalFormattedDuration: String?
+    public let projectColor: String?
+    public let projectName: String?
 
     public var safeStartedAt: Date {
         let ts = startedAtTimestamp > 10000000000 ? startedAtTimestamp / 1000.0 : startedAtTimestamp
@@ -28,13 +30,23 @@ public struct ActiveTaskWidgetModel: Codable, Identifiable {
         return d
     }
 
+    /// Couleur d'accent du projet (brandNeon #D4F63D si non défini)
+    public var accentColor: Color {
+        if let hex = projectColor, !hex.isEmpty {
+            return Color(hexString: hex)
+        }
+        return Color(red: 0.83, green: 0.96, blue: 0.24)
+    }
+
     public init(
         taskId: String,
         taskTitle: String,
         category: String? = nil,
         subtitle: String? = nil,
         startedAtTimestamp: Double = Date().timeIntervalSince1970,
-        totalFormattedDuration: String? = nil
+        totalFormattedDuration: String? = nil,
+        projectColor: String? = nil,
+        projectName: String? = nil
     ) {
         self.taskId = taskId
         self.taskTitle = taskTitle
@@ -42,6 +54,8 @@ public struct ActiveTaskWidgetModel: Codable, Identifiable {
         self.subtitle = subtitle
         self.startedAtTimestamp = startedAtTimestamp
         self.totalFormattedDuration = totalFormattedDuration
+        self.projectColor = projectColor
+        self.projectName = projectName
     }
 }
 
@@ -936,10 +950,11 @@ struct MediumActiveTaskView: View {
             Spacer()
 
             HStack(alignment: .center) {
-                HStack(spacing: 4) {
-                    Image(systemName: "clock.fill")
-                        .font(.system(size: 11))
-                    Text(task.category ?? "myTrack")
+                HStack(spacing: 5) {
+                    Circle()
+                        .fill(task.accentColor)
+                        .frame(width: 7, height: 7)
+                    Text(task.projectName ?? task.category ?? "myTrack")
                         .font(.system(size: 11, weight: .semibold))
                 }
                 .foregroundColor(darkBg.opacity(0.85))
@@ -957,7 +972,7 @@ struct MediumActiveTaskView: View {
                         .font(.system(size: 12, weight: .bold, design: .monospaced))
                         .monospacedDigit()
                 }
-                .foregroundColor(brandNeon)
+                .foregroundColor(task.accentColor)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 5)
                 .background(darkBg)
@@ -986,11 +1001,14 @@ struct LargeActiveTaskView: View {
                     .font(.system(size: 11, weight: .bold))
                     .foregroundColor(darkBg.opacity(0.7))
 
-                HStack {
-                    Text("Catégorie :")
+                HStack(spacing: 6) {
+                    Text("Projet :")
                         .font(.system(size: 13, weight: .medium))
                         .foregroundColor(darkBg.opacity(0.8))
-                    Text(task.category ?? "myTrack")
+                    Circle()
+                        .fill(task.accentColor)
+                        .frame(width: 7, height: 7)
+                    Text(task.projectName ?? task.category ?? "myTrack")
                         .font(.system(size: 13, weight: .bold))
                         .foregroundColor(darkBg)
                 }
@@ -1042,7 +1060,7 @@ struct SmallActiveTaskView: View {
                 Text(timerInterval: task.safeStartedAt...Date(timeIntervalSinceNow: 86400), countsDown: false)
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
                     .monospacedDigit()
-                    .foregroundColor(brandNeon)
+                    .foregroundColor(task.accentColor)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .background(darkBg)
@@ -1103,7 +1121,7 @@ struct DualMediumActiveTasksView: View {
                             .font(.system(size: 10.5, weight: .bold, design: .monospaced))
                             .monospacedDigit()
                     }
-                    .foregroundColor(brandNeon)
+                    .foregroundColor(task.accentColor)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 4)
                     .background(darkBg)
@@ -1191,10 +1209,11 @@ struct DualLargeActiveTasksView: View {
                     }
 
                     HStack(alignment: .center) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "clock.fill")
-                                .font(.system(size: 10))
-                            Text(task.category ?? "myTrack")
+                        HStack(spacing: 5) {
+                            Circle()
+                                .fill(task.accentColor)
+                                .frame(width: 6, height: 6)
+                            Text(task.projectName ?? task.category ?? "myTrack")
                                 .font(.system(size: 10, weight: .semibold))
                         }
                         .foregroundColor(darkBg.opacity(0.85))
@@ -1218,7 +1237,7 @@ struct DualLargeActiveTasksView: View {
                                 .font(.system(size: 11.5, weight: .bold, design: .monospaced))
                                 .monospacedDigit()
                         }
-                        .foregroundColor(brandNeon)
+                        .foregroundColor(task.accentColor)
                         .padding(.horizontal, 9)
                         .padding(.vertical, 4)
                         .background(darkBg)
@@ -1597,6 +1616,9 @@ struct TaskRowInteractiveView: View {
                                 .lineLimit(1)
 
                             HStack(spacing: 4) {
+                                Circle()
+                                    .fill(accentColor)
+                                    .frame(width: 5, height: 5)
                                 Text(task.category)
                                     .font(.system(size: 9.5, weight: .medium))
                                     .foregroundColor(accentColor)
@@ -1646,9 +1668,12 @@ struct TaskRowInteractiveView: View {
                                     .lineLimit(1)
 
                                 HStack(spacing: 4) {
+                                    Circle()
+                                        .fill(accentColor)
+                                        .frame(width: 5, height: 5)
                                     Text(task.category)
                                         .font(.system(size: 9.5, weight: .medium))
-                                        .foregroundColor(isSelected ? brandNeon : Color.gray)
+                                        .foregroundColor(isSelected ? brandNeon : accentColor.opacity(0.85))
 
                                     if let dur = task.targetFormattedDuration ?? task.subtitle {
                                         Text("• \(dur)")

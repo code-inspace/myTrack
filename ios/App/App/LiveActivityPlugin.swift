@@ -169,7 +169,9 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
         category: String?,
         startedAtTimestamp: Double,
         subtitle: String?,
-        totalFormattedDuration: String?
+        totalFormattedDuration: String?,
+        projectColor: String?,
+        projectName: String?
     ) {
         let suite = UserDefaults(suiteName: "group.com.mytrack.app") ?? UserDefaults.standard
         suite.removeObject(forKey: "mytrack_last_stopped_task_id")
@@ -177,7 +179,7 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
 
         let normalizedTimestamp = startedAtTimestamp > 10000000000 ? startedAtTimestamp / 1000.0 : startedAtTimestamp
 
-        let newDict: [String: Any] = [
+        var newDict: [String: Any] = [
             "taskId": taskId,
             "taskTitle": taskTitle,
             "category": category ?? "myTrack",
@@ -185,6 +187,8 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
             "startedAtTimestamp": normalizedTimestamp,
             "totalFormattedDuration": totalFormattedDuration ?? ""
         ]
+        if let pc = projectColor, !pc.isEmpty { newDict["projectColor"] = pc }
+        if let pn = projectName, !pn.isEmpty { newDict["projectName"] = pn }
 
         // Lire les tâches déjà actives et ajouter/mettre à jour celle-ci (max 2)
         var currentActiveList: [[String: Any]] = []
@@ -290,6 +294,8 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
         let startedAtTimestamp = rawTimestamp > 10000000000 ? rawTimestamp / 1000.0 : rawTimestamp
         let totalFormattedDuration = call.getString("totalFormattedDuration") ?? "30 min"
         let progress = call.getDouble("progress") ?? 0.0
+        let projectColor = call.getString("projectColor")
+        let projectName = call.getString("projectName")
 
         // Synchroniser immédiatement pour le Widget macOS & iOS Home Screen (garde jusqu'à 2 tâches)
         saveActiveTaskForWidget(
@@ -298,7 +304,9 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
             category: category,
             startedAtTimestamp: startedAtTimestamp,
             subtitle: subtitle,
-            totalFormattedDuration: totalFormattedDuration
+            totalFormattedDuration: totalFormattedDuration,
+            projectColor: projectColor,
+            projectName: projectName
         )
 
         guard #available(iOS 16.2, *) else {
@@ -309,7 +317,9 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
         let attributes = TaskActivityAttributes(
             taskId: taskId,
             taskTitle: taskTitle,
-            category: category
+            category: category,
+            projectColor: projectColor,
+            projectName: projectName
         )
 
         let initialContentState = TaskActivityAttributes.ContentState(

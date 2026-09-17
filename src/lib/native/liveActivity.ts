@@ -4,6 +4,8 @@ export interface TaskActivityAttributes {
   taskId: string;
   taskTitle: string;
   category?: string;
+  projectColor?: string;
+  projectName?: string;
 }
 
 export interface TaskActivityState {

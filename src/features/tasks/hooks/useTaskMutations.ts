@@ -99,11 +99,15 @@ export function useTaskMutations() {
         }
 
         try {
+          const _projects = getStoredProjects(targetUserId);
+          const _project = created.projectId ? _projects.find((p) => p.id === created.projectId) : null;
           await LiveActivityBridge.startActivity(
             {
               taskId: created.id,
               taskTitle: created.title,
               category: created.category,
+              projectColor: _project?.color,
+              projectName: _project?.name,
             },
             {
               currentStatus: "IN_PROGRESS",
@@ -822,11 +826,15 @@ export function useTaskMutations() {
       await updateDbTaskActive(taskId, true, userId);
 
       try {
+        const _projects = getStoredProjects(userId);
+        const _project = targetTask?.projectId ? _projects.find((p) => p.id === targetTask.projectId) : null;
         await LiveActivityBridge.startActivity(
           {
             taskId,
             taskTitle: targetTask?.title || "Tâche en cours",
             category: targetTask?.category,
+            projectColor: _project?.color,
+            projectName: _project?.name,
           },
           {
             currentStatus: "IN_PROGRESS",
