@@ -285,9 +285,10 @@ export function computeGoalProgress(params: {
     }
   }
 
-  // C. Tâches marquées terminées sans completion explicite mais avec projectStatus === 'DONE'
+  // C. Tâches non récurrentes marquées terminées sans completion explicite mais avec projectStatus === 'DONE'
   for (const t of matchingTasks) {
-    if (t.projectStatus === "DONE" && !t.isActive) {
+    const isRecurring = t.recurrence && t.recurrence !== "ONCE";
+    if (t.projectStatus === "DONE" && !t.isActive && !isRecurring) {
       const hasComp = periodCompletions.some((c) => c.taskId === t.id && c.completed);
       if (!hasComp) {
         const taskDate = (t as any).date || t.deadline || (t.createdAt ? t.createdAt.split("T")[0] : null);

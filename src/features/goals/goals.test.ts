@@ -179,4 +179,87 @@ describe("computeGoalProgress", () => {
     expect(result.formattedActual).toBe("0 min");
     expect(result.percentage).toBe(0);
   });
+
+  it("should keep repeated task time strictly independent per day (e.g. 2h16 yesterday vs 1 min today)", () => {
+    const oneMinuteAgoIso = new Date(Date.now() - 60 * 1000).toISOString();
+
+    const recurringTask: Task = {
+      id: "task_repeated_daily",
+      userId: "user_123",
+      title: "Routine Quotidienne Code",
+      category: "General",
+      projectId: "proj_code",
+      recurrence: "DAILY",
+      trackingType: "DURATION",
+      targetValue: 60,
+      isActive: true,
+      startedAt: oneMinuteAgoIso, // Started 1 minute ago today
+      isArchived: false,
+      createdAt: "2026-09-10T08:00:00.000Z",
+      updatedAt: oneMinuteAgoIso,
+    };
+
+    // Completions: Yesterday had 2h16 (136 min) recorded, today is active 1 min
+    const completions: TaskCompletion[] = [
+      {
+        id: "comp_yesterday",
+        userId: "user_123",
+        taskId: "task_repeated_daily",
+        date: "2026-09-16", // Yesterday
+        completed: true,
+        duration: 136, // 2h16
+        actualStartTime: "10:00",
+        actualEndTime: "12:16",
+        createdAt: "2026-09-16T12:16:00.000Z",
+        updatedAt: "2026-09-16T12:16:00.000Z",
+      },
+      {
+        id: "comp_today",
+        userId: "user_123",
+        taskId: "task_repeated_daily",
+        date: "2026-09-17", // Today
+        completed: false,
+        actualStartTime: "16:20",
+        actualEndTime: null,
+        createdAt: "2026-09-17T16:20:00.000Z",
+        updatedAt: "2026-09-17T16:20:00.000Z",
+      },
+    ];
+
+    // Today's progress (Day view for 2026-09-17)
+    const todayResult = computeGoalProgress({
+      goal: sampleGoal,
+      period: "day",
+      referenceDate: new Date("2026-09-17T12:00:00.000Z"),
+      tasks: [recurringTask],
+      completions,
+    });
+
+    expect(todayResult.actualMinutes).toBe(1);
+    expect(todayResult.formattedActual).toBe("1 min");
+
+    // Yesterday's progress (Day view for 2026-09-16)
+    const yesterdayResult = computeGoalProgress({
+      goal: sampleGoal,
+      period: "day",
+      referenceDate: new Date("2026-09-16T12:00:00.000Z"),
+      tasks: [recurringTask],
+      completions,
+    });
+
+    expect(yesterdayResult.actualMinutes).toBe(136);
+    expect(yesterdayResult.formattedActual).toBe("2h 16m");
+
+    // Week progress (Week view containing both days)
+    const weekResult = computeGoalProgress({
+      goal: sampleGoal,
+      period: "week",
+      referenceDate: new Date("2026-09-17T12:00:00.000Z"),
+      tasks: [recurringTask],
+      completions,
+    });
+
+    expect(weekResult.actualMinutes).toBe(137); // 136 + 1
+    expect(weekResult.formattedActual).toBe("2h 17m");
+  });
 });

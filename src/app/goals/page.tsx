@@ -19,7 +19,7 @@ import { Plus, Target, Sparkles, Filter, AlertCircle, ArrowUpDown, Calendar } fr
 import { cn } from "@/lib/utils";
 
 export default function GoalsPage() {
-  const [period, setPeriod] = useState<Period>("week");
+  const [period, setPeriod] = useState<Period>("day");
   const [referenceDate, setReferenceDate] = useState<Date>(() => new Date());
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);

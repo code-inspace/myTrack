@@ -59,6 +59,9 @@ function getTaskCompletionDurationMinutes(c: TaskCompletion, task?: Task): numbe
     const diff = h2 * 60 + m2 - (h1 * 60 + m1);
     if (diff > 0) return diff;
   }
+  if (task?.isActive && task?.startedAt) {
+    return Math.max(1, Math.floor((Date.now() - new Date(task.startedAt).getTime()) / 60000));
+  }
   if (task?.startTime && task?.endTime) {
     const [h1, m1] = task.startTime.split(":").map(Number);
     const [h2, m2] = task.endTime.split(":").map(Number);
@@ -270,31 +273,16 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
           for (const c of tComps) {
             pMinutes += getTaskCompletionDurationMinutes(c, t);
           }
+        } else if (t.isActive && t.startedAt) {
+          const startDayStr = format(new Date(t.startedAt), "yyyy-MM-dd");
+          if (isAllPeriod || (startDayStr >= startDateStr && startDayStr <= endDateStr)) {
+            activeTasksCount++;
+            const elapsedMins = Math.max(1, Math.floor((Date.now() - new Date(t.startedAt).getTime()) / 60000));
+            pMinutes += elapsedMins;
+          }
         } else if (isAllPeriod) {
           activeTasksCount++;
           pMinutes += getTaskScheduledDurationMinutes(t);
-        } else if (t.recurrence && t.recurrence !== "ONCE") {
-          const dayDate = new Date(startDateStr);
-          const dayOfWeek = dayDate.getDay();
-          const isWeekDay = dayOfWeek >= 1 && dayOfWeek <= 5;
-          const configDays = t.recurrenceConfig?.days || [];
-          if (
-            t.recurrence === "DAILY" ||
-            (t.recurrence === "WEEKDAYS" && isWeekDay) ||
-            configDays.includes(dayOfWeek)
-          ) {
-            activeTasksCount++;
-            pMinutes += getTaskScheduledDurationMinutes(t);
-          }
-        } else {
-          const taskDate =
-            (t as any).date ||
-            t.deadline ||
-            (t.createdAt ? t.createdAt.split("T")[0] : null);
-          if (taskDate && taskDate >= startDateStr && taskDate <= endDateStr) {
-            activeTasksCount++;
-            pMinutes += getTaskScheduledDurationMinutes(t);
-          }
         }
       }
 
@@ -343,27 +331,12 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
 
       for (const t of tasks) {
         if (!t.projectId || t.isArchived || completedTaskIds.has(t.id)) continue;
-        const taskDate =
-          (t as any).date ||
-          t.deadline ||
-          (t.createdAt ? t.createdAt.split("T")[0] : null);
-
-        if (t.recurrence && t.recurrence !== "ONCE") {
-          const dayDate = new Date(dateStr);
-          const dayOfWeek = dayDate.getDay();
-          const isWeekDay = dayOfWeek >= 1 && dayOfWeek <= 5;
-          const configDays = t.recurrenceConfig?.days || [];
-          if (
-            t.recurrence === "DAILY" ||
-            (t.recurrence === "WEEKDAYS" && isWeekDay) ||
-            configDays.includes(dayOfWeek)
-          ) {
-            const mins = getTaskScheduledDurationMinutes(t);
-            breakdownMap.set(t.projectId, (breakdownMap.get(t.projectId) || 0) + mins);
+        if (t.isActive && t.startedAt) {
+          const startDayStr = format(new Date(t.startedAt), "yyyy-MM-dd");
+          if (startDayStr === dateStr) {
+            const elapsedMins = Math.max(1, Math.floor((Date.now() - new Date(t.startedAt).getTime()) / 60000));
+            breakdownMap.set(t.projectId, (breakdownMap.get(t.projectId) || 0) + elapsedMins);
           }
-        } else if (taskDate === dateStr) {
-          const mins = getTaskScheduledDurationMinutes(t);
-          breakdownMap.set(t.projectId, (breakdownMap.get(t.projectId) || 0) + mins);
         }
       }
 
