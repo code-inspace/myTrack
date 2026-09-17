@@ -125,10 +125,49 @@ export function useTaskMutations() {
 
       return created;
     },
-    onSuccess: (newTask) => {
+    onMutate: async (values) => {
+      await queryClient.cancelQueries({ queryKey: ["tasks", userId] });
+      const previousTasks = queryClient.getQueryData<Task[]>(["tasks", userId]) || [];
+      const taskDate = values.date || getTodayDateString();
+      const tempId = "temp-" + Date.now();
+      const optimisticTask: Task = {
+        id: tempId,
+        userId: values.userId || userId,
+        title: values.title,
+        description: values.description || null,
+        category: values.category || "General",
+        tag: values.category || "General",
+        startTime: values.startTime || null,
+        endTime: values.endTime || null,
+        recurrence: values.recurrence || "ONCE",
+        recurrenceConfig: values.recurrenceConfig || null,
+        dateOverrides: {},
+        trackingType: values.trackingType || "BOOLEAN",
+        targetValue: values.targetValue || null,
+        unit: values.unit || null,
+        isActive: Boolean(values.autoStart),
+        startedAt: values.autoStart ? new Date().toISOString() : null,
+        isArchived: false,
+        projectId: values.projectId || null,
+        projectStatus: values.projectStatus || null,
+        enableReminders: values.enableReminders,
+        reminderOffsetMinutes: values.reminderOffsetMinutes,
+        reminderTimes: values.reminderTimes,
+        createdAt: `${taskDate}T12:00:00.000Z`,
+        updatedAt: new Date().toISOString(),
+      };
+      queryClient.setQueryData<Task[]>(["tasks", userId], [optimisticTask, ...previousTasks]);
+      return { previousTasks, tempId };
+    },
+    onError: (_err, _newVal, context) => {
+      if (context?.previousTasks) {
+        queryClient.setQueryData(["tasks", userId], context.previousTasks);
+      }
+    },
+    onSuccess: (newTask, _variables, context) => {
       queryClient.setQueryData<Task[]>(["tasks", userId], (old = []) => [
         newTask,
-        ...old.filter((t) => t.id !== newTask.id),
+        ...old.filter((t) => t.id !== newTask.id && t.id !== context?.tempId),
       ]);
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       queryClient.invalidateQueries({ queryKey: ["completions"] });

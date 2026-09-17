@@ -177,9 +177,9 @@ export function useTasks(selectedDateStr: string) {
   // Filter tasks scheduled for the selected date, including cross-day overnight tasks
   const isScheduledOn = (task: Task, targetDate: Date, targetDateStr: string) => {
     if (task.recurrence === "ONCE") {
-      const originalDate = task.createdAt
+      const originalDate = (task as any).date || (task.createdAt
         ? task.createdAt.split("T")[0]
-        : todayStr;
+        : todayStr);
 
       const isCompletedOnTarget = allCompletions.some(
         (c) => c.taskId === task.id && c.date === targetDateStr && c.completed
@@ -191,9 +191,20 @@ export function useTasks(selectedDateStr: string) {
       );
       if (isCompletedOnOther) return false;
 
-      if (targetDateStr < todayStr) return false;
-      if (targetDateStr === todayStr) return originalDate <= todayStr;
-      return originalDate === targetDateStr;
+      // 1. If this is the exact day the task was created / scheduled for, it belongs here!
+      if (originalDate === targetDateStr) return true;
+
+      // 2. If it was moved / overridden to this date
+      if (task.dateOverrides?.[targetDateStr]) {
+        return !task.dateOverrides[targetDateStr].skipped;
+      }
+
+      // 3. For all-day/to-do tasks (without fixed startTime) that are uncompleted, carry over to today
+      if (!task.startTime && targetDateStr === todayStr && originalDate < todayStr) {
+        return true;
+      }
+
+      return false;
     }
 
     const scheduled = isTaskScheduledForDate(

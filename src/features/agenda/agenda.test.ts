@@ -121,6 +121,42 @@ describe("Agenda Multi-Day Task Distribution & Moving Logic", () => {
     expect(tasksFuture.some((t) => t.id === "t-daily")).toBe(true);
   });
 
+  it("strictly displays tasks created on yesterday (past date) on yesterday's agenda column and not today", async () => {
+    const { computeTasksForDate } = await import("./components/AgendaTimeline");
+    const { getTodayDateString } = await import("@/lib/dates");
+    const { subDays, format, parseISO } = await import("date-fns");
+
+    const todayStr = getTodayDateString();
+    const todayDate = parseISO(todayStr);
+    const yesterdayStr = format(subDays(todayDate, 1), "yyyy-MM-dd");
+
+    // Task created on yesterday via click on yesterday's empty agenda slot
+    const taskYesterday: any = {
+      id: "t-created-yesterday",
+      userId: "u1",
+      title: "Nouvelle tâche veille",
+      startTime: "14:00",
+      endTime: "15:00",
+      recurrence: "ONCE",
+      createdAt: `${yesterdayStr}T12:00:00.000Z`,
+      trackingType: "BOOLEAN",
+      isActive: false,
+      isArchived: false,
+    };
+
+    // 1. Must be present on yesterday's agenda view
+    const yesterdayTasks = computeTasksForDate(yesterdayStr, [taskYesterday], []);
+    const foundOnYesterday = yesterdayTasks.find((t) => t.id === "t-created-yesterday");
+    expect(foundOnYesterday).toBeDefined();
+    expect(foundOnYesterday?.effectiveStartTime).toBe("14:00");
+    expect(foundOnYesterday?.effectiveEndTime).toBe("15:00");
+
+    // 2. Must NOT appear on today's agenda view
+    const todayTasks = computeTasksForDate(todayStr, [taskYesterday], []);
+    const foundOnToday = todayTasks.find((t) => t.id === "t-created-yesterday");
+    expect(foundOnToday).toBeUndefined();
+  });
+
   it("accurately updates effective start and end times for completed/archived tasks when resized", async () => {
     const { mapTaskWithCompletion } = await import("../tasks/mappers");
     const task: any = {
