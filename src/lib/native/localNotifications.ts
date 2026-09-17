@@ -59,12 +59,18 @@ export const NativeNotifications = {
           ? stringToNumericId(options.id)
           : Math.floor(Math.random() * 2000000000);
 
+      // If a schedule time is specified and has already passed, block it to avoid instant fire of old tasks
+      if (options.scheduleAt && options.scheduleAt.getTime() <= Date.now() + 5000) {
+        console.log(`[NativeNotifications] Skipping notification #${notifId} "${options.title}" because scheduled time is in the past:`, options.scheduleAt);
+        return null;
+      }
+
       const notifSchema: LocalNotificationSchema = {
         id: notifId,
         title: options.title,
         body: options.body,
         extra: options.extra || {},
-        schedule: options.scheduleAt && options.scheduleAt > new Date()
+        schedule: options.scheduleAt
           ? { at: options.scheduleAt, allowWhileIdle: true }
           : undefined,
       };

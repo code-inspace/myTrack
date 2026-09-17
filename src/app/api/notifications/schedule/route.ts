@@ -119,12 +119,44 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "taskTitle is required" }, { status: 400 });
     }
 
-    const scheduledDateStr = date || new Date().toISOString().split("T")[0];
+    const todayDateStr = new Date().toISOString().split("T")[0];
+    const scheduledDateStr = date || todayDateStr;
 
-    // Check if task is already completed for this date
+    // Block notifications for past dates entirely
+    if (scheduledDateStr < todayDateStr) {
+      if (taskId) {
+        await cancelExistingNotifications(taskId, userId);
+      }
+      return NextResponse.json({ success: true, skipped: true, message: "Date is in the past" });
+    }
+
+    let isTaskRecurring = false;
+
+    // Check if task is archived, DONE, disabled, or already completed
     if (taskId) {
       const supabase = createClient();
       try {
+        const { data: taskData } = await supabase
+          .from("tasks")
+          .select("is_archived, project_status, recurrence, date_overrides")
+          .eq("id", taskId)
+          .maybeSingle();
+
+        if (taskData) {
+          if (taskData.is_archived || taskData.project_status === "DONE") {
+            console.log(`[API /api/notifications/schedule] Task ${taskId} is archived or DONE. Skipping push.`);
+            await cancelExistingNotifications(taskId, userId);
+            return NextResponse.json({ success: true, skipped: true, message: "Task is archived or completed" });
+          }
+          if (taskData.date_overrides?._enableReminders === false) {
+            await cancelExistingNotifications(taskId, userId);
+            return NextResponse.json({ success: true, skipped: true, message: "Reminders disabled for task" });
+          }
+          if (taskData.recurrence && taskData.recurrence !== "ONCE") {
+            isTaskRecurring = true;
+          }
+        }
+
         let compQuery = supabase
           .from("task_completions")
           .select("completed")
@@ -145,6 +177,7 @@ export async function POST(req: NextRequest) {
         console.warn("[Notifications] Error checking task completion:", e);
       }
     }
+
     const results: Array<{
       deliveryDate: string;
       deliveryDateUtc: string;
@@ -156,6 +189,12 @@ export async function POST(req: NextRequest) {
 
     // Helper to send, track and persist single push notification
     const processDelivery = async (deliveryDate: Date, messageTitle: string, messageBody: string) => {
+      // NEVER send or schedule a notification whose delivery date is in the past (prevents instant spamming of old notifications)
+      if (deliveryDate.getTime() <= Date.now() + 5000) {
+        console.log(`[API /api/notifications/schedule] Delivery date ${deliveryDate.toISOString()} is in the past. Skipping push.`);
+        return;
+      }
+
       console.log(`[API /api/notifications/schedule] Scheduling push for ${deliveryDate.toISOString()} to user=${userId || "all"}`);
 
       const pushRes = await sendOneSignalPushNotification({
@@ -214,9 +253,15 @@ export async function POST(req: NextRequest) {
       const offset = typeof reminderOffsetMinutes === "number" ? reminderOffsetMinutes : 10;
       const reminderDate = new Date(targetDate.getTime() - offset * 60000);
 
-      // If scheduled time has already passed today, advance by 24h for recurring habits
-      if (reminderDate.getTime() <= Date.now()) {
-        reminderDate.setDate(reminderDate.getDate() + 1);
+      // If scheduled time has already passed today
+      if (reminderDate.getTime() <= Date.now() + 60000) {
+        if (isTaskRecurring) {
+          // For recurring habits, advance by 24h
+          reminderDate.setDate(reminderDate.getDate() + 1);
+        } else {
+          // For single tasks in the past, DO NOT schedule or fire
+          return NextResponse.json({ success: true, skipped: true, message: "Task time is in the past" });
+        }
       }
 
       const title = `${taskTitle}`;
@@ -228,20 +273,18 @@ export async function POST(req: NextRequest) {
       for (const rTime of reminderTimes) {
         const reminderDate = computeUtcDateFromLocal(scheduledDateStr, rTime, timezoneOffsetMinutes);
 
-        if (reminderDate.getTime() <= Date.now()) {
-          reminderDate.setDate(reminderDate.getDate() + 1);
+        if (reminderDate.getTime() <= Date.now() + 60000) {
+          if (isTaskRecurring) {
+            reminderDate.setDate(reminderDate.getDate() + 1);
+          } else {
+            continue;
+          }
         }
 
         const title = `${taskTitle}`;
         const bodyText = customMessage || "C'est l'heure";
         await processDelivery(reminderDate, title, bodyText);
       }
-    } else {
-      // Case D: Immediate / direct push
-      const now = new Date(Date.now() + 1000);
-      const title = `${taskTitle}`;
-      const bodyText = customMessage || "C'est l'heure";
-      await processDelivery(now, title, bodyText);
     }
 
     return NextResponse.json({

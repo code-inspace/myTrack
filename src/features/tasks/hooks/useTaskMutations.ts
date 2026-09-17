@@ -24,6 +24,7 @@ import { getProjectColumns, DEFAULT_PROJECT_COLUMNS } from "@/features/projects/
 import { addHoursToTimeString, getTodayDateString } from "@/lib/dates";
 import { format, addMinutes } from "date-fns";
 import { LiveActivityBridge } from "@/lib/native/liveActivity";
+import { cancelTaskPushNotifications } from "@/lib/onesignal/client";
 
 export function useTaskMutations() {
   const queryClient = useQueryClient();
@@ -240,6 +241,7 @@ export function useTaskMutations() {
 
   const deleteTask = useMutation({
     mutationFn: async (taskId: string) => {
+      cancelTaskPushNotifications({ taskId, userId }).catch(() => {});
       await deleteDbTask(taskId, userId);
     },
     onMutate: async (deletedId) => {
@@ -974,6 +976,9 @@ export function useTaskMutations() {
       } catch (err) {
         console.warn("finishTaskExecution syncProjectStatusToDoneColumn error:", err);
       }
+
+      // 6. Cancel any scheduled push notifications for this finished task
+      cancelTaskPushNotifications({ taskId, userId }).catch(() => {});
     },
     onMutate: async ({ taskId, date }) => {
       await queryClient.cancelQueries({ queryKey: ["tasks"] });
