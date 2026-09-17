@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ListTodo, TrendingUp, MessageSquare, User } from "lucide-react";
+import { ListTodo, TrendingUp, MessageSquare, User, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useDisplayMode } from "@/providers/DisplayModeProvider";
 import { TASK_TABS } from "./TasksHeaderWithNav";
@@ -21,6 +21,7 @@ export const BottomNav: React.FC = () => {
     { href: "/tasks", label: "Liste", icon: ListTodo, activePaths: ["/tasks", "/"] },
     { href: "/agenda", label: "Agenda", icon: TASK_TABS.find((t) => t.id === "agenda")?.icon || ListTodo, activePaths: ["/agenda", "/sleep", "/bilan"] },
     { href: "/projects", label: "Projets", icon: TASK_TABS.find((t) => t.id === "projects")?.icon || ListTodo, activePaths: ["/projects"] },
+    { href: "/goals", label: "Objectifs", icon: Target, activePaths: ["/goals", "/objectifs"] },
     { href: "/dashboard", label: "Dashboard", icon: TrendingUp, activePaths: ["/dashboard"] },
     { href: "/profile", label: "Profil", icon: User, activePaths: ["/profile"] },
   ];
@@ -42,7 +43,7 @@ export const BottomNav: React.FC = () => {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-all duration-200 min-w-[58px]",
+                "flex flex-col items-center justify-center py-1 px-1 sm:px-2 rounded-xl transition-all duration-200 min-w-[44px] flex-1",
                 isActive
                   ? "text-white"
                   : "text-[#8E929E] hover:text-[#D1D5DB] hover:bg-[#1C1D22]/60"
