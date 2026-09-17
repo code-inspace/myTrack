@@ -35,6 +35,16 @@ export default function DashboardPage() {
   const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
 
   const handleTouchStart = (e: React.TouchEvent) => {
+    const target = e.target as HTMLElement;
+    if (
+      target.closest("[data-no-swipe]") ||
+      target.closest("[data-sleep-chart]") ||
+      target.closest("button") ||
+      target.closest("input")
+    ) {
+      setTouchStart(null);
+      return;
+    }
     if (e.touches.length === 1) {
       setTouchStart({ x: e.touches[0].clientX, y: e.touches[0].clientY });
     }
@@ -42,6 +52,14 @@ export default function DashboardPage() {
 
   const handleTouchEnd = (e: React.TouchEvent) => {
     if (!touchStart || period === "all") return;
+    const target = e.target as HTMLElement;
+    if (
+      target.closest("[data-no-swipe]") ||
+      target.closest("[data-sleep-chart]")
+    ) {
+      setTouchStart(null);
+      return;
+    }
     const touchEnd = e.changedTouches[0];
     const dx = touchEnd.clientX - touchStart.x;
     const dy = touchEnd.clientY - touchStart.y;

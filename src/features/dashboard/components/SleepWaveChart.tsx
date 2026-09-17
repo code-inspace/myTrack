@@ -337,8 +337,18 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
       : 50;
 
   return (
-    // STRICT CONSTRAINT: Maximum 380px container
-    <div className="w-full max-w-[380px] mx-auto bg-[#000000] border border-[#1C1E26] rounded-3xl p-3 sm:p-4 shadow-2xl select-none overflow-hidden">
+    // STRICT CONSTRAINT: Maximum 380px container - Non draggable, pure click selection
+    <div
+      data-no-swipe="true"
+      data-sleep-chart="true"
+      onTouchStart={(e) => e.stopPropagation()}
+      onTouchMove={(e) => e.stopPropagation()}
+      onTouchEnd={(e) => e.stopPropagation()}
+      onPointerDown={(e) => e.stopPropagation()}
+      onPointerMove={(e) => e.stopPropagation()}
+      onPointerUp={(e) => e.stopPropagation()}
+      className="w-full max-w-[380px] mx-auto bg-[#000000] border border-[#1C1E26] rounded-3xl p-3 sm:p-4 shadow-2xl select-none overflow-hidden touch-manipulation pointer-events-auto"
+    >
       {/* 1. Header with Title and Average */}
       <div className="flex items-center justify-between pb-2">
         <div className="flex items-center gap-2.5 min-w-0">
