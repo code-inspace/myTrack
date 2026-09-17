@@ -18,6 +18,24 @@ vi.mock("@/utils/supabase/client", () => ({
   }),
 }));
 
+vi.mock("@capacitor/core", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@capacitor/core")>();
+  return {
+    ...actual,
+    Capacitor: {
+      ...actual.Capacitor,
+      isNativePlatform: () => true,
+    },
+    registerPlugin: vi.fn().mockReturnValue({}),
+  };
+});
+
+vi.mock("@capacitor/app", () => ({
+  App: {
+    addListener: vi.fn(),
+  },
+}));
+
 vi.mock("@/lib/onesignal/client", () => ({
   scheduleTaskPushNotification: vi.fn().mockImplementation(() => Promise.resolve({ success: true })),
   cancelTaskPushNotifications: vi.fn().mockImplementation(() => Promise.resolve({ success: true })),

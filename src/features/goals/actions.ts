@@ -233,40 +233,72 @@ export function computeGoalProgress(params: {
 
   const matchingTaskIds = new Set(matchingTasks.map((t) => t.id));
 
-  // 3. Calculer les minutes via les complétions de tâches dans l'intervalle
+  // 3. Calculer les minutes effectives
   let totalMinutes = 0;
+  const todayStr = format(new Date(), "yyyy-MM-dd");
+  const isTodayInPeriod = todayStr >= startDateStr && todayStr <= endDateStr;
 
+  // A. Complétions enregistrées dans l'intervalle
   const periodCompletions = completions.filter(
     (c) =>
       matchingTaskIds.has(c.taskId) &&
-      c.completed &&
       c.date >= startDateStr &&
       c.date <= endDateStr
   );
 
   for (const c of periodCompletions) {
     const matchingTask = matchingTasks.find((t) => t.id === c.taskId);
-    if (c.duration && c.duration > 0) {
-      totalMinutes += c.duration;
-    } else if (matchingTask?.targetValue) {
-      totalMinutes += Number(matchingTask.targetValue) || 30;
-    } else {
-      totalMinutes += 30; // Défaut 30 min
-    }
-  }
+    if (!matchingTask) continue;
 
-  // 4. Ajouter les tâches terminées sans completion explicite mais situées dans la date
-  for (const t of matchingTasks) {
-    const hasComp = periodCompletions.some((c) => c.taskId === t.id);
-    if (!hasComp) {
-      const taskDate = (t as any).date || t.deadline || (t.createdAt ? t.createdAt.split("T")[0] : null);
-      if (taskDate && taskDate >= startDateStr && taskDate <= endDateStr && t.projectStatus === "DONE") {
-        totalMinutes += Number(t.targetValue) || 30;
+    // Si la tâche est actuellement active aujourd'hui, on compte son temps écoulé réel en section B
+    if (matchingTask.isActive && c.date === todayStr) {
+      continue;
+    }
+
+    if (c.completed) {
+      if (typeof c.duration === "number" && c.duration > 0) {
+        totalMinutes += c.duration;
+      } else if (c.actualStartTime && c.actualEndTime) {
+        const [h1, m1] = c.actualStartTime.split(":").map(Number);
+        const [h2, m2] = c.actualEndTime.split(":").map(Number);
+        const diff = h2 * 60 + m2 - (h1 * 60 + m1);
+        totalMinutes += diff > 0 ? diff : 1;
+      } else if (matchingTask.targetValue) {
+        totalMinutes += Number(matchingTask.targetValue) || 30;
+      } else {
+        totalMinutes += 30;
       }
     }
   }
 
-  // 5. Filtrer et ajouter les événements de calendrier externes associés au projet/sous-projet
+  // B. Tâches actuellement ACTIVES (chronomètre en cours démarré)
+  if (isTodayInPeriod) {
+    for (const t of matchingTasks) {
+      if (t.isActive && t.startedAt) {
+        const startTimestamp = new Date(t.startedAt).getTime();
+        if (!isNaN(startTimestamp)) {
+          const nowMs = Date.now();
+          const elapsedMinutes = Math.max(1, Math.floor((nowMs - startTimestamp) / 60000));
+          totalMinutes += elapsedMinutes;
+        }
+      }
+    }
+  }
+
+  // C. Tâches marquées terminées sans completion explicite mais avec projectStatus === 'DONE'
+  for (const t of matchingTasks) {
+    if (t.projectStatus === "DONE" && !t.isActive) {
+      const hasComp = periodCompletions.some((c) => c.taskId === t.id && c.completed);
+      if (!hasComp) {
+        const taskDate = (t as any).date || t.deadline || (t.createdAt ? t.createdAt.split("T")[0] : null);
+        if (taskDate && taskDate >= startDateStr && taskDate <= endDateStr) {
+          totalMinutes += Number(t.targetValue) || 30;
+        }
+      }
+    }
+  }
+
+  // D. Filtrer et ajouter les événements de calendrier externes associés au projet/sous-projet
   const matchingEvents = externalEvents.filter((e) => {
     if (e.projectId !== goal.projectId) return false;
     if (goal.projectCategory) {
