@@ -1236,6 +1236,7 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
             label: string;
             subLabel?: string;
             isNap?: boolean;
+            variant?: "objective" | "saved";
             sessionData: SleepSessionData;
           };
           id: string;
