@@ -137,6 +137,23 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
     return true;
   });
 
+  const [showCompleted, setShowCompleted] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("mytrack_show_completed_in_tasks") !== "false";
+    }
+    return true;
+  });
+
+  const toggleShowCompleted = () => {
+    setShowCompleted((prev) => {
+      const next = !prev;
+      if (typeof window !== "undefined") {
+        localStorage.setItem("mytrack_show_completed_in_tasks", String(next));
+      }
+      return next;
+    });
+  };
+
   const {
     createTask,
     updateTask,
@@ -191,9 +208,18 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
       selectedDate,
       manualCompletedEvents,
       showCalendar,
-      streamOrder
+      streamOrder,
+      showCompleted
     );
-  }, [tasks, externalEvents, selectedDate, manualCompletedEvents, showCalendar, streamOrder]);
+  }, [tasks, externalEvents, selectedDate, manualCompletedEvents, showCalendar, streamOrder, showCompleted]);
+
+  const completedCountForDay = useMemo(() => {
+    const tasksDone = tasks.filter((t) => t.isCompletedToday).length;
+    const eventsDone = dayExternalEvents.filter((e) =>
+      isExternalEventDone(e, selectedDate, manualCompletedEvents[e.id])
+    ).length;
+    return tasksDone + eventsDone;
+  }, [tasks, dayExternalEvents, selectedDate, manualCompletedEvents]);
 
   const handleHabitDragStart = (event: DragStartEvent) => {
     setActiveDragTaskId(String(event.active.id));
@@ -480,27 +506,46 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
               >
                 <div className="flex items-center justify-between px-1">
                   <h2 className="text-xl font-bold text-white tracking-tight">Aujourd&apos;hui</h2>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowCalendar((prev) => {
-                        const next = !prev;
-                        if (typeof window !== "undefined") {
-                          localStorage.setItem("mytrack_show_calendar_in_tasks", String(next));
-                        }
-                        return next;
-                      });
-                    }}
-                    className={cn(
-                      "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold transition-all cursor-pointer border",
-                      showCalendar
-                        ? "bg-[#3B82F6]/15 border-[#3B82F6]/40 text-[#60A5FA]"
-                        : "bg-[#1C1D22] border-[#282A30] text-[#6B7280]"
-                    )}
-                  >
-                    <CalendarDays className="w-3.5 h-3.5" />
-                    <span>Agenda {showCalendar ? "ON" : "OFF"}</span>
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    {/* Toggle pour afficher ou masquer les tâches déjà faites */}
+                    <button
+                      type="button"
+                      onClick={toggleShowCompleted}
+                      title={showCompleted ? "Masquer les tâches déjà faites" : "Afficher les tâches déjà faites"}
+                      className={cn(
+                        "flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold transition-all cursor-pointer border",
+                        showCompleted
+                          ? "bg-[#D4F63D]/15 border-[#D4F63D]/40 text-[#D4F63D]"
+                          : "bg-[#1C1D22] border-[#282A30] text-[#6B7280] hover:text-[#9CA3AF]"
+                      )}
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Faites {showCompleted ? "ON" : "OFF"}</span>
+                    </button>
+
+                    {/* Toggle Agenda */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowCalendar((prev) => {
+                          const next = !prev;
+                          if (typeof window !== "undefined") {
+                            localStorage.setItem("mytrack_show_calendar_in_tasks", String(next));
+                          }
+                          return next;
+                        });
+                      }}
+                      className={cn(
+                        "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold transition-all cursor-pointer border",
+                        showCalendar
+                          ? "bg-[#3B82F6]/15 border-[#3B82F6]/40 text-[#60A5FA]"
+                          : "bg-[#1C1D22] border-[#282A30] text-[#6B7280]"
+                      )}
+                    >
+                      <CalendarDays className="w-3.5 h-3.5" />
+                      <span>Agenda {showCalendar ? "ON" : "OFF"}</span>
+                    </button>
+                  </div>
                 </div>
 
                 {/* Quick Task Input Bar */}
@@ -676,6 +721,25 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
                       )}
                     </SortableContext>
                   )}
+
+                  {/* Subtle helper banner when completed items are hidden */}
+                  {!showCompleted && completedCountForDay > 0 && (
+                    <div className="flex items-center justify-between px-3.5 py-2.5 rounded-2xl bg-[#1C1D22]/80 border border-[#282A30] text-xs text-[#8E929E]">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-[#D4F63D]" />
+                        <span>
+                          {completedCountForDay} élément{completedCountForDay > 1 ? "s" : ""} terminé{completedCountForDay > 1 ? "s" : ""} masqué{completedCountForDay > 1 ? "s" : ""}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={toggleShowCompleted}
+                        className="text-xs font-bold text-[#D4F63D] hover:underline cursor-pointer"
+                      >
+                        Afficher
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -691,6 +755,8 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
                   onNewTask={handleNewTask}
                   isInitialLoading={isTasksInitialLoading}
                   isSyncing={isGlobalSyncing}
+                  showCompleted={showCompleted}
+                  onToggleShowCompleted={toggleShowCompleted}
                   onEditTask={(t) => {
                     setEditingTask(t);
                     setIsTaskModalOpen(true);

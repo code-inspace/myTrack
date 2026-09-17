@@ -572,6 +572,52 @@ describe("Tasks Feature Logic", () => {
       const ids = stream.map((s) => s.id);
       expect(ids).toEqual(["task-A", "event_evt-mid", "task-B"]);
     });
+
+    it("filters out completed tasks and events when showCompleted is false", async () => {
+      const { buildAndSortUnifiedStream } = await import("./unifiedStream");
+
+      const taskTodo: any = { id: "task-todo", title: "Tâche en attente", isCompletedToday: false };
+      const taskDone: any = { id: "task-done", title: "Tâche finie", isCompletedToday: true };
+      const eventUpcoming: any = {
+        id: "evt-upcoming",
+        title: "Event à venir",
+        date: "2026-09-15",
+        startTime: "20:00",
+        endTime: "21:00",
+      };
+      const eventDone: any = {
+        id: "evt-done",
+        title: "Event terminé",
+        date: "2026-09-15",
+        startTime: "08:00",
+        endTime: "09:00",
+      };
+
+      // When showCompleted = true (default)
+      const streamWithCompleted = buildAndSortUnifiedStream(
+        [taskTodo, taskDone],
+        [eventUpcoming, eventDone],
+        "2026-09-15",
+        { "evt-done": true, "evt-upcoming": false },
+        true,
+        undefined,
+        true
+      );
+      expect(streamWithCompleted.length).toBe(4);
+
+      // When showCompleted = false
+      const streamWithoutCompleted = buildAndSortUnifiedStream(
+        [taskTodo, taskDone],
+        [eventUpcoming, eventDone],
+        "2026-09-15",
+        { "evt-done": true, "evt-upcoming": false },
+        true,
+        undefined,
+        false
+      );
+      expect(streamWithoutCompleted.length).toBe(2);
+      expect(streamWithoutCompleted.map((s) => s.id)).toEqual(["event_evt-upcoming", "task-todo"]);
+    });
   });
 
   describe("Task Auto-Completion & Repeated Habit Transformation", () => {

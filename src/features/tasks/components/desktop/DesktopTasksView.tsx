@@ -62,6 +62,8 @@ interface DesktopTasksViewProps {
   sleepDurationText?: string;
   isInitialLoading?: boolean;
   isSyncing?: boolean;
+  showCompleted?: boolean;
+  onToggleShowCompleted?: () => void;
 }
 
 export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
@@ -91,6 +93,8 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
   sleepDurationText,
   isInitialLoading = false,
   isSyncing = false,
+  showCompleted,
+  onToggleShowCompleted,
 }) => {
   const queryClient = useQueryClient();
   const { projects } = useProjects();
@@ -106,6 +110,28 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
     }
     return true;
   });
+
+  const [localShowCompleted, setLocalShowCompleted] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("mytrack_show_completed_in_tasks") !== "false";
+    }
+    return true;
+  });
+
+  const isShowCompleted = showCompleted !== undefined ? showCompleted : localShowCompleted;
+  const toggleShowCompleted = () => {
+    if (onToggleShowCompleted) {
+      onToggleShowCompleted();
+    } else {
+      setLocalShowCompleted((prev) => {
+        const next = !prev;
+        if (typeof window !== "undefined") {
+          localStorage.setItem("mytrack_show_completed_in_tasks", String(next));
+        }
+        return next;
+      });
+    }
+  };
 
   const matchingTasks = useMemo(() => {
     const cleanQuery = quickTitle.trim().toLowerCase();
@@ -256,9 +282,10 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
       selectedDate,
       manualCompletedEvents,
       showCalendar,
-      streamOrder
+      streamOrder,
+      statusFilter === "done" ? true : isShowCompleted
     );
-  }, [filteredTasks, filteredExternalEvents, selectedDate, manualCompletedEvents, showCalendar, streamOrder]);
+  }, [filteredTasks, filteredExternalEvents, selectedDate, manualCompletedEvents, showCalendar, streamOrder, isShowCompleted, statusFilter]);
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -420,21 +447,39 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
           </span>
         </button>
 
-        {/* Calendar visibility toggle button */}
-        <button
-          type="button"
-          onClick={toggleCalendarVisibility}
-          title={showCalendar ? "Masquer les événements d'agenda externe" : "Afficher les événements d'agenda externe"}
-          className={cn(
-            "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ml-auto flex-shrink-0 border",
-            showCalendar
-              ? "bg-[#3B82F6]/15 border-[#3B82F6]/40 text-[#60A5FA]"
-              : "bg-[#181920] border-[#282A34] text-[#6B7280] hover:text-[#9CA3AF]"
-          )}
-        >
-          <Calendar className="w-3.5 h-3.5" />
-          <span>Agenda {showCalendar ? "ON" : "OFF"}</span>
-        </button>
+        <div className="flex items-center gap-2 ml-auto flex-shrink-0">
+          {/* Completed tasks visibility toggle button */}
+          <button
+            type="button"
+            onClick={toggleShowCompleted}
+            title={isShowCompleted ? "Masquer les tâches déjà faites" : "Afficher les tâches déjà faites"}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer border",
+              isShowCompleted
+                ? "bg-[#D4F63D]/15 border-[#D4F63D]/40 text-[#D4F63D]"
+                : "bg-[#181920] border-[#282A34] text-[#6B7280] hover:text-[#9CA3AF]"
+            )}
+          >
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            <span>Faites {isShowCompleted ? "ON" : "OFF"}</span>
+          </button>
+
+          {/* Calendar visibility toggle button */}
+          <button
+            type="button"
+            onClick={toggleCalendarVisibility}
+            title={showCalendar ? "Masquer les événements d'agenda externe" : "Afficher les événements d'agenda externe"}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer border",
+              showCalendar
+                ? "bg-[#3B82F6]/15 border-[#3B82F6]/40 text-[#60A5FA]"
+                : "bg-[#181920] border-[#282A34] text-[#6B7280] hover:text-[#9CA3AF]"
+            )}
+          >
+            <Calendar className="w-3.5 h-3.5" />
+            <span>Agenda {showCalendar ? "ON" : "OFF"}</span>
+          </button>
+        </div>
       </div>
 
       {/* 3. Main Two-Column Layout (Left: Task Stream, Right: Intelligence Widgets) */}

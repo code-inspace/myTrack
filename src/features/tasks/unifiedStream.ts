@@ -40,10 +40,11 @@ export function buildAndSortUnifiedStream(
   selectedDate: string,
   manualCompletedEvents: Record<string, boolean> = {},
   showCalendar = true,
-  customOrder?: string[]
+  customOrder?: string[],
+  showCompleted = true
 ): UnifiedStreamItem[] {
   const taskItems: UnifiedStreamItem[] = tasks
-    .filter((t) => !t.isActive)
+    .filter((t) => !t.isActive && (showCompleted || !t.isCompletedToday))
     .map((t) => ({
       type: "task",
       id: t.id,
@@ -52,6 +53,7 @@ export function buildAndSortUnifiedStream(
 
   const eventItems: UnifiedStreamItem[] = (showCalendar ? events : [])
     .filter((e) => e.date === selectedDate)
+    .filter((e) => showCompleted || !isExternalEventDone(e, selectedDate, manualCompletedEvents[e.id]))
     .map((e) => ({
       type: "event",
       id: e.id.startsWith("event_") ? e.id : `event_${e.id}`,
