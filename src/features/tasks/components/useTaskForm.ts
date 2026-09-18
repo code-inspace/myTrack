@@ -150,11 +150,12 @@ export function useTaskForm({
             ? initialTask.reminderTimes
             : ["11:00", "18:00"],
         );
-        setProjectId(initialTask.projectId || null);
+        const initPid = initialTask.projectId || null;
+        setProjectId(initPid);
         setProjectStatus(
           initialTask.projectStatus || DEFAULT_PROJECT_COLUMNS[0].id,
         );
-        setProjectCategory(initialTask.projectCategory || "");
+        setProjectCategory(initPid ? (initialTask.projectCategory || "") : "");
         setDeadline(initialTask.deadline || "");
         setPriority((initialTask.priority as TaskPriority) || "NORMAL");
         skipNextAutoSaveRef.current = true;
@@ -320,6 +321,15 @@ export function useTaskForm({
     }
   };
 
+  const handleSetProjectId = (newProjectId: string | null) => {
+    setProjectId((prev) => {
+      if (prev !== newProjectId) {
+        setProjectCategory("");
+      }
+      return newProjectId;
+    });
+  };
+
   return {
     isEditing,
     // Fields
@@ -365,7 +375,7 @@ export function useTaskForm({
     handleUpdateAllDayReminderTime,
     // Project
     projectId,
-    setProjectId,
+    setProjectId: handleSetProjectId,
     projectStatus,
     setProjectStatus,
     projectCategory,

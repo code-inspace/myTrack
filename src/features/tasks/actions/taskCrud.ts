@@ -277,21 +277,22 @@ export async function updateDbTask(
     dbUpdates.target_value = updates.targetValue;
   if (updates.unit !== undefined) dbUpdates.unit = updates.unit || null;
   if (updates.projectId !== undefined) {
+    const isChangingProject = updates.projectId !== target?.projectId;
     dbUpdates.project_id = updates.projectId || null;
     dbUpdates.project_status = updates.projectId
-      ? updates.projectStatus || target?.projectStatus || "TODO"
+      ? updates.projectStatus || (isChangingProject ? "TODO" : target?.projectStatus || "TODO")
       : null;
     dbUpdates.project_category = updates.projectId
-      ? updates.projectCategory !== undefined
-        ? updates.projectCategory
-        : target?.projectCategory || null
+      ? isChangingProject
+        ? (updates.projectCategory || null)
+        : (updates.projectCategory !== undefined ? (updates.projectCategory || null) : (target?.projectCategory || null))
       : null;
   } else {
     if (updates.projectStatus !== undefined) {
-      dbUpdates.project_status = updates.projectStatus || null;
+      dbUpdates.project_status = target?.projectId ? (updates.projectStatus || null) : null;
     }
     if (updates.projectCategory !== undefined) {
-      dbUpdates.project_category = updates.projectCategory || null;
+      dbUpdates.project_category = target?.projectId ? (updates.projectCategory || null) : null;
     }
   }
   if (
@@ -479,20 +480,20 @@ export async function updateDbTask(
         : baseTask.reminderTimes || ["11:00", "18:00"],
     projectId:
       updates.projectId !== undefined
-        ? updates.projectId || null
-        : baseTask.projectId,
+        ? (updates.projectId || null)
+        : (baseTask.projectId || null),
     projectStatus:
-      updates.projectId !== undefined
-        ? updates.projectId
-          ? updates.projectStatus || baseTask.projectStatus || "TODO"
-          : null
-        : updates.projectStatus !== undefined
-        ? updates.projectStatus || null
-        : baseTask.projectStatus,
+      (updates.projectId !== undefined ? (updates.projectId || null) : (baseTask.projectId || null))
+        ? (updates.projectId !== undefined && updates.projectId !== baseTask.projectId
+            ? (updates.projectStatus || "TODO")
+            : (updates.projectStatus !== undefined ? (updates.projectStatus || "TODO") : (baseTask.projectStatus || "TODO")))
+        : null,
     projectCategory:
-      updates.projectCategory !== undefined
-        ? updates.projectCategory || null
-        : baseTask.projectCategory || null,
+      (updates.projectId !== undefined ? (updates.projectId || null) : (baseTask.projectId || null))
+        ? (updates.projectId !== undefined && updates.projectId !== baseTask.projectId
+            ? (updates.projectCategory || null)
+            : (updates.projectCategory !== undefined ? (updates.projectCategory || null) : (baseTask.projectCategory || null)))
+        : null,
     isActive: baseTask.isActive,
     startedAt: baseTask.startedAt,
     isArchived: baseTask.isArchived,

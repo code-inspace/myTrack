@@ -890,5 +890,60 @@ describe("Tasks Feature Logic", () => {
       expect(mappedMorning.id).not.toBe(mappedEvening.id);
       expect(mappedMorning.title).toBe(mappedEvening.title);
     });
+
+    it("automatically clears projectCategory when changing a task to another project or removing project", async () => {
+      const { updateDbTask } = await import("./actions/taskCrud");
+      const { saveStoredTasks } = await import("./actions/storage");
+      const initialTask: Task = {
+        id: "task-project-test-1",
+        userId: "user-1",
+        title: "Tâche avec sous-projet",
+        description: null,
+        category: "Travail",
+        priority: "NORMAL",
+        recurrence: "DAILY",
+        recurrenceConfig: null,
+        projectId: "proj-1",
+        projectCategory: "Sous-projet Alpha",
+        projectStatus: "TODO",
+        enableReminders: true,
+        reminderOffsetMinutes: 10,
+        reminderTimes: ["09:00"],
+        trackingType: "BOOLEAN",
+        targetValue: null,
+        unit: null,
+        isActive: false,
+        isArchived: false,
+        createdAt: "2026-09-01T00:00:00.000Z",
+        updatedAt: "2026-09-01T00:00:00.000Z",
+      };
+
+      saveStoredTasks([initialTask], "user-1");
+
+      // 1. Change task to a new project without specifying projectCategory -> projectCategory must be cleared to null
+      const updatedToProj2 = await updateDbTask(
+        "task-project-test-1",
+        {
+          projectId: "proj-2",
+        },
+        "user-1"
+      );
+
+      expect(updatedToProj2.projectId).toBe("proj-2");
+      expect(updatedToProj2.projectCategory).toBeNull();
+
+      // 2. Remove project completely -> projectCategory and projectStatus must be null
+      const removedProject = await updateDbTask(
+        "task-project-test-1",
+        {
+          projectId: null,
+        },
+        "user-1"
+      );
+
+      expect(removedProject.projectId).toBeNull();
+      expect(removedProject.projectCategory).toBeNull();
+      expect(removedProject.projectStatus).toBeNull();
+    });
   });
 });

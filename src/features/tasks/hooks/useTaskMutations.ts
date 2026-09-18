@@ -196,38 +196,39 @@ export function useTaskMutations() {
       queryClient.setQueryData<Task[]>(["tasks", userId], (old = []) =>
         old.map((t) => {
           if (t.id !== taskId) return t;
+          const isChangingProject = values.projectId !== undefined && values.projectId !== t.projectId;
+          const nextProjectId = values.projectId !== undefined ? (values.projectId || null) : (t.projectId || null);
+          const nextProjectCategory = nextProjectId
+            ? isChangingProject
+              ? (values.projectCategory || null)
+              : (values.projectCategory !== undefined ? (values.projectCategory || null) : (t.projectCategory || null))
+            : null;
+          const nextProjectStatus = nextProjectId
+            ? isChangingProject
+              ? (values.projectStatus || "TODO")
+              : (values.projectStatus !== undefined ? (values.projectStatus || "TODO") : (t.projectStatus || "TODO"))
+            : null;
+
           return {
             ...t,
             ...values,
-            projectId: values.projectId !== undefined ? values.projectId || null : t.projectId,
-            projectStatus:
-              values.projectId !== undefined
-                ? values.projectId
-                  ? values.projectStatus || t.projectStatus || "TODO"
-                  : null
-                : values.projectStatus !== undefined
-                ? values.projectStatus || null
-                : t.projectStatus,
-            projectCategory:
-              values.projectCategory !== undefined
-                ? values.projectCategory || null
-                : t.projectCategory,
+            projectId: nextProjectId,
+            projectStatus: nextProjectStatus,
+            projectCategory: nextProjectCategory,
             ...(values.date ? { createdAt: `${values.date}T12:00:00.000Z` } : {}),
-              dateOverrides: {
-                ...(t.dateOverrides || {}),
-                ...(values.enableReminders !== undefined
-                  ? { _enableReminders: values.enableReminders }
-                  : {}),
-                ...(values.projectCategory !== undefined
-                  ? { _projectCategory: values.projectCategory || null }
-                  : {}),
-                ...(values.isNoProject !== undefined
-                  ? { _isNoProject: values.isNoProject }
-                  : (values.projectId ? { _isNoProject: false } : {})),
-              },
-            };
-          }),
-        );
+            dateOverrides: {
+              ...(t.dateOverrides || {}),
+              ...(values.enableReminders !== undefined
+                ? { _enableReminders: values.enableReminders }
+                : {}),
+              _projectCategory: nextProjectCategory,
+              ...(values.isNoProject !== undefined
+                ? { _isNoProject: values.isNoProject }
+                : (nextProjectId ? { _isNoProject: false } : { _isNoProject: true })),
+            },
+          };
+        }),
+      );
 
       if (values.startTime !== undefined || values.endTime !== undefined) {
         queryClient.setQueryData<TaskCompletion[]>(

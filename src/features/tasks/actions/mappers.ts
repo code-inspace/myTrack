@@ -70,9 +70,15 @@ export function mapDbTaskToModel(row: any): Task {
     startedAt: row.startedAt || row.started_at || null,
     isArchived: row.isArchived !== undefined ? Boolean(row.isArchived) : Boolean(row.is_archived),
     sortOrder: row.sortOrder !== undefined ? row.sortOrder : (row.sort_order !== undefined && row.sort_order !== null ? row.sort_order : null),
-    projectId: row.projectId || row.project_id || null,
-    projectStatus: row.projectStatus || row.project_status || null,
-    projectCategory: row.projectCategory || row.project_category || rawOverrides._projectCategory || null,
+    projectId: row.projectId !== undefined ? (row.projectId || null) : (row.project_id !== undefined ? (row.project_id || null) : null),
+    projectStatus: row.projectId || row.project_id ? (row.projectStatus || row.project_status || null) : null,
+    projectCategory: (row.projectId || row.project_id)
+      ? (row.projectCategory !== undefined
+          ? (row.projectCategory || null)
+          : row.project_category !== undefined
+          ? (row.project_category || null)
+          : (rawOverrides._projectCategory || null))
+      : null,
     createdAt: row.createdAt || row.created_at || new Date().toISOString(),
     updatedAt: row.updatedAt || row.updated_at || new Date().toISOString(),
   };

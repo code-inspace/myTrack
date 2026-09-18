@@ -35,10 +35,8 @@ export const TaskFormGeneralSection: React.FC<TaskFormGeneralSectionProps> = ({
   const selectedProject = projects.find((p) => p.id === form.projectId) || null;
 
   const projectCategoriesList = useMemo(() => {
-    const set = new Set<string>(selectedProject?.categories || []);
-    if (form.projectCategory) set.add(form.projectCategory);
-    return Array.from(set);
-  }, [selectedProject, form.projectCategory]);
+    return Array.from(new Set<string>(selectedProject?.categories || []));
+  }, [selectedProject]);
 
   const handleAddNewProjectCategory = () => {
     const trimmed = newCategoryInput.trim();
@@ -363,7 +361,10 @@ export const TaskFormGeneralSection: React.FC<TaskFormGeneralSectionProps> = ({
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
-                onClick={() => form.setProjectId(null)}
+                onClick={() => {
+                  form.setProjectId(null);
+                  form.setProjectCategory("");
+                }}
                 className={cn(
                   "px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all text-center truncate cursor-pointer",
                   !form.projectId
@@ -378,8 +379,11 @@ export const TaskFormGeneralSection: React.FC<TaskFormGeneralSectionProps> = ({
                   type="button"
                   key={p.id}
                   onClick={() => {
-                    form.setProjectId(p.id);
-                    form.setProjectStatus(getProjectColumns(p)[0].id);
+                    if (form.projectId !== p.id) {
+                      form.setProjectId(p.id);
+                      form.setProjectStatus(getProjectColumns(p)[0].id);
+                      form.setProjectCategory("");
+                    }
                   }}
                   className={cn(
                     "px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all text-center truncate cursor-pointer flex items-center justify-center gap-1.5",
