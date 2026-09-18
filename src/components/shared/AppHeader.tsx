@@ -27,6 +27,8 @@ interface AppHeaderProps {
   leftAction?: HeaderAction | null;
   /** Initial-letter avatar shown top-right (e.g. Profile access in "modern" display mode) */
   rightAction?: HeaderAvatarAction | null;
+  /** Icon button shown top-right */
+  rightIconAction?: HeaderAction | null;
 }
 
 export const AppHeader: React.FC<AppHeaderProps> = ({
@@ -35,8 +37,9 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   isSyncing,
   leftAction,
   rightAction,
+  rightIconAction,
 }) => {
-  if (!leftAction && !rightAction) {
+  if (!leftAction && !rightAction && !rightIconAction) {
     return (
       <header className="w-full flex items-center justify-center py-3 px-1">
         <div className="text-center">
@@ -103,8 +106,29 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         )}
       </div>
 
-      <div className="w-9 h-9 flex-shrink-0">
-        {rightAction && (
+      <div className="w-9 h-9 flex-shrink-0 flex items-center justify-end">
+        {rightIconAction ? (
+          rightIconAction.onClick ? (
+            <button
+              type="button"
+              onClick={rightIconAction.onClick}
+              aria-label={rightIconAction.label}
+              title={rightIconAction.label}
+              className="w-9 h-9 rounded-full bg-[#1C1D22] border border-[#282A30] text-[#8E929E] hover:text-white hover:border-[#3D4252] flex items-center justify-center transition-colors cursor-pointer"
+            >
+              <rightIconAction.icon className="w-4 h-4 text-[#D4F63D]" />
+            </button>
+          ) : (
+            <Link
+              href={rightIconAction.href || "#"}
+              aria-label={rightIconAction.label}
+              title={rightIconAction.label}
+              className="w-9 h-9 rounded-full bg-[#1C1D22] border border-[#282A30] text-[#8E929E] hover:text-white hover:border-[#3D4252] flex items-center justify-center transition-colors"
+            >
+              <rightIconAction.icon className="w-4 h-4 text-[#D4F63D]" />
+            </Link>
+          )
+        ) : rightAction ? (
           rightAction.onClick ? (
             <button
               type="button"
@@ -125,7 +149,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               {rightAction.initial}
             </Link>
           )
-        )}
+        ) : null}
       </div>
     </header>
   );

@@ -265,7 +265,11 @@ export function cacheSleepHistoryLocally(logs: DailySleepLog[], userId?: string)
   const targetId = getEffectiveUserId(userId);
   for (const log of logs) {
     try {
-      localStorage.setItem(`${SLEEP_STORAGE_PREFIX}${targetId}_${log.date}`, JSON.stringify(log));
+      const json = JSON.stringify(log);
+      if (targetId) {
+        localStorage.setItem(`${SLEEP_STORAGE_PREFIX}${targetId}_${log.date}`, json);
+      }
+      localStorage.setItem(`${SLEEP_STORAGE_PREFIX}_${log.date}`, json);
     } catch (err) {
       console.warn("cacheSleepHistoryLocally error:", err);
     }
@@ -297,7 +301,20 @@ export function getStoredSleepLog(date: string, userId?: string): DailySleepLog 
   }
 
   try {
-    const raw = localStorage.getItem(key);
+    let raw = targetId ? localStorage.getItem(key) : null;
+    if (!raw) {
+      raw = localStorage.getItem(`${SLEEP_STORAGE_PREFIX}_${date}`);
+    }
+    if (!raw) {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith(SLEEP_STORAGE_PREFIX) && k.endsWith(`_${date}`)) {
+          raw = localStorage.getItem(k);
+          if (raw) break;
+        }
+      }
+    }
+
     if (raw) {
       const parsed = JSON.parse(raw);
       return {

@@ -206,7 +206,19 @@ export default function DashboardPage() {
     <div className="flex-1 min-h-0 flex flex-col w-full h-full bg-[#0E0F12] relative overflow-hidden">
       {/* 1. Mobile Fixed Header (matching standard page layout, outside scroll area) */}
       <div className="flex-shrink-0 z-30 shadow-md md:hidden bg-[#111214] border-b border-[#23242A]">
-        <AppHeader title="Dashboard" />
+        <AppHeader
+          title="Dashboard"
+          leftAction={{
+            icon: Sliders,
+            label: "Personnaliser",
+            onClick: () => setIsConfigModalOpen(true),
+          }}
+          rightIconAction={{
+            icon: Target,
+            label: "Objectifs",
+            href: "/goals",
+          }}
+        />
       </div>
 
       {/* 2. Scrollable Content Body */}
@@ -249,12 +261,25 @@ export default function DashboardPage() {
         </div>
 
         {/* Period Selector Tabs & Chevron Navigation: [Semaine] [Mois] [Tout le temps] */}
-        <PeriodSelector
-          period={period}
-          onChangePeriod={setPeriod}
-          referenceDate={referenceDate}
-          onChangeReferenceDate={setReferenceDate}
-        />
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <PeriodSelector
+              period={period}
+              onChangePeriod={setPeriod}
+              referenceDate={referenceDate}
+              onChangeReferenceDate={setReferenceDate}
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsConfigModalOpen(true)}
+            className="md:hidden p-2.5 rounded-2xl bg-[#1C1D22] hover:bg-[#252830] border border-[#282A30] text-[#8E929E] hover:text-white flex items-center justify-center transition-all cursor-pointer shadow-sm shrink-0"
+            title="Personnaliser les widgets"
+            aria-label="Personnaliser les widgets"
+          >
+            <Sliders className="w-4 h-4 text-[#D4F63D]" />
+          </button>
+        </div>
 
         {/* Dynamically configured modules in custom order */}
         <div className="grid gap-4 lg:grid-cols-2 lg:items-start">

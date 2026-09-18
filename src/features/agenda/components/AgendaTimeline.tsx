@@ -30,6 +30,7 @@ import { AgendaSleepBlock } from "./AgendaSleepBlock";
 import { getStoredSleepLog, computeSleepDuration, fetchSleepHistory } from "@/features/sleep/actions";
 import { SleepEditModal, SleepSessionData } from "@/features/sleep/components/SleepEditModal";
 import { useProjects } from "@/features/projects/hooks";
+import { useAuth } from "@/providers/AuthProvider";
 
 export type AgendaViewMode = "day" | "3days" | "week";
 
@@ -233,15 +234,16 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
 
   const parsedSelectedDate = parseISO(selectedDate);
   const isSelectedDateToday = isSameDay(parsedSelectedDate, new Date());
+  const { user } = useAuth();
   const [sleepSyncVersion, setSleepSyncVersion] = useState(0);
   const [isSleepModalOpen, setIsSleepModalOpen] = useState(false);
   const [editingSleepSession, setEditingSleepSession] = useState<SleepSessionData | null>(null);
 
   useEffect(() => {
-    fetchSleepHistory(30).then(() => {
+    fetchSleepHistory(60, user?.id).then(() => {
       setSleepSyncVersion((v) => v + 1);
     });
-  }, [selectedDate]);
+  }, [selectedDate, user?.id]);
 
   useEffect(() => {
     const handleSleepAutoDetected = () => {
@@ -997,6 +999,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
                   }}
                   onStartResize={handleStartResize}
                   sleepSyncVersion={sleepSyncVersion}
+                  userId={user?.id}
                 />
               );
             })}
@@ -1100,6 +1103,7 @@ interface DayGridColumnProps {
   onSelectSleepSession?: (session: SleepSessionData) => void;
   onStartResize: (e: React.PointerEvent, task: TaskWithCompletion, edge: "top" | "bottom", dayDate: string) => void;
   sleepSyncVersion?: number;
+  userId?: string;
 }
 
 const DayGridColumn: React.FC<DayGridColumnProps> = ({
@@ -1125,6 +1129,7 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
   onSelectSleepSession,
   onStartResize,
   sleepSyncVersion,
+  userId,
 }) => {
   const colRef = useRef<HTMLDivElement>(null);
   const longPressEmptyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1369,10 +1374,10 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
         try {
           const d = parseISO(dayDate);
           const yesterdayDateStr = format(subDays(d, 1), "yyyy-MM-dd");
-          const yesterdayLog = getStoredSleepLog(yesterdayDateStr);
-          const todayLog = getStoredSleepLog(dayDate);
+          const yesterdayLog = getStoredSleepLog(yesterdayDateStr, userId);
+          const todayLog = getStoredSleepLog(dayDate, userId);
           const tomorrowDateStr = format(addDays(d, 1), "yyyy-MM-dd");
-          const tomorrowLog = getStoredSleepLog(tomorrowDateStr);
+          const tomorrowLog = getStoredSleepLog(tomorrowDateStr, userId);
 
           // Cibles de sommeil objectif (par défaut 23:00 -> 07:00 ou objectif personnalisé)
           const targetBedtime = "23:00";
