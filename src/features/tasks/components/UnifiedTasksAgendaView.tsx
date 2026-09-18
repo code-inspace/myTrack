@@ -17,13 +17,14 @@ import { DailyBilanView } from "@/features/sleep/components/DailyBilanView";
 import { DesktopTasksView } from "@/features/tasks/components/desktop/DesktopTasksView";
 import { DesktopDatePicker } from "@/features/tasks/components/desktop/DesktopDatePicker";
 import { getNightSleepDuration, fetchSleepHistory } from "@/features/sleep/actions";
+import { useNightMode } from "@/features/sleep/providers/NightModeProvider";
 import { useTasks, useTaskMutations } from "@/features/tasks/hooks";
 import { useProjects } from "@/features/projects/hooks";
 import { Task, TaskWithCompletion, TaskFormValues } from "@/features/tasks/types";
 import { TaskAutoCompleteSuggestions } from "@/features/tasks/components/TaskAutoCompleteSuggestions";
 import { mapTaskWithCompletion } from "@/features/tasks/mappers";
 import { getTodayDateString } from "@/lib/dates";
-import { CheckCircle2, Inbox, CalendarDays, Play } from "lucide-react";
+import { CheckCircle2, Inbox, CalendarDays, Play, Moon, Sun, RotateCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   DndContext,
@@ -64,6 +65,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
 }) => {
   const { selectedDate, setSelectedDate } = useSelectedDate();
   const { projects } = useProjects();
+  const { isSleeping, bedtime, triggerSleepNow, triggerWakeUp } = useNightMode();
   const [activeTab, setActiveTab] = useState<TasksTab>(initialTab);
 
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
@@ -507,6 +509,19 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
                 <div className="flex items-center justify-between px-1">
                   <h2 className="text-xl font-bold text-white tracking-tight">Aujourd&apos;hui</h2>
                   <div className="flex items-center gap-1.5">
+                    {/* Bouton Je me couche (quand non en sommeil) */}
+                    {!isSleeping && (
+                      <button
+                        type="button"
+                        onClick={triggerSleepNow}
+                        title="Démarrer une période de sommeil"
+                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold transition-all cursor-pointer border bg-[#1E1B38] border-[#7C3AED]/50 text-[#C4B5FD] hover:bg-[#2B2750] active:scale-95 shadow-sm shadow-[#7C3AED]/20"
+                      >
+                        <Moon className="w-3.5 h-3.5 fill-current text-[#A78BFA]" />
+                        <span>Je me couche</span>
+                      </button>
+                    )}
+
                     {/* Toggle pour afficher ou masquer les tâches déjà faites */}
                     <button
                       type="button"
@@ -547,6 +562,45 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
                     </button>
                   </div>
                 </div>
+
+                {/* Bannière Mode Sommeil Actif (quand l'utilisateur s'est couché) */}
+                {isSleeping && (
+                  <div className="w-full bg-[#18152E] border border-[#7C3AED]/40 rounded-2xl p-3 shadow-lg shadow-[#7C3AED]/15 flex flex-col gap-2.5 animate-in fade-in duration-200">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-full bg-[#7C3AED]/25 border border-[#7C3AED]/40 flex items-center justify-center text-[#C4B5FD]">
+                          <Moon className="w-3.5 h-3.5 fill-current" />
+                        </div>
+                        <div>
+                          <span className="text-xs font-bold text-white">Mode Sommeil en cours</span>
+                          <span className="ml-1.5 text-[11px] text-[#A78BFA] font-medium">• Couché à {bedtime}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={triggerSleepNow}
+                        title="Actualiser l'heure de coucher à maintenant"
+                        className="flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-[#231E42] hover:bg-[#2F2958] border border-[#5B4896] text-[#C4B5FD] text-xs font-bold transition-all active:scale-[0.98] cursor-pointer"
+                      >
+                        <RotateCw className="w-3.5 h-3.5" />
+                        <span>Actualiser le coucher</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={triggerWakeUp}
+                        title="Terminer la nuit et enregistrer le réveil"
+                        className="flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-[#D4F63D] hover:bg-[#c2e428] text-black text-xs font-bold transition-all active:scale-[0.98] cursor-pointer shadow-md shadow-[#D4F63D]/20"
+                      >
+                        <Sun className="w-3.5 h-3.5 text-black" />
+                        <span>Je me réveille</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Quick Task Input Bar */}
                 <form

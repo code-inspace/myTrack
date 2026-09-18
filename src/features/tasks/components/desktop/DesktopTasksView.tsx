@@ -18,11 +18,12 @@ import { DesktopWidgetsPane } from "./DesktopWidgetsPane";
 import { DesktopDatePicker } from "./DesktopDatePicker";
 import { TaskAutoCompleteSuggestions } from "../TaskAutoCompleteSuggestions";
 import { useProjects } from "@/features/projects/hooks";
-import { CheckCircle2, Plus, Flame, Inbox, Calendar, RefreshCw, Play } from "lucide-react";
+import { CheckCircle2, Plus, Flame, Inbox, Calendar, RefreshCw, Play, Moon, Sun, RotateCw } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
+import { useNightMode } from "@/features/sleep/providers/NightModeProvider";
 import {
   DndContext,
   DragEndEvent,
@@ -98,6 +99,7 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
 }) => {
   const queryClient = useQueryClient();
   const { projects } = useProjects();
+  const { isSleeping, bedtime, triggerSleepNow, triggerWakeUp } = useNightMode();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [statusFilter, setStatusFilter] = useState<FilterStatus>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("");
@@ -448,6 +450,19 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
         </button>
 
         <div className="flex items-center gap-2 ml-auto flex-shrink-0">
+          {/* Bouton Je me couche (quand non en sommeil) */}
+          {!isSleeping && (
+            <button
+              type="button"
+              onClick={triggerSleepNow}
+              title="Démarrer une période de sommeil"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer border bg-[#1E1B38] border-[#7C3AED]/50 text-[#C4B5FD] hover:bg-[#2B2750] active:scale-95 shadow-sm shadow-[#7C3AED]/20"
+            >
+              <Moon className="w-3.5 h-3.5 fill-current text-[#A78BFA]" />
+              <span>Je me couche</span>
+            </button>
+          )}
+
           {/* Completed tasks visibility toggle button */}
           <button
             type="button"
@@ -486,6 +501,48 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
       <div className="flex-1 min-h-0 flex items-start gap-6">
         {/* Left Pane: Tasks Workspace */}
         <div className="flex-1 min-h-0 h-full flex flex-col overflow-y-auto scrollbar-none pr-2 space-y-4">
+          {/* Bannière Mode Sommeil Actif (quand l'utilisateur s'est couché) */}
+          {isSleeping && (
+            <div className="w-full bg-[#18152E] border border-[#7C3AED]/40 rounded-2xl p-3.5 shadow-lg shadow-[#7C3AED]/15 flex items-center justify-between gap-4 animate-in fade-in duration-200 select-none">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full bg-[#7C3AED]/25 border border-[#7C3AED]/40 flex items-center justify-center text-[#C4B5FD] shrink-0">
+                  <Moon className="w-4 h-4 fill-current" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-white">Mode Sommeil en cours</span>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-[#7C3AED]/30 text-[#C4B5FD] font-mono">
+                      {bedtime}
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#A78BFA]/80">Couché à {bedtime} • Cliquez pour actualiser ou terminer votre nuit</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={triggerSleepNow}
+                  title="Actualiser l'heure de coucher à maintenant"
+                  className="flex items-center justify-center gap-1.5 py-2 px-3.5 rounded-xl bg-[#231E42] hover:bg-[#2F2958] border border-[#5B4896] text-[#C4B5FD] text-xs font-bold transition-all active:scale-[0.98] cursor-pointer"
+                >
+                  <RotateCw className="w-3.5 h-3.5" />
+                  <span>Actualiser le coucher</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={triggerWakeUp}
+                  title="Terminer la nuit et enregistrer le réveil"
+                  className="flex items-center justify-center gap-1.5 py-2 px-4 rounded-xl bg-[#D4F63D] hover:bg-[#c2e428] text-black text-xs font-bold transition-all active:scale-[0.98] cursor-pointer shadow-md shadow-[#D4F63D]/20"
+                >
+                  <Sun className="w-3.5 h-3.5 text-black" />
+                  <span>Je me réveille</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Quick Task Input Bar */}
           <form
             onSubmit={(e) => {

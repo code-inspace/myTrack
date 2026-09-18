@@ -78,12 +78,15 @@ export const NightModeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setWakeTime(wt);
 
     const storedSleepingStart = getSleepingStartTime();
+    const currentlySleeping = Boolean(storedSleepingStart);
+    setIsSleeping(currentlySleeping);
     if (storedSleepingStart) {
-      setIsSleeping(true);
       setSleepingStartedAt(storedSleepingStart);
+    } else {
+      setSleepingStartedAt(null);
     }
 
-    return { bedtime: bt, wakeTime: wt, log };
+    return { bedtime: bt, wakeTime: wt, isSleeping: currentlySleeping, log };
   }, [todayStr]);
 
   // 2. Check if night mode should be active
@@ -99,31 +102,17 @@ export const NightModeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       return;
     }
 
-    const { bedtime: bt, wakeTime: wt } = refreshSleepLog();
-    const now = new Date();
-
-    // Vérifier si l'utilisateur a annulé le sommeil récemment (< 8h)
-    let isRecentlyCanceled = false;
-    try {
-      const canceledTsRaw = localStorage.getItem("mytrack_sleep_canceled_second_sleep_ts");
-      const canceledTs = canceledTsRaw ? parseFloat(canceledTsRaw) : 0;
-      if (canceledTs > 0 && now.getTime() / 1000 - canceledTs < 8 * 3600) {
-        isRecentlyCanceled = true;
-      }
-    } catch {}
-
-    const inWindow = isCurrentlyInSleepWindow(now, bt, wt);
-    const dismissedUntilBedtime = isNightModeDismissedUntilBedtime(now);
+    const { isSleeping: sleeping } = refreshSleepLog();
     const sessionUnlocked = isNightModeUnlockedForSession();
 
-    if (inWindow && !dismissedUntilBedtime && !sessionUnlocked && !isRecentlyCanceled) {
+    if (sleeping && !sessionUnlocked) {
       setIsNightModeActive(true);
     } else {
       setIsNightModeActive(false);
     }
   }, [isTestMode, refreshSleepLog]);
 
-  // Preference change listener
+  // Preference change listener & sleep status sync
   useEffect(() => {
     const handlePrefsChange = () => {
       setIsFeatureEnabled(isNightModeFeatureEnabled());
@@ -131,11 +120,23 @@ export const NightModeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       checkNightModeStatus();
     };
 
-    window.addEventListener("mytrack:night-mode-prefs-changed", handlePrefsChange);
-    return () => window.removeEventListener("mytrack:night-mode-prefs-changed", handlePrefsChange);
-  }, [checkNightModeStatus]);
+    const handleSleepEvent = () => {
+      refreshSleepLog();
+      checkNightModeStatus();
+    };
 
-  // Activity tracking for auto-lock on 1-minute inactivity
+    window.addEventListener("mytrack:night-mode-prefs-changed", handlePrefsChange);
+    window.addEventListener("mytrack:sleep-mode-changed", handleSleepEvent);
+    window.addEventListener("storage", handleSleepEvent);
+
+    return () => {
+      window.removeEventListener("mytrack:night-mode-prefs-changed", handlePrefsChange);
+      window.removeEventListener("mytrack:sleep-mode-changed", handleSleepEvent);
+      window.removeEventListener("storage", handleSleepEvent);
+    };
+  }, [checkNightModeStatus, refreshSleepLog]);
+
+  // Activity tracking for auto-lock on inactivity
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -155,23 +156,18 @@ export const NightModeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         return;
       }
 
-      // Check if session was unlocked
+      const storedSleepingStart = getSleepingStartTime();
+      if (!storedSleepingStart) return;
+
       const sessionUnlocked = isNightModeUnlockedForSession();
       if (!sessionUnlocked) return;
 
-      const now = new Date();
-      const inSleepWindow = isCurrentlyInSleepWindow(now, bedtime, wakeTime);
-      const dismissed = isNightModeDismissedUntilBedtime(now);
+      const timeoutMs = getNightModeInactivityTimeoutMs();
+      const inactiveDuration = Date.now() - lastActivityRef.current;
 
-      if (inSleepWindow && !dismissed) {
-        const timeoutMs = getNightModeInactivityTimeoutMs();
-        const inactiveDuration = Date.now() - lastActivityRef.current;
-
-        if (inactiveDuration >= timeoutMs) {
-          // Re-lock session and restore Night Mode screen!
-          clearNightModeSessionUnlock();
-          setIsNightModeActive(true);
-        }
+      if (inactiveDuration >= timeoutMs) {
+        clearNightModeSessionUnlock();
+        setIsNightModeActive(true);
       }
     }, 2000);
 
@@ -183,7 +179,7 @@ export const NightModeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       window.removeEventListener("scroll", handleUserActivity);
       clearInterval(inactivityTimer);
     };
-  }, [bedtime, wakeTime]);
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -206,7 +202,7 @@ export const NightModeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return () => clearInterval(interval);
   }, [todayStr, refreshSleepLog, checkNightModeStatus]);
 
-  // Handler: "Je me couche maintenant"
+  // Handler: "Je me couche maintenant" / "Actualiser l'heure de coucher"
   const triggerSleepNow = () => {
     const log = getStoredSleepLog(todayStr);
     const updated = applySleepStartNow(log);
@@ -226,6 +222,16 @@ export const NightModeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       isSecondSleep: false,
       startedAtTimestamp: Date.now() / 1000,
     });
+
+    try {
+      window.dispatchEvent(
+        new CustomEvent("mytrack:sleep-mode-changed", {
+          detail: { isSleeping: true, bedtime: updated.bedtime },
+        })
+      );
+    } catch {}
+
+    checkNightModeStatus();
   };
 
   // Handler: "Je me réveille"
@@ -237,6 +243,7 @@ export const NightModeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setSleepingStartTime(null);
     setIsSleeping(false);
     setSleepingStartedAt(null);
+    clearNightModeSessionUnlock();
 
     const nowIso = new Date().toISOString();
     try {
@@ -252,8 +259,14 @@ export const NightModeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       startedAtTimestamp: Date.now() / 1000,
     });
 
-    // Dismiss until the next bedtime
-    dismissNightModeUntilNextBedtime(bedtime);
+    try {
+      window.dispatchEvent(
+        new CustomEvent("mytrack:sleep-mode-changed", {
+          detail: { isSleeping: false, wakeTime: updated.wakeTime },
+        })
+      );
+    } catch {}
+
     setIsTestMode(false);
     setIsNightModeActive(false);
   };
