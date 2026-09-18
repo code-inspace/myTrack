@@ -23,8 +23,7 @@ import { useAuth } from "@/providers/AuthProvider";
 import { useDisplayMode } from "@/providers/DisplayModeProvider";
 import { useCalendarEvents } from "@/features/calendar/hooks/useCalendarEvents";
 import { addWeeks, subWeeks, addMonths, subMonths } from "date-fns";
-import Link from "next/link";
-import { Sliders, Target } from "lucide-react";
+import { Sliders } from "lucide-react";
 
 const DASHBOARD_CONFIG_STORAGE_KEY = "mytrack_dashboard_modules_config";
 
@@ -204,19 +203,14 @@ export default function DashboardPage() {
 
   return (
     <div className="flex-1 min-h-0 flex flex-col w-full h-full bg-[#0E0F12] relative overflow-hidden">
-      {/* 1. Mobile Fixed Header (matching standard page layout, outside scroll area) */}
+      {/* 1. Mobile Fixed Header (matching standard page layout, with header personalization) */}
       <div className="flex-shrink-0 z-30 shadow-md md:hidden bg-[#111214] border-b border-[#23242A]">
         <AppHeader
           title="Dashboard"
-          leftAction={{
+          rightIconAction={{
             icon: Sliders,
             label: "Personnaliser",
             onClick: () => setIsConfigModalOpen(true),
-          }}
-          rightIconAction={{
-            icon: Target,
-            label: "Objectifs",
-            href: "/goals",
           }}
         />
       </div>
@@ -229,57 +223,33 @@ export default function DashboardPage() {
       >
         {/* Desktop Header */}
         <div className="hidden md:flex items-center justify-between pb-2 select-none flex-shrink-0">
-          <div className="flex items-center gap-4">
-            <button
-              type="button"
-              onClick={() => setIsConfigModalOpen(true)}
-              className="px-3.5 py-2 rounded-2xl bg-[#1C1D22] hover:bg-[#252830] border border-[#282A30] hover:border-[#383C48] text-xs font-semibold text-white flex items-center gap-2 transition-all cursor-pointer shadow-sm"
-              title="Personnaliser le dashboard"
-            >
-              <Sliders className="w-4 h-4 text-[#D4F63D]" />
-              <span>Personnaliser</span>
-            </button>
-
-            <Link
-              href="/goals"
-              className="px-3.5 py-2 rounded-2xl bg-[#1C1D22] hover:bg-[#252830] border border-[#282A30] hover:border-[#383C48] text-xs font-semibold text-white flex items-center gap-2 transition-all cursor-pointer shadow-sm"
-              title="Gérer mes objectifs"
-            >
-              <Target className="w-4 h-4 text-[#D4F63D]" />
-              <span>Objectifs</span>
-            </Link>
-
-            <div>
-              <h1 className="text-2xl lg:text-3xl font-extrabold text-white tracking-tight">
-                <span>Dashboard</span>
-              </h1>
-              <p className="text-xs text-[#8E929E] mt-0.5">
-                Analyse de ta progression, régularité et momentum
-              </p>
-            </div>
+          <div>
+            <h1 className="text-2xl lg:text-3xl font-extrabold text-white tracking-tight">
+              <span>Dashboard</span>
+            </h1>
+            <p className="text-xs text-[#8E929E] mt-0.5">
+              Analyse de ta progression, régularité et momentum
+            </p>
           </div>
-        </div>
 
-        {/* Period Selector Tabs & Chevron Navigation: [Semaine] [Mois] [Tout le temps] */}
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex-1 min-w-0">
-            <PeriodSelector
-              period={period}
-              onChangePeriod={setPeriod}
-              referenceDate={referenceDate}
-              onChangeReferenceDate={setReferenceDate}
-            />
-          </div>
           <button
             type="button"
             onClick={() => setIsConfigModalOpen(true)}
-            className="md:hidden p-2.5 rounded-2xl bg-[#1C1D22] hover:bg-[#252830] border border-[#282A30] text-[#8E929E] hover:text-white flex items-center justify-center transition-all cursor-pointer shadow-sm shrink-0"
-            title="Personnaliser les widgets"
-            aria-label="Personnaliser les widgets"
+            className="px-3.5 py-2 rounded-2xl bg-[#1C1D22] hover:bg-[#252830] border border-[#282A30] hover:border-[#383C48] text-xs font-semibold text-white flex items-center gap-2 transition-all cursor-pointer shadow-sm"
+            title="Personnaliser le dashboard"
           >
             <Sliders className="w-4 h-4 text-[#D4F63D]" />
+            <span>Personnaliser</span>
           </button>
         </div>
+
+        {/* Period Selector Tabs & Chevron Navigation */}
+        <PeriodSelector
+          period={period}
+          onChangePeriod={setPeriod}
+          referenceDate={referenceDate}
+          onChangeReferenceDate={setReferenceDate}
+        />
 
         {/* Dynamically configured modules in custom order */}
         <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
