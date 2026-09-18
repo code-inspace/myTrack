@@ -75,8 +75,6 @@ export const SleepJournalView: React.FC<SleepJournalViewProps> = ({ selectedDate
       ...log,
       bedtime: newBedtime,
       bedtimeValidated: markValidated,
-      bedtimeReminders: [],
-      enableBedtimeReminders: false,
     };
     triggerSave(updated);
   };

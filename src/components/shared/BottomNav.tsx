@@ -19,9 +19,9 @@ export const BottomNav: React.FC = () => {
 
   const navItems = [
     { href: "/tasks", label: "Liste", icon: ListTodo, activePaths: ["/tasks", "/"] },
-    { href: "/agenda", label: "Agenda", icon: TASK_TABS.find((t) => t.id === "agenda")?.icon || ListTodo, activePaths: ["/agenda", "/sleep", "/bilan"] },
+    { href: "/agenda", label: "Agenda", icon: TASK_TABS.find((t) => t.id === "agenda")?.icon || ListTodo, activePaths: ["/agenda"] },
     { href: "/projects", label: "Projets", icon: TASK_TABS.find((t) => t.id === "projects")?.icon || ListTodo, activePaths: ["/projects"] },
-    { href: "/goals", label: "Objectifs", icon: Target, activePaths: ["/goals", "/objectifs"] },
+    { href: "/goals", label: "Objectifs", icon: Target, activePaths: ["/goals"] },
     { href: "/dashboard", label: "Dashboard", icon: TrendingUp, activePaths: ["/dashboard"] },
     { href: "/profile", label: "Profil", icon: User, activePaths: ["/profile"] },
   ];

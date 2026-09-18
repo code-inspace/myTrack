@@ -1,5 +1,5 @@
 // Prisma Schema for MyTrack
-// PostgreSQL / Supabase compatible
+// Clean, normalized PostgreSQL / Supabase schema
 
 generator client {
   provider = "prisma-client-js"
@@ -30,10 +30,10 @@ model User {
   id                      String                  @id @default(uuid())
   email                   String                  @unique
   name                    String?
-  avatarUrl               String?
+  avatarUrl               String?                 @map("avatar_url")
   timezone                String                  @default("UTC")
-  createdAt               DateTime                @default(now())
-  updatedAt               DateTime                @updatedAt
+  createdAt               DateTime                @default(now()) @map("created_at")
+  updatedAt               DateTime                @updatedAt @map("updated_at")
 
   tasks                   Task[]
   completions             TaskCompletion[]
@@ -43,31 +43,36 @@ model User {
   sleepLogs               SleepLog[]
   conversations           ChatConversation[]
   goals                   Goal[]
+  calendarSubscriptions   CalendarSubscription[]
 
   @@map("users")
 }
 
 model Task {
   id               String           @id @default(uuid())
-  userId           String
+  userId           String           @map("user_id")
   title            String
   description      String?
-  tag              String           @default("General")
   category         String?          @default("General")
-  projectCategory  String?
-  projectId        String?
-  projectStatus    String?
-  startTime        String?          // e.g. "07:00"
-  endTime          String?          // e.g. "08:00"
+  projectCategory  String?          @map("project_category")
+  projectId        String?          @map("project_id")
+  projectStatus    String?          @map("project_status")
+  startTime        String?          @map("start_time") // e.g. "07:00"
+  endTime          String?          @map("end_time")   // e.g. "08:00"
   recurrence       RecurrenceType   @default(DAILY)
-  recurrenceConfig Json?            // e.g. { "days": [1, 2, 3, 4, 5] } for Mon-Fri
-  trackingType     TrackingType     @default(BOOLEAN)
-  targetValue      Float?           // e.g. 50 (reps/pages) or 60 (minutes)
-  unit             String?          // e.g. "reps", "liters", "pages", "min"
-  isActive         Boolean          @default(false)
-  isArchived       Boolean          @default(false)
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
+  recurrenceConfig Json?            @map("recurrence_config")
+  trackingType     TrackingType     @default(BOOLEAN) @map("tracking_type")
+  targetValue      Float?           @map("target_value")
+  unit             String?
+  isActive         Boolean          @default(false) @map("is_active")
+  isArchived       Boolean          @default(false) @map("is_archived")
+  startedAt        DateTime?        @map("started_at")
+  dateOverrides    Json?            @map("date_overrides")
+  sortOrder        Int?             @map("sort_order")
+  deadline         String?
+  priority         String?
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
 
   user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   completions      TaskCompletion[]
@@ -80,19 +85,23 @@ model Task {
 }
 
 model TaskCompletion {
-  id          String    @id @default(uuid())
-  taskId      String
-  userId      String
-  date        String    // ISO Date string: "YYYY-MM-DD"
-  completed   Boolean   @default(true)
-  value       Float?    // Actual value recorded: e.g. 35 reps or 2.5 liters
-  duration    Int?      // Duration in seconds if timed: e.g. 1800
-  notes       String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id                 String    @id @default(uuid())
+  taskId             String    @map("task_id")
+  userId             String    @map("user_id")
+  date               String    // ISO Date string: "YYYY-MM-DD"
+  completed          Boolean   @default(true)
+  value              Float?
+  duration           Int?      // Duration in seconds if timed: e.g. 1800
+  notes              String?
+  scheduledStartTime String?   @map("scheduled_start_time")
+  scheduledEndTime   String?   @map("scheduled_end_time")
+  actualStartTime    String?   @map("actual_start_time")
+  actualEndTime      String?   @map("actual_end_time")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
 
-  task        Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task               Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([taskId, date])
   @@index([userId, date])
@@ -101,51 +110,51 @@ model TaskCompletion {
 }
 
 model NotificationPreference {
-  id                    String    @id @default(uuid())
-  userId                String    @unique
-  pushEnabled           Boolean   @default(true)
-  morningReminder       Boolean   @default(true)
-  morningReminderTime   String    @default("08:00")
-  eveningRecap          Boolean   @default(true)
-  eveningRecapTime      String    @default("21:00")
-  streakReminder        Boolean   @default(true)
-  missedTaskReminder    Boolean   @default(true)
-  oneSignalPlayerId     String?
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+  id                  String    @id @default(uuid())
+  userId              String    @unique @map("user_id")
+  pushEnabled         Boolean   @default(true) @map("push_enabled")
+  morningReminder     Boolean   @default(true) @map("morning_reminder")
+  morningReminderTime String    @default("08:00") @map("morning_reminder_time")
+  eveningRecap        Boolean   @default(true) @map("evening_recap")
+  eveningRecapTime    String    @default("21:00") @map("evening_recap_time")
+  streakReminder      Boolean   @default(true) @map("streak_reminder")
+  missedTaskReminder  Boolean   @default(true) @map("missed_task_reminder")
+  oneSignalPlayerId   String?   @map("one_signal_player_id")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
 
-  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("notification_preferences")
 }
 
 model NotificationSchedule {
-  id             String    @id @default(uuid())
-  userId         String
-  taskId         String?
-  question       String    // e.g. "Have you done your push-ups today?"
-  time           String    // "18:00"
-  days           Int[]     // [1, 2, 3, 4, 5] (0=Sun, 1=Mon, ..., 6=Sat)
-  enabled        Boolean   @default(true)
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  id        String    @id @default(uuid())
+  userId    String    @map("user_id")
+  taskId    String?   @map("task_id")
+  question  String
+  time      String    // "18:00"
+  days      Int[]     // [1, 2, 3, 4, 5] (0=Sun, 1=Mon, ..., 6=Sat)
+  enabled   Boolean   @default(true)
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
 
-  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  task           Task?     @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task      Task?     @relation(fields: [taskId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@map("notification_schedules")
 }
 
 model ChatConversation {
-  id          String        @id @default(uuid())
-  userId      String
-  title       String        @default("AI Coach Session")
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  id        String        @id @default(uuid())
+  userId    String        @map("user_id")
+  title     String        @default("AI Coach Session")
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
 
-  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  messages    ChatMessage[]
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages  ChatMessage[]
 
   @@index([userId])
   @@map("chat_conversations")
@@ -153,11 +162,11 @@ model ChatConversation {
 
 model ChatMessage {
   id              String           @id @default(uuid())
-  conversationId  String
+  conversationId  String           @map("conversation_id")
   sender          String           // "user" | "assistant" | "system"
   content         String
-  contextSnapshot Json?            // Structured context of streak/momentum at time of query
-  createdAt       DateTime         @default(now())
+  contextSnapshot Json?            @map("context_snapshot")
+  createdAt       DateTime         @default(now()) @map("created_at")
 
   conversation    ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
@@ -167,17 +176,17 @@ model ChatMessage {
 
 model Reminder {
   id                      String    @id @default(uuid())
-  userId                  String
-  taskId                  String?
+  userId                  String    @map("user_id")
+  taskId                  String?   @map("task_id")
   title                   String
   body                    String
-  scheduledAt             DateTime
+  scheduledAt             DateTime  @map("scheduled_at")
   status                  String    @default("pending") // "pending" | "scheduled" | "sent" | "failed" | "cancelled"
-  onesignalNotificationId String?
-  errorMessage            String?
-  reminderType            String    @default("task_reminder") // "task_reminder" | "bedtime" | "checkin" | "custom" | "morning" | "evening"
-  createdAt               DateTime  @default(now())
-  updatedAt               DateTime  @updatedAt
+  onesignalNotificationId String?   @map("onesignal_notification_id")
+  errorMessage            String?   @map("error_message")
+  reminderType            String    @default("task_reminder") @map("reminder_type")
+  createdAt               DateTime  @default(now()) @map("created_at")
+  updatedAt               DateTime  @updatedAt @map("updated_at")
 
   user                    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   task                    Task?     @relation(fields: [taskId], references: [id], onDelete: SetNull)
@@ -188,24 +197,21 @@ model Reminder {
 }
 
 model SleepLog {
-  id                     String    @id @default(uuid())
-  userId                 String
-  date                   String    // "YYYY-MM-DD"
-  bedtime                String?   // "23:00"
-  wakeTime               String?   // "07:00"
-  bedtimeValidated       Boolean   @default(false)
-  wakeTimeValidated      Boolean   @default(false)
-  bedtimeOffsets         Int[]     @default([60, 30, 15])
-  bedtimeReminders       String[]  @default([])
-  enableBedtimeReminders Boolean   @default(true)
-  naps                   Json      @default("[]")
-  notes                  String?
-  gratitude              String?
-  manifestation          String?
-  createdAt              DateTime  @default(now())
-  updatedAt              DateTime  @updatedAt
+  id                String    @id @default(uuid())
+  userId            String    @map("user_id")
+  date              String    // "YYYY-MM-DD"
+  bedtime           String?   // "23:00"
+  wakeTime          String?   @map("wake_time") // "07:00"
+  bedtimeValidated  Boolean   @default(false) @map("bedtime_validated")
+  wakeTimeValidated Boolean   @default(false) @map("wake_time_validated")
+  naps              Json      @default("[]")
+  notes             String?
+  gratitude         String?
+  manifestation     String?
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
 
-  user                   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, date])
   @@index([userId, date])
@@ -214,14 +220,14 @@ model SleepLog {
 
 model Project {
   id          String          @id @default(uuid())
-  userId      String
+  userId      String          @map("user_id")
   name        String
   description String?
   color       String?         @default("#3B82F6")
   columns     Json?
   categories  String[]        @default([])
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
 
   members     ProjectMember[]
 
@@ -231,12 +237,12 @@ model Project {
 
 model ProjectMember {
   id           String    @id @default(uuid())
-  projectId    String
-  userId       String
+  projectId    String    @map("project_id")
+  userId       String    @map("user_id")
   role         String    @default("member") // "owner" | "member" | "viewer"
-  encryptedKey String?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  encryptedKey String?   @map("encrypted_key")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
 
   project      Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
@@ -253,7 +259,11 @@ model Goal {
   projectId       String   @map("project_id")
   projectCategory String?  @map("project_category")
   periodType      String   @default("week") @map("period_type")
+  periodKey       String?  @map("period_key")
+  targetType      String   @default("duration") @map("target_type") // "duration" | "count"
   targetMinutes   Int      @default(60) @map("target_minutes")
+  targetCount     Int?     @map("target_count")
+  isRecurring     Boolean  @default(true) @map("is_recurring")
   color           String?
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
@@ -263,4 +273,24 @@ model Goal {
   @@index([userId])
   @@index([projectId])
   @@map("goals")
+}
+
+model CalendarSubscription {
+  id           String    @id @default(uuid())
+  userId       String    @map("user_id")
+  name         String
+  url          String
+  color        String?   @default("#6366F1")
+  enabled      Boolean   @default(true)
+  username     String?
+  password     String?
+  lastSyncedAt DateTime? @map("last_synced_at")
+  error        String?
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("calendar_subscriptions")
 }

@@ -38,14 +38,14 @@ const DISPLAY_MODE_OPTIONS: Array<{
   {
     id: "modern",
     label: "Nouveau",
-    description: "Onglets Liste/Agenda/Projets/Bilan dans le menu du bas — dashboard et profil dans l'en-tête",
+    description: "Onglets Liste, Agenda, Projets, Objectifs, Dashboard dans le menu du bas",
     icon: PanelsTopLeft,
     isDefault: true,
   },
   {
     id: "classic",
     label: "Classique",
-    description: "Onglets en haut de l'écran — dashboard, coach IA et profil dans le menu du bas",
+    description: "Onglets de navigation condensés en haut de l'écran avec barre d'accès rapide",
     icon: LayoutPanelTop,
   },
 ];

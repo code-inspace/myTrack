@@ -1,5 +1,6 @@
 -- ==========================================================
 -- MyTrack Supabase PostgreSQL Schema & Row Level Security (RLS)
+-- Clean, Simplified, Production Schema
 -- ==========================================================
 
 -- Enable UUID extension
@@ -24,21 +25,34 @@ CREATE TABLE IF NOT EXISTS public.users (
     email TEXT UNIQUE NOT NULL,
     name TEXT,
     avatar_url TEXT,
-    timezone TEXT DEFAULT 'UTC',
+    timezone TEXT DEFAULT 'UTC' NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
--- 2. Projects Table (referenced by tasks.project_id below)
+-- 2. Projects Table
 CREATE TABLE IF NOT EXISTS public.projects (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
+    description TEXT,
     color TEXT DEFAULT '#D4F63D',
     columns JSONB,
     categories JSONB DEFAULT '[]'::jsonb,
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+-- 2b. Project Members (Multi-user sharing)
+CREATE TABLE IF NOT EXISTS public.project_members (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    project_id UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    role TEXT DEFAULT 'member' NOT NULL,
+    encrypted_key TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    CONSTRAINT unique_project_user UNIQUE(project_id, user_id)
 );
 
 -- 3. Tasks Table
@@ -47,9 +61,10 @@ CREATE TABLE IF NOT EXISTS public.tasks (
     user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
     description TEXT,
-    tag TEXT DEFAULT 'General' NOT NULL,
     category TEXT DEFAULT 'General',
     project_category TEXT,
+    project_id UUID REFERENCES public.projects(id) ON DELETE SET NULL,
+    project_status TEXT DEFAULT 'TODO',
     start_time TEXT,
     end_time TEXT,
     deadline TEXT,
@@ -61,9 +76,9 @@ CREATE TABLE IF NOT EXISTS public.tasks (
     unit TEXT,
     is_active BOOLEAN DEFAULT false NOT NULL,
     is_archived BOOLEAN DEFAULT false NOT NULL,
+    started_at TIMESTAMPTZ,
+    date_overrides JSONB DEFAULT '{}'::jsonb,
     sort_order INTEGER,
-    project_id UUID REFERENCES public.projects(id) ON DELETE SET NULL,
-    project_status TEXT DEFAULT 'TODO',
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
@@ -78,12 +93,84 @@ CREATE TABLE IF NOT EXISTS public.task_completions (
     value DOUBLE PRECISION,
     duration INTEGER,
     notes TEXT,
+    scheduled_start_time TEXT,
+    scheduled_end_time TEXT,
+    actual_start_time TEXT,
+    actual_end_time TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     CONSTRAINT unique_task_date UNIQUE(task_id, date)
 );
 
--- 4. Notification Preferences
+-- 5. Goals Table (Time & Action Targets)
+CREATE TABLE IF NOT EXISTS public.goals (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    title TEXT,
+    project_id UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
+    project_category TEXT,
+    period_type TEXT DEFAULT 'week' NOT NULL,
+    period_key TEXT,
+    target_type TEXT DEFAULT 'duration' NOT NULL, -- 'duration' | 'count'
+    target_minutes INTEGER DEFAULT 60 NOT NULL,
+    target_count INTEGER,
+    is_recurring BOOLEAN DEFAULT true NOT NULL,
+    color TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+-- 6. Sleep Logs Table (Cleaned: no obsolete bedtime offsets or reminder arrays)
+CREATE TABLE IF NOT EXISTS public.sleep_logs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    date TEXT NOT NULL, -- Format YYYY-MM-DD
+    bedtime TEXT DEFAULT '23:00',
+    wake_time TEXT DEFAULT '07:00',
+    bedtime_validated BOOLEAN DEFAULT false NOT NULL,
+    wake_time_validated BOOLEAN DEFAULT false NOT NULL,
+    naps JSONB DEFAULT '[]'::jsonb,
+    notes TEXT,
+    gratitude TEXT,
+    manifestation TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    CONSTRAINT unique_user_sleep_date UNIQUE(user_id, date)
+);
+
+-- 7. Calendar Subscriptions Table
+CREATE TABLE IF NOT EXISTS public.calendar_subscriptions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    url TEXT NOT NULL,
+    color TEXT DEFAULT '#6366F1',
+    enabled BOOLEAN DEFAULT true NOT NULL,
+    username TEXT,
+    password TEXT,
+    last_synced_at TIMESTAMPTZ,
+    error TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+-- 8. Reminders Table
+CREATE TABLE IF NOT EXISTS public.reminders (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    task_id UUID REFERENCES public.tasks(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    body TEXT NOT NULL,
+    scheduled_at TIMESTAMPTZ NOT NULL,
+    status TEXT DEFAULT 'pending' NOT NULL,
+    onesignal_notification_id TEXT,
+    error_message TEXT,
+    reminder_type TEXT DEFAULT 'task_reminder' NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+-- 9. Notification Preferences Table
 CREATE TABLE IF NOT EXISTS public.notification_preferences (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID UNIQUE NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
@@ -94,12 +181,12 @@ CREATE TABLE IF NOT EXISTS public.notification_preferences (
     evening_recap_time TEXT DEFAULT '21:00' NOT NULL,
     streak_reminder BOOLEAN DEFAULT true NOT NULL,
     missed_task_reminder BOOLEAN DEFAULT true NOT NULL,
-    onesignal_player_id TEXT,
+    one_signal_player_id TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
--- 5. Notification Schedules (Custom actionable reminders)
+-- 10. Notification Schedules Table
 CREATE TABLE IF NOT EXISTS public.notification_schedules (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
@@ -112,7 +199,7 @@ CREATE TABLE IF NOT EXISTS public.notification_schedules (
     updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
--- 6. Chat Conversations
+-- 11. Chat Conversations Table
 CREATE TABLE IF NOT EXISTS public.chat_conversations (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
@@ -121,61 +208,40 @@ CREATE TABLE IF NOT EXISTS public.chat_conversations (
     updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
--- 7. Chat Messages
+-- 12. Chat Messages Table
 CREATE TABLE IF NOT EXISTS public.chat_messages (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     conversation_id UUID NOT NULL REFERENCES public.chat_conversations(id) ON DELETE CASCADE,
-    sender TEXT NOT NULL, -- 'user' | 'assistant' | 'system'
+    sender TEXT NOT NULL,
     content TEXT NOT NULL,
     context_snapshot JSONB,
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
--- 8. Reminders (Source of truth for scheduled push notifications)
-CREATE TABLE IF NOT EXISTS public.reminders (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-    task_id UUID REFERENCES public.tasks(id) ON DELETE CASCADE,
-    title TEXT NOT NULL,
-    body TEXT NOT NULL,
-    scheduled_at TIMESTAMPTZ NOT NULL,
-    status TEXT DEFAULT 'pending' NOT NULL, -- 'pending' | 'scheduled' | 'sent' | 'failed' | 'cancelled'
-    onesignal_notification_id TEXT,
-    error_message TEXT,
-    reminder_type TEXT DEFAULT 'task_reminder' NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
-    updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
-);
-
--- 9. Sleep Logs Table (Daily bedtime, wake time, offsets and reflections)
-CREATE TABLE IF NOT EXISTS public.sleep_logs (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-    date TEXT NOT NULL, -- Format YYYY-MM-DD
-    bedtime TEXT DEFAULT '23:00',
-    wake_time TEXT DEFAULT '07:00',
-    bedtime_validated BOOLEAN DEFAULT false NOT NULL,
-    wake_time_validated BOOLEAN DEFAULT false NOT NULL,
-    bedtime_offsets INTEGER[] DEFAULT '{60,30,15}' NOT NULL,
-    bedtime_reminders TEXT[] DEFAULT '{}' NOT NULL,
-    enable_bedtime_reminders BOOLEAN DEFAULT true NOT NULL,
-    notes TEXT,
-    gratitude TEXT,
-    manifestation TEXT,
-    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
-    updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
-    CONSTRAINT unique_user_sleep_date UNIQUE(user_id, date)
-);
+-- Indexes for optimal performance
+CREATE INDEX IF NOT EXISTS idx_tasks_user_archived ON public.tasks(user_id, is_archived);
+CREATE INDEX IF NOT EXISTS idx_tasks_project ON public.tasks(project_id);
+CREATE INDEX IF NOT EXISTS idx_task_completions_user_date ON public.task_completions(user_id, date);
+CREATE INDEX IF NOT EXISTS idx_task_completions_task_date ON public.task_completions(task_id, date);
+CREATE INDEX IF NOT EXISTS idx_goals_user ON public.goals(user_id);
+CREATE INDEX IF NOT EXISTS idx_goals_project ON public.goals(project_id);
+CREATE INDEX IF NOT EXISTS idx_sleep_logs_user_date ON public.sleep_logs(user_id, date);
+CREATE INDEX IF NOT EXISTS idx_calendar_subscriptions_user ON public.calendar_subscriptions(user_id);
+CREATE INDEX IF NOT EXISTS idx_reminders_user_status ON public.reminders(user_id, status);
+CREATE INDEX IF NOT EXISTS idx_chat_messages_conversation ON public.chat_messages(conversation_id);
 
 -- Enable RLS on all tables
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.project_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.task_completions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.goals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.sleep_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.calendar_subscriptions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notification_preferences ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notification_schedules ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.reminders ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.sleep_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.chat_conversations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.chat_messages ENABLE ROW LEVEL SECURITY;
 
@@ -189,6 +255,11 @@ CREATE POLICY "Users can manage their own projects"
     ON public.projects FOR ALL
     USING (auth.uid() = user_id);
 
+-- Project members policies
+CREATE POLICY "Users can view project memberships"
+    ON public.project_members FOR ALL
+    USING (auth.uid() = user_id);
+
 -- Tasks policies
 CREATE POLICY "Users can manage their own tasks"
     ON public.tasks FOR ALL
@@ -197,6 +268,21 @@ CREATE POLICY "Users can manage their own tasks"
 -- Task completions policies
 CREATE POLICY "Users can manage their own completions"
     ON public.task_completions FOR ALL
+    USING (auth.uid() = user_id);
+
+-- Goals policies
+CREATE POLICY "Users can manage their own goals"
+    ON public.goals FOR ALL
+    USING (auth.uid() = user_id);
+
+-- Sleep logs policies
+CREATE POLICY "Users can manage their own sleep logs"
+    ON public.sleep_logs FOR ALL
+    USING (auth.uid() = user_id);
+
+-- Calendar subscriptions policies
+CREATE POLICY "Users can manage their own calendar subscriptions"
+    ON public.calendar_subscriptions FOR ALL
     USING (auth.uid() = user_id);
 
 -- Notification preferences policies
@@ -212,11 +298,6 @@ CREATE POLICY "Users can manage their own notification schedules"
 -- Reminders policies
 CREATE POLICY "Users can manage their own reminders"
     ON public.reminders FOR ALL
-    USING (auth.uid() = user_id);
-
--- Sleep logs policies
-CREATE POLICY "Users can manage their own sleep logs"
-    ON public.sleep_logs FOR ALL
     USING (auth.uid() = user_id);
 
 -- Chat conversations policies

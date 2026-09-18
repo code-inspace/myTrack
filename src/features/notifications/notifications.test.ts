@@ -116,14 +116,11 @@ describe("Notifications Feature Logic", () => {
     expect(testTime2 % interval === 0).toBe(false);
   });
 
-  it("ensures sleep/bedtime notifications are disabled and not scheduled", async () => {
+  it("ensures sleep/bedtime notifications are cancelled when saving sleep log", async () => {
     const { getStoredSleepLog, saveStoredSleepLog } = await import("@/features/sleep/actions");
-    const { cancelTaskPushNotifications, scheduleTaskPushNotification } = await import("@/lib/onesignal/client");
+    const { cancelTaskPushNotifications } = await import("@/lib/onesignal/client");
     
     const log = getStoredSleepLog("2026-09-16");
-    expect(log.enableBedtimeReminders).toBe(false);
-    expect(log.bedtimeReminders).toEqual([]);
-
     await saveStoredSleepLog({
       ...log,
       bedtime: "23:00",

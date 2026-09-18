@@ -23,7 +23,7 @@ export interface TaskTabDef {
 /** Shared with BottomNav, which renders these same tabs in bottom nav. */
 export const TASK_TABS: TaskTabDef[] = [
   { id: "habits", href: "/tasks", label: "Liste", icon: ListTodo, activePaths: ["/tasks", "/"] },
-  { id: "agenda", href: "/agenda", label: "Agenda", icon: Calendar, activePaths: ["/agenda", "/sleep", "/bilan"] },
+  { id: "agenda", href: "/agenda", label: "Agenda", icon: Calendar, activePaths: ["/agenda"] },
   { id: "projects", href: "/projects", label: "Projets", icon: FolderKanban, activePaths: ["/projects"] },
 ];
 
@@ -55,7 +55,7 @@ export const TasksHeaderWithNav: React.FC<TasksHeaderWithNavProps> = ({
 
   const currentTab: TasksTab =
     activeTab ||
-    (pathname.includes("/agenda") || pathname.includes("/sleep") || pathname.includes("/bilan")
+    (pathname.includes("/agenda")
       ? "agenda"
       : pathname.includes("/projects")
       ? "projects"

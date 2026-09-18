@@ -20,43 +20,6 @@ export function getEffectiveUserId(explicitUserId?: string): string {
   return session?.id || "";
 }
 
-export const BEDTIME_OFFSET_OPTIONS = [
-  { value: 60, label: "1h" },
-  { value: 30, label: "30 min" },
-  { value: 20, label: "20 min" },
-  { value: 15, label: "15 min" },
-  { value: 0, label: "À l'heure" },
-];
-
-export const DEFAULT_BEDTIME_OFFSETS = [60, 30, 15];
-
-/**
- * Calculates bedtime reminder times from an array of minute offsets
- */
-export function computeBedtimeRemindersFromOffsets(
-  bedtime: string,
-  offsets: number[] = DEFAULT_BEDTIME_OFFSETS
-): string[] {
-  if (!bedtime) return ["22:00", "22:30", "22:45"];
-  const sorted = [...offsets].sort((a, b) => b - a);
-  return sorted.map((offset) =>
-    offset === 0 ? bedtime : subtractMinutesFromTime(bedtime, offset)
-  );
-}
-
-/**
- * Calculates 3 default bedtime reminders:
- * 1. 1 hour (60 min) before
- * 2. 30 minutes before
- * 3. 15 minutes before
- */
-export function computeDefaultBedtimeReminders(bedtime: string): string[] {
-  return computeBedtimeRemindersFromOffsets(bedtime, DEFAULT_BEDTIME_OFFSETS);
-}
-
-/**
- * Calculates sleep duration string between bedtime and wakeTime
- */
 export function computeSleepDuration(
   bedtime?: string | null,
   wakeTime?: string | null
@@ -114,13 +77,10 @@ export function applySleepStartNow(log: DailySleepLog): DailySleepLog {
   const now = currentLocalTimeStr();
 
   if (isNightWindow(now)) {
-    const offsets = log.bedtimeOffsets && log.bedtimeOffsets.length > 0 ? log.bedtimeOffsets : DEFAULT_BEDTIME_OFFSETS;
     return {
       ...log,
       bedtime: now,
       bedtimeValidated: true,
-      bedtimeOffsets: offsets,
-      bedtimeReminders: computeBedtimeRemindersFromOffsets(now, offsets),
     };
   }
 
@@ -151,10 +111,6 @@ export function applySleepEndNow(log: DailySleepLog): DailySleepLog {
 function mapDbSleepLogToModel(row: any): DailySleepLog {
   const localBedtime = convertUtcTimeToLocal(row.bedtime || "23:00", row.date);
   const localWakeTime = convertUtcTimeToLocal(row.wake_time || "07:00", row.date);
-  const offsets = row.bedtime_offsets || DEFAULT_BEDTIME_OFFSETS;
-  const localReminders = row.bedtime_reminders && row.bedtime_reminders.length > 0
-    ? row.bedtime_reminders.map((r: string) => convertUtcTimeToLocal(r, row.date))
-    : computeBedtimeRemindersFromOffsets(localBedtime, offsets);
 
   let rawNotes = row.notes || "";
   let gratitude = row.gratitude || "";
@@ -186,9 +142,6 @@ function mapDbSleepLogToModel(row: any): DailySleepLog {
     wakeTime: localWakeTime,
     bedtimeValidated: Boolean(row.bedtime_validated),
     wakeTimeValidated: Boolean(row.wake_time_validated),
-    bedtimeOffsets: offsets,
-    bedtimeReminders: [],
-    enableBedtimeReminders: false,
     naps,
     notes: rawNotes,
     gratitude,
@@ -290,9 +243,6 @@ export function getStoredSleepLog(date: string, userId?: string): DailySleepLog 
       wakeTime: "07:00",
       bedtimeValidated: false,
       wakeTimeValidated: false,
-      bedtimeOffsets: DEFAULT_BEDTIME_OFFSETS,
-      bedtimeReminders: [],
-      enableBedtimeReminders: false,
       naps: [],
       notes: "",
       gratitude: "",
@@ -319,9 +269,6 @@ export function getStoredSleepLog(date: string, userId?: string): DailySleepLog 
       const parsed = JSON.parse(raw);
       return {
         ...parsed,
-        bedtimeOffsets: parsed.bedtimeOffsets || DEFAULT_BEDTIME_OFFSETS,
-        bedtimeReminders: [],
-        enableBedtimeReminders: false,
         naps: parsed.naps || [],
         gratitude: parsed.gratitude || "",
         manifestation: parsed.manifestation || "",
@@ -339,9 +286,6 @@ export function getStoredSleepLog(date: string, userId?: string): DailySleepLog 
     wakeTime: "07:00",
     bedtimeValidated: false,
     wakeTimeValidated: false,
-    bedtimeOffsets: DEFAULT_BEDTIME_OFFSETS,
-    bedtimeReminders: [],
-    enableBedtimeReminders: false,
     naps: [],
     notes: "",
     gratitude: "",
@@ -440,9 +384,6 @@ export async function saveStoredSleepLog(
   try {
     const utcBedtime = convertLocalTimeToUtc(updatedLog.bedtime || "23:00", updatedLog.date);
     const utcWakeTime = convertLocalTimeToUtc(updatedLog.wakeTime || "07:00", updatedLog.date);
-    const utcReminders = (updatedLog.bedtimeReminders || []).map((r) =>
-      convertLocalTimeToUtc(r, updatedLog.date)
-    );
     const utcNaps = (updatedLog.naps || []).map((n) => ({
       id: n.id,
       startTime: convertLocalTimeToUtc(n.startTime, updatedLog.date),
@@ -461,9 +402,6 @@ export async function saveStoredSleepLog(
       wake_time: utcWakeTime,
       bedtime_validated: Boolean(updatedLog.bedtimeValidated),
       wake_time_validated: Boolean(updatedLog.wakeTimeValidated),
-      bedtime_offsets: updatedLog.bedtimeOffsets || DEFAULT_BEDTIME_OFFSETS,
-      bedtime_reminders: [],
-      enable_bedtime_reminders: false,
       naps: utcNaps,
       notes: encryptedNotes,
       gratitude: encryptedGratitude,
@@ -491,9 +429,6 @@ export async function saveStoredSleepLog(
         wake_time: utcWakeTime,
         bedtime_validated: Boolean(updatedLog.bedtimeValidated),
         wake_time_validated: Boolean(updatedLog.wakeTimeValidated),
-        bedtime_offsets: updatedLog.bedtimeOffsets || DEFAULT_BEDTIME_OFFSETS,
-        bedtime_reminders: [],
-        enable_bedtime_reminders: false,
         notes: encryptedPackedNotes,
         updated_at: nowIso,
       };

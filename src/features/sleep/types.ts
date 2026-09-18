@@ -12,12 +12,10 @@ export interface DailySleepLog {
   wakeTime?: string | null; // e.g. "07:30"
   bedtimeValidated?: boolean;
   wakeTimeValidated?: boolean;
-  bedtimeOffsets?: number[]; // e.g. [60, 30, 15]
-  bedtimeReminders: string[]; // e.g. ["22:00", "22:30", "22:45"]
-  enableBedtimeReminders: boolean;
   naps?: NapSession[]; // Daytime rests logged via the "Je me couche / réveille maintenant" quick actions
   notes?: string; // Daily reflection / comment
   gratitude?: string; // Gratitude journaling
   manifestation?: string; // Manifestation & intentions
   updatedAt?: string;
 }
+
