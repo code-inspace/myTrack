@@ -15,8 +15,8 @@ import {
   cancelTaskPushNotifications,
 } from "@/lib/onesignal/client";
 import {
-  syncTaskWithSleepNaps,
-  removeTaskFromSleepNaps,
+  syncTaskWithSleepLog,
+  removeTaskFromSleepLog,
 } from "@/features/sleep/actions";
 import { LiveActivityBridge } from "@/lib/native/liveActivity";
 
@@ -142,7 +142,7 @@ export async function createDbTask(
           }).catch((e) => console.warn("scheduleTaskPushNotification note:", e));
         }
 
-        syncTaskWithSleepNaps(created, taskDate).catch(() => {});
+        syncTaskWithSleepLog(created, taskDate).catch(() => {});
 
         return created;
       }
@@ -190,7 +190,7 @@ export async function createDbTask(
   const updated = [createdLocal, ...current];
   saveStoredTasks(updated, targetId);
 
-  syncTaskWithSleepNaps(createdLocal, taskDate).catch(() => {});
+  syncTaskWithSleepLog(createdLocal, taskDate).catch(() => {});
 
   return createdLocal;
 }
@@ -350,7 +350,7 @@ export async function updateDbTask(
 
       const napDate = updates.date || (target?.createdAt ? target.createdAt.split("T")[0] : undefined);
       const prevDate = target?.createdAt ? target.createdAt.split("T")[0] : undefined;
-      syncTaskWithSleepNaps(updated, napDate, prevDate).catch(() => {});
+      syncTaskWithSleepLog(updated, napDate, prevDate).catch(() => {});
 
       if (updates.startTime !== undefined || updates.endTime !== undefined) {
         try {
@@ -547,7 +547,7 @@ export async function updateDbTask(
 
   const napDate = updates.date || (target?.createdAt ? target.createdAt.split("T")[0] : undefined);
   const prevDate = target?.createdAt ? target.createdAt.split("T")[0] : undefined;
-  syncTaskWithSleepNaps(updatedTask, napDate, prevDate).catch(() => {});
+  syncTaskWithSleepLog(updatedTask, napDate, prevDate).catch(() => {});
 
   if (updates.startTime !== undefined || updates.endTime !== undefined) {
     try {
@@ -634,8 +634,8 @@ export async function deleteDbTask(
     await LiveActivityBridge.stopActivity(taskId);
   } catch {}
 
-  // Remove corresponding nap from sleep log if any
-  removeTaskFromSleepNaps(taskId, undefined, targetId).catch(() => {});
+  // Remove corresponding sleep log or nap from sleep log if any
+  removeTaskFromSleepLog(taskId, undefined, targetId).catch(() => {});
 
   // 4. Delete from server admin endpoint for reliable backend persistence (bypasses any RLS constraints)
   try {

@@ -45,7 +45,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   const project = task.projectId ? projects.find((p) => p.id === task.projectId) : null;
 
   const isCompleted = task.isCompletedToday;
-  const isRemindersEnabled = task.enableReminders !== false;
+  const isRemindersEnabled = Boolean(task.enableReminders);
 
   const {
     attributes,

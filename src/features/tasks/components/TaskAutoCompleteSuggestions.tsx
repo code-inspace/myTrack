@@ -179,7 +179,7 @@ export const TaskAutoCompleteSuggestions: React.FC<TaskAutoCompleteSuggestionsPr
           const isHigh = task.priority === "HIGH";
 
           const hasReminders =
-            task.enableReminders !== false &&
+            Boolean(task.enableReminders) &&
             (task.reminderOffsetMinutes !== undefined ||
               (task.reminderTimes && task.reminderTimes.length > 0));
 

@@ -444,11 +444,13 @@ export async function saveStoredSleepLog(
 
   // 3. Cancel any existing OneSignal bedtime push notifications & database reminder records
   const bedtimeTaskId = `sleep_bedtime_${targetId}`;
-  cancelTaskPushNotifications({
-    taskId: bedtimeTaskId,
-    userId: targetId,
-    reminderType: "bedtime",
-  }).catch(() => {});
+  Promise.resolve(
+    cancelTaskPushNotifications({
+      taskId: bedtimeTaskId,
+      userId: targetId,
+      reminderType: "bedtime",
+    })
+  ).catch(() => {});
 
   return updatedLog;
 }
@@ -495,6 +497,15 @@ export async function purgeOldSleepLogsExceptYesterday(userId?: string): Promise
   return;
 }
 
-export { isNapTitle, syncTaskWithSleepNaps, removeTaskFromSleepNaps } from "./taskNapSync";
+export {
+  isNapTitle,
+  isSleepTitle,
+  isSleepOrNapTitle,
+  extractTimesFromTitle,
+  syncTaskWithSleepLog,
+  removeTaskFromSleepLog,
+  syncTaskWithSleepNaps,
+  removeTaskFromSleepNaps,
+} from "./taskSleepSync";
 
 

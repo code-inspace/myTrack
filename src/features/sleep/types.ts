@@ -16,6 +16,7 @@ export interface DailySleepLog {
   notes?: string; // Daily reflection / comment
   gratitude?: string; // Gratitude journaling
   manifestation?: string; // Manifestation & intentions
+  taskId?: string; // Originating task ID if this sleep log was synced from a task
   updatedAt?: string;
 }
 

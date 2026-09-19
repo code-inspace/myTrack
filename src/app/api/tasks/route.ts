@@ -57,7 +57,7 @@ export async function GET(req: NextRequest) {
           trackingType: row.tracking_type,
           targetValue: row.target_value !== null ? parseFloat(row.target_value) : null,
           unit: row.unit || null,
-          enableReminders: row.date_overrides?._enableReminders ?? true,
+          enableReminders: row.date_overrides?._enableReminders ?? false,
           reminderOffsetMinutes: row.date_overrides?._reminderOffsetMinutes ?? 10,
           reminderTimes: row.date_overrides?._reminderTimes ?? ["11:00", "18:00"],
           isActive: Boolean(row.is_active),

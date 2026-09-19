@@ -10,9 +10,12 @@ import {
   Sliders,
   FolderKanban,
   ChevronDown,
+  Moon,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TaskFormState } from "../useTaskForm";
+import { isSleepTitle, isNapTitle } from "@/features/sleep/actions";
 import {
   PRIORITY_OPTIONS,
   getPriorityIconColorClass,
@@ -74,6 +77,18 @@ export const TaskFormGeneralSection: React.FC<TaskFormGeneralSectionProps> = ({
           onChange={(e) => form.setTitle(e.target.value)}
           className="w-full px-4 py-3 rounded-2xl bg-[#252830] border border-[#343740] focus:border-[#D4F63D] focus:ring-1 focus:ring-[#D4F63D] text-white text-sm outline-none transition-all placeholder-[#6B7280]"
         />
+        {isSleepTitle(form.title) && (
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#8B5CF6]/15 border border-[#8B5CF6]/40 text-[#C4B5FD] text-xs font-medium animate-in fade-in duration-200">
+            <Moon className="w-3.5 h-3.5 text-[#C084FC] flex-shrink-0" />
+            <span>Traité automatiquement comme un journal de sommeil</span>
+          </div>
+        )}
+        {isNapTitle(form.title) && !isSleepTitle(form.title) && (
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#A855F7]/15 border border-[#A855F7]/40 text-[#E9D5FF] text-xs font-medium animate-in fade-in duration-200">
+            <Sparkles className="w-3.5 h-3.5 text-[#C084FC] flex-shrink-0" />
+            <span>Traité automatiquement comme une sieste</span>
+          </div>
+        )}
       </div>
 
       {/* Description */}

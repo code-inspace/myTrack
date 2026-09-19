@@ -16,7 +16,7 @@ import { SleepJournalView } from "@/features/sleep/components/SleepJournalView";
 import { DailyBilanView } from "@/features/sleep/components/DailyBilanView";
 import { DesktopTasksView } from "@/features/tasks/components/desktop/DesktopTasksView";
 import { DesktopDatePicker } from "@/features/tasks/components/desktop/DesktopDatePicker";
-import { getNightSleepDuration, fetchSleepHistory } from "@/features/sleep/actions";
+import { getNightSleepDuration, fetchSleepHistory, isSleepTitle, isNapTitle, extractTimesFromTitle } from "@/features/sleep/actions";
 import { useNightMode } from "@/features/sleep/providers/NightModeProvider";
 import { useTasks, useTaskMutations } from "@/features/tasks/hooks";
 import { useProjects } from "@/features/projects/hooks";
@@ -279,21 +279,53 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
     const cleanTitle = quickTitle.trim();
     if (!cleanTitle) return;
 
+    const { cleanTitle: parsedTitle, startTime: parsedStart, endTime: parsedEnd } = extractTimesFromTitle(cleanTitle);
+    const finalTitle = parsedTitle || cleanTitle;
+    const isSleep = isSleepTitle(finalTitle);
+    const isNap = isNapTitle(finalTitle);
+
     // Check if there is an existing task with the exact same title to inherit its metadata
     const exactMatch = allTasks.find(
-      (t) => t.title.trim().toLowerCase() === cleanTitle.toLowerCase() && !t.isArchived
+      (t) => t.title.trim().toLowerCase() === finalTitle.toLowerCase() && !t.isArchived
     );
 
     if (exactMatch) {
       handleSelectSuggestion(exactMatch, autoStart);
     } else {
+      let category = "General";
+      let tag = "General";
+      let startTime: string | null = null;
+      let endTime: string | null = null;
+      let trackingType: "BOOLEAN" | "NUMBER" | "DURATION" | "QUANTITY" = "BOOLEAN";
+      let targetValue: number | null = null;
+
+      if (isSleep) {
+        category = "Santé";
+        tag = "Santé";
+        startTime = parsedStart || "23:00";
+        endTime = parsedEnd || "07:00";
+        trackingType = "DURATION";
+        targetValue = 480;
+      } else if (isNap) {
+        category = "Santé";
+        tag = "Santé";
+        startTime = parsedStart || "13:30";
+        endTime = parsedEnd || "14:00";
+        trackingType = "DURATION";
+        targetValue = 30;
+      }
+
       createTask.mutate({
-        title: cleanTitle,
-        tag: "General",
-        category: "General",
-        trackingType: "BOOLEAN",
+        title: finalTitle,
+        tag,
+        category,
+        startTime,
+        endTime,
+        trackingType,
+        targetValue,
         recurrence: "ONCE",
         date: selectedDate,
+        enableReminders: false,
         autoStart,
       } as any);
       setQuickTitle("");
@@ -745,7 +777,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
                             onToggleComplete={(id) => toggleCompletion.mutate({ taskId: id, date: selectedDate })}
                             onToggleReminder={(id) => {
                               const target = tasks.find((t) => t.id === id);
-                              const newEnable = target ? !(target.enableReminders !== false) : true;
+                              const newEnable = !Boolean(target?.enableReminders);
                               updateTask.mutate({ taskId: id, values: { enableReminders: newEnable } });
                             }}
                             onOpenLogModal={(t) => setSelectedLoggingTask(t)}
@@ -820,7 +852,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
                   onStopTask={(taskId) => stopTaskExecution.mutate({ taskId, date: selectedDate })}
                   onToggleReminder={(taskId) => {
                     const target = tasks.find((t) => t.id === taskId);
-                    const newEnable = target ? !(target.enableReminders !== false) : true;
+                    const newEnable = !Boolean(target?.enableReminders);
                     updateTask.mutate({ taskId, values: { enableReminders: newEnable } });
                   }}
                   onOpenLogModal={(t) => setSelectedLoggingTask(t)}
@@ -854,7 +886,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
                   onToggleComplete={(taskId) => toggleCompletion.mutate({ taskId, date: selectedDate })}
                   onToggleReminder={(taskId) => {
                     const target = tasks.find((t) => t.id === taskId) || allTasks.find((t) => t.id === taskId);
-                    const newEnable = target ? !(target.enableReminders !== false) : true;
+                    const newEnable = !Boolean(target?.enableReminders);
                     updateTask.mutate({ taskId, values: { enableReminders: newEnable } });
                   }}
                   onEditTask={(task) => {

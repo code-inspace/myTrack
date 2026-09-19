@@ -6,7 +6,7 @@ import { useTaskMutations } from "../hooks";
 import { getTodayDateString, addHoursToTimeString } from "@/lib/dates";
 import { DEFAULT_PROJECT_COLUMNS } from "@/features/projects/types";
 import { TaskPriority } from "@/features/tasks/priority";
-import { isNapTitle } from "@/features/sleep/actions";
+import { isNapTitle, isSleepTitle, extractTimesFromTitle } from "@/features/sleep/actions";
 
 interface UseTaskFormProps {
   isOpen: boolean;
@@ -31,12 +31,27 @@ export function useTaskForm({
 
   const handleTitleChange = (newTitle: string) => {
     setTitle(newTitle);
-    if (!isEditing && (tag === "General" || !tag) && isNapTitle(newTitle)) {
-      setTag("Santé");
-      if (!hasScheduledTime) {
-        setHasScheduledTime(true);
-        setStartTime("13:30");
-        setEndTime("14:00");
+    if (!isEditing && (tag === "General" || !tag)) {
+      if (isNapTitle(newTitle)) {
+        setTag("Santé");
+        if (!hasScheduledTime) {
+          setHasScheduledTime(true);
+          const parsed = extractTimesFromTitle(newTitle);
+          setStartTime(parsed.startTime || "13:30");
+          setEndTime(parsed.endTime || "14:00");
+          setTrackingType("DURATION");
+          setTargetValue(30);
+        }
+      } else if (isSleepTitle(newTitle)) {
+        setTag("Santé");
+        if (!hasScheduledTime) {
+          setHasScheduledTime(true);
+          const parsed = extractTimesFromTitle(newTitle);
+          setStartTime(parsed.startTime || "23:00");
+          setEndTime(parsed.endTime || "07:00");
+          setTrackingType("DURATION");
+          setTargetValue(480);
+        }
       }
     }
   };
@@ -142,7 +157,7 @@ export function useTaskForm({
         setEnableReminders(
           initialTask.enableReminders !== undefined
             ? initialTask.enableReminders
-            : true,
+            : false,
         );
         setReminderOffsetMinutes(initialTask.reminderOffsetMinutes ?? 10);
         setReminderTimes(

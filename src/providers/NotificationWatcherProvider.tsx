@@ -80,7 +80,7 @@ export default function NotificationWatcherProvider({ children }: { children: Re
       // 2. Task Reminders Dispatcher
       tasks.forEach((task) => {
         if (task.isArchived) return;
-        if (task.enableReminders === false) return;
+        if (!task.enableReminders) return;
         if (task.projectStatus === "DONE") return;
 
         // Check if task is scheduled for today
