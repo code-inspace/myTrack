@@ -272,4 +272,48 @@ export function formatCrossDayTimeLabel(
   return `${startTime} → ${endTime} (+1j)`;
 }
 
+/**
+ * Checks whether a scheduled task occurrence is in the past:
+ * - If date < today: true
+ * - If date > today: false
+ * - If date === today:
+ *   - If has endTime and not overnight: true if endTime <= current local time
+ *   - If overnight (startTime > endTime): false (ends tomorrow)
+ *   - If has startTime only: true if startTime <= current local time
+ *   - If no time (all-day today): false
+ */
+export function isTaskInThePast(
+  date?: string | null,
+  startTime?: string | null,
+  endTime?: string | null,
+  referenceNow: Date = new Date()
+): boolean {
+  if (!date) return false;
+  const today = formatDateToISO(referenceNow);
+  if (date < today) return true;
+  if (date > today) return false;
+
+  const nowH = referenceNow.getHours();
+  const nowM = referenceNow.getMinutes();
+  const nowMinutes = nowH * 60 + nowM;
+
+  if (endTime) {
+    const isOvernight = isOvernightTimeRange(startTime, endTime);
+    if (isOvernight) {
+      return false;
+    }
+    const [eh, em] = endTime.split(":").map(Number);
+    const endMinutes = (eh || 0) * 60 + (em || 0);
+    return endMinutes <= nowMinutes;
+  }
+
+  if (startTime) {
+    const [sh, sm] = startTime.split(":").map(Number);
+    const startMinutes = (sh || 0) * 60 + (sm || 0);
+    return startMinutes <= nowMinutes;
+  }
+
+  return false;
+}
+
 

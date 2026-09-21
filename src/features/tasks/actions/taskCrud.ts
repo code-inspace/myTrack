@@ -9,6 +9,7 @@ import {
   getTodayDateString,
   convertLocalTimeToUtc,
   createUtcIsoFromLocalDateTime,
+  isTaskInThePast,
 } from "@/lib/dates";
 import {
   scheduleTaskPushNotification,
@@ -144,6 +145,24 @@ export async function createDbTask(
 
         syncTaskWithSleepLog(created, taskDate).catch(() => {});
 
+        const shouldMarkDone =
+          (task as any).completed === true ||
+          ((task as any).completed === undefined &&
+            isTaskInThePast(taskDate, created.startTime, created.endTime));
+
+        if (shouldMarkDone) {
+          upsertDbCompletion({
+            taskId: created.id,
+            userId: targetId,
+            date: taskDate,
+            completed: true,
+            scheduledStartTime: created.startTime || null,
+            scheduledEndTime: created.endTime || null,
+            actualStartTime: created.startTime || null,
+            actualEndTime: created.endTime || null,
+          }).catch((e) => console.warn("auto-complete past task note:", e));
+        }
+
         return created;
       }
     }
@@ -191,6 +210,24 @@ export async function createDbTask(
   saveStoredTasks(updated, targetId);
 
   syncTaskWithSleepLog(createdLocal, taskDate).catch(() => {});
+
+  const shouldMarkDoneLocal =
+    (task as any).completed === true ||
+    ((task as any).completed === undefined &&
+      isTaskInThePast(taskDate, createdLocal.startTime, createdLocal.endTime));
+
+  if (shouldMarkDoneLocal) {
+    upsertDbCompletion({
+      taskId: createdLocal.id,
+      userId: targetId,
+      date: taskDate,
+      completed: true,
+      scheduledStartTime: createdLocal.startTime || null,
+      scheduledEndTime: createdLocal.endTime || null,
+      actualStartTime: createdLocal.startTime || null,
+      actualEndTime: createdLocal.endTime || null,
+    }).catch((e) => console.warn("auto-complete past task note:", e));
+  }
 
   return createdLocal;
 }

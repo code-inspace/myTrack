@@ -23,7 +23,7 @@ import { useProjects } from "@/features/projects/hooks";
 import { Task, TaskWithCompletion, TaskFormValues } from "@/features/tasks/types";
 import { TaskAutoCompleteSuggestions } from "@/features/tasks/components/TaskAutoCompleteSuggestions";
 import { mapTaskWithCompletion } from "@/features/tasks/mappers";
-import { getTodayDateString } from "@/lib/dates";
+import { getTodayDateString, isTaskInThePast } from "@/lib/dates";
 import { CheckCircle2, Inbox, CalendarDays, Play, Moon, Sun, RotateCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -216,7 +216,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
   }, [tasks, externalEvents, selectedDate, manualCompletedEvents, showCalendar, streamOrder, showCompleted]);
 
   const completedCountForDay = useMemo(() => {
-    const tasksDone = tasks.filter((t) => t.isCompletedToday).length;
+    const tasksDone = tasks.filter((t) => t.isCompletedToday && !isSleepTitle(t.title)).length;
     const eventsDone = dayExternalEvents.filter((e) =>
       isExternalEventDone(e, selectedDate, manualCompletedEvents[e.id])
     ).length;
@@ -263,7 +263,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
 
   // Active tasks for Habits view (shows active task banner regardless of selected date filter)
   const activeTasksMapped = allTasks
-    .filter((t) => t.isActive && !t.isArchived)
+    .filter((t) => t.isActive && !t.isArchived && !isSleepTitle(t.title))
     .map((t) => mapTaskWithCompletion(t, allCompletions, selectedDate));
 
   // Separate all-day tasks vs timed tasks for Agenda view
@@ -338,6 +338,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
     const taskMap = new Map<string, Task>();
     for (const t of allTasks) {
       if (!t.title) continue;
+      if (isSleepTitle(t.title)) continue;
       const titleClean = t.title.trim().toLowerCase();
       if (titleClean.includes(cleanQuery)) {
         if (!taskMap.has(titleClean)) {
@@ -896,6 +897,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
                   onDeleteTask={(taskId) => deleteTask.mutate(taskId)}
                   onUpdateTask={(taskId, values) => updateTask.mutate({ taskId, values })}
                   onCreateTaskAtTime={(date, startTime, endTime) => {
+                    const isPast = isTaskInThePast(date, startTime, endTime);
                     createTask.mutate({
                       title: "Nouvelle tâche",
                       date,
@@ -904,6 +906,8 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
                       category: "General",
                       trackingType: "BOOLEAN",
                       recurrence: "ONCE",
+                      enableReminders: false,
+                      completed: isPast,
                     } as any);
                   }}
                   onMoveTaskToTime={handleMoveTaskToTime}

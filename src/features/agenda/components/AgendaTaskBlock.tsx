@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { getPriorityTitleClass, getPriorityIconColorClass } from "@/features/tasks/priority";
 import { useProjects } from "@/features/projects/hooks";
 import { isOvernightTimeRange, formatCrossDayTimeLabel } from "@/lib/dates";
+import { isSleepTitle, isNapTitle } from "@/features/sleep/actions";
 
 interface AgendaTaskBlockProps {
   task: TaskWithCompletion;
@@ -82,8 +83,18 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
   const { projects } = useProjects();
   const project = task.projectId ? projects.find((p) => p.id === task.projectId) : null;
 
-  const tagKey = task.tag || task.category || "General";
-  const style = TAG_STYLES[tagKey] || TAG_STYLES.General;
+  const isSleep = isSleepTitle(task.title);
+  const isNap = isNapTitle(task.title);
+  const tagKey = (isSleep || isNap) ? "Santé" : (task.tag || task.category || "General");
+  const style = (isSleep || isNap)
+    ? {
+        bg: "bg-[#27153B]/90",
+        border: "border-[#A855F7]/50",
+        bar: "bg-[#A855F7]",
+        text: "text-[#D8B4FE]",
+      }
+    : (TAG_STYLES[tagKey] || TAG_STYLES.General);
+
   const isRecurring = Boolean(task.recurrence && task.recurrence !== "ONCE");
   const startTime = (task.effectiveStartTime !== undefined ? task.effectiveStartTime : task.startTime) || "09:00";
   const endTime = task.effectiveEndTime !== undefined ? task.effectiveEndTime : task.endTime;
@@ -276,7 +287,7 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
             {task.isActive && (
               <span className="w-1.5 h-1.5 rounded-full bg-[#D4F63D] animate-pulse flex-shrink-0" />
             )}
-            {isOvernight && (
+            {(isOvernight || isSleep || isNap) && (
               <Moon className="w-2.5 h-2.5 text-[#A78BFA] flex-shrink-0" />
             )}
             <span
@@ -297,7 +308,7 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
               {task.isActive && (
                 <span className="w-1.5 h-1.5 rounded-full bg-[#D4F63D] animate-pulse flex-shrink-0" />
               )}
-              {isOvernight && (
+              {(isOvernight || isSleep || isNap) && (
                 <Moon className="w-2.5 h-2.5 text-[#A78BFA] flex-shrink-0" />
               )}
               {project && (
@@ -333,12 +344,17 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
               {task.isActive && (
                 <span className="w-1.5 h-1.5 rounded-full bg-[#D4F63D] animate-pulse flex-shrink-0" />
               )}
-              {isOvernight && (
+              {isOvernight ? (
                 <span className="inline-flex items-center gap-0.5 px-1 py-0.2 rounded bg-[#7C3AED]/20 text-[#C4B5FD] text-[8px] font-bold border border-[#7C3AED]/30 flex-shrink-0">
                   <Moon className="w-2 h-2" />
                   <span>{isOvernightEnd ? "Veille" : "+1j"}</span>
                 </span>
-              )}
+              ) : (isSleep || isNap) ? (
+                <span className="inline-flex items-center gap-0.5 px-1 py-0.2 rounded bg-[#7C3AED]/20 text-[#C4B5FD] text-[8px] font-bold border border-[#7C3AED]/30 flex-shrink-0">
+                  <Moon className="w-2 h-2" />
+                  <span>{isNap ? "Sieste" : "Sommeil"}</span>
+                </span>
+              ) : null}
               {task.priority && task.priority !== "NORMAL" && !task.isCompletedToday && (
                 <Flame className={cn("w-2.5 h-2.5 flex-shrink-0", getPriorityIconColorClass(task.priority))} />
               )}
@@ -371,12 +387,17 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
                 {task.isActive && (
                   <span className="w-2 h-2 rounded-full bg-[#D4F63D] animate-pulse flex-shrink-0" />
                 )}
-                {isOvernight && (
+                {isOvernight ? (
                   <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-[#7C3AED]/25 text-[#DDD6FE] text-[9px] font-bold border border-[#7C3AED]/40 flex-shrink-0">
                     <Moon className="w-2.5 h-2.5 text-[#C4B5FD]" />
                     <span>{isOvernightEnd ? "Débuté la veille" : "Nuit (+1j)"}</span>
                   </span>
-                )}
+                ) : (isSleep || isNap) ? (
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-[#7C3AED]/25 text-[#DDD6FE] text-[9px] font-bold border border-[#7C3AED]/40 flex-shrink-0">
+                    <Moon className="w-2.5 h-2.5 text-[#C4B5FD]" />
+                    <span>{isNap ? "Sieste" : "Journal de sommeil"}</span>
+                  </span>
+                ) : null}
                 {task.priority && task.priority !== "NORMAL" && !task.isCompletedToday && (
                   <Flame className={cn("w-3 h-3 flex-shrink-0", getPriorityIconColorClass(task.priority))} />
                 )}

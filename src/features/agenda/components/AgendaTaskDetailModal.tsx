@@ -28,6 +28,12 @@ import { useProjects, useProjectMutations } from "@/features/projects/hooks";
 import { getPriorityTitleClass, getPriorityIconColorClass } from "@/features/tasks/priority";
 import confetti from "canvas-confetti";
 import { isOvernightTimeRange } from "@/lib/dates";
+import {
+  isSleepTitle,
+  isNapTitle,
+  extractTimesFromTitle,
+  syncTaskWithSleepLog,
+} from "@/features/sleep/actions";
 
 interface AgendaTaskDetailModalProps {
   task: TaskWithCompletion | null;
@@ -105,12 +111,57 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
       const trimmed = latestTitleRef.current.trim();
       if (trimmed && trimmed !== task.title) {
         setSaveStatus("saving");
-        onUpdateTask?.(task.id, { title: trimmed });
+        const isSleep = isSleepTitle(trimmed);
+        const isNap = isNapTitle(trimmed);
+        const updates: Partial<TaskFormValues> = {
+          title: trimmed,
+          date: selectedDate,
+        };
+
+        if (isSleep || isNap) {
+          updates.category = "Santé";
+          updates.tag = "Santé";
+          updates.trackingType = "DURATION";
+          updates.targetValue = task.targetValue || (isNap ? 30 : 480);
+          const parsed = extractTimesFromTitle(trimmed);
+          if (parsed.cleanTitle && parsed.cleanTitle !== trimmed) {
+            updates.title = parsed.cleanTitle;
+            setTitle(parsed.cleanTitle);
+            latestTitleRef.current = parsed.cleanTitle;
+          }
+          if (parsed.startTime) {
+            updates.startTime = parsed.startTime;
+            setStartTime(parsed.startTime);
+            latestTimesRef.current.startTime = parsed.startTime;
+          }
+          if (parsed.endTime) {
+            updates.endTime = parsed.endTime;
+            setEndTime(parsed.endTime);
+            latestTimesRef.current.endTime = parsed.endTime;
+          }
+        }
+
+        onUpdateTask?.(task.id, updates);
+
+        if (isSleep || isNap) {
+          syncTaskWithSleepLog(
+            {
+              ...task,
+              title: updates.title || trimmed,
+              startTime: updates.startTime || task.startTime || latestTimesRef.current.startTime,
+              endTime: updates.endTime || task.endTime || latestTimesRef.current.endTime,
+              trackingType: "DURATION",
+              targetValue: updates.targetValue || task.targetValue || (isNap ? 30 : 480),
+            },
+            selectedDate
+          ).catch((e) => console.warn("syncTaskWithSleepLog error:", e));
+        }
+
         markSaved();
       }
       isTitleDirtyRef.current = false;
     }
-  }, [task, onUpdateTask, markSaved]);
+  }, [task, onUpdateTask, markSaved, selectedDate]);
 
   // Flush pending time changes to database
   const flushPendingTimes = React.useCallback(() => {
@@ -123,6 +174,16 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
       if (s && e) {
         setSaveStatus("saving");
         onUpdateTimes(task.id, s, e, selectedDate);
+        if (isSleepTitle(task.title) || isNapTitle(task.title)) {
+          syncTaskWithSleepLog(
+            {
+              ...task,
+              startTime: s,
+              endTime: e,
+            },
+            selectedDate
+          ).catch((err) => console.warn("syncTaskWithSleepLog error:", err));
+        }
         markSaved();
       }
       isTimesDirtyRef.current = false;
@@ -457,6 +518,12 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
                   )}
                   placeholder="Nom de la tâche..."
                 />
+                {(isSleepTitle(title) || isNapTitle(title)) && (
+                  <div className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#7C3AED]/20 border border-[#7C3AED]/40 text-[#D8B4FE] text-xs font-semibold animate-in fade-in duration-150">
+                    <Moon className="w-3.5 h-3.5 text-[#C4B5FD] fill-current flex-shrink-0" />
+                    <span>Traité automatiquement comme un journal de sommeil</span>
+                  </div>
+                )}
               </div>
             </div>
 

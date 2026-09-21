@@ -23,6 +23,7 @@ import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
+import { isSleepTitle } from "@/features/sleep/actions";
 import { useNightMode } from "@/features/sleep/providers/NightModeProvider";
 import {
   DndContext,
@@ -141,6 +142,7 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
     const taskMap = new Map<string, Task>();
     for (const t of allTasks) {
       if (!t.title) continue;
+      if (isSleepTitle(t.title)) continue;
       const titleClean = t.title.trim().toLowerCase();
       if (titleClean.includes(cleanQuery)) {
         if (!taskMap.has(titleClean)) {
@@ -171,7 +173,7 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
   );
 
-  const activeTasks = tasks.filter((t) => t.isActive);
+  const activeTasks = tasks.filter((t) => t.isActive && !isSleepTitle(t.title));
   const activeTask = activeTasks[0] || null;
 
   // ONLY include external events for the EXACT viewed date!
@@ -193,6 +195,7 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
 
   // Counts for pills (tasks + external calendar events of the selected date)
   const counts = useMemo(() => {
+    const validTasks = tasks.filter((t) => !isSleepTitle(t.title));
     const activeEventsCount = dayExternalEvents.filter(
       (e) => getExternalEventStatus(e, selectedDate, manualCompletedEvents[e.id]) === "IN_PROGRESS"
     ).length;
@@ -204,11 +207,11 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
     ).length;
 
     return {
-      all: tasks.length + dayExternalEvents.length,
-      active: tasks.filter((t) => t.isActive).length + activeEventsCount,
-      urgent: tasks.filter((t) => t.priority && t.priority !== "NORMAL" && !t.isCompletedToday).length,
-      todo: tasks.filter((t) => !t.isCompletedToday).length + todoEventsCount,
-      done: tasks.filter((t) => t.isCompletedToday).length + doneEventsCount,
+      all: validTasks.length + dayExternalEvents.length,
+      active: validTasks.filter((t) => t.isActive).length + activeEventsCount,
+      urgent: validTasks.filter((t) => t.priority && t.priority !== "NORMAL" && !t.isCompletedToday).length,
+      todo: validTasks.filter((t) => !t.isCompletedToday).length + todoEventsCount,
+      done: validTasks.filter((t) => t.isCompletedToday).length + doneEventsCount,
     };
   }, [tasks, dayExternalEvents, selectedDate, manualCompletedEvents]);
 
@@ -244,6 +247,9 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
   // Filtered tasks according to search, status pill, category
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
+      // Never display sleep tasks in the habit task list
+      if (isSleepTitle(task.title)) return false;
+
       // 1. Search Query
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();

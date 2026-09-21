@@ -31,7 +31,7 @@ export function useTaskForm({
 
   const handleTitleChange = (newTitle: string) => {
     setTitle(newTitle);
-    if (!isEditing && (tag === "General" || !tag)) {
+    if (tag === "General" || !tag || tag === "Santé") {
       if (isNapTitle(newTitle)) {
         setTag("Santé");
         const parsed = extractTimesFromTitle(newTitle);

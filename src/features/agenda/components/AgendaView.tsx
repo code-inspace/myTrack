@@ -8,7 +8,7 @@ import { QuantityLoggingModal } from "@/features/tasks/components/QuantityLoggin
 import { VoiceFab } from "@/features/voice/components/VoiceFab";
 import { useTasks, useTaskMutations } from "@/features/tasks/hooks";
 import { TaskWithCompletion, TaskFormValues } from "@/features/tasks/types";
-import { getTodayDateString } from "@/lib/dates";
+import { getTodayDateString, isTaskInThePast } from "@/lib/dates";
 import { CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -105,6 +105,7 @@ export const AgendaView: React.FC = () => {
           onDeleteTask={(taskId) => deleteTask.mutate(taskId)}
           onUpdateTask={(taskId, values) => updateTask.mutate({ taskId, values })}
           onCreateTaskAtTime={(date, startTime, endTime) => {
+            const isPast = isTaskInThePast(date, startTime, endTime);
             createTask.mutate({
               title: "Nouvelle tâche",
               date,
@@ -114,6 +115,7 @@ export const AgendaView: React.FC = () => {
               trackingType: "BOOLEAN",
               recurrence: "ONCE",
               enableReminders: false,
+              completed: isPast,
             } as any);
           }}
           onMoveTaskToTime={handleMoveTaskToTime}

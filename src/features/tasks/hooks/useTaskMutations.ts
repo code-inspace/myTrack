@@ -21,7 +21,7 @@ import {
 import { useAuth } from "@/providers/AuthProvider";
 import { getStoredProjects } from "@/features/projects/actions";
 import { getProjectColumns, DEFAULT_PROJECT_COLUMNS } from "@/features/projects/types";
-import { addHoursToTimeString, getTodayDateString } from "@/lib/dates";
+import { addHoursToTimeString, getTodayDateString, isTaskInThePast } from "@/lib/dates";
 import { format, addMinutes } from "date-fns";
 import { LiveActivityBridge } from "@/lib/native/liveActivity";
 import { cancelTaskPushNotifications } from "@/lib/onesignal/client";
@@ -34,7 +34,7 @@ export function useTaskMutations() {
   // --- CRUD Mutations ---
   const createTask = useMutation({
     mutationFn: async (
-      values: TaskFormValues & { userId?: string; autoStart?: boolean },
+      values: TaskFormValues & { userId?: string; autoStart?: boolean; completed?: boolean },
     ) => {
       const targetUserId = values.userId || userId;
       const now = new Date();
@@ -42,6 +42,11 @@ export function useTaskMutations() {
       const nowTime = format(now, "HH:mm");
       const isAutoStart = Boolean(values.autoStart);
       const taskDate = values.date || getTodayDateString();
+      const shouldMarkCompleted =
+        !isAutoStart &&
+        (values.completed === true ||
+          (values.completed === undefined &&
+            isTaskInThePast(taskDate, values.startTime, values.endTime, now)));
 
       const created = await createDbTask({
         userId: targetUserId,
@@ -65,7 +70,8 @@ export function useTaskMutations() {
         reminderOffsetMinutes: values.reminderOffsetMinutes,
         reminderTimes: values.reminderTimes,
         date: taskDate,
-      } as Omit<Task, "id" | "createdAt" | "updatedAt"> & { date?: string });
+        completed: shouldMarkCompleted,
+      } as Omit<Task, "id" | "createdAt" | "updatedAt"> & { date?: string; completed?: boolean });
 
       if (isAutoStart) {
         const duration = (created.targetValue as number) || 30;
@@ -121,14 +127,37 @@ export function useTaskMutations() {
             },
           );
         } catch {}
+      } else if (shouldMarkCompleted) {
+        try {
+          await upsertDbCompletion({
+            taskId: created.id,
+            userId: targetUserId,
+            date: taskDate,
+            completed: true,
+            scheduledStartTime: created.startTime || null,
+            scheduledEndTime: created.endTime || null,
+            actualStartTime: created.startTime || null,
+            actualEndTime: created.endTime || null,
+          });
+        } catch (err) {
+          console.warn("createTask past completion error:", err);
+        }
       }
 
       return created;
     },
-    onMutate: async (values) => {
+    onMutate: async (values: TaskFormValues & { userId?: string; autoStart?: boolean; completed?: boolean }) => {
       await queryClient.cancelQueries({ queryKey: ["tasks", userId] });
+      await queryClient.cancelQueries({ queryKey: ["completions", userId] });
       const previousTasks = queryClient.getQueryData<Task[]>(["tasks", userId]) || [];
+      const previousCompletions = queryClient.getQueryData<TaskCompletion[]>(["completions", userId]) || [];
       const taskDate = values.date || getTodayDateString();
+      const isAutoStart = Boolean(values.autoStart);
+      const shouldMarkCompleted =
+        !isAutoStart &&
+        (values.completed === true ||
+          (values.completed === undefined &&
+            isTaskInThePast(taskDate, values.startTime, values.endTime)));
       const tempId = "temp-" + Date.now();
       const optimisticTask: Task = {
         id: tempId,
@@ -157,11 +186,35 @@ export function useTaskMutations() {
         updatedAt: new Date().toISOString(),
       };
       queryClient.setQueryData<Task[]>(["tasks", userId], [optimisticTask, ...previousTasks]);
-      return { previousTasks, tempId };
+
+      if (shouldMarkCompleted) {
+        const optimisticCompletion: TaskCompletion = {
+          id: "comp-" + Date.now(),
+          taskId: tempId,
+          userId: values.userId || userId,
+          date: taskDate,
+          completed: true,
+          scheduledStartTime: values.startTime || null,
+          scheduledEndTime: values.endTime || null,
+          actualStartTime: values.startTime || null,
+          actualEndTime: values.endTime || null,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        queryClient.setQueryData<TaskCompletion[]>(["completions", userId], (old = []) => [
+          optimisticCompletion,
+          ...(old || []),
+        ]);
+      }
+
+      return { previousTasks, previousCompletions, tempId, shouldMarkCompleted };
     },
     onError: (_err, _newVal, context) => {
       if (context?.previousTasks) {
         queryClient.setQueryData(["tasks", userId], context.previousTasks);
+      }
+      if (context?.previousCompletions) {
+        queryClient.setQueryData(["completions", userId], context.previousCompletions);
       }
     },
     onSuccess: (newTask, _variables, context) => {
@@ -169,6 +222,11 @@ export function useTaskMutations() {
         newTask,
         ...old.filter((t) => t.id !== newTask.id && t.id !== context?.tempId),
       ]);
+      if (context?.shouldMarkCompleted) {
+        queryClient.setQueryData<TaskCompletion[]>(["completions", userId], (old = []) =>
+          old.map((c) => (c.taskId === context.tempId ? { ...c, taskId: newTask.id } : c))
+        );
+      }
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       queryClient.invalidateQueries({ queryKey: ["completions"] });
     },

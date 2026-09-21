@@ -1,6 +1,7 @@
 import { TaskWithCompletion } from "./types";
 import { ExternalCalendarEvent } from "@/features/calendar/types";
 import { isExternalEventDone, isExternalEventInProgress } from "@/features/calendar/lib/status";
+import { isSleepTitle } from "@/features/sleep/actions";
 
 export type UnifiedStreamItem =
   | { type: "task"; id: string; data: TaskWithCompletion }
@@ -44,7 +45,7 @@ export function buildAndSortUnifiedStream(
   showCompleted = true
 ): UnifiedStreamItem[] {
   const taskItems: UnifiedStreamItem[] = tasks
-    .filter((t) => !t.isActive && (showCompleted || !t.isCompletedToday))
+    .filter((t) => !isSleepTitle(t.title) && !t.isActive && (showCompleted || !t.isCompletedToday))
     .map((t) => ({
       type: "task",
       id: t.id,

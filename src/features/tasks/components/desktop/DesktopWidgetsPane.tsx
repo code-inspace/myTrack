@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { ExternalCalendarEvent } from "@/features/calendar/types";
 import { getExternalEventStatus } from "@/features/calendar/lib/status";
 import { useProjects } from "@/features/projects/hooks";
+import { isSleepTitle } from "@/features/sleep/actions";
 
 interface UpcomingItem {
   id: string;
@@ -53,14 +54,15 @@ export const DesktopWidgetsPane: React.FC<DesktopWidgetsPaneProps> = ({
   onSelectTab,
 }) => {
   const { projects } = useProjects();
-  const totalCount = tasks.length;
-  const completedCount = tasks.filter((t) => t.isCompletedToday).length;
+  const validTasks = tasks.filter((t) => !isSleepTitle(t.title));
+  const totalCount = validTasks.length;
+  const completedCount = validTasks.filter((t) => t.isCompletedToday).length;
   const rate = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
   // Upcoming scheduled tasks and external calendar events
   const upcomingTasks = useMemo<UpcomingItem[]>(() => {
     const taskItems: UpcomingItem[] = tasks
-      .filter((t) => !t.isCompletedToday && (t.effectiveStartTime || t.startTime))
+      .filter((t) => !isSleepTitle(t.title) && !t.isCompletedToday && (t.effectiveStartTime || t.startTime))
       .map((t) => {
         const project = t.projectId ? projects.find((p) => p.id === t.projectId) : null;
         return {
