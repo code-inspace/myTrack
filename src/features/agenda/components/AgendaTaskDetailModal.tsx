@@ -20,6 +20,8 @@ import {
   Moon,
   Tag,
   Plus,
+  Check,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProjects, useProjectMutations } from "@/features/projects/hooks";
@@ -64,23 +66,150 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
   const [endTime, setEndTime] = useState(task?.effectiveEndTime || task?.endTime || "10:00");
   const [isDone, setIsDone] = useState(Boolean(task?.isCompletedToday));
   const [isRemindersEnabled, setIsRemindersEnabled] = useState(Boolean(task?.enableReminders));
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
 
   const isDeletingRef = React.useRef(false);
+  const prevTaskIdRef = React.useRef<string | null>(task?.id || null);
 
-  // Synchronize when task changes
+  // Tracking pending edits for debounced auto-save & flush on close
+  const latestTitleRef = React.useRef(task?.title || "");
+  const isTitleDirtyRef = React.useRef(false);
+  const pendingTitleTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const latestTimesRef = React.useRef({
+    startTime: task?.effectiveStartTime || task?.startTime || "09:00",
+    endTime: task?.effectiveEndTime || task?.endTime || "10:00",
+  });
+  const isTimesDirtyRef = React.useRef(false);
+  const pendingTimesTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const resetSavedStatusTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const markSaved = React.useCallback(() => {
+    setSaveStatus("saved");
+    if (resetSavedStatusTimeoutRef.current) {
+      clearTimeout(resetSavedStatusTimeoutRef.current);
+    }
+    resetSavedStatusTimeoutRef.current = setTimeout(() => {
+      setSaveStatus("idle");
+    }, 2000);
+  }, []);
+
+  // Flush pending title changes to database
+  const flushPendingTitle = React.useCallback(() => {
+    if (pendingTitleTimeoutRef.current) {
+      clearTimeout(pendingTitleTimeoutRef.current);
+      pendingTitleTimeoutRef.current = null;
+    }
+    if (!isDeletingRef.current && task && isTitleDirtyRef.current) {
+      const trimmed = latestTitleRef.current.trim();
+      if (trimmed && trimmed !== task.title) {
+        setSaveStatus("saving");
+        onUpdateTask?.(task.id, { title: trimmed });
+        markSaved();
+      }
+      isTitleDirtyRef.current = false;
+    }
+  }, [task, onUpdateTask, markSaved]);
+
+  // Flush pending time changes to database
+  const flushPendingTimes = React.useCallback(() => {
+    if (pendingTimesTimeoutRef.current) {
+      clearTimeout(pendingTimesTimeoutRef.current);
+      pendingTimesTimeoutRef.current = null;
+    }
+    if (!isDeletingRef.current && task && isTimesDirtyRef.current && onUpdateTimes) {
+      const { startTime: s, endTime: e } = latestTimesRef.current;
+      if (s && e) {
+        setSaveStatus("saving");
+        onUpdateTimes(task.id, s, e, selectedDate);
+        markSaved();
+      }
+      isTimesDirtyRef.current = false;
+    }
+  }, [task, onUpdateTimes, selectedDate, markSaved]);
+
+  const flushPendingAutoSave = React.useCallback(() => {
+    flushPendingTitle();
+    flushPendingTimes();
+  }, [flushPendingTitle, flushPendingTimes]);
+
+  // Synchronize when task changes or modal opens
   React.useEffect(() => {
     if (task) {
-      isDeletingRef.current = false;
-      setTitle(task.title || "");
-      setSelectedProjectId(task.projectId || "");
-      setProjectCategory(task.projectCategory || "");
-      setStartTime(task.effectiveStartTime || task.startTime || "09:00");
-      setEndTime(task.effectiveEndTime || task.endTime || "10:00");
-      setIsDone(Boolean(task.isCompletedToday));
-      setIsRemindersEnabled(Boolean(task.enableReminders));
-      setNewSubprojectInput("");
+      if (task.id !== prevTaskIdRef.current) {
+        // A different task was opened: flush previous edits then re-initialize
+        flushPendingAutoSave();
+        prevTaskIdRef.current = task.id;
+        isDeletingRef.current = false;
+        isTitleDirtyRef.current = false;
+        isTimesDirtyRef.current = false;
+
+        setTitle(task.title || "");
+        latestTitleRef.current = task.title || "";
+        setSelectedProjectId(task.projectId || "");
+        setProjectCategory(task.projectCategory || "");
+        const initStart = task.effectiveStartTime || task.startTime || "09:00";
+        const initEnd = task.effectiveEndTime || task.endTime || "10:00";
+        setStartTime(initStart);
+        setEndTime(initEnd);
+        latestTimesRef.current = { startTime: initStart, endTime: initEnd };
+        setIsDone(Boolean(task.isCompletedToday));
+        setIsRemindersEnabled(Boolean(task.enableReminders));
+        setNewSubprojectInput("");
+        setSaveStatus("idle");
+      } else {
+        // Same task: only update external fields if NOT actively dirty locally
+        if (!isTitleDirtyRef.current && task.title !== undefined) {
+          setTitle(task.title || "");
+          latestTitleRef.current = task.title || "";
+        }
+        if (!isTimesDirtyRef.current) {
+          const s = task.effectiveStartTime || task.startTime || "09:00";
+          const e = task.effectiveEndTime || task.endTime || "10:00";
+          setStartTime(s);
+          setEndTime(e);
+          latestTimesRef.current = { startTime: s, endTime: e };
+        }
+        setIsDone(Boolean(task.isCompletedToday));
+        setIsRemindersEnabled(Boolean(task.enableReminders));
+      }
     }
-  }, [task, task?.isCompletedToday, task?.enableReminders, task?.projectCategory, task?.projectId]);
+  }, [
+    task,
+    task?.id,
+    task?.isCompletedToday,
+    task?.enableReminders,
+    task?.projectCategory,
+    task?.projectId,
+    flushPendingAutoSave,
+  ]);
+
+  // Flush pending auto-save on unmount
+  React.useEffect(() => {
+    return () => {
+      flushPendingAutoSave();
+      if (resetSavedStatusTimeoutRef.current) {
+        clearTimeout(resetSavedStatusTimeoutRef.current);
+      }
+    };
+  }, [flushPendingAutoSave]);
+
+  const handleClose = React.useCallback(() => {
+    flushPendingAutoSave();
+    onClose();
+  }, [flushPendingAutoSave, onClose]);
+
+  // Handle Escape key to close with auto-save
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isOpen) {
+        handleClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, handleClose]);
 
   if (!isOpen || !task) return null;
 
@@ -103,26 +232,43 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
         colors: [currentProject?.color || "#D4F63D", "#38BDF8", "#FFFFFF"],
       });
     }
+    setSaveStatus("saving");
     onToggleComplete?.(task.id);
+    markSaved();
   };
 
   const handleToggleReminderClick = () => {
     const nextReminders = !isRemindersEnabled;
     setIsRemindersEnabled(nextReminders);
+    setSaveStatus("saving");
     onToggleReminder?.(task.id);
+    markSaved();
+  };
+
+  const handleTitleChange = (newVal: string) => {
+    setTitle(newVal);
+    latestTitleRef.current = newVal;
+    isTitleDirtyRef.current = true;
+    setSaveStatus("saving");
+
+    if (pendingTitleTimeoutRef.current) {
+      clearTimeout(pendingTitleTimeoutRef.current);
+    }
+    pendingTitleTimeoutRef.current = setTimeout(() => {
+      flushPendingTitle();
+    }, 600);
   };
 
   const handleTitleBlur = () => {
-    if (isDeletingRef.current) return;
-    if (task && title.trim() && title.trim() !== task.title) {
-      onUpdateTask?.(task.id, { title: title.trim() });
-    }
+    flushPendingTitle();
   };
 
   const handleDelete = (e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
     e.stopPropagation();
     isDeletingRef.current = true;
+    if (pendingTitleTimeoutRef.current) clearTimeout(pendingTitleTimeoutRef.current);
+    if (pendingTimesTimeoutRef.current) clearTimeout(pendingTimesTimeoutRef.current);
     const currentTaskId = task.id;
     onClose();
     if (onDeleteTask && currentTaskId) {
@@ -135,7 +281,9 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
     setSelectedProjectId(newProjId);
     setProjectCategory("");
     if (task) {
+      setSaveStatus("saving");
       onUpdateTask?.(task.id, { projectId: newProjId || null, projectCategory: null });
+      markSaved();
     }
   };
 
@@ -143,7 +291,12 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
     if (isDeletingRef.current) return;
     setProjectCategory(cat);
     if (task) {
-      onUpdateTask?.(task.id, { projectCategory: cat || null });
+      setSaveStatus("saving");
+      onUpdateTask?.(task.id, {
+        projectId: selectedProjectId || task.projectId || null,
+        projectCategory: cat || null,
+      });
+      markSaved();
     }
   };
 
@@ -165,16 +318,31 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
   const handleStartTimeChange = (newStart: string) => {
     if (isDeletingRef.current) return;
     setStartTime(newStart);
-    if (onUpdateTimes && newStart && endTime) {
-      onUpdateTimes(task.id, newStart, endTime, selectedDate);
+    latestTimesRef.current.startTime = newStart;
+    isTimesDirtyRef.current = true;
+    setSaveStatus("saving");
+
+    if (pendingTimesTimeoutRef.current) {
+      clearTimeout(pendingTimesTimeoutRef.current);
     }
+    pendingTimesTimeoutRef.current = setTimeout(() => {
+      flushPendingTimes();
+    }, 500);
   };
 
   const handleEndTimeChange = (newEnd: string) => {
+    if (isDeletingRef.current) return;
     setEndTime(newEnd);
-    if (onUpdateTimes && startTime && newEnd) {
-      onUpdateTimes(task.id, startTime, newEnd, selectedDate);
+    latestTimesRef.current.endTime = newEnd;
+    isTimesDirtyRef.current = true;
+    setSaveStatus("saving");
+
+    if (pendingTimesTimeoutRef.current) {
+      clearTimeout(pendingTimesTimeoutRef.current);
     }
+    pendingTimesTimeoutRef.current = setTimeout(() => {
+      flushPendingTimes();
+    }, 500);
   };
 
   const availableCategories = Array.from(
@@ -185,13 +353,13 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
     <div
       data-testid="agenda-task-detail-modal"
       className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200"
-      onClick={onClose}
+      onClick={handleClose}
     >
       <div
         onClick={(e) => e.stopPropagation()}
         className="relative w-full max-w-lg max-h-[90vh] flex flex-col rounded-3xl bg-[#14151C] border border-[#262836] shadow-2xl overflow-hidden text-white"
       >
-        {/* Header: Project / Tag + Close */}
+        {/* Header: Project / Tag + Auto-save indicator + Close */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#222430] flex-shrink-0 gap-3">
           <div className="flex items-center gap-2.5 min-w-0 flex-wrap">
             {/* Project Selector Dropdown */}
@@ -229,14 +397,29 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
             )}
           </div>
 
-          <button
-            data-testid="agenda-detail-close-btn"
-            type="button"
-            onClick={onClose}
-            className="w-8 h-8 rounded-full bg-[#20232C] hover:bg-[#2B2F3D] flex items-center justify-center text-[#8E929E] hover:text-white transition-colors cursor-pointer"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2.5">
+            {saveStatus === "saving" && (
+              <span className="flex items-center gap-1.5 text-[11px] text-[#38BDF8] animate-pulse font-medium">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                <span className="hidden sm:inline">Sauvegarde auto...</span>
+              </span>
+            )}
+            {saveStatus === "saved" && (
+              <span className="flex items-center gap-1.5 text-[11px] text-[#D4F63D] font-medium animate-in fade-in duration-150">
+                <Check className="w-3 h-3 text-[#D4F63D]" />
+                <span className="hidden sm:inline">Enregistré</span>
+              </span>
+            )}
+
+            <button
+              data-testid="agenda-detail-close-btn"
+              type="button"
+              onClick={handleClose}
+              className="w-8 h-8 rounded-full bg-[#20232C] hover:bg-[#2B2F3D] flex items-center justify-center text-[#8E929E] hover:text-white transition-colors cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Scrollable Body */}
@@ -260,10 +443,11 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
                   data-testid="agenda-detail-title-input"
                   type="text"
                   value={title}
-                  onChange={(e) => setTitle(e.target.value)}
+                  onChange={(e) => handleTitleChange(e.target.value)}
                   onBlur={handleTitleBlur}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
+                      flushPendingTitle();
                       (e.target as HTMLInputElement).blur();
                     }
                   }}
@@ -369,7 +553,23 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
                 <Clock className="w-4 h-4 text-[#D4F63D]" />
                 <span>Horaire</span>
               </div>
-              <span className="text-[11px] text-[#8E929E]">Sauvegarde auto</span>
+              <div className="flex items-center gap-1.5">
+                {saveStatus === "saving" && (
+                  <span className="text-[11px] text-[#38BDF8] flex items-center gap-1 animate-pulse font-medium">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    <span>Enregistrement...</span>
+                  </span>
+                )}
+                {saveStatus === "saved" && (
+                  <span className="text-[11px] text-[#D4F63D] flex items-center gap-1 font-medium animate-in fade-in duration-150">
+                    <Check className="w-3 h-3 text-[#D4F63D]" />
+                    <span>Enregistré</span>
+                  </span>
+                )}
+                {saveStatus === "idle" && (
+                  <span className="text-[11px] text-[#8E929E]">Sauvegarde auto</span>
+                )}
+              </div>
             </div>
 
             <div className="flex items-center gap-2.5">
@@ -485,7 +685,7 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
               data-testid="agenda-detail-duplicate-btn"
               type="button"
               onClick={() => {
-                onClose();
+                handleClose();
                 onDuplicateTask?.(task);
               }}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-[#20232C] hover:bg-[#2B2F3D] text-[#A5B4FC] hover:text-white transition-colors cursor-pointer border border-[#2D3142]"
@@ -499,7 +699,7 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
               data-testid="agenda-detail-edit-btn"
               type="button"
               onClick={() => {
-                onClose();
+                handleClose();
                 onEditTask?.(task);
               }}
               className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-[#D4F63D] text-black hover:bg-[#c2e430] transition-colors cursor-pointer shadow-sm"

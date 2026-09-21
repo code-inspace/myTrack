@@ -1266,7 +1266,6 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
         // 1. Map MyTrack tasks - Exact real proportional height matching Apple Calendar (with multi-day overnight splitting)
         const taskItems: TimedLayoutItem[] = tasks
           .map((task) => {
-            if (isSleepTitle(task.title)) return null;
             const startTimeStr = task.effectiveStartTime !== undefined ? task.effectiveStartTime : task.startTime;
             if (!startTimeStr) return null;
 
@@ -1386,6 +1385,10 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
           const targetWakeMins = parseTimeToMinutes(targetWakeTime); // 420 mins (07:00)
           const targetBedMins = parseTimeToMinutes(targetBedtime);   // 1380 mins (23:00)
 
+          // Check if sleep is already represented by an actual task on this day's timeline
+          const hasTaskMorningSleep = tasks.some((t) => isSleepTitle(t.title) && (t.overnightPart === "end" || (!t.overnightPart && parseTimeToMinutes(t.startTime || "") < 12 * 60)));
+          const hasTaskEveningSleep = tasks.some((t) => isSleepTitle(t.title) && (t.overnightPart === "start" || (!t.overnightPart && parseTimeToMinutes(t.startTime || "") >= 18 * 60)));
+
           // 3a. Morning Sleep (00:00 -> Réveil)
           // Sommeil Sauvegardé en base de données / Repéré (Violet)
           const hasActualMorningSleep = Boolean(
@@ -1397,79 +1400,81 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
             (todayLog.wakeTime && todayLog.wakeTime !== "07:00")
           );
 
-          if (hasActualMorningSleep && todayLog.wakeTime) {
-            const wakeMins = parseTimeToMinutes(todayLog.wakeTime);
-            if (wakeMins > 0) {
-              const actualBedtime = yesterdayLog.bedtime || "23:00";
-              let startMins = 0;
-              let durationText = "";
+          if (!hasTaskMorningSleep) {
+            if (hasActualMorningSleep && todayLog.wakeTime) {
+              const wakeMins = parseTimeToMinutes(todayLog.wakeTime);
+              if (wakeMins > 0) {
+                const actualBedtime = yesterdayLog.bedtime || "23:00";
+                let startMins = 0;
+                let durationText = "";
 
-              const dur = computeSleepDuration(actualBedtime, todayLog.wakeTime);
-              if (dur) durationText = dur.text;
+                const dur = computeSleepDuration(actualBedtime, todayLog.wakeTime);
+                if (dur) durationText = dur.text;
 
-              const bedMins = parseTimeToMinutes(actualBedtime);
-              if (bedMins < 12 * 60 && bedMins < wakeMins) {
-                startMins = bedMins;
+                const bedMins = parseTimeToMinutes(actualBedtime);
+                if (bedMins < 12 * 60 && bedMins < wakeMins) {
+                  startMins = bedMins;
+                }
+
+                const duration = Math.max(15, wakeMins - startMins);
+                const subLabel = durationText
+                  ? `${durationText} • Réveil ${todayLog.wakeTime}`
+                  : `Réveil ${todayLog.wakeTime}`;
+
+                const bedHour = parseInt(actualBedtime.split(":")[0], 10) || 0;
+                const actualBedDateStr = bedHour < 12 ? dayDate : yesterdayDateStr;
+
+                sleepItems.push({
+                  type: "sleep",
+                  sleepItem: {
+                    id: `sleep-morning-${dayDate}`,
+                    label: "Sommeil",
+                    subLabel,
+                    isNap: false,
+                    variant: "saved",
+                    sessionData: {
+                      sessionType: "night",
+                      startDate: actualBedDateStr,
+                      startTime: actualBedtime,
+                      endDate: dayDate,
+                      endTime: todayLog.wakeTime,
+                    },
+                  },
+                  id: `sleep-morning-${dayDate}`,
+                  startMins,
+                  layoutEndMins: startMins + duration,
+                  height: duration,
+                  column: 0,
+                  totalColumns: 1,
+                });
               }
-
-              const duration = Math.max(15, wakeMins - startMins);
-              const subLabel = durationText
-                ? `${durationText} • Réveil ${todayLog.wakeTime}`
-                : `Réveil ${todayLog.wakeTime}`;
-
-              const bedHour = parseInt(actualBedtime.split(":")[0], 10) || 0;
-              const actualBedDateStr = bedHour < 12 ? dayDate : yesterdayDateStr;
-
+            } else {
+              // Objectif de Sommeil Matin (Gris)
+              const targetMorningDuration = targetWakeMins;
               sleepItems.push({
                 type: "sleep",
                 sleepItem: {
-                  id: `sleep-morning-${dayDate}`,
-                  label: "Sommeil",
-                  subLabel,
+                  id: `sleep-target-morning-${dayDate}`,
+                  label: "Objectif Sommeil",
+                  subLabel: `Prévu ${targetWakeTime} • 8h`,
                   isNap: false,
-                  variant: "saved",
+                  variant: "objective",
                   sessionData: {
                     sessionType: "night",
-                    startDate: actualBedDateStr,
-                    startTime: actualBedtime,
+                    startDate: yesterdayDateStr,
+                    startTime: targetBedtime,
                     endDate: dayDate,
-                    endTime: todayLog.wakeTime,
+                    endTime: targetWakeTime,
                   },
                 },
-                id: `sleep-morning-${dayDate}`,
-                startMins,
-                layoutEndMins: startMins + duration,
-                height: duration,
+                id: `sleep-target-morning-${dayDate}`,
+                startMins: 0,
+                layoutEndMins: targetMorningDuration,
+                height: targetMorningDuration,
                 column: 0,
                 totalColumns: 1,
               });
             }
-          } else {
-            // Objectif de Sommeil Matin (Gris)
-            const targetMorningDuration = targetWakeMins;
-            sleepItems.push({
-              type: "sleep",
-              sleepItem: {
-                id: `sleep-target-morning-${dayDate}`,
-                label: "Objectif Sommeil",
-                subLabel: `Prévu ${targetWakeTime} • 8h`,
-                isNap: false,
-                variant: "objective",
-                sessionData: {
-                  sessionType: "night",
-                  startDate: yesterdayDateStr,
-                  startTime: targetBedtime,
-                  endDate: dayDate,
-                  endTime: targetWakeTime,
-                },
-              },
-              id: `sleep-target-morning-${dayDate}`,
-              startMins: 0,
-              layoutEndMins: targetMorningDuration,
-              height: targetMorningDuration,
-              column: 0,
-              totalColumns: 1,
-            });
           }
 
           // 3b. Evening Sleep Onset (Coucher -> 24:00)
@@ -1480,66 +1485,68 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
             (todayLog.bedtime && todayLog.bedtime !== "23:00")
           );
 
-          if (hasActualEveningBedtime && todayLog.bedtime) {
-            const bedMins = parseTimeToMinutes(todayLog.bedtime);
-            if (bedMins >= 18 * 60 && bedMins < 1440) {
-              const duration = 1440 - bedMins;
-              const tomorrowWakeTime = tomorrowLog.wakeTime || "07:00";
-              const dur = computeSleepDuration(todayLog.bedtime, tomorrowWakeTime);
-              const subLabel = dur?.text
-                ? `${dur.text} • Coucher ${todayLog.bedtime}`
-                : `Coucher ${todayLog.bedtime}`;
+          if (!hasTaskEveningSleep) {
+            if (hasActualEveningBedtime && todayLog.bedtime) {
+              const bedMins = parseTimeToMinutes(todayLog.bedtime);
+              if (bedMins >= 18 * 60 && bedMins < 1440) {
+                const duration = 1440 - bedMins;
+                const tomorrowWakeTime = tomorrowLog.wakeTime || "07:00";
+                const dur = computeSleepDuration(todayLog.bedtime, tomorrowWakeTime);
+                const subLabel = dur?.text
+                  ? `${dur.text} • Coucher ${todayLog.bedtime}`
+                  : `Coucher ${todayLog.bedtime}`;
 
+                sleepItems.push({
+                  type: "sleep",
+                  sleepItem: {
+                    id: `sleep-evening-${dayDate}`,
+                    label: "Sommeil",
+                    subLabel,
+                    isNap: false,
+                    variant: "saved",
+                    sessionData: {
+                      sessionType: "night",
+                      startDate: dayDate,
+                      startTime: todayLog.bedtime,
+                      endDate: tomorrowDateStr,
+                      endTime: tomorrowWakeTime,
+                    },
+                  },
+                  id: `sleep-evening-${dayDate}`,
+                  startMins: bedMins,
+                  layoutEndMins: 1440,
+                  height: Math.max(15, duration),
+                  column: 0,
+                  totalColumns: 1,
+                });
+              }
+            } else {
+              // Objectif Coucher Soir (Gris)
+              const targetEveningDuration = 1440 - targetBedMins;
               sleepItems.push({
                 type: "sleep",
                 sleepItem: {
-                  id: `sleep-evening-${dayDate}`,
-                  label: "Sommeil",
-                  subLabel,
+                  id: `sleep-target-evening-${dayDate}`,
+                  label: "Objectif Coucher",
+                  subLabel: `Coucher ${targetBedtime} (Prévu)`,
                   isNap: false,
-                  variant: "saved",
+                  variant: "objective",
                   sessionData: {
                     sessionType: "night",
                     startDate: dayDate,
-                    startTime: todayLog.bedtime,
+                    startTime: targetBedtime,
                     endDate: tomorrowDateStr,
-                    endTime: tomorrowWakeTime,
+                    endTime: targetWakeTime,
                   },
                 },
-                id: `sleep-evening-${dayDate}`,
-                startMins: bedMins,
+                id: `sleep-target-evening-${dayDate}`,
+                startMins: targetBedMins,
                 layoutEndMins: 1440,
-                height: Math.max(15, duration),
+                height: targetEveningDuration,
                 column: 0,
                 totalColumns: 1,
               });
             }
-          } else {
-            // Objectif Coucher Soir (Gris)
-            const targetEveningDuration = 1440 - targetBedMins;
-            sleepItems.push({
-              type: "sleep",
-              sleepItem: {
-                id: `sleep-target-evening-${dayDate}`,
-                label: "Objectif Coucher",
-                subLabel: `Coucher ${targetBedtime} (Prévu)`,
-                isNap: false,
-                variant: "objective",
-                sessionData: {
-                  sessionType: "night",
-                  startDate: dayDate,
-                  startTime: targetBedtime,
-                  endDate: tomorrowDateStr,
-                  endTime: targetWakeTime,
-                },
-              },
-              id: `sleep-target-evening-${dayDate}`,
-              startMins: targetBedMins,
-              layoutEndMins: 1440,
-              height: targetEveningDuration,
-              column: 0,
-              totalColumns: 1,
-            });
           }
 
           // 3c. Daytime Naps (Sauvegardées en base -> Violet)

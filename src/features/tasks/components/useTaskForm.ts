@@ -34,23 +34,29 @@ export function useTaskForm({
     if (!isEditing && (tag === "General" || !tag)) {
       if (isNapTitle(newTitle)) {
         setTag("Santé");
+        const parsed = extractTimesFromTitle(newTitle);
         if (!hasScheduledTime) {
           setHasScheduledTime(true);
-          const parsed = extractTimesFromTitle(newTitle);
           setStartTime(parsed.startTime || "13:30");
           setEndTime(parsed.endTime || "14:00");
           setTrackingType("DURATION");
           setTargetValue(30);
+        } else if (parsed.startTime) {
+          setStartTime(parsed.startTime);
+          if (parsed.endTime) setEndTime(parsed.endTime);
         }
       } else if (isSleepTitle(newTitle)) {
         setTag("Santé");
+        const parsed = extractTimesFromTitle(newTitle);
         if (!hasScheduledTime) {
           setHasScheduledTime(true);
-          const parsed = extractTimesFromTitle(newTitle);
           setStartTime(parsed.startTime || "23:00");
           setEndTime(parsed.endTime || "07:00");
           setTrackingType("DURATION");
           setTargetValue(480);
+        } else if (parsed.startTime) {
+          setStartTime(parsed.startTime);
+          if (parsed.endTime) setEndTime(parsed.endTime);
         }
       }
     }
@@ -281,7 +287,15 @@ export function useTaskForm({
     reminderTimes,
     projectId,
     projectStatus,
+    projectCategory,
   ]);
+
+  // Flush on unmount to never lose edits on close
+  useEffect(() => {
+    return () => {
+      flushAutoSave();
+    };
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

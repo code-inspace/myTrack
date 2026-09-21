@@ -147,20 +147,20 @@ describe("taskSleepSync", () => {
         userId: "user-123",
       };
 
-      // Explicit past date: 2026-09-18
+      // Explicit date: 2026-09-18
       await syncTaskWithSleepLog(task, "2026-09-18");
 
-      // Wake time on 2026-09-18, bedtime on 2026-09-17
-      const wakeLog = getStoredSleepLog("2026-09-18", "user-123");
-      const bedLog = getStoredSleepLog("2026-09-17", "user-123");
-
-      expect(wakeLog.wakeTime).toBe("07:00");
-      expect(wakeLog.wakeTimeValidated).toBe(true);
-      expect(wakeLog.taskId).toBe("task-sleep-1");
+      // Bedtime on 2026-09-18, Wake time on next morning 2026-09-19
+      const bedLog = getStoredSleepLog("2026-09-18", "user-123");
+      const wakeLog = getStoredSleepLog("2026-09-19", "user-123");
 
       expect(bedLog.bedtime).toBe("23:00");
       expect(bedLog.bedtimeValidated).toBe(true);
       expect(bedLog.taskId).toBe("task-sleep-1");
+
+      expect(wakeLog.wakeTime).toBe("07:00");
+      expect(wakeLog.wakeTimeValidated).toBe(true);
+      expect(wakeLog.taskId).toBe("task-sleep-1");
     });
 
     it("syncs nap task to DailySleepLog.naps", async () => {
@@ -193,8 +193,8 @@ describe("taskSleepSync", () => {
       await syncTaskWithSleepLog(task, "2026-09-18");
       await removeTaskFromSleepLog("task-sleep-2", "2026-09-18", "user-123");
 
-      const wakeLog = getStoredSleepLog("2026-09-18", "user-123");
-      const bedLog = getStoredSleepLog("2026-09-17", "user-123");
+      const bedLog = getStoredSleepLog("2026-09-18", "user-123");
+      const wakeLog = getStoredSleepLog("2026-09-19", "user-123");
 
       expect(wakeLog.wakeTimeValidated).toBe(false);
       expect(wakeLog.taskId).toBeUndefined();

@@ -225,25 +225,18 @@ export async function syncTaskWithSleepLog(
     }
 
     // Determine bedDate and wakeDate for main night sleep
+    // The user scheduled this sleep task on `dateStr` with `startTime`.
+    // bedDate is ALWAYS the chosen task date `dateStr`.
+    // If the sleep crosses midnight (isOvernight), wakeDate is the next morning (dateStr + 1 day).
+    // If the sleep is recorded within the same day (e.g. 01:00 -> 08:00), wakeDate is also `dateStr`.
     const isOvernight = startHour > endHour || startHour >= 18;
-    const now = new Date();
-    const currHour = now.getHours();
-    const isToday = dateStr === getTodayDateString();
 
     let bedDate = dateStr;
     let wakeDate = dateStr;
 
     if (isOvernight) {
-      // If user adds sleep on today's date during morning/daytime (< 18h) or retroactively on a past date:
-      // it corresponds to the sleep they woke up from on that date!
-      if ((isToday && currHour < 18) || dateStr < getTodayDateString()) {
-        wakeDate = dateStr;
-        bedDate = format(subDays(parseISO(dateStr), 1), "yyyy-MM-dd");
-      } else {
-        // Evening on today or a future date: user is planning tonight's bedtime
-        bedDate = dateStr;
-        wakeDate = format(addDays(parseISO(dateStr), 1), "yyyy-MM-dd");
-      }
+      bedDate = dateStr;
+      wakeDate = format(addDays(parseISO(dateStr), 1), "yyyy-MM-dd");
     }
 
     // 1. Bedtime saved on bedDate

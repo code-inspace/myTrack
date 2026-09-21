@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { format, subDays } from "date-fns";
+import { format, subDays, startOfWeek, addDays } from "date-fns";
 import { computeGoalProgress } from "./actions";
 import { Goal } from "./types";
 import { Task, TaskCompletion } from "@/features/tasks/types";
@@ -188,10 +188,14 @@ describe("computeGoalProgress", () => {
   });
 
   it("should keep repeated task time strictly independent per day (e.g. 2h16 yesterday vs 1 min today)", () => {
+    // If today is Monday, yesterday was Sunday in the previous week.
+    // For testing day isolation and week progress, we test on a day that has yesterday in the same week,
+    // or test the day views independently.
     const now = new Date();
     const todayStr = format(now, "yyyy-MM-dd");
     const yesterdayDate = subDays(now, 1);
     const yesterdayStr = format(yesterdayDate, "yyyy-MM-dd");
+    const isMonday = now.getDay() === 1;
     const oneMinuteAgoIso = new Date(Date.now() - 60 * 1000).toISOString();
 
     const recurringTask: Task = {
@@ -261,7 +265,7 @@ describe("computeGoalProgress", () => {
     expect(yesterdayResult.actualMinutes).toBe(136);
     expect(yesterdayResult.formattedActual).toBe("2h 16m");
 
-    // Week progress (Week view containing both days)
+    // Week progress (Week view)
     const weekResult = computeGoalProgress({
       goal: { ...sampleGoal, periodType: "week", periodKey: `week_${todayStr}` },
       period: "week",
@@ -270,8 +274,10 @@ describe("computeGoalProgress", () => {
       completions,
     });
 
-    expect(weekResult.actualMinutes).toBe(137); // 136 + 1
-    expect(weekResult.formattedActual).toBe("2h 17m");
+    // If today is Monday, yesterday was in previous week, so week contains only today (1 min);
+    // otherwise week contains yesterday (136 min) + today (1 min) = 137 min.
+    expect(weekResult.actualMinutes).toBe(isMonday ? 1 : 137);
+    expect(weekResult.formattedActual).toBe(isMonday ? "1 min" : "2h 17m");
   });
 
   it("should accumulate earlier completed session today (iteration 1) with current active running session (iteration 2)", () => {
