@@ -38,6 +38,7 @@ export default function DashboardPage() {
     if (
       target.closest("[data-no-swipe]") ||
       target.closest("[data-sleep-chart]") ||
+      target.closest("[data-project-chart]") ||
       target.closest("button") ||
       target.closest("input")
     ) {
@@ -54,7 +55,8 @@ export default function DashboardPage() {
     const target = e.target as HTMLElement;
     if (
       target.closest("[data-no-swipe]") ||
-      target.closest("[data-sleep-chart]")
+      target.closest("[data-sleep-chart]") ||
+      target.closest("[data-project-chart]")
     ) {
       setTouchStart(null);
       return;

@@ -109,14 +109,11 @@ export function formatDurationHoursMinutes(totalMinutes: number): string {
   return `${hours}h ${minutes}m`;
 }
 
-// Compact format for chart top labels (e.g. 0h, 1h, 1h 30m, 45m)
+// Format for chart top labels: only the hours, no minutes (e.g. 0h, 1h, 15h)
 function formatChartDurationBadge(totalMinutes: number): string {
   if (!totalMinutes || totalMinutes <= 0) return "0h";
   const hours = Math.floor(totalMinutes / 60);
-  const minutes = Math.round(totalMinutes % 60);
-  if (hours === 0) return `${minutes}m`;
-  if (minutes === 0) return `${hours}h`;
-  return `${hours}h ${minutes}m`;
+  return `${hours}h`;
 }
 
 // Compute Y-Axis dynamic grid ticks matching screenshot style
@@ -128,7 +125,11 @@ function getYAxisTicks(maxMinutes: number) {
   else if (maxMinutes > 150) step = 60; // 1h
   else step = 30; // 30m
 
-  const maxTick = Math.max(Math.ceil((maxMinutes || 0) / step) * step, step * 4);
+  let maxTick = Math.max(Math.ceil((maxMinutes || 0) / step) * step, step * 4);
+  // Add an extra step buffer if the highest bar is too close to maxTick so top label never clips
+  if (maxMinutes > 0 && maxMinutes / maxTick > 0.85) {
+    maxTick += step;
+  }
   const ticks: number[] = [];
   for (let m = maxTick; m >= 0; m -= step) {
     ticks.push(m);
@@ -671,7 +672,11 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
   const chartHeightPx = 220;
 
   return (
-    <div className="bg-[#1C1D22] border border-[#282A30] rounded-3xl p-5 shadow-sm space-y-4">
+    <div
+      data-no-swipe="true"
+      data-project-chart="true"
+      className="bg-[#1C1D22] border border-[#282A30] rounded-3xl p-3.5 sm:p-5 shadow-sm space-y-4"
+    >
       {/* 1. Widget Header */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         {selectedProject ? (
@@ -1014,11 +1019,18 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
         /* ================= WEEK / MONTH: MAIN VERTICAL STACKED BAR CHART ================= */
         <div className="space-y-4 animate-in fade-in duration-200">
           {/* Chart Frame matching screenshot design */}
-          <div className="relative w-full rounded-2xl bg-[#141519] border border-[#282A30] p-4 select-none overflow-hidden">
+          <div
+            data-no-swipe="true"
+            data-project-chart="true"
+            onTouchStart={(e) => e.stopPropagation()}
+            onTouchMove={(e) => e.stopPropagation()}
+            onTouchEnd={(e) => e.stopPropagation()}
+            className="relative w-full rounded-2xl bg-[#141519] border border-[#282A30] p-2.5 sm:p-4 select-none overflow-hidden touch-pan-y"
+          >
             {/* Chart Area */}
             <div className="relative flex" style={{ height: `${chartHeightPx}px` }}>
               {/* Left Y-Axis labels */}
-              <div className="w-12 h-full flex flex-col justify-between py-1 pr-2 flex-shrink-0 select-none z-10">
+              <div className="w-8 sm:w-11 h-full flex flex-col justify-between py-1 pr-1 sm:pr-2 flex-shrink-0 select-none z-10">
                 {ticks.map((tick, idx) => (
                   <span
                     key={idx}
@@ -1030,7 +1042,7 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
               </div>
 
               {/* Horizontal Gridlines spanning across chart */}
-              <div className="absolute inset-0 left-12 right-2 pointer-events-none z-0">
+              <div className="absolute inset-0 left-8 sm:left-11 right-1 sm:right-2 pointer-events-none z-0">
                 {ticks.map((tick, idx) => {
                   const topPct = (idx / (ticks.length - 1)) * 100;
                   return (
@@ -1044,7 +1056,7 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
               </div>
 
               {/* Stacked Vertical Bar Columns */}
-              <div className="relative flex-1 h-full flex items-end justify-around gap-2 z-10 pl-2">
+              <div className="relative flex-1 h-full flex items-end justify-around gap-1 sm:gap-2 z-10 pl-1 sm:pl-2">
                 {columns.map((col) => {
                   const isSelected = selectedColumnId === col.id;
                   const barHeightPct =
@@ -1058,10 +1070,10 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
                       }
                       className="flex-1 flex flex-col items-center justify-end h-full cursor-pointer group min-w-0"
                     >
-                      {/* Top duration label over the bar (e.g. 1h or 0h) */}
+                      {/* Top duration label over the bar (e.g. 15h, 4h, 0h) */}
                       <span
                         className={cn(
-                          "text-[10px] font-mono mb-1.5 transition-colors text-center whitespace-nowrap",
+                          "text-[10px] sm:text-xs font-mono mb-1.5 transition-colors text-center whitespace-nowrap",
                           col.totalMinutes > 0
                             ? isSelected
                               ? "font-bold text-[#D4F63D]"
@@ -1075,7 +1087,7 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
                       {/* Stacked Bar Container */}
                       <div
                         className={cn(
-                          "w-full max-w-[22px] sm:max-w-[26px] min-h-[2px] rounded-t-md transition-all relative overflow-hidden flex flex-col justify-end",
+                          "w-full max-w-[18px] sm:max-w-[24px] min-h-[2px] rounded-t-md transition-all relative overflow-hidden flex flex-col justify-end",
                           isSelected
                             ? "ring-2 ring-[#D4F63D] shadow-lg shadow-[#D4F63D]/20 scale-105"
                             : "group-hover:opacity-90"
@@ -1112,10 +1124,10 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
             </div>
 
             {/* Baseline border */}
-            <div className="ml-12 border-t border-[#343743] mt-0.5" />
+            <div className="ml-8 sm:ml-11 border-t border-[#343743] mt-0.5" />
 
             {/* X-Axis labels underneath columns */}
-            <div className="ml-12 flex items-start justify-around gap-2 pt-2">
+            <div className="ml-8 sm:ml-11 flex items-start justify-around gap-1 sm:gap-2 pt-2">
               {columns.map((col) => {
                 const isSelected = selectedColumnId === col.id;
 
@@ -1129,7 +1141,7 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
                   >
                     <span
                       className={cn(
-                        "text-[11px] font-semibold leading-tight truncate max-w-full transition-colors",
+                        "text-[10px] sm:text-[11px] font-semibold leading-tight truncate max-w-full transition-colors",
                         isSelected || col.isHighlighted
                           ? "text-[#D4F63D] font-bold"
                           : "text-white/90 group-hover:text-white"
@@ -1139,7 +1151,7 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
                     </span>
                     <span
                       className={cn(
-                        "text-[10px] text-[#8E929E] leading-tight truncate max-w-full mt-0.5 transition-colors",
+                        "text-[9px] sm:text-[10px] text-[#8E929E] leading-tight truncate max-w-full mt-0.5 transition-colors",
                         isSelected ? "text-white font-semibold" : "group-hover:text-[#CBD5E1]"
                       )}
                     >
