@@ -70,10 +70,12 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: "cover",
+  interactiveWidget: "resizes-content",
 };
 
 import { OfflineProvider } from "@/providers/OfflineProvider";
 import { DeepLinkProvider } from "@/providers/DeepLinkProvider";
+import { KeyboardAvoidanceProvider } from "@/providers/KeyboardAvoidanceProvider";
 
 export default function RootLayout({
   children,
@@ -86,12 +88,13 @@ export default function RootLayout({
         <QueryProvider>
           <AuthProvider>
             <OfflineProvider>
-              <OneSignalProvider>
-                <NotificationWatcherProvider>
-                  <DeepLinkProvider>
-                    <NightModeProvider>
-                      <DisplayModeProvider>
-                        <DateProvider>
+              <KeyboardAvoidanceProvider>
+                <OneSignalProvider>
+                  <NotificationWatcherProvider>
+                    <DeepLinkProvider>
+                      <NightModeProvider>
+                        <DisplayModeProvider>
+                          <DateProvider>
                           <AuthGuard>
                             {/* Desktop Sticky Left Sidebar (hidden on mobile) */}
                             <DesktopSidebar />
@@ -105,11 +108,12 @@ export default function RootLayout({
                             <BottomNav />
                           </AuthGuard>
                         </DateProvider>
-                      </DisplayModeProvider>
-                    </NightModeProvider>
-                  </DeepLinkProvider>
-                </NotificationWatcherProvider>
-              </OneSignalProvider>
+                        </DisplayModeProvider>
+                      </NightModeProvider>
+                    </DeepLinkProvider>
+                  </NotificationWatcherProvider>
+                </OneSignalProvider>
+              </KeyboardAvoidanceProvider>
             </OfflineProvider>
           </AuthProvider>
         </QueryProvider>

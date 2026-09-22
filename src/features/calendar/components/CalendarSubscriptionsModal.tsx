@@ -218,7 +218,7 @@ export const CalendarSubscriptionsModal: React.FC<CalendarSubscriptionsModalProp
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
       <div
-        className="relative w-full max-w-xl max-h-[92vh] flex flex-col rounded-3xl bg-[#141518] border border-[#282A34] shadow-2xl overflow-hidden text-white"
+        className="modal-adaptive-card relative w-full max-w-xl max-h-[92vh] flex flex-col rounded-3xl bg-[#141518] border border-[#282A34] shadow-2xl overflow-hidden text-white"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -307,7 +307,7 @@ export const CalendarSubscriptionsModal: React.FC<CalendarSubscriptionsModalProp
         )}
 
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+        <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-5 pb-10 space-y-6">
           {/* Subscriptions List */}
           <div>
             <div className="flex items-center justify-between mb-3">

@@ -13,7 +13,7 @@ export default function ChatPage() {
   const { data: stats } = useDashboardStats();
 
   return (
-    <div className="flex-1 flex flex-col xl:flex-row xl:gap-6 h-[calc(100vh-6rem)] max-h-[calc(100dvh-6rem)] md:h-screen md:max-h-screen pb-2 md:pb-6 w-full md:max-w-4xl xl:max-w-6xl md:mx-auto px-4 md:px-8 pt-2 md:pt-4">
+    <div className="chat-viewport-container flex-1 flex flex-col xl:flex-row xl:gap-6 h-[calc(100vh-6rem)] max-h-[calc(100dvh-6rem)] md:h-screen md:max-h-screen pb-2 md:pb-6 w-full md:max-w-4xl xl:max-w-6xl md:mx-auto px-4 md:px-8 pt-2 md:pt-4">
       {/* Chat column */}
       <div className="flex-1 flex flex-col min-w-0 min-h-0">
         {/* AI Coach Header */}

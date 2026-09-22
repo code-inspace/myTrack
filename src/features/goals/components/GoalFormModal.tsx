@@ -163,9 +163,9 @@ export const GoalFormModal: React.FC<GoalFormModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
       <div
-        className="bg-[#141519] border border-[#23252E] rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+        className="bg-[#141519] border border-[#23252E] rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh] modal-adaptive-card"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -193,10 +193,11 @@ export const GoalFormModal: React.FC<GoalFormModalProps> = ({
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-5">
-          {/* 1. Projet Selector */}
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-[#8E929E] mb-2 flex items-center gap-1.5">
+        <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 overscroll-contain pb-6">
+            {/* 1. Projet Selector */}
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-[#8E929E] mb-2 flex items-center gap-1.5">
               <Folder className="w-3.5 h-3.5" />
               <span>Projet concerné *</span>
             </label>
@@ -602,8 +603,10 @@ export const GoalFormModal: React.FC<GoalFormModalProps> = ({
             </div>
           )}
 
+          </div>
+
           {/* Modal Footer Buttons */}
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-[#23252E]">
+          <div className="flex items-center justify-end gap-3 p-4 px-6 border-t border-[#23252E] bg-[#141519] flex-shrink-0">
             <button
               type="button"
               onClick={onClose}

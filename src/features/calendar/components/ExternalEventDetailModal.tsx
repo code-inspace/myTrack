@@ -109,7 +109,7 @@ export const ExternalEventDetailModal: React.FC<ExternalEventDetailModalProps> =
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-lg max-h-[90vh] flex flex-col rounded-3xl bg-[#14151C] border border-[#262836] shadow-2xl overflow-hidden text-white"
+        className="modal-adaptive-card relative w-full max-w-lg max-h-[90vh] flex flex-col rounded-3xl bg-[#14151C] border border-[#262836] shadow-2xl overflow-hidden text-white"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -137,7 +137,7 @@ export const ExternalEventDetailModal: React.FC<ExternalEventDetailModalProps> =
         </div>
 
         {/* Scrollable Body */}
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4 min-w-0 max-w-full break-words [overflow-wrap:anywhere]">
+        <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-5 pb-10 space-y-4 min-w-0 max-w-full break-words [overflow-wrap:anywhere]">
           {/* Title */}
           <div>
             <h3 className="text-lg sm:text-xl font-extrabold text-white leading-snug break-words">

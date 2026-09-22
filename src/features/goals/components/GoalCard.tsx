@@ -80,9 +80,11 @@ export const GoalCard: React.FC<GoalCardProps> = ({
               </span>
 
               {isRecurring && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#232634] text-[#A5B4FC] border border-[#3730A3]/30">
+                <span
+                  title="Objectif récurrent"
+                  className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-[#232634] text-[#A5B4FC] border border-[#3730A3]/30 shrink-0"
+                >
                   <Repeat className="w-2.5 h-2.5" />
-                  <span>Récurrent</span>
                 </span>
               )}
 

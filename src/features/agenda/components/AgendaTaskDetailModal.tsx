@@ -418,7 +418,7 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-lg max-h-[90vh] flex flex-col rounded-3xl bg-[#14151C] border border-[#262836] shadow-2xl overflow-hidden text-white"
+        className="relative w-full max-w-lg max-h-[90vh] flex flex-col rounded-3xl bg-[#14151C] border border-[#262836] shadow-2xl overflow-hidden text-white modal-adaptive-card"
       >
         {/* Header: Project / Tag + Auto-save indicator + Close */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#222430] flex-shrink-0 gap-3">
@@ -471,12 +471,15 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
                 <span className="hidden sm:inline">Enregistré</span>
               </span>
             )}
+            {saveStatus === "idle" && (
+              <span className="text-[11px] text-[#8E929E] hidden sm:inline">Sauvegarde auto</span>
+            )}
 
             <button
               data-testid="agenda-detail-close-btn"
               type="button"
               onClick={handleClose}
-              className="w-8 h-8 rounded-full bg-[#20232C] hover:bg-[#2B2F3D] flex items-center justify-center text-[#8E929E] hover:text-white transition-colors cursor-pointer"
+              className="w-8 h-8 rounded-xl bg-[#1C1E28] text-[#8E929E] hover:text-white hover:bg-[#252834] flex items-center justify-center transition-colors cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
@@ -484,7 +487,7 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
         </div>
 
         {/* Scrollable Body */}
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4 min-w-0 max-w-full break-words [overflow-wrap:anywhere]">
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 sm:py-5 space-y-4 min-w-0 max-w-full break-words [overflow-wrap:anywhere] overscroll-contain pb-10">
           {/* Title & Priority */}
           <div className="space-y-2">
             <div className="flex items-start gap-2.5">

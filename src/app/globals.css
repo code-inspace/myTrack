@@ -130,3 +130,51 @@ body {
 .animate-spin-slow {
   animation: spin-slow 12s linear infinite;
 }
+
+/* Virtual Keyboard & Mobile Form Avoidance */
+:root {
+  --keyboard-height: 0px;
+  --visual-viewport-height: 100dvh;
+}
+
+/* Ensure all scroll containers have scroll padding so scrollIntoView keeps inputs comfortably visible */
+html,
+body,
+form,
+div[class*="overflow-y-auto"] {
+  scroll-padding-top: 1.5rem;
+  scroll-padding-bottom: calc(var(--keyboard-height, 0px) + 2rem);
+}
+
+/* When the virtual keyboard is open on mobile:
+   1. Lift modal backdrops so modal cards are centered/visible in the area above the keyboard.
+   2. Dynamically constrain the maximum height of modal cards so they fit in the visible screen.
+*/
+@media (max-width: 768px) {
+  html.keyboard-open .fixed.inset-0.z-50,
+  html.keyboard-open .modal-backdrop {
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), var(--keyboard-height, 0px)) !important;
+    align-items: center !important;
+    transition: padding-bottom 0.15s ease-out;
+  }
+
+  html.keyboard-open .fixed.inset-0.z-50 > div,
+  html.keyboard-open .modal-adaptive-card {
+    max-height: calc(var(--visual-viewport-height, 100dvh) - 1.25rem) !important;
+    margin-top: auto !important;
+    margin-bottom: auto !important;
+  }
+
+  /* Automatically hide fixed bottom navigation when typing */
+  html.keyboard-open nav.fixed.bottom-0 {
+    display: none !important;
+  }
+
+  /* Chat page container adjustment when keyboard is open */
+  html.keyboard-open .chat-viewport-container {
+    height: calc(var(--visual-viewport-height, 100dvh) - 1rem) !important;
+    max-height: calc(var(--visual-viewport-height, 100dvh) - 1rem) !important;
+    padding-bottom: 0.5rem !important;
+  }
+}
+

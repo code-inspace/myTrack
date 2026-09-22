@@ -271,7 +271,7 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
         if (e.target === e.currentTarget) handleClose();
       }}
     >
-      <div className="w-full max-w-sm max-h-[88vh] bg-[#1C1D22] border border-[#282A30] rounded-3xl p-5 shadow-2xl relative flex flex-col space-y-4 my-auto overflow-hidden">
+      <div className="w-full max-w-sm max-h-[88vh] bg-[#1C1D22] border border-[#282A30] rounded-3xl p-5 shadow-2xl relative flex flex-col space-y-4 my-auto overflow-hidden modal-adaptive-card">
         {/* Modal Header with Auto-save indicator */}
         <div className="flex items-center justify-between pb-3 border-b border-[#282A30] flex-shrink-0">
           <div className="flex items-center gap-2.5">
@@ -310,7 +310,7 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
         </div>
 
         {/* Scrollable Form Body */}
-        <form onSubmit={(e) => e.preventDefault()} className="flex-1 overflow-y-auto pr-1 space-y-4 min-h-0">
+        <form onSubmit={(e) => e.preventDefault()} className="flex-1 overflow-y-auto pr-1 space-y-4 min-h-0 pb-12 overscroll-contain">
           <div className="space-y-1.5">
             <label className="block text-xs font-semibold uppercase tracking-wider text-[#8E929E]">
               Nom du projet *

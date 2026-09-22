@@ -355,7 +355,7 @@ export const SleepEditModal: React.FC<SleepEditModalProps> = ({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="w-full max-w-sm max-h-[90vh] bg-[#17192C] border border-[#2E3352] rounded-3xl p-5 shadow-2xl relative flex flex-col space-y-4 my-auto overflow-hidden text-white">
+      <div className="modal-adaptive-card w-full max-w-sm max-h-[90vh] bg-[#17192C] border border-[#2E3352] rounded-3xl p-5 shadow-2xl relative flex flex-col space-y-4 my-auto overflow-hidden text-white">
         {/* Modal Header */}
         <div className="flex items-center justify-between pb-3 border-b border-[#2E3352] flex-shrink-0">
           <div className="flex items-center gap-2.5">
@@ -387,7 +387,7 @@ export const SleepEditModal: React.FC<SleepEditModalProps> = ({
         </div>
 
         {/* Live Duration Banner & Autosave State */}
-        <div className="p-3 rounded-2xl bg-[#20233B] border border-[#373C60] flex items-center justify-between">
+        <div className="p-3 rounded-2xl bg-[#20233B] border border-[#373C60] flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-2">
             <Clock className="w-4 h-4 text-[#818CF8]" />
             <span className="text-xs text-[#94A3B8] font-medium">Durée totale</span>
@@ -406,7 +406,7 @@ export const SleepEditModal: React.FC<SleepEditModalProps> = ({
         </div>
 
         {/* Form Body */}
-        <div className="flex-1 overflow-y-auto pr-1 space-y-4 min-h-0">
+        <div className="flex-1 overflow-y-auto overscroll-contain pr-1 pb-6 space-y-4 min-h-0">
           {/* 1. Date et Heure de Début (Coucher) */}
           <div className="p-3.5 rounded-2xl bg-[#1D2038] border border-[#2E3352] space-y-2.5">
             <div className="flex items-center justify-between">

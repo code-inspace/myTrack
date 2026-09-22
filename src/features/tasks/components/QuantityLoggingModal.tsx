@@ -32,7 +32,7 @@ export const QuantityLoggingModal: React.FC<QuantityLoggingModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="w-full max-w-sm bg-[#1C1D22] border border-[#282A30] rounded-3xl p-6 shadow-2xl relative">
+      <div className="modal-adaptive-card w-full max-w-sm max-h-[90vh] overflow-y-auto overscroll-contain bg-[#1C1D22] border border-[#282A30] rounded-3xl p-6 shadow-2xl relative">
         {/* Close Button */}
         <button
           onClick={onClose}

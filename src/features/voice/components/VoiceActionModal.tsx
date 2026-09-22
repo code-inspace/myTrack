@@ -255,7 +255,7 @@ export const VoiceActionModal: React.FC<VoiceActionModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="w-full max-w-md bg-[#16181D] border border-[#282B35] rounded-t-3xl sm:rounded-3xl p-5 shadow-2xl flex flex-col max-h-[90vh] overflow-hidden space-y-4">
+      <div className="modal-adaptive-card w-full max-w-md bg-[#16181D] border border-[#282B35] rounded-t-3xl sm:rounded-3xl p-5 shadow-2xl flex flex-col max-h-[90vh] overflow-y-auto overscroll-contain space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between pb-2 border-b border-[#252832]">
           <div className="flex items-center gap-2">

@@ -183,10 +183,10 @@ export const PhotoTaskImportModal: React.FC<PhotoTaskImportModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-xl max-h-[90vh] bg-[#141518] border border-[#262832] rounded-3xl shadow-2xl flex flex-col overflow-hidden text-white">
+      <div className="modal-adaptive-card relative w-full max-w-xl max-h-[90vh] bg-[#141518] border border-[#262832] rounded-3xl shadow-2xl flex flex-col overflow-hidden text-white">
         
         {/* Header */}
-        <div className="px-5 py-4 border-b border-[#23252E] flex items-center justify-between bg-[#191A20] select-none">
+        <div className="px-5 py-4 border-b border-[#23252E] flex items-center justify-between bg-[#191A20] select-none flex-shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-[#D4F63D]/15 text-[#D4F63D] flex items-center justify-center font-bold">
               <Camera className="w-5 h-5" />
@@ -231,7 +231,7 @@ export const PhotoTaskImportModal: React.FC<PhotoTaskImportModalProps> = ({
         />
 
         {/* Body Content */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+        <div className="flex-1 overflow-y-auto overscroll-contain p-5 pb-10 space-y-4">
           {errorMessage && (
             <div className="p-3.5 rounded-2xl bg-[#EF4444]/15 border border-[#EF4444]/30 text-[#FCA5A5] text-xs flex items-start gap-2.5 animate-in fade-in">
               <AlertCircle className="w-4 h-4 text-[#EF4444] flex-shrink-0 mt-0.5" />

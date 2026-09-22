@@ -51,8 +51,8 @@ export const CustomReminderModal: React.FC<CustomReminderModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="w-full max-w-md bg-[#1C1D22] border border-[#282A30] rounded-3xl p-6 shadow-2xl relative">
-        <div className="flex items-center justify-between pb-4 border-b border-[#282A30]">
+      <div className="modal-adaptive-card w-full max-w-md bg-[#1C1D22] border border-[#282A30] rounded-3xl p-6 shadow-2xl relative max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between pb-4 border-b border-[#282A30] flex-shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-full bg-[#D4F63D] text-black flex items-center justify-center">
               <Bell className="w-4 h-4 fill-current" />
@@ -71,7 +71,7 @@ export const CustomReminderModal: React.FC<CustomReminderModalProps> = ({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+        <form onSubmit={handleSubmit} className="mt-5 space-y-4 overflow-y-auto overscroll-contain flex-1 pr-1 pb-4">
           {/* Linked Task */}
           <div>
             <label className="block text-xs font-semibold text-[#8E929E] uppercase tracking-wider mb-1.5">

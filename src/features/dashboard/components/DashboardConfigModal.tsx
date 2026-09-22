@@ -205,9 +205,9 @@ export const DashboardConfigModal: React.FC<DashboardConfigModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200">
-      <div className="w-full max-w-md bg-[#16171C] border border-[#282A30] rounded-3xl p-5 shadow-2xl relative space-y-4 my-auto">
+      <div className="modal-adaptive-card w-full max-w-md max-h-[90vh] flex flex-col bg-[#16171C] border border-[#282A30] rounded-3xl p-5 shadow-2xl relative space-y-4 my-auto">
         {/* Header */}
-        <div className="flex items-center justify-between pb-3 border-b border-[#282A30]">
+        <div className="flex items-center justify-between pb-3 border-b border-[#282A30] flex-shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-xl bg-[#D4F63D]/10 text-[#D4F63D]">
               <Sliders className="w-4 h-4" />
@@ -231,7 +231,7 @@ export const DashboardConfigModal: React.FC<DashboardConfigModalProps> = ({
         {/* Sortable List */}
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={modules.map((m) => m.id)} strategy={verticalListSortingStrategy}>
-            <div className="space-y-2 py-1 max-h-[50vh] overflow-y-auto pr-1">
+            <div className="space-y-2 py-1 flex-1 overflow-y-auto overscroll-contain pr-1">
               {modules.map((mod) => (
                 <SortableModuleItem key={mod.id} module={mod} onToggle={handleToggle} />
               ))}

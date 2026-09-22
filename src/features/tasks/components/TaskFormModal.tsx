@@ -39,7 +39,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="w-full max-w-lg bg-[#1C1D22] border border-[#282A30] rounded-t-3xl sm:rounded-3xl shadow-2xl relative max-h-[70dvh] sm:max-h-[78vh] flex flex-col overflow-hidden my-0 sm:my-auto animate-in slide-in-from-bottom-6 sm:slide-in-from-bottom-0 duration-200">
+      <div className="w-full max-w-lg bg-[#1C1D22] border border-[#282A30] rounded-t-3xl sm:rounded-3xl shadow-2xl relative max-h-[70dvh] sm:max-h-[78vh] flex flex-col overflow-hidden my-0 sm:my-auto animate-in slide-in-from-bottom-6 sm:slide-in-from-bottom-0 duration-200 modal-adaptive-card">
         {/* Fixed Header */}
         <div className="p-4 pb-3 border-b border-[#282A30] flex-shrink-0 bg-[#1C1D22]">
           <TaskFormHeader
@@ -50,7 +50,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
 
         {/* Scrollable Form Body */}
         <form onSubmit={form.handleSubmit} className="flex-1 flex flex-col min-h-0 overflow-hidden">
-          <div className="flex-1 overflow-y-auto p-4 space-y-2.5 overscroll-contain touch-pan-y">
+          <div className="flex-1 overflow-y-auto p-4 space-y-2.5 overscroll-contain touch-pan-y pb-10">
             {/* Section 1: Informations générales, Date, Priorité, Catégorie, Suivi & Projet */}
             <TaskFormGeneralSection form={form} />
 
