@@ -1404,7 +1404,16 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
             if (hasActualMorningSleep && todayLog.wakeTime) {
               const wakeMins = parseTimeToMinutes(todayLog.wakeTime);
               if (wakeMins > 0) {
-                const actualBedtime = yesterdayLog.bedtime || "23:00";
+                let actualBedtime = yesterdayLog.bedtime || "23:00";
+                const todayBedMins = todayLog.bedtime ? parseTimeToMinutes(todayLog.bedtime) : null;
+                if (
+                  todayBedMins !== null &&
+                  todayBedMins < 12 * 60 &&
+                  todayBedMins < wakeMins &&
+                  (todayLog.bedtimeValidated || !yesterdayLog.bedtimeValidated)
+                ) {
+                  actualBedtime = todayLog.bedtime!;
+                }
                 let startMins = 0;
                 let durationText = "";
 

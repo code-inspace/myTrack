@@ -163,6 +163,32 @@ describe("taskSleepSync", () => {
       expect(wakeLog.taskId).toBe("task-sleep-1");
     });
 
+    it("syncs early morning sleep task (02:00 -> 09:00) with bedtime on previous day and wake on same day", async () => {
+      const task = {
+        id: "task-sleep-late",
+        title: "Sommeil",
+        startTime: "02:00",
+        endTime: "09:00",
+        userId: "user-late",
+      };
+
+      // Scheduled on 2026-09-19 morning (02:00 -> 09:00)
+      await syncTaskWithSleepLog(task, "2026-09-19");
+
+      // Bedtime belongs to the eve 2026-09-18
+      const bedLog = getStoredSleepLog("2026-09-18", "user-late");
+      // Wake time belongs to 2026-09-19
+      const wakeLog = getStoredSleepLog("2026-09-19", "user-late");
+
+      expect(bedLog.bedtime).toBe("02:00");
+      expect(bedLog.bedtimeValidated).toBe(true);
+      expect(bedLog.taskId).toBe("task-sleep-late");
+
+      expect(wakeLog.wakeTime).toBe("09:00");
+      expect(wakeLog.wakeTimeValidated).toBe(true);
+      expect(wakeLog.taskId).toBe("task-sleep-late");
+    });
+
     it("syncs nap task to DailySleepLog.naps", async () => {
       const task = {
         id: "task-nap-1",

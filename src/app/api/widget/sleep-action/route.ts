@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 import { convertLocalTimeToUtc } from "@/lib/dates";
+import { format, subDays } from "date-fns";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://bvdyjpxngcdindqhprmc.supabase.co";
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2ZHlqcHhuZ2NkaW5kcWhwcm1jIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NzQzNjYwMywiZXhwIjoyMTAzMDEyNjAzfQ.IlUB0n1mLfapf60gWlUZsJiOm7YpRYHiv0mlcTJgby0";
@@ -103,20 +104,24 @@ export async function POST(req: NextRequest) {
           { onConflict: "user_id,date" }
         );
       } else if (action === "BEDTIME_NOW") {
+        const targetBedDate = now.getHours() < 7
+          ? format(subDays(now, 1), "yyyy-MM-dd")
+          : todayStr;
+
         const { data: existingLog } = await supabase
           .from("sleep_logs")
           .select("*")
           .eq("user_id", userId)
-          .eq("date", todayStr)
+          .eq("date", targetBedDate)
           .maybeSingle();
 
         await supabase.from("sleep_logs").upsert(
           [
             {
               user_id: userId,
-              date: todayStr,
+              date: targetBedDate,
               bedtime: utcNowTime,
-              wake_time: existingLog?.wake_time || convertLocalTimeToUtc("07:00", todayStr),
+              wake_time: existingLog?.wake_time || convertLocalTimeToUtc("07:00", targetBedDate),
               bedtime_validated: true,
               wake_time_validated: false,
               updated_at: new Date().toISOString(),
@@ -127,12 +132,16 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const effectiveDate = action === "BEDTIME_NOW" && now.getHours() < 7
+      ? format(subDays(now, 1), "yyyy-MM-dd")
+      : todayStr;
+
     return NextResponse.json(
       {
         success: true,
         action,
         time: nowTimeStr,
-        date: todayStr,
+        date: effectiveDate,
         userId,
       },
       { headers: { "Cache-Control": "no-store, max-age=0" } }

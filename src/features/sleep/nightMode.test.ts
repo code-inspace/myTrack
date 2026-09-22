@@ -1,4 +1,27 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+
+vi.mock("@/utils/supabase/client", () => ({
+  createClient: () => ({
+    auth: {
+      getSession: vi.fn().mockResolvedValue({ data: { session: null } }),
+    },
+    from: () => ({
+      upsert: vi.fn().mockResolvedValue({ error: null }),
+      select: () => ({
+        eq: () => ({
+          eq: () => ({
+            maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+          }),
+        }),
+      }),
+    }),
+  }),
+}));
+
+vi.mock("@/lib/onesignal/client", () => ({
+  scheduleTaskPushNotification: vi.fn().mockResolvedValue(undefined),
+  cancelTaskPushNotifications: vi.fn().mockResolvedValue(undefined),
+}));
 import {
   isCurrentlyInSleepWindow,
   getNextBedtimeIso,
@@ -93,5 +116,68 @@ describe("Night Mode Sleep Window & Logic", () => {
     expect(isNightModeInactivityAutoLockEnabled()).toBe(false);
     setNightModeInactivityAutoLockEnabled(true);
     expect(isNightModeInactivityAutoLockEnabled()).toBe(true);
+  });
+
+  it("getEffectiveBedDate attributes early morning bedtimes (< 07:00) to previous day", async () => {
+    const { getEffectiveBedDate } = await import("./actions");
+
+    // 02:00 on 2026-09-22 belongs to night of 2026-09-21
+    expect(getEffectiveBedDate("02:00", "2026-09-22")).toBe("2026-09-21");
+    // 00:30 on 2026-09-22 belongs to night of 2026-09-21
+    expect(getEffectiveBedDate("00:30", "2026-09-22")).toBe("2026-09-21");
+    // 06:45 on 2026-09-22 belongs to night of 2026-09-21
+    expect(getEffectiveBedDate("06:45", "2026-09-22")).toBe("2026-09-21");
+
+    // 23:00 on 2026-09-21 belongs to night of 2026-09-21
+    expect(getEffectiveBedDate("23:00", "2026-09-21")).toBe("2026-09-21");
+    // 22:30 on 2026-09-21 belongs to night of 2026-09-21
+    expect(getEffectiveBedDate("22:30", "2026-09-21")).toBe("2026-09-21");
+  });
+
+  it("calculates correct sleep duration when bedtime was 2h du matin", async () => {
+    const { getStoredSleepLog, saveStoredSleepLog, getNightSleepDuration } = await import("./actions");
+
+    // Monday (2026-09-21) night has bedtime 02:00 (saved for the night)
+    await saveStoredSleepLog({
+      date: "2026-09-21",
+      bedtime: "02:00",
+      bedtimeValidated: true,
+      wakeTime: "07:00",
+      wakeTimeValidated: false,
+    }, "user-test-night");
+
+    // Tuesday (2026-09-22) morning wake up at 09:00
+    await saveStoredSleepLog({
+      date: "2026-09-22",
+      bedtime: "23:00", // Default or unvalidated for Tuesday evening
+      bedtimeValidated: false,
+      wakeTime: "09:00",
+      wakeTimeValidated: true,
+    }, "user-test-night");
+
+    // Wednesday (2026-09-23) morning wake up at 07:00
+    await saveStoredSleepLog({
+      date: "2026-09-23",
+      bedtime: "23:00",
+      bedtimeValidated: false,
+      wakeTime: "07:00",
+      wakeTimeValidated: true,
+    }, "user-test-night");
+
+    // Tuesday morning sleep duration: Monday 02:00 -> Tuesday 09:00 = 7h 00m
+    const tuesdayDuration = getNightSleepDuration("2026-09-22", "user-test-night");
+    expect(tuesdayDuration).not.toBeNull();
+    expect(tuesdayDuration?.yesterdayBedtime).toBe("02:00");
+    expect(tuesdayDuration?.todayWakeTime).toBe("09:00");
+    expect(tuesdayDuration?.duration.hours).toBe(7);
+    expect(tuesdayDuration?.duration.minutes).toBe(0);
+    expect(tuesdayDuration?.duration.text).toBe("7h 00m");
+
+    // Wednesday morning sleep duration: Tuesday 23:00 -> Wednesday 07:00 = 8h 00m (NOT 02:00!)
+    const wednesdayDuration = getNightSleepDuration("2026-09-23", "user-test-night");
+    expect(wednesdayDuration).not.toBeNull();
+    expect(wednesdayDuration?.yesterdayBedtime).toBe("23:00");
+    expect(wednesdayDuration?.todayWakeTime).toBe("07:00");
+    expect(wednesdayDuration?.duration.hours).toBe(8);
   });
 });

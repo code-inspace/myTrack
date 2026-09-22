@@ -8,7 +8,11 @@ import {
   saveStoredSleepLog,
   applySleepStartNow,
   applySleepEndNow,
+  recordBedtimeNow,
+  recordWakeUpNow,
+  getEffectiveBedDate,
 } from "../actions";
+import { format, subDays } from "date-fns";
 import {
   isCurrentlyInSleepWindow,
   isNightModeDismissedUntilBedtime,
@@ -71,9 +75,16 @@ export const NightModeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   // 1. Load initial sleep log and bedtime/wakeTime
   const refreshSleepLog = useCallback(() => {
-    const log = getStoredSleepLog(todayStr);
-    const bt = log.bedtime || "23:00";
-    const wt = log.wakeTime || "07:00";
+    const now = new Date();
+    const currentHour = now.getHours();
+    // If it's early morning (00:00 - 06:59), the bedtime for the current night session
+    // belongs to the night that began yesterday evening (subDays(now, 1)).
+    const bedDateStr = currentHour < 7 ? format(subDays(now, 1), "yyyy-MM-dd") : todayStr;
+    const bedLog = getStoredSleepLog(bedDateStr);
+    const wakeLog = getStoredSleepLog(todayStr);
+
+    const bt = bedLog.bedtime || "23:00";
+    const wt = wakeLog.wakeTime || "07:00";
     setBedtime(bt);
     setWakeTime(wt);
 
@@ -86,7 +97,7 @@ export const NightModeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setSleepingStartedAt(null);
     }
 
-    return { bedtime: bt, wakeTime: wt, isSleeping: currentlySleeping, log };
+    return { bedtime: bt, wakeTime: wt, isSleeping: currentlySleeping, log: bedLog };
   }, [todayStr]);
 
   // 2. Check if night mode should be active
@@ -184,14 +195,18 @@ export const NightModeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   useEffect(() => {
     if (typeof window === "undefined") return;
 
+    const now = new Date();
+    const currentHour = now.getHours();
+    const bedDateStr = currentHour < 7 ? format(subDays(now, 1), "yyyy-MM-dd") : todayStr;
+
     // Initial check
     refreshSleepLog();
-    fetchDbSleepLog(todayStr).then((remote) => {
-      if (remote) {
-        if (remote.bedtime) setBedtime(remote.bedtime);
-        if (remote.wakeTime) setWakeTime(remote.wakeTime);
-      }
-      checkNightModeStatus();
+    fetchDbSleepLog(bedDateStr).then((remoteBed) => {
+      if (remoteBed && remoteBed.bedtime) setBedtime(remoteBed.bedtime);
+      fetchDbSleepLog(todayStr).then((remoteWake) => {
+        if (remoteWake && remoteWake.wakeTime) setWakeTime(remoteWake.wakeTime);
+        checkNightModeStatus();
+      });
     });
 
     // Check periodically every 15 seconds
@@ -203,10 +218,8 @@ export const NightModeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, [todayStr, refreshSleepLog, checkNightModeStatus]);
 
   // Handler: "Je me couche maintenant" / "Actualiser l'heure de coucher"
-  const triggerSleepNow = () => {
-    const log = getStoredSleepLog(todayStr);
-    const updated = applySleepStartNow(log);
-    saveStoredSleepLog(updated);
+  const triggerSleepNow = async () => {
+    const { log: updated, bedDate: targetBedDate } = await recordBedtimeNow();
 
     const nowIso = new Date().toISOString();
     setSleepingStartTime(nowIso);
@@ -226,7 +239,7 @@ export const NightModeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     try {
       window.dispatchEvent(
         new CustomEvent("mytrack:sleep-mode-changed", {
-          detail: { isSleeping: true, bedtime: updated.bedtime },
+          detail: { isSleeping: true, bedtime: updated.bedtime, bedDate: targetBedDate },
         })
       );
     } catch {}
@@ -235,10 +248,8 @@ export const NightModeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   // Handler: "Je me réveille"
-  const triggerWakeUp = () => {
-    const log = getStoredSleepLog(todayStr);
-    const updated = applySleepEndNow(log);
-    saveStoredSleepLog(updated);
+  const triggerWakeUp = async () => {
+    const { log: updated, wakeDate: targetWakeDate } = await recordWakeUpNow();
 
     setSleepingStartTime(null);
     setIsSleeping(false);
@@ -253,7 +264,7 @@ export const NightModeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     // Synchroniser immédiatement l'arrêt avec la Live Activity et le Widget
     LiveActivityBridge.syncSleepMode({
       isActive: false,
-      bedtime: updated.bedtime || bedtime || "23:00",
+      bedtime: bedtime || "23:00",
       wakeTime: updated.wakeTime,
       isSecondSleep: false,
       startedAtTimestamp: Date.now() / 1000,
@@ -262,7 +273,7 @@ export const NightModeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     try {
       window.dispatchEvent(
         new CustomEvent("mytrack:sleep-mode-changed", {
-          detail: { isSleeping: false, wakeTime: updated.wakeTime },
+          detail: { isSleeping: false, wakeTime: updated.wakeTime, wakeDate: targetWakeDate },
         })
       );
     } catch {}

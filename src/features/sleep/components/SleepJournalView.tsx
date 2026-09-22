@@ -22,6 +22,8 @@ import {
   Timer,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { format, subDays } from "date-fns";
+import { getTodayDateString } from "@/lib/dates";
 import { useNightMode } from "../providers/NightModeProvider";
 
 interface SleepJournalViewProps {
@@ -91,7 +93,27 @@ export const SleepJournalView: React.FC<SleepJournalViewProps> = ({ selectedDate
   // "Je me couche / réveille maintenant": usable at any time of day. Near the usual night
   // window it sets tonight's bedtime/wake time; at any other time it opens/closes a nap.
   const handleSleepNow = () => {
-    triggerSave(applySleepStartNow(log));
+    const now = new Date();
+    const currentHour = now.getHours();
+    const todayStr = getTodayDateString();
+
+    // If clicking "Je me couche" in early morning (00:00 - 06:59) on today's view,
+    // this bedtime belongs to the night that started yesterday evening (subDays(now, 1)).
+    if (selectedDate === todayStr && currentHour < 7) {
+      const yesterdayStr = format(subDays(now, 1), "yyyy-MM-dd");
+      const yesterdayLog = getStoredSleepLog(yesterdayStr);
+      const updated = applySleepStartNow(yesterdayLog);
+      updated.date = yesterdayStr;
+      saveStoredSleepLog(updated).then(() => {
+        setIsSaved(true);
+        if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = setTimeout(() => {
+          setIsSaved(false);
+        }, 2500);
+      });
+    } else {
+      triggerSave(applySleepStartNow(log));
+    }
   };
 
   const handleWakeNow = () => {

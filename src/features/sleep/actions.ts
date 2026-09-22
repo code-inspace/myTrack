@@ -56,12 +56,27 @@ function currentLocalTimeStr(): string {
 }
 
 /**
- * A "coucher"/"réveil" quick action pressed between 20:00 and 06:00 is assumed to be the main
+ * A "coucher"/"réveil" quick action pressed between 20:00 and 07:00 is assumed to be the main
  * night's sleep; outside that window it's assumed to be a daytime nap.
  */
 function isNightWindow(timeStr: string): boolean {
   const hour = parseInt(timeStr.split(":")[0], 10) || 0;
-  return hour >= 20 || hour < 6;
+  return hour >= 20 || hour < 7;
+}
+
+/**
+ * Calculates the sleep log date to which bedtime belongs.
+ * If bedtime is in early morning (00:00 to 06:59), it belongs to the night that started
+ * the previous evening (date - 1 day).
+ * Otherwise (e.g. 18:00 to 23:59), it belongs to the given calendar date.
+ */
+export function getEffectiveBedDate(timeStr: string, baseDateStr?: string): string {
+  const base = baseDateStr ? parseISO(baseDateStr) : new Date();
+  const hour = parseInt(timeStr.split(":")[0], 10) || 0;
+  if (hour < 7) {
+    return format(subDays(base, 1), "yyyy-MM-dd");
+  }
+  return format(base, "yyyy-MM-dd");
 }
 
 function getOpenNap(log: DailySleepLog): NapSession | null {
@@ -106,6 +121,37 @@ export function applySleepEndNow(log: DailySleepLog): DailySleepLog {
   }
 
   return { ...log, wakeTime: now, wakeTimeValidated: true };
+}
+
+/**
+ * Records bedtime at the current moment, ensuring late bedtimes (00:00 - 06:59) are
+ * attributed to the sleep cycle that started the previous evening (date - 1 day).
+ */
+export async function recordBedtimeNow(userId?: string): Promise<{ log: DailySleepLog; bedDate: string }> {
+  const now = new Date();
+  const nowTime = currentLocalTimeStr();
+  const todayStr = format(now, "yyyy-MM-dd");
+  const bedDate = getEffectiveBedDate(nowTime, todayStr);
+
+  const log = getStoredSleepLog(bedDate, userId);
+  const updated = applySleepStartNow(log);
+  updated.date = bedDate;
+  await saveStoredSleepLog(updated, userId);
+  return { log: updated, bedDate };
+}
+
+/**
+ * Records wake-up time at the current moment, attributing to today's morning.
+ */
+export async function recordWakeUpNow(userId?: string): Promise<{ log: DailySleepLog; wakeDate: string }> {
+  const now = new Date();
+  const todayStr = format(now, "yyyy-MM-dd");
+
+  const log = getStoredSleepLog(todayStr, userId);
+  const updated = applySleepEndNow(log);
+  updated.date = todayStr;
+  await saveStoredSleepLog(updated, userId);
+  return { log: updated, wakeDate: todayStr };
 }
 
 function mapDbSleepLogToModel(row: any): DailySleepLog {
@@ -319,9 +365,23 @@ export function getNightSleepDuration(
       return null;
     }
 
-    const bedtime = hasYesterdayBedtime
+    // If todayLog has a validated early-morning bedtime (e.g. 02:00) with bedHour < 12 and before wakeTime,
+    // and yesterdayLog has no validated bedtime, use todayLog.bedtime for this morning's sleep
+    const todayBedHour = todayLog.bedtime ? parseInt(todayLog.bedtime.split(":")[0], 10) : null;
+    const isTodayEarlyMorningBedtime =
+      todayBedHour !== null &&
+      todayBedHour < 12 &&
+      todayLog.bedtimeValidated &&
+      !yesterdayLog.bedtimeValidated;
+
+    let bedtime = hasYesterdayBedtime
       ? (yesterdayLog.bedtime || "23:00")
       : (todayLog.bedtime || "23:00");
+
+    if (isTodayEarlyMorningBedtime && todayLog.bedtime) {
+      bedtime = todayLog.bedtime;
+    }
+
     const wakeTime = hasTodayWakeTime
       ? (todayLog.wakeTime || "07:00")
       : (todayLog.wakeTime || "07:00");
