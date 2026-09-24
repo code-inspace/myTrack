@@ -79,9 +79,9 @@ export function useCalendarEvents(focusedDateStr?: string) {
       }
     },
     placeholderData: () => getStoredCalendarSubscriptions(userId),
-    staleTime: 0,
-    refetchOnMount: "always",
-    refetchOnWindowFocus: true,
+    staleTime: 1000 * 60 * 5,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
   });
 
   // Calculate range around the selected date (+/- 30 days)

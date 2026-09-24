@@ -22,5 +22,7 @@ export function useDashboardStats(period: Period = "week", referenceDate: Date =
       ...taskQueryKeys.completions(),
     ],
     queryFn: async () => getDashboardData(period, userId, referenceDate),
+    staleTime: 1000 * 60 * 2,
+    refetchOnWindowFocus: false,
   });
 }

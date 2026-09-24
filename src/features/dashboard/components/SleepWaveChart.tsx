@@ -87,14 +87,10 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
         .subscribe();
     } catch {}
 
-    // Polling fallback every 30s
-    const interval = setInterval(loadLogs, 30000);
-
     return () => {
       window.removeEventListener("mytrack:sleep-auto-detected", handleAutoSleep);
       window.removeEventListener("storage", handleAutoSleep);
       window.removeEventListener("focus", loadLogs);
-      clearInterval(interval);
       if (channel) {
         try {
           const supabase = createClient();
