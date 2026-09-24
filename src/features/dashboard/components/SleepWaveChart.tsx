@@ -131,8 +131,16 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
       const prevLog = logsMap.get(prevDateStr) || getStoredSleepLog(prevDateStr);
 
       // Night sleep: bedtime from eve (D-1) + wakeTime from this day (D)
+      const isNightTime = (t?: string | null) => {
+        if (!t) return false;
+        const h = parseInt(t.split(":")[0], 10) || 0;
+        return h >= 18 || h < 7;
+      };
+
       const hasPrevBedtime = Boolean(
-        prevLog?.bedtime && (prevLog.bedtimeValidated || prevLog.updatedAt || prevLog.bedtime !== "23:00")
+        prevLog?.bedtime &&
+        isNightTime(prevLog.bedtime) &&
+        (prevLog.bedtimeValidated || prevLog.updatedAt || prevLog.bedtime !== "23:00")
       );
       const hasTodayWake = Boolean(
         log?.wakeTime && (log.wakeTimeValidated || log.updatedAt || log.wakeTime !== "07:00")
@@ -141,7 +149,7 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
       const bedtime = hasPrevBedtime
         ? (prevLog?.bedtime || "23:00")
         : hasTodayWake
-        ? (prevLog?.bedtime || log?.bedtime || "23:00")
+        ? (isNightTime(prevLog?.bedtime) ? prevLog?.bedtime : isNightTime(log?.bedtime) ? log?.bedtime : "23:00")
         : null;
 
       const wakeTime = hasTodayWake
@@ -167,7 +175,8 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
           if (endPct <= topPct) {
             endPct += 100;
           }
-          const heightPct = Math.max(2, endPct - topPct);
+          const maxAvailableHeight = Math.max(0, 100 - topPct);
+          const heightPct = Math.min(maxAvailableHeight, Math.max(2, endPct - topPct));
 
           nightBlock = {
             startTime: bedtime,
@@ -189,7 +198,8 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
         if (endPct <= topPct) {
           endPct += 100;
         }
-        const heightPct = Math.max(1.5, endPct - topPct);
+        const maxAvailableHeight = Math.max(0, 100 - topPct);
+        const heightPct = Math.min(maxAvailableHeight, Math.max(1.5, endPct - topPct));
 
         let durationText = "En cours";
         let durationMins = 0;

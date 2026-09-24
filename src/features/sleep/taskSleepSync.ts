@@ -187,17 +187,24 @@ export async function syncTaskWithSleepLog(
     const startHour = parseInt(startTime.split(":")[0], 10) || 0;
     const endHour = parseInt(endTime.split(":")[0], 10) || 0;
 
-    // Daytime sleep (e.g. 13h - 15h) treated as nap session
-    if (startHour >= 9 && startHour < 18 && endHour <= 19 && endHour > startHour) {
+    // Daytime sleep (e.g. 10h - 12h, 13h - 15h) treated as nap session regardless of title
+    const isDaytime = startHour >= 7 && startHour < 18;
+    if (isDaytime) {
       const currentLog = getStoredSleepLog(dateStr, targetId);
       const existingNaps = currentLog.naps || [];
+
+      let validEndTime = endTime;
+      // Guard against invalid/inverted end time during day
+      if (endHour <= startHour) {
+        validEndTime = addHoursToTimeString(startTime, 1);
+      }
 
       const napSession: NapSession = {
         id: napId,
         taskId: task.id,
         title: task.title,
         startTime,
-        endTime,
+        endTime: validEndTime,
       };
 
       const nextNaps = existingNaps.some((n) => n.id === napId || n.taskId === task.id)
@@ -233,10 +240,10 @@ export async function syncTaskWithSleepLog(
     let bedDate = dateStr;
     let wakeDate = dateStr;
 
-    if (startHour >= 18 || startHour > endHour) {
+    if (startHour >= 18) {
       bedDate = dateStr;
       wakeDate = format(addDays(parseISO(dateStr), 1), "yyyy-MM-dd");
-    } else if (startHour < 12 && endHour > startHour) {
+    } else if (startHour < 7) {
       bedDate = format(subDays(parseISO(dateStr), 1), "yyyy-MM-dd");
       wakeDate = dateStr;
     }

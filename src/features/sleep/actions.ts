@@ -38,6 +38,11 @@ export function computeSleepDuration(
   }
 
   const diff = wakeMinutes - bedMinutes;
+  // Sanity check: single sleep session cannot exceed 18 hours or be negative/zero
+  if (diff <= 0 || diff > 18 * 60) {
+    return null;
+  }
+
   const hours = Math.floor(diff / 60);
   const minutes = diff % 60;
   const decHours = Math.round((hours + minutes / 60) * 10) / 10;

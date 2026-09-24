@@ -207,6 +207,80 @@ describe("taskSleepSync", () => {
       expect(log.naps?.[0].taskId).toBe("task-nap-1");
     });
 
+    it("syncs daytime sleep task titled 'sommeil' as a nap rather than night bedtime", async () => {
+      const task = {
+        id: "task-sleep-daytime",
+        title: "sommeil",
+        startTime: "10:15",
+        endTime: "12:15",
+        userId: "user-day",
+      };
+
+      await syncTaskWithSleepLog(task, "2026-09-24");
+
+      const log = getStoredSleepLog("2026-09-24", "user-day");
+      // Must be saved in naps, not as night bedtime/wakeTime
+      expect(log.naps?.length).toBe(1);
+      expect(log.naps?.[0].startTime).toBe("10:15");
+      expect(log.naps?.[0].endTime).toBe("12:15");
+      expect(log.bedtimeValidated).toBe(false);
+      expect(log.wakeTimeValidated).toBe(false);
+    });
+
+    it("handles night sleep alongside daytime sleep without overwriting", async () => {
+      // 1. Night sleep from 03:15 to 08:15 on morning of Sept 24
+      const nightTask = {
+        id: "task-night",
+        title: "Sommeil",
+        startTime: "03:15",
+        endTime: "08:15",
+        userId: "user-dual",
+      };
+      await syncTaskWithSleepLog(nightTask, "2026-09-24");
+
+      // 2. Daytime sleep from 10:15 to 12:15 on Sept 24
+      const dayTask = {
+        id: "task-day",
+        title: "sommeil",
+        startTime: "10:15",
+        endTime: "12:15",
+        userId: "user-dual",
+      };
+      await syncTaskWithSleepLog(dayTask, "2026-09-24");
+
+      const eveLog = getStoredSleepLog("2026-09-23", "user-dual");
+      const morningLog = getStoredSleepLog("2026-09-24", "user-dual");
+
+      // Night sleep should remain properly attributed
+      expect(eveLog.bedtime).toBe("03:15");
+      expect(eveLog.bedtimeValidated).toBe(true);
+      expect(morningLog.wakeTime).toBe("08:15");
+      expect(morningLog.wakeTimeValidated).toBe(true);
+
+      // Daytime sleep should be in naps
+      expect(morningLog.naps?.length).toBe(1);
+      expect(morningLog.naps?.[0].startTime).toBe("10:15");
+      expect(morningLog.naps?.[0].endTime).toBe("12:15");
+    });
+
+    it("handles daytime task with inverted or editing times safely", async () => {
+      const task = {
+        id: "task-sleep-invert",
+        title: "sommeil",
+        startTime: "10:46",
+        endTime: "10:44",
+        userId: "user-invert",
+      };
+
+      await syncTaskWithSleepLog(task, "2026-09-24");
+
+      const log = getStoredSleepLog("2026-09-24", "user-invert");
+      // Should be saved as daytime nap with normalized end time, not overnight 23h58
+      expect(log.naps?.length).toBe(1);
+      expect(log.naps?.[0].startTime).toBe("10:46");
+      expect(log.bedtimeValidated).toBe(false);
+    });
+
     it("removes sleep log link when removeTaskFromSleepLog is called", async () => {
       const task = {
         id: "task-sleep-2",
