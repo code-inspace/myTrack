@@ -98,7 +98,6 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
   });
 
   const isDirtyRef = React.useRef(false);
-  const pendingDebounceTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const resetSavedStatusTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const markSaved = React.useCallback(() => {
@@ -111,13 +110,8 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
     }, 2000);
   }, []);
 
-  // Flush all pending changes in a SINGLE atomic request
+  // Flush all pending changes in a SINGLE atomic request strictly upon modal close
   const flushPendingSave = React.useCallback(() => {
-    if (pendingDebounceTimerRef.current) {
-      clearTimeout(pendingDebounceTimerRef.current);
-      pendingDebounceTimerRef.current = null;
-    }
-
     if (!isDirtyRef.current || isDeletingRef.current || !task) {
       return;
     }
@@ -231,17 +225,6 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
     isDirtyRef.current = false;
     markSaved();
   }, [task, onUpdateTask, onUpdateTimes, selectedDate, markSaved]);
-
-  // Schedule debounced auto-save (e.g. 1500ms after user stops interacting)
-  const scheduleDebouncedSave = React.useCallback(() => {
-    isDirtyRef.current = true;
-    if (pendingDebounceTimerRef.current) {
-      clearTimeout(pendingDebounceTimerRef.current);
-    }
-    pendingDebounceTimerRef.current = setTimeout(() => {
-      flushPendingSave();
-    }, 1500);
-  }, [flushPendingSave]);
 
   // Synchronize when task changes or modal opens
   React.useEffect(() => {
@@ -377,27 +360,20 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
     const nextReminders = !isRemindersEnabled;
     setIsRemindersEnabled(nextReminders);
     currentValuesRef.current.enableReminders = nextReminders;
-    scheduleDebouncedSave();
+    isDirtyRef.current = true;
   };
 
   const handleTitleChange = (newVal: string) => {
     setTitle(newVal);
     currentValuesRef.current.title = newVal;
-    scheduleDebouncedSave();
-  };
-
-  const handleTitleBlur = () => {
-    flushPendingSave();
+    isDirtyRef.current = true;
   };
 
   const handleDelete = (e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
     e.stopPropagation();
     isDeletingRef.current = true;
-    if (pendingDebounceTimerRef.current) {
-      clearTimeout(pendingDebounceTimerRef.current);
-      pendingDebounceTimerRef.current = null;
-    }
+    isDirtyRef.current = false;
     const currentTaskId = task.id;
     onClose();
     if (onDeleteTask && currentTaskId) {
@@ -411,14 +387,14 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
     setProjectCategory("");
     currentValuesRef.current.projectId = newProjId;
     currentValuesRef.current.projectCategory = "";
-    scheduleDebouncedSave();
+    isDirtyRef.current = true;
   };
 
   const handleSelectSubproject = (cat: string) => {
     if (isDeletingRef.current) return;
     setProjectCategory(cat);
     currentValuesRef.current.projectCategory = cat;
-    scheduleDebouncedSave();
+    isDirtyRef.current = true;
   };
 
   const handleAddNewSubproject = () => {
@@ -440,14 +416,14 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
     if (isDeletingRef.current) return;
     setStartTime(newStart);
     currentValuesRef.current.startTime = newStart;
-    scheduleDebouncedSave();
+    isDirtyRef.current = true;
   };
 
   const handleEndTimeChange = (newEnd: string) => {
     if (isDeletingRef.current) return;
     setEndTime(newEnd);
     currentValuesRef.current.endTime = newEnd;
-    scheduleDebouncedSave();
+    isDirtyRef.current = true;
   };
 
   const availableCategories = Array.from(
@@ -516,7 +492,7 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
               </span>
             )}
             {saveStatus === "idle" && (
-              <span className="text-[11px] text-[#8E929E] hidden sm:inline">Sauvegarde auto</span>
+              <span className="text-[11px] text-[#8E929E] hidden sm:inline">Enregistrement à la fermeture</span>
             )}
 
             <button
@@ -552,10 +528,8 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
                   type="text"
                   value={title}
                   onChange={(e) => handleTitleChange(e.target.value)}
-                  onBlur={handleTitleBlur}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
-                      flushPendingSave();
                       (e.target as HTMLInputElement).blur();
                     }
                   }}

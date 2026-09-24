@@ -531,7 +531,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
       justResizedRef.current = Date.now();
       try {
         targetElement.releasePointerCapture(pointerId);
-      } catch {}
+      } catch { }
 
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", handlePointerUp);
@@ -728,8 +728,8 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
                           isDayToday
                             ? "bg-[#D4F63D] text-black"
                             : isCurrentSelected
-                            ? "text-[#D4F63D]"
-                            : "text-white"
+                              ? "text-[#D4F63D]"
+                              : "text-white"
                         )}
                       >
                         {format(dayDate, "d MMM", { locale: fr })}
@@ -1162,7 +1162,7 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
 
       try {
         navigator.vibrate?.(35);
-      } catch {}
+      } catch { }
 
       onCreateTaskAtTime?.(
         dayDate,
@@ -1185,11 +1185,30 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
     }
   };
 
-  const handleEmptyPointerUpOrCancel = () => {
+  const handleEmptyPointerUpOrCancel = (e: React.PointerEvent) => {
     if (longPressEmptyTimerRef.current) {
       clearTimeout(longPressEmptyTimerRef.current);
       longPressEmptyTimerRef.current = null;
     }
+
+    // On desktop with mouse/pen: simple click on empty space immediately creates a task
+    if (pointerDownCoordRef.current && (e.pointerType === "mouse" || e.pointerType === "pen" || !e.pointerType)) {
+      const dx = Math.abs(e.clientX - pointerDownCoordRef.current.x);
+      const dy = Math.abs(e.clientY - pointerDownCoordRef.current.y);
+      if (dx <= 6 && dy <= 6 && colRef.current) {
+        const rect = colRef.current.getBoundingClientRect();
+        const offsetY = e.clientY - rect.top;
+        const snappedStartMins = Math.max(0, Math.min(23 * 60, Math.round(offsetY / 5) * 5));
+        const snappedEndMins = Math.min(23 * 60 + 55, snappedStartMins + 60);
+
+        onCreateTaskAtTime?.(
+          dayDate,
+          formatMinutesToTime(snappedStartMins),
+          formatMinutesToTime(snappedEndMins)
+        );
+      }
+    }
+
     pointerDownCoordRef.current = null;
   };
 
@@ -1292,10 +1311,10 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
               endMins = isCurrentlyResizing
                 ? resizingState.currentEndMins
                 : isRunningNow
-                ? Math.max(5, currentTimeMinutes)
-                : endTimeStr
-                ? parseTimeToMinutes(endTimeStr)
-                : 120;
+                  ? Math.max(5, currentTimeMinutes)
+                  : endTimeStr
+                    ? parseTimeToMinutes(endTimeStr)
+                    : 120;
               duration = Math.max(15, endMins - startMins);
             } else {
               // Standard same-day task
@@ -1305,10 +1324,10 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
               endMins = isCurrentlyResizing
                 ? resizingState.currentEndMins
                 : isRunningNow
-                ? Math.max(startMins + 5, currentTimeMinutes)
-                : endTimeStr
-                ? parseTimeToMinutes(endTimeStr)
-                : startMins + 60;
+                  ? Math.max(startMins + 5, currentTimeMinutes)
+                  : endTimeStr
+                    ? parseTimeToMinutes(endTimeStr)
+                    : startMins + 60;
               duration = Math.max(1, endMins - startMins);
             }
 
@@ -1316,9 +1335,9 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
 
             const displayTask: TaskWithCompletion = isRunningNow
               ? {
-                  ...task,
-                  effectiveEndTime: formatMinutesToTime(currentTimeMinutes),
-                }
+                ...task,
+                effectiveEndTime: formatMinutesToTime(currentTimeMinutes),
+              }
               : task;
 
             return {
@@ -1694,15 +1713,15 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
             const isCurrentlyResizing = resizingState?.taskId === item.task.id && resizingState?.date === dayDate;
             const resizingInfo = isCurrentlyResizing
               ? {
-                  edge: resizingState.edge,
-                  currentTime: formatMinutesToTime(
-                    resizingState.edge === "top"
-                      ? resizingState.currentStartMins
-                      : resizingState.currentEndMins
-                  ),
-                  fullRange: `${formatMinutesToTime(resizingState.currentStartMins)} - ${formatMinutesToTime(resizingState.currentEndMins)}`,
-                  durationStr: formatDurationMinutes(resizingState.currentHeight),
-                }
+                edge: resizingState.edge,
+                currentTime: formatMinutesToTime(
+                  resizingState.edge === "top"
+                    ? resizingState.currentStartMins
+                    : resizingState.currentEndMins
+                ),
+                fullRange: `${formatMinutesToTime(resizingState.currentStartMins)} - ${formatMinutesToTime(resizingState.currentEndMins)}`,
+                durationStr: formatDurationMinutes(resizingState.currentHeight),
+              }
               : null;
 
             return (
