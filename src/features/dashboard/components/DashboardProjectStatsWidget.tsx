@@ -55,25 +55,36 @@ function getTaskCompletionDurationMinutes(c: TaskCompletion, task?: Task): numbe
   if (c.actualStartTime && c.actualEndTime) {
     const [h1, m1] = c.actualStartTime.split(":").map(Number);
     const [h2, m2] = c.actualEndTime.split(":").map(Number);
-    let diff = h2 * 60 + m2 - (h1 * 60 + m1);
-    if (diff < 0) diff += 24 * 60;
-    if (diff > 0) {
-      if (typeof c.duration === "number" && c.duration > diff) {
-        return c.duration;
-      }
-      return diff;
+    if (!isNaN(h1) && !isNaN(h2)) {
+      let diff = h2 * 60 + m2 - (h1 * 60 + m1);
+      if (diff < 0) diff += 24 * 60;
+      if (diff > 0) return diff;
     }
   }
-  if (c.duration && c.duration > 0) return c.duration;
-  if (task?.isActive && task?.startedAt) {
-    return Math.max(1, Math.floor((Date.now() - new Date(task.startedAt).getTime()) / 60000));
+  if (c.scheduledStartTime && c.scheduledEndTime) {
+    const [h1, m1] = c.scheduledStartTime.split(":").map(Number);
+    const [h2, m2] = c.scheduledEndTime.split(":").map(Number);
+    if (!isNaN(h1) && !isNaN(h2)) {
+      let diff = h2 * 60 + m2 - (h1 * 60 + m1);
+      if (diff < 0) diff += 24 * 60;
+      if (diff > 0) return diff;
+    }
   }
   if (task?.startTime && task?.endTime) {
     const [h1, m1] = task.startTime.split(":").map(Number);
     const [h2, m2] = task.endTime.split(":").map(Number);
-    let diff = h2 * 60 + m2 - (h1 * 60 + m1);
-    if (diff < 0) diff += 24 * 60;
-    if (diff > 0) return diff;
+    if (!isNaN(h1) && !isNaN(h2)) {
+      let diff = h2 * 60 + m2 - (h1 * 60 + m1);
+      if (diff < 0) diff += 24 * 60;
+      if (diff > 0) return diff;
+    }
+  }
+  if (typeof c.duration === "number" && c.duration > 0 && c.duration <= 24 * 60) {
+    return c.duration;
+  }
+  if (task?.isActive && task?.startedAt) {
+    const elapsed = Math.max(1, Math.floor((Date.now() - new Date(task.startedAt).getTime()) / 60000));
+    return Math.min(24 * 60, elapsed);
   }
   if (task?.trackingType === "DURATION" && task.targetValue) {
     return Number(task.targetValue);

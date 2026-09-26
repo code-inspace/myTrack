@@ -469,7 +469,41 @@ export async function updateTaskSchedule({
 
   // Also synchronize any existing completion actual/scheduled execution times for completed tasks on this date
   try {
+    let cleanDuration: number | null = null;
+    if (startTime && endTime) {
+      const [sh, sm] = startTime.split(":").map(Number);
+      const [eh, em] = endTime.split(":").map(Number);
+      if (!isNaN(sh) && !isNaN(eh)) {
+        let diff = eh * 60 + em - (sh * 60 + sm);
+        if (diff < 0) diff += 24 * 60;
+        cleanDuration = Math.max(1, diff);
+      }
+    }
+
     const completions = getStoredCompletions(targetId);
+    if (originDate && originDate !== date) {
+      const oldComp = completions.find((c) => c.taskId === taskId && c.date === originDate);
+      if (oldComp) {
+        const filtered = completions.filter((c) => !(c.taskId === taskId && c.date === originDate));
+        saveStoredCompletions(filtered, targetId);
+        try {
+          await supabase.from("task_completions").delete().eq("task_id", taskId).eq("date", originDate);
+        } catch {}
+        await upsertDbCompletion({
+          taskId,
+          userId: targetId,
+          date,
+          completed: oldComp.completed,
+          value: oldComp.value,
+          duration: cleanDuration ?? oldComp.duration,
+          scheduledStartTime: startTime,
+          scheduledEndTime: endTime,
+          actualStartTime: oldComp.completed ? startTime : (oldComp.actualStartTime ? startTime : null),
+          actualEndTime: oldComp.completed ? endTime : (oldComp.actualEndTime ? endTime : null),
+        });
+      }
+    }
+
     const existingComp = completions.find((c) => c.taskId === taskId && c.date === date);
     if (existingComp) {
       await upsertDbCompletion({
@@ -478,7 +512,7 @@ export async function updateTaskSchedule({
         date,
         completed: existingComp.completed,
         value: existingComp.value,
-        duration: existingComp.duration,
+        duration: cleanDuration ?? existingComp.duration,
         scheduledStartTime: startTime,
         scheduledEndTime: endTime,
         actualStartTime: existingComp.completed ? startTime : (existingComp.actualStartTime ? startTime : null),
