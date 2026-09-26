@@ -183,7 +183,10 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
       onClick={(e) => {
         e.stopPropagation();
       }}
-      onDragStart={(e) => onDragStart(e, task)}
+      onDragStart={(e) => {
+        e.dataTransfer.effectAllowed = "move";
+        onDragStart(e, task);
+      }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}

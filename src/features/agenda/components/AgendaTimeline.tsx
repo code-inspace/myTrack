@@ -1240,9 +1240,20 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
       onPointerMove={handleEmptyPointerMove}
       onPointerUp={handleEmptyPointerUpOrCancel}
       onPointerCancel={handleEmptyPointerUpOrCancel}
-      onDragOver={(e) => colRef.current && onGridDragOver(e, dayDate, colRef.current)}
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        if (colRef.current) {
+          onGridDragOver(e, dayDate, colRef.current);
+        }
+      }}
       onDragLeave={onGridDragLeave}
-      onDrop={(e) => colRef.current && onGridDrop(e, dayDate, colRef.current)}
+      onDrop={(e) => {
+        e.preventDefault();
+        if (colRef.current) {
+          onGridDrop(e, dayDate, colRef.current);
+        }
+      }}
       className="flex-1 min-w-[120px] md:min-w-[150px] relative border-r border-[#1D1F26]"
     >
       {/* Background Hour Lines */}

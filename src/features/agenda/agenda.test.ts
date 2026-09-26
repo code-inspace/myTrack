@@ -527,4 +527,70 @@ describe("Agenda Multi-Day Task Distribution & Moving Logic", () => {
     expect(friTasks.find((t) => t.id === taskId)?.effectiveStartTime).toBe("16:00");
     expect(friTasks.find((t) => t.id === taskId)?.effectiveEndTime).toBe("17:00");
   });
+
+  it("déplacement drag and drop sur l'agenda format semaine pour déplacer un event du vendredi au samedi avec succès", async () => {
+    const { updateTaskSchedule } = await import("../tasks/actions/taskSchedule");
+    const { computeTasksForDate } = await import("./components/AgendaTimeline");
+    const { getStoredTasks, saveStoredTasks } = await import("../tasks/actions/storage");
+
+    const fridayStr = "2026-10-09";
+    const saturdayStr = "2026-10-10";
+    const taskId = "friday-to-saturday-event-1";
+
+    const fridayEvent: Task = {
+      id: taskId,
+      userId: "user-fri-sat-test",
+      title: "Séance escalade",
+      startTime: "18:00",
+      endTime: "19:30",
+      recurrence: "ONCE",
+      createdAt: `${fridayStr}T18:00:00.000Z`,
+      date: fridayStr,
+      dateOverrides: {},
+    } as any;
+
+    saveStoredTasks([fridayEvent], "user-fri-sat-test");
+
+    // Before move: Friday has the event at 18:00 - 19:30, Saturday has nothing
+    let friTasks = computeTasksForDate(fridayStr, getStoredTasks("user-fri-sat-test"), []);
+    let satTasks = computeTasksForDate(saturdayStr, getStoredTasks("user-fri-sat-test"), []);
+    expect(friTasks.find((t) => t.id === taskId)).toBeDefined();
+    expect(friTasks.find((t) => t.id === taskId)?.effectiveStartTime).toBe("18:00");
+    expect(friTasks.find((t) => t.id === taskId)?.effectiveEndTime).toBe("19:30");
+    expect(satTasks.find((t) => t.id === taskId)).toBeUndefined();
+
+    // Perform Drag & Drop from Friday to Saturday at 10:00 - 11:30
+    await updateTaskSchedule({
+      taskId,
+      date: saturdayStr,
+      originDate: fridayStr,
+      startTime: "10:00",
+      endTime: "11:30",
+      applyToAll: true,
+      userId: "user-fri-sat-test",
+    });
+
+    // Verify storage persistence
+    const storedAfter = getStoredTasks("user-fri-sat-test");
+    const savedEvent = storedAfter.find((t) => t.id === taskId);
+    expect(savedEvent).toBeDefined();
+    expect(savedEvent?.startTime).toBe("10:00");
+    expect(savedEvent?.endTime).toBe("11:30");
+    expect(savedEvent?.createdAt?.split("T")[0]).toBe(saturdayStr);
+    expect((savedEvent as any)?.date).toBe(saturdayStr);
+
+    // Verify agenda week distribution
+    friTasks = computeTasksForDate(fridayStr, storedAfter, []);
+    satTasks = computeTasksForDate(saturdayStr, storedAfter, []);
+
+    // Friday must no longer have the task
+    expect(friTasks.find((t) => t.id === taskId)).toBeUndefined();
+
+    // Saturday must have the task with exact dragged hours
+    const satItem = satTasks.find((t) => t.id === taskId);
+    expect(satItem).toBeDefined();
+    expect(satItem?.title).toBe("Séance escalade");
+    expect(satItem?.effectiveStartTime).toBe("10:00");
+    expect(satItem?.effectiveEndTime).toBe("11:30");
+  });
 });
