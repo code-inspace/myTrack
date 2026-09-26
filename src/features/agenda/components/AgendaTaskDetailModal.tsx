@@ -40,7 +40,7 @@ interface AgendaTaskDetailModalProps {
   isOpen: boolean;
   selectedDate: string;
   onClose: () => void;
-  onToggleComplete?: (taskId: string) => void;
+  onToggleComplete?: (taskId: string, date?: string) => void;
   onToggleReminder?: (taskId: string) => void;
   onDuplicateTask?: (task: TaskWithCompletion) => void;
   onEditTask?: (task: TaskWithCompletion) => void;
@@ -329,9 +329,7 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
         colors: [currentProject?.color || "#D4F63D", "#38BDF8", "#FFFFFF"],
       });
     }
-    setSaveStatus("saving");
-    onToggleComplete?.(task.id);
-    markSaved();
+    onToggleComplete?.(task.id, (task as any).date || selectedDate);
   };
 
   const handleToggleReminderClick = () => {

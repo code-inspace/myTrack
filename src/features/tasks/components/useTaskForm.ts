@@ -173,7 +173,6 @@ export function useTaskForm({
         setProjectCategory(initPid ? (initialTask.projectCategory || "") : "");
         setDeadline(initialTask.deadline || "");
         setPriority((initialTask.priority as TaskPriority) || "NORMAL");
-        skipNextAutoSaveRef.current = true;
       } else {
         setTitle("");
         setDescription("");
