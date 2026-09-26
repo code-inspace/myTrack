@@ -3,6 +3,9 @@ import { getStoredSleepLog, saveStoredSleepLog } from "./actions";
 import { getTodayDateString, addHoursToTimeString } from "@/lib/dates";
 import { format, parseISO, subDays, addDays } from "date-fns";
 
+const EXCLUDED_ACTIVITY_KEYWORDS =
+  /\b(journal|journaling|bilan|suivi|podcast|meditation|routine|livre|lecture|musique|preparation|conseil|conseils|analyse|respiration|etirement|etirements|quiz|test|planification)\b/i;
+
 /**
  * Checks if a task title refers to a nap ("sieste", "nap", "micro-sieste", etc.)
  * Case-insensitive, accent-insensitive, word-boundary safe.
@@ -13,6 +16,10 @@ export function isNapTitle(title?: string | null): boolean {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
+
+  if (EXCLUDED_ACTIVITY_KEYWORDS.test(normalized)) {
+    return false;
+  }
 
   return /\b(sieste|siestes|nap|naps|micro-sieste|micro-siestes|microsieste|microsiestes)\b/i.test(
     normalized
@@ -29,6 +36,10 @@ export function isSleepTitle(title?: string | null): boolean {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
+
+  if (EXCLUDED_ACTIVITY_KEYWORDS.test(normalized)) {
+    return false;
+  }
 
   return /\b(sommeil|sommeils|dodo|dodos|dormir|sleep|nuitee|nuitees|nuit|nuits)\b/i.test(
     normalized
@@ -246,6 +257,50 @@ export async function syncTaskWithSleepLog(
     } else if (startHour < 7) {
       bedDate = format(subDays(parseISO(dateStr), 1), "yyyy-MM-dd");
       wakeDate = dateStr;
+
+      // If an evening bedtime already exists on bedDate from another task, keep it as the primary night
+      // and record this early morning session as a nap on wakeDate.
+      const existingBedLog = getStoredSleepLog(bedDate, targetId);
+      const hasExistingEvening =
+        existingBedLog.bedtimeValidated &&
+        existingBedLog.bedtime &&
+        parseInt(existingBedLog.bedtime.split(":")[0], 10) >= 18 &&
+        existingBedLog.taskId &&
+        existingBedLog.taskId !== task.id;
+
+      if (hasExistingEvening) {
+        const napSession: NapSession = {
+          id: napId,
+          taskId: task.id,
+          title: task.title,
+          startTime,
+          endTime,
+        };
+        const currentWakeLog = getStoredSleepLog(wakeDate, targetId);
+        const existingNaps = currentWakeLog.naps || [];
+        const nextNaps = existingNaps.some((n) => n.id === napId || n.taskId === task.id)
+          ? existingNaps.map((n) => (n.id === napId || n.taskId === task.id ? napSession : n))
+          : [...existingNaps, napSession];
+
+        await saveStoredSleepLog(
+          {
+            ...currentWakeLog,
+            naps: nextNaps,
+          },
+          targetId
+        );
+
+        window.dispatchEvent(
+          new CustomEvent("mytrack:sleep-auto-detected", {
+            detail: {
+              nap: napSession,
+              wakeDate,
+              type: "nap",
+            },
+          })
+        );
+        return;
+      }
     }
 
     // 1. Bedtime saved on bedDate

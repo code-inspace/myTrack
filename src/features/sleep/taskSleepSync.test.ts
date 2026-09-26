@@ -84,6 +84,16 @@ describe("taskSleepSync", () => {
       expect(isSleepTitle("Sleep")).toBe(true);
       expect(isSleepTitle("Nuit")).toBe(true);
       expect(isSleepTitle("bonne nuit")).toBe(true);
+      expect(isSleepTitle("Sommeil 8h 00m • Coucher 23:00")).toBe(true);
+
+      // Activities and reflections about sleep must NOT match as sleep sessions
+      expect(isSleepTitle("Journal de sommeil")).toBe(false);
+      expect(isSleepTitle("Journal du sommeil")).toBe(false);
+      expect(isSleepTitle("Bilan sommeil")).toBe(false);
+      expect(isSleepTitle("Routine sommeil")).toBe(false);
+      expect(isSleepTitle("Méditation sommeil")).toBe(false);
+      expect(isSleepTitle("Podcast sommeil")).toBe(false);
+      expect(isSleepTitle("Suivi du sommeil")).toBe(false);
 
       expect(isSleepTitle("Course à pied")).toBe(false);
       expect(isSleepTitle("Projet client")).toBe(false);
@@ -96,6 +106,8 @@ describe("taskSleepSync", () => {
       expect(isNapTitle("Micro-sieste")).toBe(true);
       expect(isNapTitle("Power nap")).toBe(true);
 
+      expect(isNapTitle("Journal de sieste")).toBe(false);
+      expect(isNapTitle("Bilan sieste")).toBe(false);
       expect(isNapTitle("Sommeil")).toBe(false);
       expect(isNapTitle("Courses")).toBe(false);
     });
@@ -103,6 +115,7 @@ describe("taskSleepSync", () => {
     it("detects both via isSleepOrNapTitle", () => {
       expect(isSleepOrNapTitle("Sommeil")).toBe(true);
       expect(isSleepOrNapTitle("Sieste")).toBe(true);
+      expect(isSleepOrNapTitle("Journal de sommeil")).toBe(false);
       expect(isSleepOrNapTitle("Travailler")).toBe(false);
     });
   });
@@ -290,9 +303,6 @@ describe("taskSleepSync", () => {
         userId: "user-123",
       };
 
-      await syncTaskWithSleepLog(task, "2026-09-18");
-      await removeTaskFromSleepLog("task-sleep-2", "2026-09-18", "user-123");
-
       const bedLog = getStoredSleepLog("2026-09-18", "user-123");
       const wakeLog = getStoredSleepLog("2026-09-19", "user-123");
 
@@ -300,6 +310,61 @@ describe("taskSleepSync", () => {
       expect(wakeLog.taskId).toBeUndefined();
       expect(bedLog.bedtimeValidated).toBe(false);
       expect(bedLog.taskId).toBeUndefined();
+    });
+    it("preserves Friday evening 23:00 bedtime when an early morning task is added on Saturday", async () => {
+      // 1. Friday night sleep 23:00 -> 07:00
+      const fridayNightTask = {
+        id: "task-friday-night",
+        title: "Sommeil",
+        startTime: "23:00",
+        endTime: "07:00",
+        userId: "user-fri-sat",
+      };
+      await syncTaskWithSleepLog(fridayNightTask, "2026-09-25");
+
+      // Verify Friday log has 23:00 and Saturday log has 07:00
+      const fridayLog = getStoredSleepLog("2026-09-25", "user-fri-sat");
+      expect(fridayLog.bedtime).toBe("23:00");
+      expect(fridayLog.bedtimeValidated).toBe(true);
+
+      // 2. Early morning extra sleep task on Saturday 04:40 -> 06:00
+      const saturdayEarlyTask = {
+        id: "task-sat-early",
+        title: "Sommeil",
+        startTime: "04:40",
+        endTime: "06:00",
+        userId: "user-fri-sat",
+      };
+      await syncTaskWithSleepLog(saturdayEarlyTask, "2026-09-26");
+
+      // Friday evening bedtime must still be 23:00, not overwritten by 04:40
+      const fridayLogAfter = getStoredSleepLog("2026-09-25", "user-fri-sat");
+      expect(fridayLogAfter.bedtime).toBe("23:00");
+
+      // Saturday log should have the early session in naps
+      const satLogAfter = getStoredSleepLog("2026-09-26", "user-fri-sat");
+      expect(satLogAfter.naps?.some((n) => n.id === "task-nap-task-sat-early")).toBe(true);
+    });
+
+    it("calculates getNightSleepDuration accurately for Friday 23:00 -> Saturday 07:00 (8h)", async () => {
+      const task = {
+        id: "task-friday-23",
+        title: "Sommeil",
+        startTime: "23:00",
+        endTime: "07:00",
+        userId: "user-night-dur",
+      };
+      await syncTaskWithSleepLog(task, "2026-09-25");
+
+      const { getNightSleepDuration } = await import("./actions");
+      const nightSleep = getNightSleepDuration("2026-09-26", "user-night-dur");
+
+      expect(nightSleep).not.toBeNull();
+      expect(nightSleep?.yesterdayBedtime).toBe("23:00");
+      expect(nightSleep?.todayWakeTime).toBe("07:00");
+      expect(nightSleep?.duration.hours).toBe(8);
+      expect(nightSleep?.duration.minutes).toBe(0);
+      expect(nightSleep?.duration.text).toBe("8h 00m");
     });
   });
 

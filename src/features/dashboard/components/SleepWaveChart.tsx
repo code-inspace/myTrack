@@ -130,33 +130,58 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
       const log = logsMap.get(dateStr) || getStoredSleepLog(dateStr);
       const prevLog = logsMap.get(prevDateStr) || getStoredSleepLog(prevDateStr);
 
-      // Night sleep: bedtime from eve (D-1) + wakeTime from this day (D)
-      const isNightTime = (t?: string | null) => {
-        if (!t) return false;
-        const h = parseInt(t.split(":")[0], 10) || 0;
-        return h >= 18 || h < 7;
-      };
+      // Night sleep: bedtime from eve (D-1) [>= 18h] or early morning of this day (D) [< 12h] + wakeTime from this day (D)
+      const prevBedHour = prevLog?.bedtime ? parseInt(prevLog.bedtime.split(":")[0], 10) : null;
+      const todayBedHour = log?.bedtime ? parseInt(log.bedtime.split(":")[0], 10) : null;
 
-      const hasPrevBedtime = Boolean(
+      const hasPrevBedtimeValidated = Boolean(
+        prevLog?.bedtime && prevLog.bedtimeValidated
+      );
+      const hasPrevEveningBedtime = Boolean(
         prevLog?.bedtime &&
-        isNightTime(prevLog.bedtime) &&
+        prevBedHour !== null &&
+        prevBedHour >= 18 &&
         (prevLog.bedtimeValidated || prevLog.updatedAt || prevLog.bedtime !== "23:00")
       );
+
+      // 2. Early morning bedtime from today (D): hour < 12
+      const hasTodayEarlyBedtimeValidated = Boolean(
+        log?.bedtime &&
+        todayBedHour !== null &&
+        todayBedHour < 12 &&
+        log.bedtimeValidated
+      );
+
+      // 3. Wake time from today (D)
       const hasTodayWake = Boolean(
         log?.wakeTime && (log.wakeTimeValidated || log.updatedAt || log.wakeTime !== "07:00")
       );
 
-      const bedtime = hasPrevBedtime
-        ? (prevLog?.bedtime || "23:00")
-        : hasTodayWake
-        ? (isNightTime(prevLog?.bedtime) ? prevLog?.bedtime : isNightTime(log?.bedtime) ? log?.bedtime : "23:00")
-        : null;
+      let bedtime: string | null = null;
+      if (hasPrevBedtimeValidated && prevLog?.bedtime) {
+        bedtime = prevLog.bedtime;
+      } else if (hasTodayEarlyBedtimeValidated && log?.bedtime) {
+        bedtime = log.bedtime;
+      } else if (hasPrevEveningBedtime && prevLog?.bedtime) {
+        bedtime = prevLog.bedtime;
+      } else if (hasTodayWake) {
+        if (prevBedHour !== null && prevBedHour >= 18 && prevLog?.bedtime) {
+          bedtime = prevLog.bedtime;
+        } else if (todayBedHour !== null && todayBedHour < 12 && log?.bedtime) {
+          bedtime = log.bedtime;
+        } else {
+          bedtime = "23:00";
+        }
+      } else if (hasPrevEveningBedtime || hasTodayEarlyBedtimeValidated) {
+        bedtime = prevLog?.bedtime || log?.bedtime || "23:00";
+      }
 
-      const wakeTime = hasTodayWake
-        ? (log?.wakeTime || "07:00")
-        : hasPrevBedtime
-        ? (log?.wakeTime || "07:00")
-        : null;
+      let wakeTime: string | null = null;
+      if (hasTodayWake) {
+        wakeTime = log?.wakeTime || "07:00";
+      } else if (hasPrevBedtimeValidated || hasPrevEveningBedtime || hasTodayEarlyBedtimeValidated) {
+        wakeTime = log?.wakeTime || "07:00";
+      }
 
       let nightBlock: {
         startTime: string;

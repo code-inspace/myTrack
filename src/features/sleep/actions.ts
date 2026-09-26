@@ -359,38 +359,53 @@ export function getNightSleepDuration(
     const yesterdayLog = getStoredSleepLog(yesterdayStr, userId);
     const todayLog = getStoredSleepLog(wakeDateStr, userId);
 
-    const hasYesterdayBedtime = Boolean(
-      yesterdayLog.bedtime && (yesterdayLog.bedtimeValidated || yesterdayLog.updatedAt || yesterdayLog.bedtime !== "23:00")
+    const yesterdayBedHour = yesterdayLog.bedtime
+      ? parseInt(yesterdayLog.bedtime.split(":")[0], 10)
+      : null;
+    const todayBedHour = todayLog.bedtime
+      ? parseInt(todayLog.bedtime.split(":")[0], 10)
+      : null;
+
+    const hasYesterdayBedtimeValidated = Boolean(
+      yesterdayLog.bedtime && yesterdayLog.bedtimeValidated
     );
+
+    const hasYesterdayEvening = Boolean(
+      yesterdayLog.bedtime &&
+      yesterdayBedHour !== null &&
+      yesterdayBedHour >= 18 &&
+      (yesterdayLog.bedtimeValidated || yesterdayLog.updatedAt || yesterdayLog.bedtime !== "23:00")
+    );
+
+    const hasTodayEarlyBedtimeValidated = Boolean(
+      todayLog.bedtime &&
+      todayBedHour !== null &&
+      todayBedHour < 12 &&
+      todayLog.bedtimeValidated
+    );
+
     const hasTodayWakeTime = Boolean(
       todayLog.wakeTime && (todayLog.wakeTimeValidated || todayLog.updatedAt || todayLog.wakeTime !== "07:00")
     );
 
-    if (!hasYesterdayBedtime && !hasTodayWakeTime) {
+    if (!hasYesterdayBedtimeValidated && !hasYesterdayEvening && !hasTodayEarlyBedtimeValidated && !hasTodayWakeTime) {
       return null;
     }
 
-    // If todayLog has a validated early-morning bedtime (e.g. 02:00) with bedHour < 12 and before wakeTime,
-    // and yesterdayLog has no validated bedtime, use todayLog.bedtime for this morning's sleep
-    const todayBedHour = todayLog.bedtime ? parseInt(todayLog.bedtime.split(":")[0], 10) : null;
-    const isTodayEarlyMorningBedtime =
-      todayBedHour !== null &&
-      todayBedHour < 12 &&
-      todayLog.bedtimeValidated &&
-      !yesterdayLog.bedtimeValidated;
-
-    let bedtime = hasYesterdayBedtime
-      ? (yesterdayLog.bedtime || "23:00")
-      : (todayLog.bedtime || "23:00");
-
-    if (isTodayEarlyMorningBedtime && todayLog.bedtime) {
+    let bedtime = "23:00";
+    if (hasYesterdayBedtimeValidated && yesterdayLog.bedtime) {
+      bedtime = yesterdayLog.bedtime;
+    } else if (hasTodayEarlyBedtimeValidated && todayLog.bedtime) {
+      bedtime = todayLog.bedtime;
+    } else if (hasYesterdayEvening && yesterdayLog.bedtime) {
+      bedtime = yesterdayLog.bedtime;
+    } else if (yesterdayLog.bedtime && yesterdayBedHour !== null && yesterdayBedHour >= 18) {
+      bedtime = yesterdayLog.bedtime;
+    } else if (todayLog.bedtime && todayBedHour !== null && todayBedHour < 12) {
       bedtime = todayLog.bedtime;
     }
 
-    const wakeTime = hasTodayWakeTime
-      ? (todayLog.wakeTime || "07:00")
-      : (todayLog.wakeTime || "07:00");
-
+    const wakeTime = todayLog.wakeTime || "07:00";
     const duration = computeSleepDuration(bedtime, wakeTime);
     if (!duration) return null;
 
