@@ -69,7 +69,24 @@ export async function fetchProjects(userId?: string): Promise<Project[]> {
 
   const finalUserId = targetId || "";
 
-  // 1. Try server API route (bypasses RLS issues)
+  // 1. Direct Supabase client query (0 Serverless CPU, instant client read)
+  try {
+    const { data, error } = await supabase
+      .from("projects")
+      .select("*")
+      .eq("user_id", targetId)
+      .order("created_at", { ascending: false });
+
+    if (!error && data && data.length > 0) {
+      const mapped = await Promise.all(data.map(mapDbProjectToModelAsync));
+      saveStoredProjects(mapped, targetId);
+      return mapped;
+    }
+  } catch (err) {
+    console.warn("Supabase fetchProjects error:", err);
+  }
+
+  // 2. Fallback to server API route if needed
   try {
     const res = await fetch(`/api/projects?userId=${encodeURIComponent(finalUserId)}`, {
       method: "GET",
@@ -83,24 +100,7 @@ export async function fetchProjects(userId?: string): Promise<Project[]> {
       }
     }
   } catch (apiErr) {
-    console.warn("fetchProjects API route error, falling back to Supabase client:", apiErr);
-  }
-
-  // 2. Fallback to Supabase client
-  try {
-    const { data, error } = await supabase
-      .from("projects")
-      .select("*")
-      .eq("user_id", targetId)
-      .order("created_at", { ascending: false });
-
-    if (!error && data) {
-      const mapped = await Promise.all(data.map(mapDbProjectToModelAsync));
-      saveStoredProjects(mapped, targetId);
-      return mapped;
-    }
-  } catch (err) {
-    console.warn("Supabase fetchProjects error:", err);
+    console.warn("fetchProjects API route error, falling back to local storage:", apiErr);
   }
 
   return getStoredProjects(targetId);

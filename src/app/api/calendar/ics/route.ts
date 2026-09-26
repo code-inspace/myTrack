@@ -3,6 +3,13 @@ import { CalendarSubscription, ExternalCalendarEvent } from "@/features/calendar
 import { fetchCalDavOrIcs } from "@/features/calendar/lib/caldavClient";
 import { parseISO, subDays, addDays } from "date-fns";
 
+interface CachedCalendarFeed {
+  events: ExternalCalendarEvent[];
+  timestamp: number;
+}
+const icsCache = new Map<string, CachedCalendarFeed>();
+const ICS_CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -61,14 +68,24 @@ export async function POST(req: NextRequest) {
 
     const allEvents: ExternalCalendarEvent[] = [];
     const errors: Record<string, string> = {};
+    const now = Date.now();
 
     await Promise.all(
       subscriptions.map(async (sub) => {
         if (!sub.enabled || !sub.url) return;
 
+        const cacheKey = `${sub.url.trim()}__${sub.color || ""}__${sub.name || ""}__${rangeStartStr || ""}__${rangeEndStr || ""}`;
+        const cached = icsCache.get(cacheKey);
+
+        if (cached && now - cached.timestamp < ICS_CACHE_TTL_MS) {
+          allEvents.push(...cached.events);
+          return;
+        }
+
         try {
           const result = await fetchCalDavOrIcs(sub, rangeStart, rangeEnd);
           if (result.success && result.events) {
+            icsCache.set(cacheKey, { events: result.events, timestamp: now });
             allEvents.push(...result.events);
           } else {
             errors[sub.id] = result.error || "Erreur de connexion au calendrier";

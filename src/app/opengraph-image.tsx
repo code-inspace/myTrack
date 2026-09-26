@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 
-export const runtime = "edge";
+export const runtime = "nodejs";
 export const alt = "MyTrack — Mon suivi d'action & tracker d'habitudes personnalisé";
 export const size = {
   width: 1200,

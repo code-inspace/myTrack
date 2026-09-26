@@ -72,7 +72,37 @@ export async function fetchCalendarSubscriptions(userId?: string): Promise<Calen
       }).catch(() => {});
     }
 
-    // 2. Fetch all fresh calendar subscriptions from server (using admin serviceRole key)
+    // 2. Fetch directly via Supabase client to avoid Serverless CPU usage
+    const supabase = createClient();
+    const { data: dbSubs, error } = await supabase
+      .from("calendar_subscriptions")
+      .select("*")
+      .eq("user_id", targetId)
+      .order("created_at", { ascending: false });
+
+    if (!error && Array.isArray(dbSubs)) {
+      const remoteList: CalendarSubscription[] = await Promise.all(
+        dbSubs.map((row) => mapDbSubscriptionToModel(row))
+      );
+
+      const mergedMap = new Map<string, CalendarSubscription>();
+      for (const item of remoteList) {
+        const norm = item.url?.trim().toLowerCase();
+        if (norm) mergedMap.set(norm, item);
+      }
+      for (const item of local) {
+        const norm = item.url?.trim().toLowerCase();
+        if (norm && !mergedMap.has(norm)) {
+          mergedMap.set(norm, item);
+        }
+      }
+
+      const merged = Array.from(mergedMap.values());
+      saveStoredCalendarSubscriptions(merged, targetId);
+      return merged;
+    }
+
+    // 3. Fallback to API route
     const res = await fetch(`/api/calendar/subscriptions?userId=${encodeURIComponent(targetId)}`);
     if (res.ok) {
       const data = await res.json();
@@ -98,7 +128,7 @@ export async function fetchCalendarSubscriptions(userId?: string): Promise<Calen
       }
     }
   } catch (err) {
-    console.warn("API fetchCalendarSubscriptions error, falling back to storage:", err);
+    console.warn("fetchCalendarSubscriptions error, falling back to storage:", err);
   }
 
   return local;

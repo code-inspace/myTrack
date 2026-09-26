@@ -38,6 +38,19 @@ export async function fetchCompletions(
   const local = getStoredCompletions(targetId);
 
   try {
+    // 1. Query directly via Supabase client to bypass Serverless function invocation
+    const { data: dbCompletions, error } = await supabase
+      .from("task_completions")
+      .select("*")
+      .eq("user_id", targetId);
+
+    if (!error && Array.isArray(dbCompletions)) {
+      const mapped = dbCompletions.map((c: any) => mapDbCompletionToModel(c));
+      saveStoredCompletions(mapped, targetId);
+      return mapped;
+    }
+
+    // Fallback to API route
     const res = await fetch(`/api/completions?userId=${encodeURIComponent(targetId)}`);
     if (res.ok) {
       const data = await res.json();
@@ -48,7 +61,7 @@ export async function fetchCompletions(
       }
     }
   } catch (err) {
-    console.warn("API fetchCompletions error, falling back to storage:", err);
+    console.warn("fetchCompletions error, falling back to storage:", err);
   }
 
   return local;

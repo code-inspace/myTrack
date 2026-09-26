@@ -138,8 +138,11 @@ export function useCalendarEvents(focusedDateStr?: string) {
     },
     placeholderData: () => ({ events: getStoredExternalEvents(userId), errors: {} }),
     enabled: enabledSubs.length > 0,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 1000 * 60 * 15, // 15 minutes
+    gcTime: 1000 * 60 * 60, // 1 hour
+    refetchOnMount: false,
     refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 
   // Enhanced sync with additions/retrieval metrics

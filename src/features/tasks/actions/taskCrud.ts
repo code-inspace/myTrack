@@ -63,7 +63,22 @@ export async function fetchTasks(userId?: string): Promise<Task[]> {
       }).catch(() => {});
     }
 
-    // 2. Fetch all fresh tasks from API route and map them to local device timezone
+    // 2. Fetch fresh tasks directly via Supabase client to bypass Serverless function invocation
+    const { data: dbTasks, error } = await supabase
+      .from("tasks")
+      .select("*")
+      .eq("user_id", targetId)
+      .order("created_at", { ascending: false });
+
+    if (!error && Array.isArray(dbTasks)) {
+      const mappedTasks = await Promise.all(
+        dbTasks.map((t: any) => mapDbTaskToModelAsync(t))
+      );
+      saveStoredTasks(mappedTasks, targetId);
+      return mappedTasks;
+    }
+
+    // Fallback to API route if direct Supabase client query failed
     const res = await fetch(`/api/tasks?userId=${encodeURIComponent(targetId)}`);
     if (res.ok) {
       const data = await res.json();
@@ -76,7 +91,7 @@ export async function fetchTasks(userId?: string): Promise<Task[]> {
       }
     }
   } catch (err) {
-    console.warn("API fetchTasks error, falling back to storage:", err);
+    console.warn("fetchTasks error, falling back to storage:", err);
   }
 
   return local;
