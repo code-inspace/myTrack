@@ -23,6 +23,9 @@ import { createClient } from "@/utils/supabase/client";
 import { Moon, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+import { useTasks } from "@/features/tasks/hooks";
+import { isSleepOrNapTitle } from "@/features/sleep/taskSleepSync";
+
 interface SleepWaveChartProps {
   period: Period;
   referenceDate: Date;
@@ -50,6 +53,7 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
   const todayStr = getTodayDateString();
   const [selectedDateStr, setSelectedDateStr] = useState<string | null>(null);
   const [historyLogs, setHistoryLogs] = useState<DailySleepLog[]>([]);
+  const { tasks: allTasks = [] } = useTasks(todayStr);
 
   // Fetch real sleep history & listen to realtime updates from iPhone/Widget
   useEffect(() => {
@@ -127,8 +131,53 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
       const dateStr = format(d, "yyyy-MM-dd");
       const prevDateStr = format(subDays(d, 1), "yyyy-MM-dd");
 
+      const fullDateLabel = format(d, "d MMMM yyyy", { locale: fr });
+      const dayNum = parseInt(format(d, "d"), 10);
+      const weekdayInitial = format(d, "EEEEE", { locale: fr }).toUpperCase();
+      const isMonday = d.getDay() === 1;
+
+      // 1. Strict Future Date Guard: Any day after today cannot have completed sleep
+      if (dateStr > todayStr) {
+        return {
+          date: d,
+          dateStr,
+          prevDateStr,
+          dayNum,
+          weekdayInitial,
+          fullDateLabel,
+          isMonday,
+          index,
+          isToday: false,
+          isFuture: true,
+          night: null,
+          naps: [],
+          hasData: false,
+          totalSleepMinutes: 0,
+          yesterdayBedtime: null,
+          todayWakeTime: null,
+          nightDurationText: null,
+          napsCount: 0,
+          totalNapMinutes: 0,
+        };
+      }
+
       const log = logsMap.get(dateStr) || getStoredSleepLog(dateStr);
       const prevLog = logsMap.get(prevDateStr) || getStoredSleepLog(prevDateStr);
+
+      // Find sleep / nap tasks matching this day from the tasks database / agenda
+      const daySleepTasks = allTasks.filter((t) => {
+        const taskDate = t.createdAt ? t.createdAt.split("T")[0] : null;
+        const matchesDate = taskDate === dateStr || (!taskDate && dateStr === todayStr);
+        return matchesDate && isSleepOrNapTitle(t.title);
+      });
+
+      const eveSleepTasks = allTasks.filter((t) => {
+        const taskDate = t.createdAt ? t.createdAt.split("T")[0] : null;
+        const matchesDate = taskDate === prevDateStr;
+        if (!matchesDate || !isSleepOrNapTitle(t.title)) return false;
+        const startHour = t.startTime ? parseInt(t.startTime.split(":")[0], 10) : 0;
+        return startHour >= 18;
+      });
 
       // Night sleep: bedtime from eve (D-1) [>= 18h] or early morning of this day (D) [< 12h] + wakeTime from this day (D)
       const prevBedHour = prevLog?.bedtime ? parseInt(prevLog.bedtime.split(":")[0], 10) : null;
@@ -157,11 +206,22 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
         log?.wakeTime && (log.wakeTimeValidated || log.updatedAt || log.wakeTime !== "07:00")
       );
 
+      // 4. Tasks from agenda
+      const primaryEveTask = eveSleepTasks[0];
+      const primaryEarlyMorningTask = daySleepTasks.find((t) => {
+        const h = t.startTime ? parseInt(t.startTime.split(":")[0], 10) : 0;
+        return h < 7;
+      });
+
       let bedtime: string | null = null;
       if (hasPrevBedtimeValidated && prevLog?.bedtime) {
         bedtime = prevLog.bedtime;
       } else if (hasTodayEarlyBedtimeValidated && log?.bedtime) {
         bedtime = log.bedtime;
+      } else if (primaryEveTask?.startTime) {
+        bedtime = primaryEveTask.startTime;
+      } else if (primaryEarlyMorningTask?.startTime) {
+        bedtime = primaryEarlyMorningTask.startTime;
       } else if (hasPrevEveningBedtime && prevLog?.bedtime) {
         bedtime = prevLog.bedtime;
       } else if (hasTodayWake) {
@@ -179,6 +239,10 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
       let wakeTime: string | null = null;
       if (hasTodayWake) {
         wakeTime = log?.wakeTime || "07:00";
+      } else if (primaryEarlyMorningTask?.endTime) {
+        wakeTime = primaryEarlyMorningTask.endTime;
+      } else if (primaryEveTask?.endTime) {
+        wakeTime = primaryEveTask.endTime;
       } else if (hasPrevBedtimeValidated || hasPrevEveningBedtime || hasTodayEarlyBedtimeValidated) {
         wakeTime = log?.wakeTime || "07:00";
       }
@@ -214,8 +278,36 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
         }
       }
 
-      // Siestes du jour D
-      const naps = (log?.naps || []).map((nap) => {
+      // Combine naps from log and tasks seamlessly
+      const combinedNapsMap = new Map<string, { id: string; startTime: string; endTime: string | null }>();
+      (log?.naps || []).forEach((n) => {
+        if (n.startTime) {
+          combinedNapsMap.set(`${n.startTime}-${n.endTime || ""}`, {
+            id: n.id,
+            startTime: n.startTime,
+            endTime: n.endTime,
+          });
+        }
+      });
+
+      daySleepTasks.forEach((t) => {
+        const startHour = t.startTime ? parseInt(t.startTime.split(":")[0], 10) : 0;
+        const isEarlyMorning = startHour < 7;
+        const isPrimaryNight = isEarlyMorning && bedtime === t.startTime;
+        if (!isPrimaryNight && t.startTime) {
+          const key = `${t.startTime}-${t.endTime || ""}`;
+          if (!combinedNapsMap.has(key)) {
+            combinedNapsMap.set(key, {
+              id: `task-${t.id}`,
+              startTime: t.startTime,
+              endTime: t.endTime || null,
+            });
+          }
+        }
+      });
+
+      // Siestes & phases supplémentaires du jour D
+      const naps = Array.from(combinedNapsMap.values()).map((nap) => {
         const topPct = timeToOffsetPct(nap.startTime);
         let endPct = nap.endTime
           ? timeToOffsetPct(nap.endTime)
@@ -251,11 +343,6 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
       const totalNapMinutes = naps.reduce((acc, n) => acc + n.durationMins, 0);
       const totalSleepMinutes =
         (nightBlock?.durationMinutes || 0) + totalNapMinutes;
-
-      const fullDateLabel = format(d, "d MMMM yyyy", { locale: fr });
-      const dayNum = parseInt(format(d, "d"), 10);
-      const weekdayInitial = format(d, "EEEEE", { locale: fr }).toUpperCase();
-      const isMonday = d.getDay() === 1;
 
       return {
         date: d,
