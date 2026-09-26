@@ -403,6 +403,27 @@ describe("taskSleepSync", () => {
     });
   });
 
+  describe("Sleep Target Configuration", () => {
+    it("persists and retrieves user sleep target configuration dynamically", async () => {
+      const { getStoredSleepTarget, saveStoredSleepTarget } = await import("./actions");
+
+      // Default when not configured
+      const defaultTarget = getStoredSleepTarget("user-target-test");
+      expect(defaultTarget.targetBedtime).toBe("23:00");
+      expect(defaultTarget.targetWakeTime).toBe("07:00");
+
+      // Save custom target (e.g. 22:30 to 06:30)
+      saveStoredSleepTarget(
+        { targetBedtime: "22:30", targetWakeTime: "06:30" },
+        "user-target-test"
+      );
+
+      const customTarget = getStoredSleepTarget("user-target-test");
+      expect(customTarget.targetBedtime).toBe("22:30");
+      expect(customTarget.targetWakeTime).toBe("06:30");
+    });
+  });
+
   describe("Reminders Default", () => {
     it("defaults enableReminders to false for new or unconfigured tasks", () => {
       const taskWithoutReminders = {

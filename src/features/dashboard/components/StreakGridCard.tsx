@@ -93,7 +93,7 @@ export const StreakGridCard: React.FC<StreakGridCardProps> = ({
 
             {/* 7 Days Row for this Habit */}
             <div className="flex items-center justify-between gap-1 pt-0.5">
-              {habit.rolling7Days.map((d, i) => {
+              {(habit.rolling7Days || []).map((d, i) => {
                 const isDone = d.isCompleted;
                 const isScheduled = d.isScheduled;
 

@@ -71,19 +71,20 @@ export const WaveChart: React.FC<WaveChartProps> = ({ data, period = "week" }) =
   const chartWidth = width - paddingX * 2;
   const chartHeight = height - paddingY * 2;
 
-  // Max value for count mode
-  const maxScheduled = Math.max(...points.map((p) => p.totalScheduled || p.completedCount || 4), 1);
+  const safePoints = points && points.length > 0 ? points : defaultForPeriod;
+  const divisor = Math.max(1, safePoints.length - 1);
+  const maxScheduled = Math.max(...safePoints.map((p) => p.totalScheduled || p.completedCount || 4), 1);
 
   // Convert points to coordinates based on mode
-  const coords = points.map((p, index) => {
-    const x = paddingX + (index / (points.length - 1)) * chartWidth;
-    const valueRatio = mode === "rate" ? p.score / 100 : (p.completedCount || 0) / maxScheduled;
-    const y = height - paddingY - Math.max(0, Math.min(1, valueRatio)) * chartHeight;
+  const coords = safePoints.map((p, index) => {
+    const x = paddingX + (index / divisor) * chartWidth;
+    const valueRatio = mode === "rate" ? (p.score || 0) / 100 : (p.completedCount || 0) / maxScheduled;
+    const y = height - paddingY - Math.max(0, Math.min(1, isNaN(valueRatio) ? 0 : valueRatio)) * chartHeight;
     return { x, y, point: p };
   });
 
   // Build smooth cubic bezier curve
-  let pathD = `M ${coords[0].x} ${coords[0].y}`;
+  let pathD = coords.length > 0 ? `M ${coords[0].x} ${coords[0].y}` : "";
   for (let i = 0; i < coords.length - 1; i++) {
     const curr = coords[i];
     const next = coords[i + 1];
@@ -95,13 +96,15 @@ export const WaveChart: React.FC<WaveChartProps> = ({ data, period = "week" }) =
   }
 
   // Area path for gradient fill below line
-  const areaD = `${pathD} L ${coords[coords.length - 1].x} ${height} L ${coords[0].x} ${height} Z`;
+  const lastCoord = coords.length > 0 ? coords[coords.length - 1] : { x: paddingX + chartWidth, y: height };
+  const firstCoord = coords.length > 0 ? coords[0] : { x: paddingX, y: height };
+  const areaD = coords.length > 0 ? `${pathD} L ${lastCoord.x} ${height} L ${firstCoord.x} ${height} Z` : "";
 
   // Selected point details (defaults to last point if none selected)
   const activePoint =
-    selectedIdx !== null && selectedIdx < points.length
-      ? points[selectedIdx]
-      : points[points.length - 1];
+    selectedIdx !== null && selectedIdx < safePoints.length
+      ? safePoints[selectedIdx]
+      : safePoints[safePoints.length - 1] || safePoints[0];
 
   const periodBadgeLabel =
     period === "day"

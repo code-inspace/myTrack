@@ -13,6 +13,44 @@ import { subDays, parseISO, format } from "date-fns";
 import { encryptText, decryptText, isEncrypted } from "@/lib/crypto/encryption";
 
 const SLEEP_STORAGE_PREFIX = "mytrack_sleeplog_";
+const SLEEP_TARGET_PREFIX = "mytrack_sleep_target_";
+
+export interface SleepTargetConfig {
+  targetBedtime: string; // e.g. "23:00"
+  targetWakeTime: string; // e.g. "07:00"
+}
+
+export function getStoredSleepTarget(userId?: string): SleepTargetConfig {
+  const targetId = getEffectiveUserId(userId);
+  if (typeof window === "undefined") {
+    return { targetBedtime: "23:00", targetWakeTime: "07:00" };
+  }
+  try {
+    const raw = (targetId && localStorage.getItem(`${SLEEP_TARGET_PREFIX}${targetId}`)) || localStorage.getItem(SLEEP_TARGET_PREFIX);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed.targetBedtime && parsed.targetWakeTime) {
+        return parsed;
+      }
+    }
+  } catch {}
+  return { targetBedtime: "23:00", targetWakeTime: "07:00" };
+}
+
+export function saveStoredSleepTarget(target: SleepTargetConfig, userId?: string): void {
+  const targetId = getEffectiveUserId(userId);
+  if (typeof window === "undefined") return;
+  try {
+    const json = JSON.stringify(target);
+    if (targetId) {
+      localStorage.setItem(`${SLEEP_TARGET_PREFIX}${targetId}`, json);
+    }
+    localStorage.setItem(SLEEP_TARGET_PREFIX, json);
+    window.dispatchEvent(new CustomEvent("mytrack:sleep-auto-detected"));
+  } catch (err) {
+    console.warn("saveStoredSleepTarget error:", err);
+  }
+}
 
 export function getEffectiveUserId(explicitUserId?: string): string {
   if (explicitUserId) return explicitUserId;

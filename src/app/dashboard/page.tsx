@@ -27,6 +27,39 @@ import { Sliders } from "lucide-react";
 
 const DASHBOARD_CONFIG_STORAGE_KEY = "mytrack_dashboard_modules_config";
 
+class DashboardErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch(error: any) {
+    console.warn("Dashboard widget render error caught:", error);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="bg-[#1C1D22] border border-[#282A30] rounded-3xl p-5 shadow-sm text-center space-y-2">
+          <p className="text-xs text-[#8E929E]">Module temporairement indisponible</p>
+          <button
+            type="button"
+            onClick={() => this.setState({ hasError: false })}
+            className="text-[11px] font-semibold text-[#D4F63D] hover:underline"
+          >
+            Réessayer
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function DashboardPage() {
   const [period, setPeriod] = useState<Period>("week");
   const [referenceDate, setReferenceDate] = useState<Date>(() => new Date());
@@ -116,8 +149,8 @@ export default function DashboardPage() {
   };
 
   const { data: stats, isLoading } = useDashboardStats(period, referenceDate);
-  const { allTasks, allCompletions } = useTasks(getTodayDateString());
-  const { events: externalEvents } = useCalendarEvents();
+  const { allTasks = [], allCompletions = [] } = useTasks(getTodayDateString());
+  const { events: externalEvents = [] } = useCalendarEvents();
   const { user } = useAuth();
   const { displayMode } = useDisplayMode();
 
@@ -183,7 +216,7 @@ export default function DashboardPage() {
           <div key="HABITS_VIEW">
             {period === "month" ? (
               <MonthlyHabitCalendar
-                tasks={allTasks.filter((t) => t.recurrence && t.recurrence !== "ONCE")}
+                tasks={(allTasks || []).filter((t) => t.recurrence && t.recurrence !== "ONCE")}
                 completions={allCompletions}
                 monthDate={referenceDate}
               />
@@ -261,7 +294,9 @@ export default function DashboardPage() {
                 key={mod.id}
                 className={mod.id === "MOMENTUM_WAVE" ? "lg:col-span-2" : "w-full"}
               >
-                {renderModule(mod.id)}
+                <DashboardErrorBoundary>
+                  {renderModule(mod.id)}
+                </DashboardErrorBoundary>
               </div>
             );
           })}

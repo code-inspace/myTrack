@@ -27,7 +27,7 @@ import { ExternalEventBlock } from "@/features/calendar/components/ExternalEvent
 import { ExternalEventDetailModal } from "@/features/calendar/components/ExternalEventDetailModal";
 import { ExternalCalendarEvent } from "@/features/calendar/types";
 import { AgendaSleepBlock } from "./AgendaSleepBlock";
-import { getStoredSleepLog, computeSleepDuration, fetchSleepHistory, isSleepTitle } from "@/features/sleep/actions";
+import { getStoredSleepLog, computeSleepDuration, fetchSleepHistory, isSleepTitle, getStoredSleepTarget } from "@/features/sleep/actions";
 import { SleepEditModal, SleepSessionData } from "@/features/sleep/components/SleepEditModal";
 import { useProjects } from "@/features/projects/hooks";
 import { useAuth } from "@/providers/AuthProvider";
@@ -1436,11 +1436,10 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
           const tomorrowDateStr = format(addDays(d, 1), "yyyy-MM-dd");
           const tomorrowLog = getStoredSleepLog(tomorrowDateStr, userId);
 
-          // Cibles de sommeil objectif (par défaut 23:00 -> 07:00 ou objectif personnalisé)
-          const targetBedtime = "23:00";
-          const targetWakeTime = "07:00";
-          const targetWakeMins = parseTimeToMinutes(targetWakeTime); // 420 mins (07:00)
-          const targetBedMins = parseTimeToMinutes(targetBedtime);   // 1380 mins (23:00)
+          // Cibles de sommeil objectif (dynamiques selon l'objectif configuré de l'utilisateur)
+          const { targetBedtime, targetWakeTime } = getStoredSleepTarget(userId);
+          const targetWakeMins = parseTimeToMinutes(targetWakeTime); // e.g. 07:00 -> 420 mins
+          const targetBedMins = parseTimeToMinutes(targetBedtime);   // e.g. 23:00 -> 1380 mins
 
           // Check if sleep is already represented by an actual task on this day's timeline
           const hasTaskMorningSleep = tasks.some((t) => isSleepTitle(t.title) && (t.overnightPart === "end" || (!t.overnightPart && parseTimeToMinutes(t.startTime || "") < 12 * 60)));
@@ -1451,21 +1450,20 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
 
           // 3a. Morning Sleep (00:00 -> Réveil)
           // Sommeil Sauvegardé en base de données / Repéré (Violet)
-          // Pour les jours futurs, le réveil ne peut pas être déjà passé/enregistré
+          // Pour les jours futurs sans validation explicite, c'est un objectif (Gris).
           const hasActualMorningSleep =
-            !isFutureDate &&
             Boolean(
               todayLog.wakeTimeValidated ||
-              (todayLog.wakeTime && todayLog.wakeTime !== "07:00") ||
+              (todayLog.wakeTime && todayLog.wakeTime !== targetWakeTime) ||
               yesterdayLog.bedtimeValidated ||
-              (yesterdayLog.bedtime && yesterdayLog.bedtime !== "23:00")
+              (yesterdayLog.bedtime && yesterdayLog.bedtime !== targetBedtime)
             );
 
           if (!hasTaskMorningSleep) {
             if (hasActualMorningSleep && todayLog.wakeTime) {
               const wakeMins = parseTimeToMinutes(todayLog.wakeTime);
               if (wakeMins > 0) {
-                let actualBedtime = yesterdayLog.bedtime || "23:00";
+                let actualBedtime = yesterdayLog.bedtime || targetBedtime;
                 const todayBedMins = todayLog.bedtime ? parseTimeToMinutes(todayLog.bedtime) : null;
                 if (
                   todayBedMins !== null &&
@@ -1521,12 +1519,14 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
             } else {
               // Objectif de Sommeil Matin (Gris)
               const targetMorningDuration = targetWakeMins;
+              const targetDur = computeSleepDuration(targetBedtime, targetWakeTime);
+              const targetDurText = targetDur?.text || "8h";
               sleepItems.push({
                 type: "sleep",
                 sleepItem: {
                   id: `sleep-target-morning-${dayDate}`,
                   label: "Objectif Sommeil",
-                  subLabel: `Prévu ${targetWakeTime} • 8h`,
+                  subLabel: `Prévu ${targetWakeTime} • ${targetDurText}`,
                   isNap: false,
                   variant: "objective",
                   sessionData: {
@@ -1549,14 +1549,10 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
 
           // 3b. Evening Sleep Onset (Coucher -> 24:00)
           // Sommeil Sauvegardé en base de données / Repéré (Violet)
-          // Pour les jours futurs (ou coucher non encore validé), c'est un objectif (Gris).
-          // Note : on n'utilise pas todayLog.updatedAt pour valider le coucher 23:00 car
-          // l'enregistrement du réveil du matin met déjà à jour updatedAt sur la journée.
           const hasActualEveningBedtime =
-            !isFutureDate &&
             Boolean(
               todayLog.bedtimeValidated ||
-              (todayLog.bedtime && todayLog.bedtime !== "23:00")
+              (todayLog.bedtime && todayLog.bedtime !== targetBedtime)
             );
 
           if (!hasTaskEveningSleep) {
@@ -1564,7 +1560,7 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
               const bedMins = parseTimeToMinutes(todayLog.bedtime);
               if (bedMins >= 18 * 60 && bedMins < 1440) {
                 const duration = 1440 - bedMins;
-                const tomorrowWakeTime = tomorrowLog.wakeTime || "07:00";
+                const tomorrowWakeTime = tomorrowLog.wakeTime || targetWakeTime;
                 const dur = computeSleepDuration(todayLog.bedtime, tomorrowWakeTime);
                 const subLabel = dur?.text
                   ? `${dur.text} • Coucher ${todayLog.bedtime}`

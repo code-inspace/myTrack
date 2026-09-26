@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Moon, Sun, Sparkles, Clock, Calendar, X, Trash2, Check, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getStoredSleepLog, saveStoredSleepLog } from "../actions";
+import { getStoredSleepLog, saveStoredSleepLog, saveStoredSleepTarget } from "../actions";
 import { DailySleepLog, NapSession } from "../types";
 import { format, parseISO, differenceInMinutes, subDays } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -137,6 +137,12 @@ export const SleepEditModal: React.FC<SleepEditModalProps> = ({
             wakeTime: eTime,
             wakeTimeValidated: true,
             updatedAt: new Date().toISOString(),
+          });
+
+          // Update default Sleep Target globally for the user
+          saveStoredSleepTarget({
+            targetBedtime: sTime,
+            targetWakeTime: eTime,
           });
         } else {
           // Nap session

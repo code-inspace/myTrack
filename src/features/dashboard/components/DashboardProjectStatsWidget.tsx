@@ -99,8 +99,11 @@ function getTaskScheduledDurationMinutes(task: Task): number {
   if (task.startTime && task.endTime) {
     const [h1, m1] = task.startTime.split(":").map(Number);
     const [h2, m2] = task.endTime.split(":").map(Number);
-    const diff = h2 * 60 + m2 - (h1 * 60 + m1);
-    if (diff > 0) return diff;
+    if (!isNaN(h1) && !isNaN(h2)) {
+      let diff = h2 * 60 + m2 - (h1 * 60 + m1);
+      if (diff < 0) diff += 24 * 60;
+      if (diff > 0) return diff;
+    }
   }
   if (task.trackingType === "DURATION" && task.targetValue) {
     return Number(task.targetValue);
