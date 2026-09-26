@@ -280,27 +280,27 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
     });
   }, [daysInterval, logsMap, todayStr]);
 
-  // Real average calculation
+  // Real average calculation (including all sleep phases & naps across valid days)
   const { averageText, validNightsCount } = useMemo(() => {
-    const daysWithNight = points.filter((p) => p.night);
-    if (daysWithNight.length === 0) {
+    const daysWithSleep = points.filter((p) => p.totalSleepMinutes > 0);
+    if (daysWithSleep.length === 0) {
       return {
         averageText: "—",
         validNightsCount: 0,
       };
     }
 
-    const totalMins = daysWithNight.reduce(
-      (acc, p) => acc + (p.night?.durationMinutes || 0),
+    const totalMins = daysWithSleep.reduce(
+      (acc, p) => acc + p.totalSleepMinutes,
       0
     );
-    const avgMins = Math.round(totalMins / daysWithNight.length);
+    const avgMins = Math.round(totalMins / daysWithSleep.length);
     const avgH = Math.floor(avgMins / 60);
     const avgM = avgMins % 60;
 
     return {
       averageText: `${avgH}h ${String(avgM).padStart(2, "0")}m`,
-      validNightsCount: daysWithNight.length,
+      validNightsCount: daysWithSleep.length,
     };
   }, [points]);
 
@@ -406,9 +406,9 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
         </div>
       </div>
 
-      {/* 2. Apple Health Floating Detail Tooltip Card (Exact image design) */}
+      {/* 2. Apple Health Floating Detail Tooltip Card */}
       <div className="relative w-full flex justify-center pt-1 pb-1">
-        <div className="bg-[#14151B] border border-[#232532] shadow-[0_8px_20px_rgba(0,0,0,0.6)] rounded-2xl px-4 py-2 flex flex-col items-center min-w-[150px] max-w-[240px]">
+        <div className="bg-[#14151B] border border-[#232532] shadow-[0_8px_20px_rgba(0,0,0,0.6)] rounded-2xl px-4 py-2 flex flex-col items-center min-w-[160px] max-w-[280px]">
           {/* Tag "AU LIT" with purple bullet */}
           <div className="flex items-center gap-1.5 mb-0.5">
             <div className="w-2 h-2 rounded-full bg-[#7B82EE] shadow-[0_0_6px_#7B82EE]" />
@@ -417,16 +417,16 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
             </span>
           </div>
 
-          {/* Large Big Duration: ex: 7 h 11 min */}
+          {/* Large Big Duration: Total duration across all sleep phases */}
           <div className="flex items-baseline gap-1 my-0.5">
-            {activeSelectedPoint?.night ? (
+            {activeSelectedPoint && activeSelectedPoint.totalSleepMinutes > 0 ? (
               <>
                 <span className="text-2xl font-black text-white tracking-tight leading-none">
-                  {Math.floor(activeSelectedPoint.night.durationMinutes / 60)}
+                  {Math.floor(activeSelectedPoint.totalSleepMinutes / 60)}
                 </span>
                 <span className="text-xs font-semibold text-[#8E929E] mr-0.5">h</span>
                 <span className="text-2xl font-black text-white tracking-tight leading-none">
-                  {String(activeSelectedPoint.night.durationMinutes % 60).padStart(2, "0")}
+                  {String(activeSelectedPoint.totalSleepMinutes % 60).padStart(2, "0")}
                 </span>
                 <span className="text-xs font-semibold text-[#8E929E]">min</span>
               </>
@@ -437,16 +437,35 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
             )}
           </div>
 
-          {/* Explicit Night Range: ex: Nuit du 16 au 17 sept (23:00 - 07:00) */}
+          {/* Date Range: ex: Nuit du 25 au 26 sept. */}
           <span className="text-[10px] font-medium text-[#8E929E] capitalize truncate max-w-full text-center">
             {activeSelectedPoint?.night
               ? `Nuit du ${format(subDays(activeSelectedPoint.date, 1), "d MMM", { locale: fr })} au ${format(activeSelectedPoint.date, "d MMM", { locale: fr })}`
               : activeSelectedPoint?.fullDateLabel || "—"}
           </span>
-          {activeSelectedPoint?.night && (
-            <span className="text-[9px] text-[#7B82EE]/90 font-mono font-semibold mt-0.5">
-              {activeSelectedPoint.yesterdayBedtime} → {activeSelectedPoint.todayWakeTime}
-            </span>
+
+          {/* All phases breakdown */}
+          {activeSelectedPoint && activeSelectedPoint.totalSleepMinutes > 0 && (
+            <div className="flex flex-col items-center gap-0.5 mt-1 w-full text-[9px] font-mono">
+              {activeSelectedPoint.night && (
+                <div className="flex items-center gap-1.5 text-[#7B82EE] font-medium">
+                  {activeSelectedPoint.naps.length > 0 && <span className="text-[#8E929E]">Phase 1 :</span>}
+                  <span>{activeSelectedPoint.yesterdayBedtime} → {activeSelectedPoint.todayWakeTime}</span>
+                  {activeSelectedPoint.naps.length > 0 && (
+                    <span className="text-[#8E929E]">({activeSelectedPoint.nightDurationText})</span>
+                  )}
+                </div>
+              )}
+              {activeSelectedPoint.naps.map((nap, nIdx) => (
+                <div key={nIdx} className="flex items-center gap-1.5 text-[#A78BFA] font-medium">
+                  <span className="text-[#8E929E]">
+                    Phase {activeSelectedPoint.night ? nIdx + 2 : nIdx + 1} :
+                  </span>
+                  <span>{nap.startTime} → {nap.endTime || "..."}</span>
+                  <span className="text-[#8E929E]">({nap.durationText})</span>
+                </div>
+              ))}
+            </div>
           )}
         </div>
       </div>
@@ -592,14 +611,19 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
                               />
                             )}
 
-                            {/* Nap blocks */}
+                            {/* Nap / Multiple Phase blocks */}
                             {pt.naps.map((nap, nIdx) => (
                               <div
                                 key={nIdx}
-                                className="absolute inset-x-0 rounded-md bg-[#9EA8FD]/80"
+                                className={cn(
+                                  "absolute inset-x-0 rounded-lg transition-all",
+                                  isSelected
+                                    ? "bg-[#A78BFA] shadow-[0_0_8px_rgba(167,139,250,0.9)]"
+                                    : "bg-[#8B5CF6]/80 hover:bg-[#A78BFA]"
+                                )}
                                 style={{
                                   top: `${nap.topPct}%`,
-                                  height: `${Math.max(nap.heightPct, 2)}%`,
+                                  height: `${Math.max(nap.heightPct, 2.5)}%`,
                                 }}
                               />
                             ))}
@@ -613,6 +637,7 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
                 /* Single Day View */
                 <div className="w-full h-full flex items-center justify-center">
                   <div className="relative w-14 h-full flex justify-center">
+                    {/* Main night block */}
                     {activeSelectedPoint?.night && (
                       <div
                         className="absolute inset-x-0 rounded-xl bg-[#7A85F5] shadow-[0_0_12px_rgba(122,133,245,0.8)]"
@@ -622,6 +647,18 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
                         }}
                       />
                     )}
+
+                    {/* All nap / daytime phases blocks */}
+                    {activeSelectedPoint?.naps.map((nap, nIdx) => (
+                      <div
+                        key={nIdx}
+                        className="absolute inset-x-0 rounded-xl bg-[#A78BFA] shadow-[0_0_10px_rgba(167,139,250,0.8)]"
+                        style={{
+                          top: `${nap.topPct}%`,
+                          height: `${Math.max(nap.heightPct, 3)}%`,
+                        }}
+                      />
+                    ))}
                   </div>
                 </div>
               )}

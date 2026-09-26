@@ -3,8 +3,8 @@ import { getStoredSleepLog, saveStoredSleepLog } from "./actions";
 import { getTodayDateString, addHoursToTimeString } from "@/lib/dates";
 import { format, parseISO, subDays, addDays } from "date-fns";
 
-const EXCLUDED_ACTIVITY_KEYWORDS =
-  /\b(journal|journaling|bilan|suivi|podcast|meditation|routine|livre|lecture|musique|preparation|conseil|conseils|analyse|respiration|etirement|etirements|quiz|test|planification)\b/i;
+const EXCLUDED_NON_SLEEP_ACTIVITIES =
+  /\b(podcast|meditation|livre|lecture|musique|quiz|test|respiration|etirement|etirements)\b/i;
 
 /**
  * Checks if a task title refers to a nap ("sieste", "nap", "micro-sieste", etc.)
@@ -17,7 +17,7 @@ export function isNapTitle(title?: string | null): boolean {
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
 
-  if (EXCLUDED_ACTIVITY_KEYWORDS.test(normalized)) {
+  if (EXCLUDED_NON_SLEEP_ACTIVITIES.test(normalized)) {
     return false;
   }
 
@@ -37,7 +37,7 @@ export function isSleepTitle(title?: string | null): boolean {
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
 
-  if (EXCLUDED_ACTIVITY_KEYWORDS.test(normalized)) {
+  if (EXCLUDED_NON_SLEEP_ACTIVITIES.test(normalized)) {
     return false;
   }
 

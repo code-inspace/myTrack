@@ -85,15 +85,15 @@ describe("taskSleepSync", () => {
       expect(isSleepTitle("Nuit")).toBe(true);
       expect(isSleepTitle("bonne nuit")).toBe(true);
       expect(isSleepTitle("Sommeil 8h 00m • Coucher 23:00")).toBe(true);
+      expect(isSleepTitle("Journal de sommeil")).toBe(true);
+      expect(isSleepTitle("Journal du sommeil")).toBe(true);
+      expect(isSleepTitle("Suivi du sommeil")).toBe(true);
 
-      // Activities and reflections about sleep must NOT match as sleep sessions
-      expect(isSleepTitle("Journal de sommeil")).toBe(false);
-      expect(isSleepTitle("Journal du sommeil")).toBe(false);
-      expect(isSleepTitle("Bilan sommeil")).toBe(false);
-      expect(isSleepTitle("Routine sommeil")).toBe(false);
+      // Non-sleep activities must NOT match as sleep sessions
       expect(isSleepTitle("Méditation sommeil")).toBe(false);
       expect(isSleepTitle("Podcast sommeil")).toBe(false);
-      expect(isSleepTitle("Suivi du sommeil")).toBe(false);
+      expect(isSleepTitle("Livre sommeil")).toBe(false);
+      expect(isSleepTitle("Musique sommeil")).toBe(false);
 
       expect(isSleepTitle("Course à pied")).toBe(false);
       expect(isSleepTitle("Projet client")).toBe(false);
@@ -105,9 +105,10 @@ describe("taskSleepSync", () => {
       expect(isNapTitle("sieste")).toBe(true);
       expect(isNapTitle("Micro-sieste")).toBe(true);
       expect(isNapTitle("Power nap")).toBe(true);
+      expect(isNapTitle("Journal de sieste")).toBe(true);
 
-      expect(isNapTitle("Journal de sieste")).toBe(false);
-      expect(isNapTitle("Bilan sieste")).toBe(false);
+      expect(isNapTitle("Méditation sieste")).toBe(false);
+      expect(isNapTitle("Podcast sieste")).toBe(false);
       expect(isNapTitle("Sommeil")).toBe(false);
       expect(isNapTitle("Courses")).toBe(false);
     });
@@ -115,7 +116,7 @@ describe("taskSleepSync", () => {
     it("detects both via isSleepOrNapTitle", () => {
       expect(isSleepOrNapTitle("Sommeil")).toBe(true);
       expect(isSleepOrNapTitle("Sieste")).toBe(true);
-      expect(isSleepOrNapTitle("Journal de sommeil")).toBe(false);
+      expect(isSleepOrNapTitle("Journal de sommeil")).toBe(true);
       expect(isSleepOrNapTitle("Travailler")).toBe(false);
     });
   });
@@ -365,6 +366,40 @@ describe("taskSleepSync", () => {
       expect(nightSleep?.duration.hours).toBe(8);
       expect(nightSleep?.duration.minutes).toBe(0);
       expect(nightSleep?.duration.text).toBe("8h 00m");
+    });
+
+    it("syncs multiple phases of sleep on the same day (04h-09h and 11h-15h)", async () => {
+      // Phase 1: morning sleep from 04:00 to 09:00
+      const phase1 = {
+        id: "task-phase-1",
+        title: "Journal de sommeil",
+        startTime: "04:00",
+        endTime: "09:00",
+        userId: "user-multiphase",
+      };
+      await syncTaskWithSleepLog(phase1, "2026-09-26");
+
+      // Phase 2: daytime sleep / nap from 11:00 to 15:00
+      const phase2 = {
+        id: "task-phase-2",
+        title: "Journal de sommeil",
+        startTime: "11:00",
+        endTime: "15:00",
+        userId: "user-multiphase",
+      };
+      await syncTaskWithSleepLog(phase2, "2026-09-26");
+
+      const todayLog = getStoredSleepLog("2026-09-26", "user-multiphase");
+      const eveLog = getStoredSleepLog("2026-09-25", "user-multiphase");
+
+      // Phase 1 (night/morning): 04:00 bedtime on eve, 09:00 wake on today
+      expect(eveLog.bedtime).toBe("04:00");
+      expect(todayLog.wakeTime).toBe("09:00");
+
+      // Phase 2 (daytime sleep): 11:00 to 15:00 in naps
+      expect(todayLog.naps?.length).toBe(1);
+      expect(todayLog.naps?.[0].startTime).toBe("11:00");
+      expect(todayLog.naps?.[0].endTime).toBe("15:00");
     });
   });
 
