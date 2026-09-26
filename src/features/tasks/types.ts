@@ -43,6 +43,8 @@ export interface Task {
   projectStatus?: string | null;
   /** Project-specific category, distinct from the global category */
   projectCategory?: string | null;
+  /** Explicit date for ONCE tasks or single occurrence mapping */
+  date?: string | null;
   createdAt: string;
   updatedAt: string;
 }

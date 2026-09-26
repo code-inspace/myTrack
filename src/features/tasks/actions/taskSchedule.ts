@@ -256,6 +256,7 @@ export async function updateDbTaskStartedAt(
 export async function updateTaskSchedule({
   taskId,
   date,
+  originDate,
   startTime,
   endTime,
   applyToAll = false,
@@ -263,6 +264,7 @@ export async function updateTaskSchedule({
 }: {
   taskId: string;
   date: string;
+  originDate?: string;
   startTime: string | null;
   endTime: string | null;
   applyToAll?: boolean;
@@ -318,6 +320,7 @@ export async function updateTaskSchedule({
             startTime: utcStart,
             endTime: utcEnd,
             createdAt: createdIso,
+            date,
           },
         }),
       });
@@ -331,6 +334,7 @@ export async function updateTaskSchedule({
             ...t,
             startTime,
             endTime,
+            date,
             createdAt: createdIso,
             updatedAt: nowIso,
           }
@@ -342,8 +346,11 @@ export async function updateTaskSchedule({
     const currentOverrides = target?.dateOverrides || {};
     const updatedOverrides = {
       ...currentOverrides,
-      [date]: { startTime: utcStart, endTime: utcEnd },
     };
+    if (originDate && originDate !== date) {
+      updatedOverrides[originDate] = { skipped: true };
+    }
+    updatedOverrides[date] = { startTime: utcStart, endTime: utcEnd };
 
     try {
       await supabase
@@ -379,6 +386,7 @@ export async function updateTaskSchedule({
             ...t,
             dateOverrides: {
               ...currentOverrides,
+              ...(originDate && originDate !== date ? { [originDate]: { skipped: true } } : {}),
               [date]: { startTime, endTime },
             },
             updatedAt: nowIso,

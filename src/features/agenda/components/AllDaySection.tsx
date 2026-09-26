@@ -12,7 +12,7 @@ interface AllDaySectionProps {
   onToggleComplete: (taskId: string, date?: string) => void;
   onToggleReminder?: (taskId: string) => void;
   onEditTask?: (task: TaskWithCompletion) => void;
-  onDropToAllDay: (taskId: string) => void;
+  onDropToAllDay: (taskId: string, date?: string, originDate?: string) => void;
   onDragStartTask: (e: React.DragEvent, task: TaskWithCompletion) => void;
   onSelectTask?: (task: TaskWithCompletion) => void;
 }
@@ -71,9 +71,10 @@ export const AllDaySection: React.FC<AllDaySectionProps> = ({
     if (!taskId) {
       taskId = e.dataTransfer.getData("text/plain");
     }
+    const originDate = e.dataTransfer.getData("originDate") || "";
 
     if (taskId) {
-      onDropToAllDay(taskId);
+      onDropToAllDay(taskId, undefined, originDate);
     }
   };
 
@@ -133,6 +134,7 @@ export const AllDaySection: React.FC<AllDaySectionProps> = ({
                 onDragStart={(e) => {
                   e.dataTransfer.setData("text/plain", task.id);
                   e.dataTransfer.setData("taskId", task.id);
+                  e.dataTransfer.setData("originDate", (task as any).date || "");
                   onDragStartTask(e, task);
                 }}
                 style={

@@ -46,9 +46,9 @@ interface AgendaTimelineProps {
   onDeleteTask?: (taskId: string) => void;
   onCreateTaskAtTime?: (date: string, startTime: string, endTime: string) => void;
   onUpdateTask?: (taskId: string, values: any) => void;
-  onMoveTaskToTime: (taskId: string, startTime: string, endTime: string, date?: string) => void;
-  onDropToAllDay?: (taskId: string, date?: string) => void;
-  onMoveTaskOccurrence?: (taskId: string, targetDate: string) => void;
+  onMoveTaskToTime: (taskId: string, startTime: string, endTime: string, date?: string, originDate?: string) => void;
+  onDropToAllDay?: (taskId: string, date?: string, originDate?: string) => void;
+  onMoveTaskOccurrence?: (taskId: string, targetDate: string, originDate?: string) => void;
   onDragStartTask: (e: React.DragEvent, task: TaskWithCompletion) => void;
   onSelectTask?: (task: TaskWithCompletion) => void;
   onDuplicateTask?: (task: TaskWithCompletion) => void;
@@ -423,12 +423,13 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
     setDragHoverInfo(null);
 
     const taskId = e.dataTransfer.getData("text/plain") || e.dataTransfer.getData("taskId");
+    const originDate = e.dataTransfer.getData("originDate") || "";
     if (!taskId) return;
 
     // Search task in allTasks or tasks across all days
     const rawTask = allTasks.find((t) => t.id === taskId) || tasks.find((t) => t.id === taskId);
-    const startTimeStr = rawTask?.startTime || "09:00";
-    const endTimeStr = rawTask?.endTime || "10:00";
+    const startTimeStr = rawTask?.startTime || (rawTask as any)?.effectiveStartTime || "09:00";
+    const endTimeStr = rawTask?.endTime || (rawTask as any)?.effectiveEndTime || "10:00";
     let durationMins = 60; // Default 1 hour duration
 
     if (startTimeStr && endTimeStr) {
@@ -458,7 +459,8 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
       taskId,
       newStartTimeStr,
       newEndTimeStr,
-      dayDate
+      dayDate,
+      originDate
     );
   };
 
@@ -720,11 +722,12 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
                         const taskId =
                           e.dataTransfer.getData("taskId") ||
                           e.dataTransfer.getData("text/plain");
+                        const originDate = e.dataTransfer.getData("originDate") || "";
                         if (taskId) {
                           if (onMoveTaskOccurrence) {
-                            onMoveTaskOccurrence(taskId, dayStr);
+                            onMoveTaskOccurrence(taskId, dayStr, originDate);
                           } else if (onDropToAllDay) {
-                            onDropToAllDay(taskId, dayStr);
+                            onDropToAllDay(taskId, dayStr, originDate);
                           }
                         }
                       }}
@@ -791,8 +794,9 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
                     onDrop={(e) => {
                       e.preventDefault();
                       const taskId = e.dataTransfer.getData("taskId") || e.dataTransfer.getData("text/plain");
+                      const originDate = e.dataTransfer.getData("originDate") || "";
                       if (taskId && onDropToAllDay) {
-                        onDropToAllDay(taskId, dayStr);
+                        onDropToAllDay(taskId, dayStr, originDate);
                       }
                     }}
                     className={cn(
@@ -871,6 +875,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
                               onDragStart={(e) => {
                                 e.dataTransfer.setData("text/plain", task.id);
                                 e.dataTransfer.setData("taskId", task.id);
+                                e.dataTransfer.setData("originDate", dayStr);
                                 onDragStartTask(e, task);
                               }}
                               onClick={() => {
@@ -1758,7 +1763,12 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
                 widthPercent={widthPercent}
                 isSelected={selectedTaskId === item.task.id || isCurrentlyResizing}
                 resizingInfo={resizingInfo}
-                onDragStart={onDragStartTask}
+                onDragStart={(e, t) => {
+                  e.dataTransfer.setData("text/plain", t.id);
+                  e.dataTransfer.setData("taskId", t.id);
+                  e.dataTransfer.setData("originDate", dayDate);
+                  onDragStartTask(e, t);
+                }}
                 onClick={() => {
                   onSelectTask?.(item.task!);
                 }}

@@ -426,6 +426,9 @@ export async function updateDbTask(
     };
     if (utcStart !== undefined) serverUpdates.startTime = utcStart;
     if (utcEnd !== undefined) serverUpdates.endTime = utcEnd;
+    if (updates.date !== undefined && (updates.recurrence === "ONCE" || target?.recurrence === "ONCE")) {
+      serverUpdates.createdAt = `${updates.date}T12:00:00.000Z`;
+    }
 
     await fetch("/api/tasks", {
       method: "PATCH",

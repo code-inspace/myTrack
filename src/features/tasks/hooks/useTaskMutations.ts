@@ -388,12 +388,14 @@ export function useTaskMutations() {
     mutationFn: async ({
       taskId,
       date,
+      originDate,
       startTime,
       endTime,
       applyToAll,
     }: {
       taskId: string;
       date: string;
+      originDate?: string;
       startTime: string | null;
       endTime: string | null;
       applyToAll?: boolean;
@@ -401,13 +403,14 @@ export function useTaskMutations() {
       await updateTaskSchedule({
         taskId,
         date,
+        originDate,
         startTime,
         endTime,
         applyToAll,
         userId,
       });
     },
-    onMutate: async ({ taskId, date, startTime, endTime, applyToAll }) => {
+    onMutate: async ({ taskId, date, originDate, startTime, endTime, applyToAll }) => {
       await queryClient.cancelQueries({ queryKey: ["tasks", userId] });
       await queryClient.cancelQueries({ queryKey: ["completions", userId] });
       const prevTasks = queryClient.getQueryData<Task[]>(["tasks", userId]);
@@ -421,15 +424,25 @@ export function useTaskMutations() {
           if (t.id !== taskId) return t;
           const isRecurring = t.recurrence && t.recurrence !== "ONCE";
           if (isRecurring && !applyToAll) {
+            const currentOverrides = t.dateOverrides || {};
+            const newOverrides = { ...currentOverrides };
+            if (originDate && originDate !== date) {
+              newOverrides[originDate] = { skipped: true };
+            }
+            newOverrides[date] = { startTime, endTime };
             return {
               ...t,
-              dateOverrides: {
-                ...(t.dateOverrides || {}),
-                [date]: { startTime, endTime },
-              },
+              dateOverrides: newOverrides,
             };
           }
-          return { ...t, startTime, endTime };
+          const createdIso = `${date}T12:00:00.000Z`;
+          return {
+            ...t,
+            startTime,
+            endTime,
+            date,
+            createdAt: createdIso,
+          };
         }),
       );
 
@@ -437,9 +450,10 @@ export function useTaskMutations() {
         ["completions", userId],
         (old = []) =>
           old.map((c) => {
-            if (c.taskId === taskId && (applyToAll || c.date === date)) {
+            if (c.taskId === taskId && (applyToAll || c.date === date || (originDate && c.date === originDate))) {
               return {
                 ...c,
+                date: (originDate && c.date === originDate && !applyToAll) ? date : c.date,
                 scheduledStartTime: startTime ?? c.scheduledStartTime,
                 scheduledEndTime: endTime ?? c.scheduledEndTime,
                 actualStartTime: c.completed

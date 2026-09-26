@@ -27,6 +27,7 @@ export function mapDbTaskToModel(row: any): Task {
   return {
     id: row.id,
     userId: row.user_id || row.userId,
+    date: taskDate,
     title: row.title,
     description: row.description || null,
     tag: row.tag || row.category || rawOverrides._tag || "General",

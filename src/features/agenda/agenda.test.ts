@@ -7,6 +7,7 @@ import {
   formatDurationMinutes,
   parseTimeToMinutes,
 } from "./lib/resize";
+import { Task } from "../tasks/types";
 
 vi.mock("@/utils/supabase/client", () => ({
   createClient: () => ({
@@ -414,5 +415,116 @@ describe("Agenda Multi-Day Task Distribution & Moving Logic", () => {
     const todayAgendaTasks = computeTasksForDate(todayStr, tasksAfter, completionsAfter);
     const todayItem = todayAgendaTasks.find((t) => t.id === taskId);
     expect(todayItem).toBeUndefined();
+  });
+
+  it("moves a ONCE task from one day to another on week view and saves date/time changes", async () => {
+    const { updateTaskSchedule } = await import("../tasks/actions/taskSchedule");
+    const { computeTasksForDate } = await import("./components/AgendaTimeline");
+    const { getStoredTasks, saveStoredTasks } = await import("../tasks/actions/storage");
+
+    const mondayStr = "2026-10-05";
+    const thursdayStr = "2026-10-08";
+    const taskId = "move-once-task-1";
+
+    const initialTask: Task = {
+      id: taskId,
+      userId: "user-move-test",
+      title: "Rapport hebdo",
+      startTime: "09:00",
+      endTime: "10:00",
+      recurrence: "ONCE",
+      createdAt: `${mondayStr}T09:00:00.000Z`,
+      date: mondayStr,
+    } as any;
+
+    saveStoredTasks([initialTask], "user-move-test");
+
+    // Before move: Monday has the task, Thursday does not
+    let monTasks = computeTasksForDate(mondayStr, getStoredTasks("user-move-test"), []);
+    let thuTasks = computeTasksForDate(thursdayStr, getStoredTasks("user-move-test"), []);
+    expect(monTasks.find((t) => t.id === taskId)).toBeDefined();
+    expect(thuTasks.find((t) => t.id === taskId)).toBeUndefined();
+
+    // Drag and drop from Monday to Thursday at 14:00 - 15:30
+    await updateTaskSchedule({
+      taskId,
+      date: thursdayStr,
+      originDate: mondayStr,
+      startTime: "14:00",
+      endTime: "15:30",
+      applyToAll: true,
+      userId: "user-move-test",
+    });
+
+    const storedAfter = getStoredTasks("user-move-test");
+    const movedTask = storedAfter.find((t) => t.id === taskId);
+    expect(movedTask).toBeDefined();
+    expect(movedTask?.startTime).toBe("14:00");
+    expect(movedTask?.endTime).toBe("15:30");
+    expect(movedTask?.createdAt?.split("T")[0]).toBe(thursdayStr);
+    expect((movedTask as any)?.date).toBe(thursdayStr);
+
+    // After move: Monday NO LONGER has the task, Thursday HAS the task with updated times
+    monTasks = computeTasksForDate(mondayStr, storedAfter, []);
+    thuTasks = computeTasksForDate(thursdayStr, storedAfter, []);
+    expect(monTasks.find((t) => t.id === taskId)).toBeUndefined();
+    expect(thuTasks.find((t) => t.id === taskId)).toBeDefined();
+    expect(thuTasks.find((t) => t.id === taskId)?.effectiveStartTime).toBe("14:00");
+    expect(thuTasks.find((t) => t.id === taskId)?.effectiveEndTime).toBe("15:30");
+  });
+
+  it("moves a recurring task occurrence from one day to another on week view", async () => {
+    const { updateTaskSchedule } = await import("../tasks/actions/taskSchedule");
+    const { computeTasksForDate } = await import("./components/AgendaTimeline");
+    const { getStoredTasks, saveStoredTasks } = await import("../tasks/actions/storage");
+
+    const wednesdayStr = "2026-10-07";
+    const fridayStr = "2026-10-09";
+    const taskId = "move-weekly-task-1";
+
+    // Weekly task on Wednesday (2026-10-07 is Wednesday)
+    const weeklyTask: Task = {
+      id: taskId,
+      userId: "user-recurring-move",
+      title: "Point hebdo",
+      startTime: "11:00",
+      endTime: "12:00",
+      recurrence: "WEEKLY",
+      createdAt: `${wednesdayStr}T11:00:00.000Z`,
+      dateOverrides: {},
+    } as any;
+
+    saveStoredTasks([weeklyTask], "user-recurring-move");
+
+    // Before move: Wednesday has the task, Friday does not
+    let wedTasks = computeTasksForDate(wednesdayStr, getStoredTasks("user-recurring-move"), []);
+    let friTasks = computeTasksForDate(fridayStr, getStoredTasks("user-recurring-move"), []);
+    expect(wedTasks.find((t) => t.id === taskId)).toBeDefined();
+    expect(friTasks.find((t) => t.id === taskId)).toBeUndefined();
+
+    // Drag Wednesday occurrence to Friday at 16:00 - 17:00
+    await updateTaskSchedule({
+      taskId,
+      date: fridayStr,
+      originDate: wednesdayStr,
+      startTime: "16:00",
+      endTime: "17:00",
+      applyToAll: false,
+      userId: "user-recurring-move",
+    });
+
+    const storedAfter = getStoredTasks("user-recurring-move");
+    const taskAfter = storedAfter.find((t) => t.id === taskId);
+    expect(taskAfter?.dateOverrides?.[wednesdayStr]?.skipped).toBe(true);
+    expect(taskAfter?.dateOverrides?.[fridayStr]?.startTime).toBe("16:00");
+    expect(taskAfter?.dateOverrides?.[fridayStr]?.endTime).toBe("17:00");
+
+    // After move: Wednesday NO LONGER has this occurrence, Friday HAS it
+    wedTasks = computeTasksForDate(wednesdayStr, storedAfter, []);
+    friTasks = computeTasksForDate(fridayStr, storedAfter, []);
+    expect(wedTasks.find((t) => t.id === taskId)).toBeUndefined();
+    expect(friTasks.find((t) => t.id === taskId)).toBeDefined();
+    expect(friTasks.find((t) => t.id === taskId)?.effectiveStartTime).toBe("16:00");
+    expect(friTasks.find((t) => t.id === taskId)?.effectiveEndTime).toBe("17:00");
   });
 });

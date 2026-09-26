@@ -435,7 +435,13 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
     e.dataTransfer.setData("taskId", task.id);
   };
 
-  const handleMoveTaskToTime = (taskId: string, startTime: string, endTime: string, targetDate?: string) => {
+  const handleMoveTaskToTime = (
+    taskId: string,
+    startTime: string,
+    endTime: string,
+    targetDate?: string,
+    originDate?: string
+  ) => {
     const effectiveDate = targetDate || selectedDate;
     const task = allTasks.find((t) => t.id === taskId) || tasks.find((t) => t.id === taskId);
     const isRecurring = task?.recurrence && task.recurrence !== "ONCE";
@@ -443,13 +449,14 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
     updateSchedule.mutate({
       taskId,
       date: effectiveDate,
+      originDate: originDate || (task as any)?.date,
       startTime,
       endTime,
       applyToAll: !isRecurring,
     });
   };
 
-  const handleDropToAllDay = (taskId: string, targetDate?: string) => {
+  const handleDropToAllDay = (taskId: string, targetDate?: string, originDate?: string) => {
     const effectiveDate = targetDate || selectedDate;
     const task = allTasks.find((t) => t.id === taskId) || tasks.find((t) => t.id === taskId);
     const isRecurring = task?.recurrence && task.recurrence !== "ONCE";
@@ -457,6 +464,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
     updateSchedule.mutate({
       taskId,
       date: effectiveDate,
+      originDate: originDate || (task as any)?.date,
       startTime: null,
       endTime: null,
       applyToAll: !isRecurring,
