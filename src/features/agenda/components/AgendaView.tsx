@@ -92,7 +92,7 @@ export const AgendaView: React.FC = () => {
           allTasks={allTasks}
           allCompletions={allCompletions}
           onSelectDate={setSelectedDate}
-          onToggleComplete={(taskId) => toggleCompletion.mutate({ taskId, date: selectedDate })}
+          onToggleComplete={(taskId, date) => toggleCompletion.mutate({ taskId, date: date || selectedDate })}
           onToggleReminder={(taskId) => {
             const target = tasks.find((t) => t.id === taskId) || allTasks.find((t) => t.id === taskId);
             const newEnable = target ? !Boolean(target.enableReminders) : true;

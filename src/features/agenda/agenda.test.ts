@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeAll } from "vitest";
 import {
   calculateResizedDuration,
   calculateResizedEndMinutes,
@@ -7,6 +7,54 @@ import {
   formatDurationMinutes,
   parseTimeToMinutes,
 } from "./lib/resize";
+
+vi.mock("@/utils/supabase/client", () => ({
+  createClient: () => ({
+    auth: {
+      getSession: vi.fn().mockResolvedValue({ data: { session: null } }),
+    },
+    from: vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({ data: null }),
+        }),
+      }),
+      update: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            select: vi.fn().mockReturnValue({
+              single: vi.fn().mockResolvedValue({ data: null, error: null }),
+            }),
+          }),
+          select: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({ data: null, error: null }),
+          }),
+        }),
+      }),
+      insert: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({ data: null }),
+        }),
+      }),
+    }),
+  }),
+}));
+
+beforeAll(() => {
+  const store = new Map<string, string>();
+  (global as any).window = {};
+  (global as any).localStorage = {
+    getItem: (k: string) => store.get(k) || null,
+    setItem: (k: string, v: string) => store.set(k, v),
+    removeItem: (k: string) => store.delete(k),
+    clear: () => store.clear(),
+  };
+
+  global.fetch = vi.fn().mockResolvedValue({
+    ok: true,
+    json: async () => ({}),
+  } as any);
+});
 
 describe("Agenda Task Resizing Logic (Mobile & Desktop)", () => {
   it("parses and formats time strings accurately", () => {
@@ -303,5 +351,68 @@ describe("Agenda Multi-Day Task Distribution & Moving Logic", () => {
     const endMinsNormalized = totalEndMins % (24 * 60); // 390 mins = 06:30
     const newEndTimeStr = formatMinutesToTime(endMinsNormalized);
     expect(newEndTimeStr).toBe("06:30");
+  });
+
+  it("preserves exact date and hours when an event from 3 days ago is marked as done from the week view", async () => {
+    const { computeTasksForDate } = await import("./components/AgendaTimeline");
+    const { getTodayDateString } = await import("@/lib/dates");
+    const { subDays, format, parseISO } = await import("date-fns");
+    const { closeTaskAsCompleted } = await import("../tasks/actions/taskCompletions");
+    const { getStoredTasks, saveStoredTasks, getStoredCompletions } = await import("../tasks/actions/storage");
+
+    const todayStr = getTodayDateString();
+    const todayDate = parseISO(todayStr);
+    const threeDaysAgoStr = format(subDays(todayDate, 3), "yyyy-MM-dd");
+
+    const taskId = "task-3-days-ago";
+    const testTask: any = {
+      id: taskId,
+      userId: "user-test-past",
+      title: "Réunion passée",
+      startTime: "14:00",
+      endTime: "15:30",
+      recurrence: "ONCE",
+      createdAt: `${threeDaysAgoStr}T12:00:00.000Z`,
+      trackingType: "BOOLEAN",
+      isActive: false,
+      isArchived: false,
+    };
+
+    // Save task in storage
+    saveStoredTasks([testTask], "user-test-past");
+
+    // Mark as completed on threeDaysAgoStr (e.g. user clicks done on week view for that column)
+    await closeTaskAsCompleted(taskId, threeDaysAgoStr, "user-test-past");
+
+    // Verify task properties in storage remain unchanged
+    const tasksAfter = getStoredTasks("user-test-past");
+    const taskAfter = tasksAfter.find((t) => t.id === taskId);
+    expect(taskAfter).toBeDefined();
+    expect(taskAfter?.startTime).toBe("14:00");
+    expect(taskAfter?.endTime).toBe("15:30");
+    expect(taskAfter?.createdAt?.split("T")[0]).toBe(threeDaysAgoStr);
+
+    // Verify completion record is attributed to threeDaysAgoStr with preserved hours
+    const completionsAfter = getStoredCompletions("user-test-past");
+    const completion = completionsAfter.find((c) => c.taskId === taskId && c.date === threeDaysAgoStr);
+    expect(completion).toBeDefined();
+    expect(completion?.completed).toBe(true);
+    expect(completion?.scheduledStartTime).toBe("14:00");
+    expect(completion?.scheduledEndTime).toBe("15:30");
+    expect(completion?.actualStartTime).toBe("14:00");
+    expect(completion?.actualEndTime).toBe("15:30");
+
+    // Verify agenda computation for threeDaysAgoStr
+    const pastAgendaTasks = computeTasksForDate(threeDaysAgoStr, tasksAfter, completionsAfter);
+    const pastItem = pastAgendaTasks.find((t) => t.id === taskId);
+    expect(pastItem).toBeDefined();
+    expect(pastItem?.isCompletedToday).toBe(true);
+    expect(pastItem?.effectiveStartTime).toBe("14:00");
+    expect(pastItem?.effectiveEndTime).toBe("15:30");
+
+    // Verify it does NOT appear on today's agenda
+    const todayAgendaTasks = computeTasksForDate(todayStr, tasksAfter, completionsAfter);
+    const todayItem = todayAgendaTasks.find((t) => t.id === taskId);
+    expect(todayItem).toBeUndefined();
   });
 });

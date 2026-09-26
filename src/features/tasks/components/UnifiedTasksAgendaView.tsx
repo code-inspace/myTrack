@@ -884,7 +884,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
                   allTasks={allTasks}
                   allCompletions={allCompletions}
                   onSelectDate={setSelectedDate}
-                  onToggleComplete={(taskId) => toggleCompletion.mutate({ taskId, date: selectedDate })}
+                  onToggleComplete={(taskId, date) => toggleCompletion.mutate({ taskId, date: date || selectedDate })}
                   onToggleReminder={(taskId) => {
                     const target = tasks.find((t) => t.id === taskId) || allTasks.find((t) => t.id === taskId);
                     const newEnable = !Boolean(target?.enableReminders);

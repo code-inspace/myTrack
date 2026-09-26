@@ -40,7 +40,7 @@ interface AgendaTimelineProps {
   allTasks?: Task[];
   allCompletions?: TaskCompletion[];
   onSelectDate?: (date: string) => void;
-  onToggleComplete: (taskId: string) => void;
+  onToggleComplete: (taskId: string, date?: string) => void;
   onToggleReminder?: (taskId: string) => void;
   onEditTask?: (task: TaskWithCompletion) => void;
   onDeleteTask?: (taskId: string) => void;
@@ -893,7 +893,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
                                 onPointerDown={(e) => e.stopPropagation()}
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  onToggleComplete(task.id);
+                                  onToggleComplete(task.id, dayStr);
                                 }}
                                 className="hover:scale-110 transition-transform cursor-pointer"
                               >
@@ -992,7 +992,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
                   onGridDragOver={handleGridDragOver}
                   onGridDragLeave={handleGridDragLeave}
                   onGridDrop={handleGridDrop}
-                  onToggleComplete={onToggleComplete}
+                  onToggleComplete={(taskId, date) => onToggleComplete(taskId, date || dayStr)}
                   onToggleReminder={onToggleReminder}
                   onEditTask={onEditTask}
                   onCreateTaskAtTime={onCreateTaskAtTime}
@@ -1052,7 +1052,9 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
           setSelectedTaskIdForDetail(null);
           setSelectedTaskForDetailSnapshot(null);
         }}
-        onToggleComplete={onToggleComplete}
+        onToggleComplete={(taskId, date) =>
+          onToggleComplete(taskId, date || (activeTaskForDetail as any)?.date || selectedDate)
+        }
         onToggleReminder={onToggleReminder}
         onDuplicateTask={onDuplicateTask}
         onDeleteTask={(taskId) => {
@@ -1106,7 +1108,7 @@ interface DayGridColumnProps {
   onGridDragOver: (e: React.DragEvent, dayDate: string, el: HTMLDivElement) => void;
   onGridDragLeave: () => void;
   onGridDrop: (e: React.DragEvent, dayDate: string, el: HTMLDivElement) => void;
-  onToggleComplete: (taskId: string) => void;
+  onToggleComplete: (taskId: string, date?: string) => void;
   onToggleReminder?: (taskId: string) => void;
   onEditTask?: (task: TaskWithCompletion) => void;
   onCreateTaskAtTime?: (date: string, startTime: string, endTime: string) => void;

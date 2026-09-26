@@ -9,7 +9,7 @@ import { useProjects } from "@/features/projects/hooks";
 
 interface AllDaySectionProps {
   tasks: TaskWithCompletion[];
-  onToggleComplete: (taskId: string) => void;
+  onToggleComplete: (taskId: string, date?: string) => void;
   onToggleReminder?: (taskId: string) => void;
   onEditTask?: (task: TaskWithCompletion) => void;
   onDropToAllDay: (taskId: string) => void;
@@ -161,7 +161,7 @@ export const AllDaySection: React.FC<AllDaySectionProps> = ({
                   onMouseDown={(e) => e.stopPropagation()}
                   onClick={(e) => {
                     e.stopPropagation();
-                    onToggleComplete(task.id);
+                    onToggleComplete(task.id, (task as any).date);
                   }}
                   className="hover:scale-110 transition-transform cursor-pointer"
                 >
