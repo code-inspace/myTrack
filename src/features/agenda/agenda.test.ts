@@ -593,4 +593,60 @@ describe("Agenda Multi-Day Task Distribution & Moving Logic", () => {
     expect(satItem?.effectiveStartTime).toBe("10:00");
     expect(satItem?.effectiveEndTime).toBe("11:30");
   });
+
+  it("gère correctement un événement à cheval sur 2 jours (ex: 20:50 à 03:10) sur le Jour 1 et Jour 2", async () => {
+    const { computeTasksForDate } = await import("./components/AgendaTimeline");
+    const { formatCrossDayTimeLabel } = await import("@/lib/dates");
+
+    const day1 = "2026-10-16";
+    const day2 = "2026-10-17";
+    const taskId = "bday-party-event";
+
+    const overnightTask: Task = {
+      id: taskId,
+      userId: "user-bday-test",
+      title: "Bday",
+      startTime: "20:50",
+      endTime: "03:10",
+      recurrence: "ONCE",
+      createdAt: `${day1}T20:50:00.000Z`,
+      date: day1,
+      dateOverrides: {},
+    } as any;
+
+    // Simulated completion (even if it has arbitrary actual execution timestamps like 21:10 - 22:10)
+    const completions: any[] = [
+      {
+        id: "comp-bday",
+        taskId,
+        date: day1,
+        completed: true,
+        actualStartTime: "21:10",
+        actualEndTime: "22:10",
+      },
+    ];
+
+    // Day 1: must be tagged as overnightPart: "start", with startTime 20:50 and endTime 03:10
+    const day1Tasks = computeTasksForDate(day1, [overnightTask], completions);
+    const day1Item = day1Tasks.find((t) => t.id === taskId);
+    expect(day1Item).toBeDefined();
+    expect(day1Item?.overnightPart).toBe("start");
+    expect(day1Item?.effectiveStartTime).toBe("20:50");
+    expect(day1Item?.effectiveEndTime).toBe("03:10");
+    expect(day1Item?.isCompletedToday).toBe(true);
+
+    const day1Label = formatCrossDayTimeLabel(day1Item?.effectiveStartTime, day1Item?.effectiveEndTime, day1Item?.overnightPart);
+    expect(day1Label).toBe("20:50 → 03:10 (+1j)");
+
+    // Day 2: must be tagged as overnightPart: "end", with origin from Day 1
+    const day2Tasks = computeTasksForDate(day2, [overnightTask], completions);
+    const day2Item = day2Tasks.find((t) => t.id === taskId);
+    expect(day2Item).toBeDefined();
+    expect(day2Item?.overnightPart).toBe("end");
+    expect(day2Item?.effectiveStartTime).toBe("20:50");
+    expect(day2Item?.effectiveEndTime).toBe("03:10");
+
+    const day2Label = formatCrossDayTimeLabel(day2Item?.effectiveStartTime, day2Item?.effectiveEndTime, day2Item?.overnightPart);
+    expect(day2Label).toBe("(Veille 20:50) → 03:10");
+  });
 });

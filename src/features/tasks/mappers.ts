@@ -1,4 +1,5 @@
 import { Task, TaskCompletion, TaskWithCompletion } from "./types";
+import { isOvernightTimeRange } from "@/lib/dates";
 
 export function mapTaskWithCompletion(
   task: Task,
@@ -10,12 +11,23 @@ export function mapTaskWithCompletion(
 
   // Check for day-specific override and completion actual execution times
   const override = task.dateOverrides?.[selectedDate];
-  const effectiveStartTime =
-    completion?.actualStartTime ||
-    (override && override.startTime !== undefined ? override.startTime : task.startTime);
-  const effectiveEndTime =
-    completion?.actualEndTime ||
-    (override && override.endTime !== undefined ? override.endTime : task.endTime);
+  const scheduledStartTime =
+    override && override.startTime !== undefined ? override.startTime : task.startTime;
+  const scheduledEndTime =
+    override && override.endTime !== undefined ? override.endTime : task.endTime;
+
+  const isScheduledOvernight = isOvernightTimeRange(scheduledStartTime, scheduledEndTime);
+
+  let effectiveStartTime =
+    completion?.actualStartTime || scheduledStartTime;
+  let effectiveEndTime =
+    completion?.actualEndTime || scheduledEndTime;
+
+  // Prevent a non-overnight completion record from overriding a scheduled overnight range
+  if (isScheduledOvernight && !isOvernightTimeRange(effectiveStartTime, effectiveEndTime)) {
+    effectiveStartTime = scheduledStartTime;
+    effectiveEndTime = scheduledEndTime;
+  }
 
   return {
     ...task,

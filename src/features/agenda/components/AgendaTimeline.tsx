@@ -163,10 +163,16 @@ export function computeTasksForDate(
     // 2. Tasks scheduled on target date (dateStr)
     const isTodayScheduled = isScheduledOn(task, date, dateStr);
     if (isTodayScheduled) {
+      const todayOverride = task.dateOverrides?.[dateStr];
+      const sTime = todayOverride?.startTime !== undefined ? todayOverride.startTime : task.startTime;
+      const eTime = todayOverride?.endTime !== undefined ? todayOverride.endTime : task.endTime;
+      const isOvernight = isOvernightTimeRange(sTime, eTime);
+
       const mapped = mapTaskWithCompletion(task, allCompletions, dateStr);
-      const isOvernight = isOvernightTimeRange(mapped.effectiveStartTime, mapped.effectiveEndTime);
       result.push({
         ...mapped,
+        effectiveStartTime: isOvernight ? sTime : mapped.effectiveStartTime,
+        effectiveEndTime: isOvernight ? eTime : mapped.effectiveEndTime,
         overnightPart: isOvernight ? "start" : undefined,
         overnightOriginDate: isOvernight ? dateStr : undefined,
       });
