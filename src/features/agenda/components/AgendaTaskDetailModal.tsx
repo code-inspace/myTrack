@@ -75,7 +75,7 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
 
   const isDeletingRef = React.useRef(false);
-  const prevTaskIdRef = React.useRef<string | null>(task?.id || null);
+  const activeTaskIdRef = React.useRef<string | null>(null);
 
   // Initial snapshot to compare and only send what truly changed
   const initialSnapshotRef = React.useRef({
@@ -98,21 +98,30 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
   });
 
   const isDirtyRef = React.useRef(false);
-  const resetSavedStatusTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const markSaved = React.useCallback(() => {
-    setSaveStatus("saved");
-    if (resetSavedStatusTimeoutRef.current) {
-      clearTimeout(resetSavedStatusTimeoutRef.current);
-    }
-    resetSavedStatusTimeoutRef.current = setTimeout(() => {
-      setSaveStatus("idle");
-    }, 2000);
-  }, []);
+  // Keep references to latest callbacks and props without triggering re-renders or effect re-runs
+  const propsRef = React.useRef({
+    task,
+    selectedDate,
+    onUpdateTask,
+    onUpdateTimes,
+    onClose,
+  });
+
+  React.useEffect(() => {
+    propsRef.current = {
+      task,
+      selectedDate,
+      onUpdateTask,
+      onUpdateTimes,
+      onClose,
+    };
+  });
 
   // Flush all pending changes in a SINGLE atomic request strictly upon modal close
   const flushPendingSave = React.useCallback(() => {
-    if (!isDirtyRef.current || isDeletingRef.current || !task) {
+    const currentTask = propsRef.current.task;
+    if (!isDirtyRef.current || isDeletingRef.current || !currentTask) {
       return;
     }
 
@@ -139,14 +148,12 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
       return;
     }
 
-    setSaveStatus("saving");
-
-    const effectiveTitle = trimmedTitle || task.title;
+    const effectiveTitle = trimmedTitle || currentTask.title;
     const isSleep = isSleepTitle(effectiveTitle);
     const isNap = isNapTitle(effectiveTitle);
 
     const updates: Partial<TaskFormValues> = {
-      date: selectedDate,
+      date: propsRef.current.selectedDate,
     };
 
     if (hasTitleChanged) {
@@ -173,35 +180,29 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
       updates.category = "Santé";
       updates.tag = "Santé";
       updates.trackingType = "DURATION";
-      updates.targetValue = task.targetValue || (isNap ? 30 : 480);
+      updates.targetValue = currentTask.targetValue || (isNap ? 30 : 480);
       const parsed = extractTimesFromTitle(effectiveTitle);
       if (parsed.cleanTitle && parsed.cleanTitle !== effectiveTitle) {
         updates.title = parsed.cleanTitle;
-        setTitle(parsed.cleanTitle);
-        currentValuesRef.current.title = parsed.cleanTitle;
       }
       if (parsed.startTime) {
         updates.startTime = parsed.startTime;
-        setStartTime(parsed.startTime);
-        currentValuesRef.current.startTime = parsed.startTime;
       }
       if (parsed.endTime) {
         updates.endTime = parsed.endTime;
-        setEndTime(parsed.endTime);
-        currentValuesRef.current.endTime = parsed.endTime;
       }
     }
 
     // Single consolidated mutation
-    onUpdateTask?.(task.id, updates);
+    propsRef.current.onUpdateTask?.(currentTask.id, updates);
 
     // If times changed and custom calendar handler exists
-    if ((hasStartTimeChanged || hasEndTimeChanged) && onUpdateTimes) {
-      onUpdateTimes(
-        task.id,
+    if ((hasStartTimeChanged || hasEndTimeChanged) && propsRef.current.onUpdateTimes) {
+      propsRef.current.onUpdateTimes(
+        currentTask.id,
         updates.startTime || curr.startTime,
         updates.endTime || curr.endTime,
-        selectedDate
+        propsRef.current.selectedDate
       );
     }
 
@@ -209,108 +210,85 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
     if (isSleep || isNap) {
       syncTaskWithSleepLog(
         {
-          ...task,
+          ...currentTask,
           title: updates.title || effectiveTitle,
           startTime: updates.startTime || curr.startTime,
           endTime: updates.endTime || curr.endTime,
           trackingType: "DURATION",
-          targetValue: updates.targetValue || task.targetValue || (isNap ? 30 : 480),
+          targetValue: updates.targetValue || currentTask.targetValue || (isNap ? 30 : 480),
         },
-        selectedDate
+        propsRef.current.selectedDate
       ).catch((e) => console.warn("syncTaskWithSleepLog error:", e));
     }
 
     // Update snapshot to prevent duplicate writes
     initialSnapshotRef.current = { ...currentValuesRef.current };
     isDirtyRef.current = false;
-    markSaved();
-  }, [task, onUpdateTask, onUpdateTimes, selectedDate, markSaved]);
+  }, []);
 
-  // Synchronize when task changes or modal opens
+  // Synchronize ONLY when a different task is opened or modal is freshly opened
   React.useEffect(() => {
-    if (task) {
-      if (task.id !== prevTaskIdRef.current) {
-        // Different task opened: flush previous edits then re-initialize
+    if (!isOpen || !task) {
+      if (isDirtyRef.current) {
         flushPendingSave();
-        prevTaskIdRef.current = task.id;
-        isDeletingRef.current = false;
-        isDirtyRef.current = false;
-
-        const initTitle = task.title || "";
-        const initProj = task.projectId || "";
-        const initCat = task.projectCategory || "";
-        const initStart = task.effectiveStartTime || task.startTime || "09:00";
-        const initEnd = task.effectiveEndTime || task.endTime || "10:00";
-        const initReminders = Boolean(task.enableReminders);
-
-        setTitle(initTitle);
-        setSelectedProjectId(initProj);
-        setProjectCategory(initCat);
-        setStartTime(initStart);
-        setEndTime(initEnd);
-        setIsDone(Boolean(task.isCompletedToday));
-        setIsRemindersEnabled(initReminders);
-        setNewSubprojectInput("");
-        setSaveStatus("idle");
-
-        initialSnapshotRef.current = {
-          title: initTitle,
-          projectId: initProj,
-          projectCategory: initCat,
-          startTime: initStart,
-          endTime: initEnd,
-          enableReminders: initReminders,
-        };
-
-        currentValuesRef.current = {
-          title: initTitle,
-          projectId: initProj,
-          projectCategory: initCat,
-          startTime: initStart,
-          endTime: initEnd,
-          enableReminders: initReminders,
-        };
-      } else {
-        // Same task: only update external non-dirty fields
-        if (!isDirtyRef.current) {
-          setTitle(task.title || "");
-          const s = task.effectiveStartTime || task.startTime || "09:00";
-          const e = task.effectiveEndTime || task.endTime || "10:00";
-          setStartTime(s);
-          setEndTime(e);
-          setSelectedProjectId(task.projectId || "");
-          setProjectCategory(task.projectCategory || "");
-          setIsRemindersEnabled(Boolean(task.enableReminders));
-          currentValuesRef.current = {
-            title: task.title || "",
-            projectId: task.projectId || "",
-            projectCategory: task.projectCategory || "",
-            startTime: s,
-            endTime: e,
-            enableReminders: Boolean(task.enableReminders),
-          };
-          initialSnapshotRef.current = { ...currentValuesRef.current };
-        }
-        setIsDone(Boolean(task.isCompletedToday));
       }
+      activeTaskIdRef.current = null;
+      return;
     }
-  }, [
-    task,
-    task?.id,
-    task?.isCompletedToday,
-    task?.enableReminders,
-    task?.projectCategory,
-    task?.projectId,
-    flushPendingSave,
-  ]);
+
+    // If opening a new task
+    if (task.id !== activeTaskIdRef.current) {
+      if (isDirtyRef.current) {
+        flushPendingSave();
+      }
+      activeTaskIdRef.current = task.id;
+      isDeletingRef.current = false;
+      isDirtyRef.current = false;
+
+      const initTitle = task.title || "";
+      const initProj = task.projectId || "";
+      const initCat = task.projectCategory || "";
+      const initStart = task.effectiveStartTime || task.startTime || "09:00";
+      const initEnd = task.effectiveEndTime || task.endTime || "10:00";
+      const initReminders = Boolean(task.enableReminders);
+
+      setTitle(initTitle);
+      setSelectedProjectId(initProj);
+      setProjectCategory(initCat);
+      setStartTime(initStart);
+      setEndTime(initEnd);
+      setIsDone(Boolean(task.isCompletedToday));
+      setIsRemindersEnabled(initReminders);
+      setNewSubprojectInput("");
+      setSaveStatus("idle");
+
+      initialSnapshotRef.current = {
+        title: initTitle,
+        projectId: initProj,
+        projectCategory: initCat,
+        startTime: initStart,
+        endTime: initEnd,
+        enableReminders: initReminders,
+      };
+
+      currentValuesRef.current = {
+        title: initTitle,
+        projectId: initProj,
+        projectCategory: initCat,
+        startTime: initStart,
+        endTime: initEnd,
+        enableReminders: initReminders,
+      };
+    } else {
+      // If same task, only sync external completion state if changed
+      setIsDone(Boolean(task.isCompletedToday));
+    }
+  }, [isOpen, task?.id, task?.isCompletedToday, flushPendingSave]);
 
   // Flush pending save on unmount
   React.useEffect(() => {
     return () => {
       flushPendingSave();
-      if (resetSavedStatusTimeoutRef.current) {
-        clearTimeout(resetSavedStatusTimeoutRef.current);
-      }
     };
   }, [flushPendingSave]);
 
@@ -319,7 +297,7 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
     onClose();
   }, [flushPendingSave, onClose]);
 
-  // Handle Escape key to close with auto-save
+  // Handle Escape key to close with save
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape" && isOpen) {

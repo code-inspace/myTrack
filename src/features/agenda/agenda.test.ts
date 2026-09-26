@@ -282,4 +282,26 @@ describe("Agenda Multi-Day Task Distribution & Moving Logic", () => {
     );
     expect(hasActualSavedSleep).toBe(true);
   });
+
+  it("calculates accurate duration and wrap-around end time when dragging cross-day overnight tasks", () => {
+    // An overnight task from 23:00 to 07:00 (8 hours = 480 mins)
+    const startTimeStr = "23:00";
+    const endTimeStr = "07:00";
+    const s = parseTimeToMinutes(startTimeStr);
+    let end = parseTimeToMinutes(endTimeStr);
+    if (end <= s) {
+      end += 24 * 60;
+    }
+    const durationMins = end - s;
+    expect(durationMins).toBe(480); // 8 hours
+
+    // Dropped onto another day at 22:30 (1350 mins)
+    const snappedStartMins = parseTimeToMinutes("22:30");
+    const totalEndMins = snappedStartMins + durationMins; // 1350 + 480 = 1830 mins
+    expect(totalEndMins >= 24 * 60).toBe(true);
+
+    const endMinsNormalized = totalEndMins % (24 * 60); // 390 mins = 06:30
+    const newEndTimeStr = formatMinutesToTime(endMinsNormalized);
+    expect(newEndTimeStr).toBe("06:30");
+  });
 });

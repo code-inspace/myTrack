@@ -117,12 +117,6 @@ export function useTaskForm({
 
   const prevIsOpenRef = useRef(false);
   const prevTaskIdRef = useRef<string | null | undefined>(undefined);
-  const skipNextAutoSaveRef = useRef(true);
-  const autoSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pendingAutoSaveRef = useRef<{
-    taskId: string;
-    values: TaskFormValues;
-  } | null>(null);
 
   // Sync state when modal opens or initialTask changes
   useEffect(() => {
@@ -231,86 +225,17 @@ export function useTaskForm({
     projectCategory: projectId && projectCategory.trim() ? projectCategory.trim() : null,
   });
 
-  const flushAutoSave = () => {
-    if (autoSaveTimeoutRef.current) {
-      clearTimeout(autoSaveTimeoutRef.current);
-      autoSaveTimeoutRef.current = null;
-    }
-    if (pendingAutoSaveRef.current) {
-      updateTask.mutate(pendingAutoSaveRef.current);
-      pendingAutoSaveRef.current = null;
-    }
-  };
-
-  // Debounced auto-save
-  useEffect(() => {
-    if (!isOpen || !isEditing || !initialTask?.id) return;
-    const taskId = initialTask.id;
-
-    if (skipNextAutoSaveRef.current) {
-      skipNextAutoSaveRef.current = false;
-      return;
-    }
-    if (!title.trim()) return;
-
-    pendingAutoSaveRef.current = { taskId, values: buildFormValues() };
-    if (autoSaveTimeoutRef.current) clearTimeout(autoSaveTimeoutRef.current);
-    autoSaveTimeoutRef.current = setTimeout(flushAutoSave, 700);
-
-    return () => {
-      if (autoSaveTimeoutRef.current) {
-        clearTimeout(autoSaveTimeoutRef.current);
-        autoSaveTimeoutRef.current = null;
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    isOpen,
-    isEditing,
-    initialTask?.id,
-    title,
-    description,
-    category,
-    trackingType,
-    targetValue,
-    unit,
-    hasScheduledTime,
-    startTime,
-    endTime,
-    targetDate,
-    deadline,
-    priority,
-    recurrence,
-    selectedDays,
-    enableReminders,
-    reminderOffsetMinutes,
-    reminderTimes,
-    projectId,
-    projectStatus,
-    projectCategory,
-  ]);
-
-  // Flush on unmount to never lose edits on close
-  useEffect(() => {
-    return () => {
-      flushAutoSave();
-    };
-  }, []);
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
-    if (autoSaveTimeoutRef.current) {
-      clearTimeout(autoSaveTimeoutRef.current);
-      autoSaveTimeoutRef.current = null;
-      pendingAutoSaveRef.current = null;
-    }
     onSubmit(buildFormValues(), initialTask?.id);
     onClose();
   };
 
   const handleCloseWhileEditing = () => {
-    flushAutoSave();
+    if (title.trim() && isEditing && initialTask?.id) {
+      onSubmit(buildFormValues(), initialTask.id);
+    }
     onClose();
   };
 

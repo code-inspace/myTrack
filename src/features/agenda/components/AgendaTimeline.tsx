@@ -425,25 +425,39 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
     const taskId = e.dataTransfer.getData("text/plain") || e.dataTransfer.getData("taskId");
     if (!taskId) return;
 
-    const dayTasks = timedTasksByDay.get(dayDate) || [];
-    const timedTask = dayTasks.find((t) => t.id === taskId);
-    const rawTask = allTasks.find((t) => t.id === taskId);
-    const startTimeStr = timedTask?.effectiveStartTime || timedTask?.startTime || rawTask?.startTime;
-    const endTimeStr = timedTask?.effectiveEndTime || timedTask?.endTime || rawTask?.endTime;
+    // Search task in allTasks or tasks across all days
+    const rawTask = allTasks.find((t) => t.id === taskId) || tasks.find((t) => t.id === taskId);
+    const startTimeStr = rawTask?.startTime || "09:00";
+    const endTimeStr = rawTask?.endTime || "10:00";
     let durationMins = 60; // Default 1 hour duration
 
     if (startTimeStr && endTimeStr) {
       const s = parseTimeToMinutes(startTimeStr);
-      const end = parseTimeToMinutes(endTimeStr);
+      let end = parseTimeToMinutes(endTimeStr);
+      if (end <= s) {
+        // Cross-day / overnight event (e.g. 23:00 -> 07:00 => 8 hours = 480 mins)
+        end += 24 * 60;
+      }
       durationMins = Math.max(1, end - s);
     }
 
-    const snappedEndMins = Math.min(23 * 60 + 55, snappedStartMins + durationMins);
+    const totalEndMins = snappedStartMins + durationMins;
+    let newEndTimeStr: string;
+
+    if (totalEndMins >= 24 * 60) {
+      // Event spans into next day (overnight)
+      const endMinsNormalized = totalEndMins % (24 * 60);
+      newEndTimeStr = formatMinutesToTime(endMinsNormalized);
+    } else {
+      newEndTimeStr = formatMinutesToTime(totalEndMins);
+    }
+
+    const newStartTimeStr = formatMinutesToTime(snappedStartMins);
 
     onMoveTaskToTime(
       taskId,
-      formatMinutesToTime(snappedStartMins),
-      formatMinutesToTime(snappedEndMins),
+      newStartTimeStr,
+      newEndTimeStr,
       dayDate
     );
   };
@@ -1408,16 +1422,20 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
           const hasTaskMorningSleep = tasks.some((t) => isSleepTitle(t.title) && (t.overnightPart === "end" || (!t.overnightPart && parseTimeToMinutes(t.startTime || "") < 12 * 60)));
           const hasTaskEveningSleep = tasks.some((t) => isSleepTitle(t.title) && (t.overnightPart === "start" || (!t.overnightPart && parseTimeToMinutes(t.startTime || "") >= 18 * 60)));
 
+          const todayDateStr = getTodayDateString();
+          const isFutureDate = dayDate > todayDateStr;
+
           // 3a. Morning Sleep (00:00 -> Réveil)
           // Sommeil Sauvegardé en base de données / Repéré (Violet)
-          const hasActualMorningSleep = Boolean(
-            yesterdayLog.bedtimeValidated ||
-            yesterdayLog.updatedAt ||
-            todayLog.wakeTimeValidated ||
-            todayLog.updatedAt ||
-            (yesterdayLog.bedtime && yesterdayLog.bedtime !== "23:00") ||
-            (todayLog.wakeTime && todayLog.wakeTime !== "07:00")
-          );
+          // Pour les jours futurs, le réveil ne peut pas être déjà passé/enregistré
+          const hasActualMorningSleep =
+            !isFutureDate &&
+            Boolean(
+              todayLog.wakeTimeValidated ||
+              (todayLog.wakeTime && todayLog.wakeTime !== "07:00") ||
+              yesterdayLog.bedtimeValidated ||
+              (yesterdayLog.bedtime && yesterdayLog.bedtime !== "23:00")
+            );
 
           if (!hasTaskMorningSleep) {
             if (hasActualMorningSleep && todayLog.wakeTime) {
@@ -1507,11 +1525,15 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
 
           // 3b. Evening Sleep Onset (Coucher -> 24:00)
           // Sommeil Sauvegardé en base de données / Repéré (Violet)
-          const hasActualEveningBedtime = Boolean(
-            todayLog.bedtimeValidated ||
-            (todayLog.updatedAt && todayLog.bedtime) ||
-            (todayLog.bedtime && todayLog.bedtime !== "23:00")
-          );
+          // Pour les jours futurs (ou coucher non encore validé), c'est un objectif (Gris).
+          // Note : on n'utilise pas todayLog.updatedAt pour valider le coucher 23:00 car
+          // l'enregistrement du réveil du matin met déjà à jour updatedAt sur la journée.
+          const hasActualEveningBedtime =
+            !isFutureDate &&
+            Boolean(
+              todayLog.bedtimeValidated ||
+              (todayLog.bedtime && todayLog.bedtime !== "23:00")
+            );
 
           if (!hasTaskEveningSleep) {
             if (hasActualEveningBedtime && todayLog.bedtime) {
