@@ -1161,6 +1161,7 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
   const colRef = useRef<HTMLDivElement>(null);
   const longPressEmptyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pointerDownCoordRef = useRef<{ x: number; y: number } | null>(null);
+  const hasTriggeredRef = useRef(false);
 
   const handleEmptyPointerDown = (e: React.PointerEvent) => {
     if (e.button !== 0) return;
@@ -1178,6 +1179,7 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
     }
 
     pointerDownCoordRef.current = { x: e.clientX, y: e.clientY };
+    hasTriggeredRef.current = false;
     if (longPressEmptyTimerRef.current) clearTimeout(longPressEmptyTimerRef.current);
 
     longPressEmptyTimerRef.current = setTimeout(() => {
@@ -1187,6 +1189,7 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
       const snappedStartMins = Math.max(0, Math.min(23 * 60, Math.round(offsetY / 5) * 5));
       const snappedEndMins = Math.min(23 * 60 + 55, snappedStartMins + 60);
 
+      hasTriggeredRef.current = true;
       try {
         navigator.vibrate?.(35);
       } catch { }
@@ -1196,7 +1199,7 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
         formatMinutesToTime(snappedStartMins),
         formatMinutesToTime(snappedEndMins)
       );
-    }, 350);
+    }, 400);
   };
 
   const handleEmptyPointerMove = (e: React.PointerEvent) => {
@@ -1218,15 +1221,26 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
       longPressEmptyTimerRef.current = null;
     }
 
-    // On desktop with mouse/pen: simple click on empty space immediately creates a task
-    if (pointerDownCoordRef.current && (e.pointerType === "mouse" || e.pointerType === "pen" || !e.pointerType)) {
+    // If long-press already triggered, do not trigger again
+    if (hasTriggeredRef.current) {
+      hasTriggeredRef.current = false;
+      pointerDownCoordRef.current = null;
+      return;
+    }
+
+    // Tap or Click on empty space (works on iOS touch, Android, mouse, pen):
+    if (pointerDownCoordRef.current && colRef.current) {
       const dx = Math.abs(e.clientX - pointerDownCoordRef.current.x);
       const dy = Math.abs(e.clientY - pointerDownCoordRef.current.y);
-      if (dx <= 6 && dy <= 6 && colRef.current) {
+      if (dx <= 8 && dy <= 8) {
         const rect = colRef.current.getBoundingClientRect();
-        const offsetY = e.clientY - rect.top;
+        const offsetY = pointerDownCoordRef.current.y - rect.top;
         const snappedStartMins = Math.max(0, Math.min(23 * 60, Math.round(offsetY / 5) * 5));
         const snappedEndMins = Math.min(23 * 60 + 55, snappedStartMins + 60);
+
+        try {
+          navigator.vibrate?.(25);
+        } catch { }
 
         onCreateTaskAtTime?.(
           dayDate,
