@@ -221,8 +221,11 @@ export function useTasks(selectedDateStr: string) {
     );
   };
 
+  const safeAllTasks = (Array.isArray(allTasks) ? allTasks : []).filter((t): t is Task => Boolean(t && t.id));
+  const safeAllCompletions = (Array.isArray(allCompletions) ? allCompletions : []).filter((c): c is TaskCompletion => Boolean(c && c.taskId));
+
   const filteredTasks: TaskWithCompletion[] = [];
-  for (const task of allTasks) {
+  for (const task of safeAllTasks) {
     if (task.isArchived) continue;
 
     // 1. Overnight task originating from yesterday
@@ -233,8 +236,8 @@ export function useTasks(selectedDateStr: string) {
       const eTime = yesterdayOverride?.endTime !== undefined ? yesterdayOverride.endTime : task.endTime;
 
       if (isOvernightTimeRange(sTime, eTime)) {
-        const mapped = mapTaskWithCompletion(task, allCompletions, selectedDateStr);
-        const isComp = mapped.isCompletedToday || allCompletions.some(
+        const mapped = mapTaskWithCompletion(task, safeAllCompletions, selectedDateStr);
+        const isComp = mapped.isCompletedToday || safeAllCompletions.some(
           (c) => c.taskId === task.id && c.date === yesterdayStr && c.completed
         );
         filteredTasks.push({
@@ -251,7 +254,7 @@ export function useTasks(selectedDateStr: string) {
     // 2. Tasks scheduled on target date
     const isTodayScheduled = isScheduledOn(task, selectedDate, selectedDateStr);
     if (isTodayScheduled) {
-      const mapped = mapTaskWithCompletion(task, allCompletions, selectedDateStr);
+      const mapped = mapTaskWithCompletion(task, safeAllCompletions, selectedDateStr);
       const isOvernight = isOvernightTimeRange(mapped.effectiveStartTime, mapped.effectiveEndTime);
       filteredTasks.push({
         ...mapped,
@@ -261,9 +264,8 @@ export function useTasks(selectedDateStr: string) {
     }
   }
 
-
   const sortedTasks = sortTasksByPriority(filteredTasks);
-  const activeTasksList = allTasks.filter((t) => t.isActive && !t.isArchived).slice(0, 2);
+  const activeTasksList = safeAllTasks.filter((t) => t.isActive && !t.isArchived).slice(0, 2);
   const activeTask = activeTasksList[0] || null;
 
   useEffect(() => {

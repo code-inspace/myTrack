@@ -25,17 +25,19 @@ export function getStoredTasks(userId?: string): Task[] {
     }
   }
 
-  return parsed.filter((t) => !t.id.startsWith("00000000-0000-0000-0000-"));
+  return parsed.filter((t) => t && typeof t.id === "string" && !t.id.startsWith("00000000-0000-0000-0000-"));
 }
 
 export function saveStoredTasks(tasks: Task[], userId?: string): void {
   if (typeof window === "undefined") return;
   const targetId = getEffectiveUserId(userId);
   const key = TASKS_STORAGE_PREFIX + targetId;
-  const cleanTasks = tasks.filter((t) => !t.id.startsWith("00000000-0000-0000-0000-"));
+  const cleanTasks = (Array.isArray(tasks) ? tasks : []).filter((t) => t && typeof t.id === "string" && !t.id.startsWith("00000000-0000-0000-0000-"));
   const serialized = JSON.stringify(cleanTasks);
-  localStorage.setItem(key, serialized);
-  localStorage.setItem("mytrack_cached_tasks", serialized);
+  try {
+    localStorage.setItem(key, serialized);
+    localStorage.setItem("mytrack_cached_tasks", serialized);
+  } catch {}
 }
 
 export function getStoredCompletions(userId?: string): TaskCompletion[] {
@@ -51,15 +53,17 @@ export function getStoredCompletions(userId?: string): TaskCompletion[] {
     }
   }
 
-  return parsed.filter((c) => !c.taskId?.startsWith("00000000-0000-0000-0000-"));
+  return parsed.filter((c) => c && typeof c.taskId === "string" && !c.taskId.startsWith("00000000-0000-0000-0000-"));
 }
 
 export function saveStoredCompletions(completions: TaskCompletion[], userId?: string): void {
   if (typeof window === "undefined") return;
   const targetId = getEffectiveUserId(userId);
   const key = COMPLETIONS_STORAGE_PREFIX + targetId;
-  const cleanComps = completions.filter((c) => !c.taskId?.startsWith("00000000-0000-0000-0000-"));
+  const cleanComps = (Array.isArray(completions) ? completions : []).filter((c) => c && typeof c.taskId === "string" && !c.taskId.startsWith("00000000-0000-0000-0000-"));
   const serialized = JSON.stringify(cleanComps);
-  localStorage.setItem(key, serialized);
-  localStorage.setItem("mytrack_cached_completions", serialized);
+  try {
+    localStorage.setItem(key, serialized);
+    localStorage.setItem("mytrack_cached_completions", serialized);
+  } catch {}
 }

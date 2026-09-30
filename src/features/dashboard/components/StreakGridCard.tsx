@@ -14,6 +14,9 @@ export const StreakGridCard: React.FC<StreakGridCardProps> = ({
   habitStreaks = [],
   dailyStatus = [],
 }) => {
+  const safeHabitStreaks = (Array.isArray(habitStreaks) ? habitStreaks : []).filter(Boolean);
+  const safeDailyStatus = (Array.isArray(dailyStatus) ? dailyStatus : []).filter(Boolean);
+
   return (
     <div className="w-full bg-[#1C1D22] border border-[#282A30] rounded-3xl p-5 shadow-sm space-y-5">
       {/* 1. Card Top Bar: Daily % Performance Summary (sans streak global) */}
@@ -23,29 +26,29 @@ export const StreakGridCard: React.FC<StreakGridCardProps> = ({
             Suivi par habitude
           </h3>
           <span className="text-xs font-semibold text-[#8E929E]">
-            {habitStreaks.length} habitude{habitStreaks.length > 1 ? "s" : ""}
+            {safeHabitStreaks.length} habitude{safeHabitStreaks.length > 1 ? "s" : ""}
           </span>
         </div>
 
         {/* Rolling 7-Day % Progress Row */}
-        {dailyStatus.length === 7 && (
+        {safeDailyStatus.length === 7 && (
           <div className="grid grid-cols-7 gap-1.5 p-2.5 bg-[#141518] rounded-2xl border border-[#252830]">
-            {dailyStatus.map((d, i) => (
+            {safeDailyStatus.map((d, i) => (
               <div key={i} className="flex flex-col items-center gap-1">
                 <span className="text-[10px] font-semibold text-[#8E929E]">
-                  {d.dayName}
+                  {d?.dayName || "—"}
                 </span>
                 <div
                   className={cn(
                     "w-full py-1 rounded-lg text-[10px] font-mono font-extrabold text-center transition-all",
-                    d.completionPercentage >= 100
+                    (d?.completionPercentage ?? 0) >= 100
                       ? "bg-[#D4F63D] text-black shadow-sm"
-                      : d.completionPercentage > 0
+                      : (d?.completionPercentage ?? 0) > 0
                         ? "bg-[#D4F63D]/20 text-[#D4F63D] border border-[#D4F63D]/30"
                         : "bg-[#202228] text-[#6B7280]"
                   )}
                 >
-                  {d.completionPercentage}%
+                  {d?.completionPercentage ?? 0}%
                 </div>
               </div>
             ))}
@@ -54,7 +57,7 @@ export const StreakGridCard: React.FC<StreakGridCardProps> = ({
       </div>
 
       {/* 2. Habit Rows or Empty State */}
-      {habitStreaks.length === 0 ? (
+      {safeHabitStreaks.length === 0 ? (
         <div className="p-6 text-center bg-[#141518] rounded-2xl border border-[#252830] space-y-2">
           <Sparkles className="w-6 h-6 text-[#D4F63D] mx-auto opacity-80" />
           <p className="text-xs font-semibold text-white">
@@ -66,19 +69,19 @@ export const StreakGridCard: React.FC<StreakGridCardProps> = ({
         </div>
       ) : (
         <div className="space-y-4 pt-1">
-          {habitStreaks.map((habit) => (
+          {safeHabitStreaks.map((habit) => (
           <div
-            key={habit.taskId}
+            key={habit.taskId || Math.random()}
             className="p-3.5 bg-[#141518]/90 rounded-2xl border border-[#262932] space-y-3 shadow-sm hover:border-[#353945] transition-colors"
           >
             {/* Habit Header: Title + Category + Individual Streak */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 min-w-0 flex-1 mr-2">
                 <span className="text-xs font-bold text-white truncate">
-                  {habit.taskTitle}
+                  {habit.taskTitle || "Habitude"}
                 </span>
                 <span className="text-[10px] px-2 py-0.5 rounded-md bg-[#252830] text-[#8E929E] font-semibold flex-shrink-0">
-                  {habit.tag || habit.category}
+                  {habit.tag || habit.category || "Général"}
                 </span>
               </div>
 
@@ -86,7 +89,7 @@ export const StreakGridCard: React.FC<StreakGridCardProps> = ({
               <div className="flex items-center gap-1 text-xs font-extrabold text-[#F97316] flex-shrink-0 bg-[#F97316]/10 px-2 py-1 rounded-xl border border-[#F97316]/20">
                 <Flame className="w-3.5 h-3.5 fill-[#F97316] animate-pulse" />
                 <span>
-                  {habit.currentStreak} {habit.currentStreak <= 1 ? "jour" : "jours"}
+                  {habit.currentStreak ?? 0} {(habit.currentStreak ?? 0) <= 1 ? "jour" : "jours"}
                 </span>
               </div>
             </div>
@@ -94,8 +97,9 @@ export const StreakGridCard: React.FC<StreakGridCardProps> = ({
             {/* 7 Days Row for this Habit */}
             <div className="flex items-center justify-between gap-1 pt-0.5">
               {(habit.rolling7Days || []).map((d, i) => {
-                const isDone = d.isCompleted;
-                const isScheduled = d.isScheduled;
+                if (!d) return null;
+                const isDone = Boolean(d.isCompleted);
+                const isScheduled = Boolean(d.isScheduled);
 
                 return (
                   <div key={i} className="flex flex-col items-center gap-1.5 flex-1">
@@ -108,7 +112,7 @@ export const StreakGridCard: React.FC<StreakGridCardProps> = ({
                             ? "bg-[#282A30] text-[#6B7280]"
                             : "bg-[#18191E] border border-[#282A30] text-[#4B5563]"
                       )}
-                      title={`${d.dayName}: ${isDone ? "Accomplie" : isScheduled ? "Non faite" : "Non planifiée"}`}
+                      title={`${d.dayName || "Jour"}: ${isDone ? "Accomplie" : isScheduled ? "Non faite" : "Non planifiée"}`}
                     >
                       {isDone ? (
                         <Check className="w-4 h-4 stroke-[3]" />
@@ -120,7 +124,7 @@ export const StreakGridCard: React.FC<StreakGridCardProps> = ({
                     </div>
 
                     <span className="text-[10px] font-semibold text-[#8E929E]">
-                      {d.dayName}
+                      {d.dayName || "—"}
                     </span>
                   </div>
                 );

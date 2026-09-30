@@ -43,7 +43,7 @@ export function getStoredProjects(userId?: string): Project[] {
   try {
     const parsed = JSON.parse(stored);
     if (Array.isArray(parsed)) {
-      return parsed.filter((p) => !p.id.startsWith("00000000-0000-0000-0000-"));
+      return parsed.filter((p) => p && typeof p.id === "string" && !p.id.startsWith("00000000-0000-0000-0000-"));
     }
     return [];
   } catch {
@@ -54,9 +54,14 @@ export function getStoredProjects(userId?: string): Project[] {
 export function saveStoredProjects(projects: Project[], userId?: string): void {
   if (typeof window === "undefined") return;
   const targetId = getEffectiveUserId(userId);
-  const serialized = JSON.stringify(projects.filter((p) => !p.id.startsWith("00000000-0000-0000-0000-")));
-  localStorage.setItem(PROJECTS_STORAGE_PREFIX + targetId, serialized);
-  localStorage.setItem("mytrack_cached_projects", serialized);
+  const cleanProjects = (Array.isArray(projects) ? projects : []).filter(
+    (p) => p && typeof p.id === "string" && !p.id.startsWith("00000000-0000-0000-0000-")
+  );
+  const serialized = JSON.stringify(cleanProjects);
+  try {
+    localStorage.setItem(PROJECTS_STORAGE_PREFIX + targetId, serialized);
+    localStorage.setItem("mytrack_cached_projects", serialized);
+  } catch {}
 }
 
 export async function fetchProjects(userId?: string): Promise<Project[]> {

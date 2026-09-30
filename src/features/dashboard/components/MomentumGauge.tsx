@@ -13,12 +13,20 @@ export const MomentumGauge: React.FC<MomentumGaugeProps> = ({
   score = 64,
   delta = 10,
 }) => {
+  const safeScore =
+    typeof score === "number" && !isNaN(score) && isFinite(score)
+      ? Math.max(0, Math.min(100, Math.round(score)))
+      : 50;
+  const safeDelta =
+    typeof delta === "number" && !isNaN(delta) && isFinite(delta)
+      ? Math.round(delta)
+      : 0;
+
   // SVG Semi-circle gauge calculations
   const radius = 58;
   const strokeWidth = 10;
   const circumference = Math.PI * radius; // Half-circle length
-  const progressClamped = Math.max(0, Math.min(100, score));
-  const strokeDashoffset = circumference - (circumference * progressClamped) / 100;
+  const strokeDashoffset = circumference - (circumference * safeScore) / 100;
 
   return (
     <div className="flex items-center justify-between w-full pt-1 pb-1">

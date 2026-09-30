@@ -17,7 +17,11 @@ export const CircularMetricCard: React.FC<CircularMetricProps> = ({
 }) => {
   const radius = 38;
   const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (circumference * Math.max(0, Math.min(100, percentage))) / 100;
+  const safePercentage =
+    typeof percentage === "number" && !isNaN(percentage) && isFinite(percentage)
+      ? Math.max(0, Math.min(100, percentage))
+      : 0;
+  const strokeDashoffset = circumference - (circumference * safePercentage) / 100;
 
   return (
     <div className="flex-1 bg-[#1C1D22] border border-[#282A30] rounded-3xl p-4 flex flex-col items-center justify-between text-center min-h-[160px]">

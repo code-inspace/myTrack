@@ -34,20 +34,21 @@ export function calculateCurrentStreak(
   referenceDate: Date = new Date()
 ): number {
   if (!completions || completions.length === 0) return 0;
+  const safeRefDate = referenceDate instanceof Date && !isNaN(referenceDate.getTime()) ? referenceDate : new Date();
 
   const completedDates = new Set<string>();
   for (const c of completions) {
-    if (c.completed) {
+    if (c && c.completed && c.date) {
       completedDates.add(c.date);
     }
   }
 
   let streak = 0;
-  let checkDate = referenceDate;
-  const todayStr = format(referenceDate, "yyyy-MM-dd");
+  let checkDate = safeRefDate;
+  const todayStr = format(safeRefDate, "yyyy-MM-dd");
 
   if (!completedDates.has(todayStr)) {
-    checkDate = subDays(referenceDate, 1);
+    checkDate = subDays(safeRefDate, 1);
   }
 
   while (true) {
@@ -70,7 +71,7 @@ export function calculateBestStreak(completions: CompletionRecord[]): number {
   if (!completions || completions.length === 0) return 0;
 
   const completedDates = Array.from(
-    new Set(completions.filter((c) => c.completed).map((c) => c.date))
+    new Set(completions.filter((c) => c && c.completed && c.date).map((c) => c.date))
   ).sort();
 
   if (completedDates.length === 0) return 0;
@@ -104,21 +105,22 @@ export function calculateHabitStreak(
   completions: CompletionRecord[],
   referenceDate: Date = new Date()
 ): number {
-  if (!completions || completions.length === 0) return 0;
+  if (!completions || completions.length === 0 || !taskId) return 0;
+  const safeRefDate = referenceDate instanceof Date && !isNaN(referenceDate.getTime()) ? referenceDate : new Date();
 
   const taskCompletedDates = new Set<string>();
   for (const c of completions) {
-    if (c.taskId === taskId && c.completed) {
+    if (c && c.taskId === taskId && c.completed && c.date) {
       taskCompletedDates.add(c.date);
     }
   }
 
   let streak = 0;
-  let checkDate = referenceDate;
-  const todayStr = format(referenceDate, "yyyy-MM-dd");
+  let checkDate = safeRefDate;
+  const todayStr = format(safeRefDate, "yyyy-MM-dd");
 
   if (!taskCompletedDates.has(todayStr)) {
-    checkDate = subDays(referenceDate, 1);
+    checkDate = subDays(safeRefDate, 1);
   }
 
   while (true) {
@@ -142,8 +144,12 @@ export function calculateHabitStreakStats(
   completions: CompletionRecord[],
   referenceDate: Date = new Date()
 ): HabitStreakStat[] {
-  return tasks.map((task) => {
-    const currentStreak = calculateHabitStreak(task.id, completions, referenceDate);
+  const safeTasks = (Array.isArray(tasks) ? tasks : []).filter((t): t is TaskRecord => Boolean(t && t.id));
+  const safeCompletions = (Array.isArray(completions) ? completions : []).filter((c): c is CompletionRecord => Boolean(c && c.taskId));
+  const safeRefDate = referenceDate instanceof Date && !isNaN(referenceDate.getTime()) ? referenceDate : new Date();
+
+  return safeTasks.map((task) => {
+    const currentStreak = calculateHabitStreak(task.id, safeCompletions, safeRefDate);
 
     // Calculate rolling 7 days (from 6 days ago to today)
     const rolling7Days: HabitRollingDay[] = [];
@@ -151,7 +157,7 @@ export function calculateHabitStreakStats(
     let completedCount = 0;
 
     for (let i = 6; i >= 0; i--) {
-      const d = subDays(referenceDate, i);
+      const d = subDays(safeRefDate, i);
       const dateStr = format(d, "yyyy-MM-dd");
       const dayName = FRENCH_DAYS[d.getDay()];
 
@@ -162,7 +168,7 @@ export function calculateHabitStreakStats(
         task.createdAt
       );
 
-      const isCompleted = completions.some(
+      const isCompleted = safeCompletions.some(
         (c) => c.taskId === task.id && c.date === dateStr && c.completed
       );
 
@@ -186,7 +192,7 @@ export function calculateHabitStreakStats(
 
     return {
       taskId: task.id,
-      taskTitle: task.title,
+      taskTitle: task.title || "Habitude",
       category: (task as any).tag || task.category || "General",
       currentStreak,
       bestStreak: Math.max(currentStreak, 1),
@@ -204,18 +210,21 @@ export function calculateLast7DaysStatus(
   completions: CompletionRecord[],
   endDate: Date = new Date()
 ): DayStatus[] {
+  const safeTasks = (Array.isArray(tasks) ? tasks : []).filter((t): t is TaskRecord => Boolean(t && t.id));
+  const safeCompletions = (Array.isArray(completions) ? completions : []).filter((c): c is CompletionRecord => Boolean(c && c.taskId));
+  const safeEndDate = endDate instanceof Date && !isNaN(endDate.getTime()) ? endDate : new Date();
   const result: DayStatus[] = [];
 
   for (let i = 6; i >= 0; i--) {
-    const dateObj = subDays(endDate, i);
+    const dateObj = subDays(safeEndDate, i);
     const dateStr = format(dateObj, "yyyy-MM-dd");
     const dayName = FRENCH_DAYS[dateObj.getDay()];
 
-    const scheduledTasks = tasks.filter((t) =>
+    const scheduledTasks = safeTasks.filter((t) =>
       isTaskScheduledForDate(t.recurrence, t.recurrenceConfig, dateObj, t.createdAt)
     );
 
-    const dayCompletions = completions.filter((c) => c.date === dateStr && c.completed);
+    const dayCompletions = safeCompletions.filter((c) => c.date === dateStr && c.completed);
     const completedCount = dayCompletions.length;
     const totalScheduled = scheduledTasks.length;
 
@@ -256,13 +265,17 @@ export function calculateDashboardStats(
   period: Period = "week",
   referenceDate: Date = new Date()
 ): DashboardStats {
-  // Filter out one-shot tasks: Dashboard only tracks recurring habits
-  const recurringTasks = tasks.filter((t) => t.recurrence && t.recurrence !== "ONCE");
-  const recurringTaskIds = new Set(recurringTasks.map((t) => t.id));
-  const recurringCompletions = completions.filter((c) => recurringTaskIds.has(c.taskId));
+  const safeTasks = (Array.isArray(tasks) ? tasks : []).filter((t): t is TaskRecord => Boolean(t && t.id));
+  const safeCompletions = (Array.isArray(completions) ? completions : []).filter((c): c is CompletionRecord => Boolean(c && c.taskId));
+  const safeRefDate = referenceDate instanceof Date && !isNaN(referenceDate.getTime()) ? referenceDate : new Date();
 
-  const habitStreaks = calculateHabitStreakStats(recurringTasks, recurringCompletions, referenceDate);
-  const last7DaysStatus = calculateLast7DaysStatus(recurringTasks, recurringCompletions, referenceDate);
+  // Filter out one-shot tasks: Dashboard only tracks recurring habits
+  const recurringTasks = safeTasks.filter((t) => t.recurrence && t.recurrence !== "ONCE");
+  const recurringTaskIds = new Set(recurringTasks.map((t) => t.id));
+  const recurringCompletions = safeCompletions.filter((c) => recurringTaskIds.has(c.taskId));
+
+  const habitStreaks = calculateHabitStreakStats(recurringTasks, recurringCompletions, safeRefDate);
+  const last7DaysStatus = calculateLast7DaysStatus(recurringTasks, recurringCompletions, safeRefDate);
 
   // Period calculation
   const daysInPeriod = period === "day" ? 1 : period === "week" ? 7 : period === "month" ? 30 : 60;
@@ -270,7 +283,7 @@ export function calculateDashboardStats(
   let totalCompletedInPeriod = 0;
 
   for (let i = daysInPeriod - 1; i >= 0; i--) {
-    const dateObj = subDays(referenceDate, i);
+    const dateObj = subDays(safeRefDate, i);
     const dateStr = format(dateObj, "yyyy-MM-dd");
 
     const scheduled = recurringTasks.filter((t) =>

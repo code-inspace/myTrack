@@ -20,7 +20,6 @@ import { Period } from "@/features/dashboard/types";
 import { getTodayDateString } from "@/lib/dates";
 import { AppHeader } from "@/components/shared/AppHeader";
 import { useAuth } from "@/providers/AuthProvider";
-import { useDisplayMode } from "@/providers/DisplayModeProvider";
 import { useCalendarEvents } from "@/features/calendar/hooks/useCalendarEvents";
 import { addWeeks, subWeeks, addMonths, subMonths } from "date-fns";
 import { Sliders } from "lucide-react";
@@ -85,6 +84,11 @@ class PageErrorBoundary extends React.Component<
           <p className="text-xs text-[#8E929E] max-w-sm">
             Une erreur est survenue lors du chargement des statistiques.
           </p>
+          {this.state.error?.message && (
+            <p className="text-[10px] text-red-400/80 font-mono max-w-xs break-words">
+              {this.state.error.message}
+            </p>
+          )}
           <button
             type="button"
             onClick={() => {
@@ -213,7 +217,6 @@ function DashboardPageContent() {
   const { allTasks = [], allCompletions = [] } = useTasks(getTodayDateString());
   const { events: externalEvents = [] } = useCalendarEvents();
   const { user } = useAuth();
-  const { displayMode } = useDisplayMode();
 
   // Render individual modules based on ID
   const renderModule = (moduleId: string) => {
@@ -277,7 +280,7 @@ function DashboardPageContent() {
           <div key="HABITS_VIEW">
             {period === "month" ? (
               <MonthlyHabitCalendar
-                tasks={(allTasks || []).filter((t) => t.recurrence && t.recurrence !== "ONCE")}
+                tasks={(allTasks || []).filter((t) => t && t.recurrence && t.recurrence !== "ONCE")}
                 completions={allCompletions}
                 monthDate={safeReferenceDate}
               />
