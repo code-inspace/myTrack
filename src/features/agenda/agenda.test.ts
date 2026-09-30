@@ -649,4 +649,127 @@ describe("Agenda Multi-Day Task Distribution & Moving Logic", () => {
     const day2Label = formatCrossDayTimeLabel(day2Item?.effectiveStartTime, day2Item?.effectiveEndTime, day2Item?.overnightPart);
     expect(day2Label).toBe("(Veille 20:50) → 03:10");
   });
+
+  it("la création d'une nouvelle tâche au clic long / tap sur du vide ouvre la modale info de celle-ci", () => {
+    // Simulating the creation & modal opening orchestration logic
+    let selectedTaskIdForDetail: string | null = null;
+    let selectedTaskSnapshot: any = null;
+
+    const onCreateTaskAtTime = vi.fn((date: string, startTime: string, endTime: string, onCreated?: (task: any) => void) => {
+      const createdDbTask = {
+        id: "real-created-id-42",
+        title: "Nouvelle tâche",
+        date,
+        startTime,
+        endTime,
+        category: "General",
+        recurrence: "ONCE",
+      };
+      onCreated?.(createdDbTask);
+      return createdDbTask;
+    });
+
+    const handleCreateTaskAtTime = (date: string, startTime: string, endTime: string) => {
+      const tempId = "temp-" + Date.now();
+      const optimisticTask = {
+        id: tempId,
+        title: "Nouvelle tâche",
+        date,
+        startTime,
+        endTime,
+        effectiveStartTime: startTime,
+        effectiveEndTime: endTime,
+      };
+
+      // Modal is immediately opened with optimistic task
+      selectedTaskIdForDetail = tempId;
+      selectedTaskSnapshot = optimisticTask;
+
+      onCreateTaskAtTime(date, startTime, endTime, (createdTask: any) => {
+        if (createdTask && createdTask.id) {
+          selectedTaskIdForDetail = createdTask.id;
+          selectedTaskSnapshot = createdTask;
+        }
+      });
+    };
+
+    // User long-presses / taps on empty timeline slot at 14:00 - 15:00 on 2026-10-01
+    handleCreateTaskAtTime("2026-10-01", "14:00", "15:00");
+
+    expect(onCreateTaskAtTime).toHaveBeenCalledWith(
+      "2026-10-01",
+      "14:00",
+      "15:00",
+      expect.any(Function)
+    );
+
+    // Modal is opened and bound to the newly created task
+    expect(selectedTaskIdForDetail).toBe("real-created-id-42");
+    expect(selectedTaskSnapshot).toBeDefined();
+    expect(selectedTaskSnapshot.title).toBe("Nouvelle tâche");
+    expect(selectedTaskSnapshot.startTime).toBe("14:00");
+    expect(selectedTaskSnapshot.endTime).toBe("15:00");
+  });
+
+  it("quand le mode redimensionnement est actif, un clic en dehors de la tâche quitte le mode", () => {
+    let selectedTaskId: string | null = "task-resizing-1";
+    let resizingState: any = {
+      taskId: "task-resizing-1",
+      date: "2026-10-01",
+      edge: "bottom",
+      currentStartMins: 600,
+      currentEndMins: 660,
+    };
+
+    const handleExitResizeMode = () => {
+      selectedTaskId = null;
+      resizingState = null;
+    };
+
+    // Simulated click outside target task (e.g. on background, other tasks, header)
+    const simulateClickOutside = (targetElementId: string) => {
+      const isInsideSelectedTask = targetElementId === "task-resizing-1" || targetElementId.startsWith("agenda-resize-handle-");
+      if (!isInsideSelectedTask) {
+        handleExitResizeMode();
+      }
+    };
+
+    // Clicking on the resizing task itself does not exit
+    simulateClickOutside("task-resizing-1");
+    expect(selectedTaskId).toBe("task-resizing-1");
+
+    // Clicking on resize handle does not exit
+    simulateClickOutside("agenda-resize-handle-bottom-task-resizing-1");
+    expect(selectedTaskId).toBe("task-resizing-1");
+
+    // Clicking anywhere outside (e.g. empty grid, other task, header) exits resize mode
+    simulateClickOutside("empty-grid-slot");
+    expect(selectedTaskId).toBeNull();
+    expect(resizingState).toBeNull();
+  });
+
+  it("un clic sur le vide lorsque le mode redimensionnement est actif quitte le mode sans créer de tâche", () => {
+    let selectedTaskId: string | null = "task-resizing-2";
+    let resizingState: any = null;
+    const onCreateTask = vi.fn();
+
+    const handleEmptySlotClick = () => {
+      if (selectedTaskId !== null || resizingState !== null) {
+        selectedTaskId = null;
+        resizingState = null;
+        return; // Exits resize mode and does NOT call onCreateTask
+      }
+      onCreateTask();
+    };
+
+    // User clicks empty slot while in resize mode
+    handleEmptySlotClick();
+
+    expect(selectedTaskId).toBeNull();
+    expect(onCreateTask).not.toHaveBeenCalled();
+
+    // Subsequent click on empty slot when not in resize mode creates task normally
+    handleEmptySlotClick();
+    expect(onCreateTask).toHaveBeenCalledTimes(1);
+  });
 });

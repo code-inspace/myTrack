@@ -641,7 +641,7 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
               data-testid="agenda-detail-duplicate-btn"
               type="button"
               onClick={() => {
-                handleClose();
+                onClose();
                 onDuplicateTask?.(task);
               }}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-[#20232C] hover:bg-[#2B2F3D] text-[#A5B4FC] hover:text-white transition-colors cursor-pointer border border-[#2D3142]"
@@ -655,7 +655,7 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
               data-testid="agenda-detail-edit-btn"
               type="button"
               onClick={() => {
-                handleClose();
+                onClose();
                 onEditTask?.(task);
               }}
               className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-[#D4F63D] text-black hover:bg-[#c2e430] transition-colors cursor-pointer shadow-sm"

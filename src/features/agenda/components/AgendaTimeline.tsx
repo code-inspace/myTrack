@@ -44,7 +44,12 @@ interface AgendaTimelineProps {
   onToggleReminder?: (taskId: string) => void;
   onEditTask?: (task: TaskWithCompletion) => void;
   onDeleteTask?: (taskId: string) => void;
-  onCreateTaskAtTime?: (date: string, startTime: string, endTime: string) => void;
+  onCreateTaskAtTime?: (
+    date: string,
+    startTime: string,
+    endTime: string,
+    onCreated?: (task: Task | TaskWithCompletion) => void
+  ) => void;
   onUpdateTask?: (taskId: string, values: any) => void;
   onMoveTaskToTime: (taskId: string, startTime: string, endTime: string, date?: string, originDate?: string) => void;
   onDropToAllDay?: (taskId: string, date?: string, originDate?: string) => void;
@@ -596,6 +601,86 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
     window.addEventListener("pointercancel", handlePointerUp);
   };
 
+  // When a task is created on empty slot, open its detail modal immediately
+  const handleCreateTaskAtTime = (date: string, startTime: string, endTime: string) => {
+    if (selectedTaskId !== null || resizingState !== null) {
+      setSelectedTaskId(null);
+      setResizingState(null);
+      return;
+    }
+
+    const tempId = "temp-" + Date.now();
+    const optimisticTask: TaskWithCompletion = {
+      id: tempId,
+      userId: user?.id || "",
+      title: "Nouvelle tâche",
+      date,
+      startTime,
+      endTime,
+      effectiveStartTime: startTime,
+      effectiveEndTime: endTime,
+      category: "General",
+      tag: "General",
+      recurrence: "ONCE",
+      trackingType: "BOOLEAN",
+      enableReminders: false,
+      isActive: false,
+      isArchived: false,
+      isCompletedToday: false,
+      createdAt: `${date}T12:00:00.000Z`,
+      updatedAt: new Date().toISOString(),
+    };
+
+    setSelectedTaskIdForDetail(tempId);
+    setSelectedTaskForDetailSnapshot(optimisticTask);
+
+    if (onCreateTaskAtTime) {
+      onCreateTaskAtTime(date, startTime, endTime, (createdTask: any) => {
+        if (createdTask && createdTask.id) {
+          setSelectedTaskIdForDetail(createdTask.id);
+          setSelectedTaskForDetailSnapshot(createdTask);
+        }
+      });
+    }
+  };
+
+  // Exit resize mode when clicking / tapping anywhere outside the selected task block and its handles
+  useEffect(() => {
+    if (!selectedTaskId && !resizingState) return;
+
+    const handleGlobalPointerDown = (e: PointerEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+
+      if (selectedTaskId) {
+        const taskBlock = target.closest(`[data-agenda-block="true"][data-task-id="${selectedTaskId}"]`);
+        if (taskBlock) return;
+      }
+
+      if (target.closest("[data-testid='agenda-task-detail-modal']")) return;
+
+      setSelectedTaskId(null);
+      if (resizingState) {
+        onMoveTaskToTime(
+          resizingState.taskId,
+          formatMinutesToTime(resizingState.currentStartMins),
+          formatMinutesToTime(resizingState.currentEndMins),
+          resizingState.date
+        );
+        setResizingState(null);
+      }
+    };
+
+    const timeoutId = setTimeout(() => {
+      window.addEventListener("pointerdown", handleGlobalPointerDown);
+    }, 50);
+
+    return () => {
+      clearTimeout(timeoutId);
+      window.removeEventListener("pointerdown", handleGlobalPointerDown);
+    };
+  }, [selectedTaskId, resizingState, onMoveTaskToTime]);
+
   const handleBackgroundClick = () => {
     if (Date.now() - justResizedRef.current < 400) return;
     if (resizingState) {
@@ -1006,7 +1091,11 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
                   onToggleComplete={(taskId, date) => onToggleComplete(taskId, date || dayStr)}
                   onToggleReminder={onToggleReminder}
                   onEditTask={onEditTask}
-                  onCreateTaskAtTime={onCreateTaskAtTime}
+                  onCreateTaskAtTime={handleCreateTaskAtTime}
+                  onExitResizeMode={() => {
+                    setSelectedTaskId(null);
+                    setResizingState(null);
+                  }}
                   onDragStartTask={onDragStartTask}
                   onSelectTask={(t) => {
                     if (Date.now() - justResizedRef.current < 400) return;
@@ -1123,6 +1212,7 @@ interface DayGridColumnProps {
   onToggleReminder?: (taskId: string) => void;
   onEditTask?: (task: TaskWithCompletion) => void;
   onCreateTaskAtTime?: (date: string, startTime: string, endTime: string) => void;
+  onExitResizeMode?: () => void;
   onDragStartTask: (e: React.DragEvent, task: TaskWithCompletion) => void;
   onSelectTask?: (task: TaskWithCompletion) => void;
   onSelectForResize?: (task: TaskWithCompletion) => void;
@@ -1149,6 +1239,7 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
   onToggleReminder,
   onEditTask,
   onCreateTaskAtTime,
+  onExitResizeMode,
   onDragStartTask,
   onSelectTask,
   onSelectForResize,
@@ -1175,6 +1266,11 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
       target.closest("input") ||
       target.closest("a")
     ) {
+      return;
+    }
+
+    if (selectedTaskId !== null || resizingState !== null) {
+      onExitResizeMode?.();
       return;
     }
 
@@ -1219,6 +1315,13 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
     if (longPressEmptyTimerRef.current) {
       clearTimeout(longPressEmptyTimerRef.current);
       longPressEmptyTimerRef.current = null;
+    }
+
+    if (selectedTaskId !== null || resizingState !== null) {
+      onExitResizeMode?.();
+      pointerDownCoordRef.current = null;
+      hasTriggeredRef.current = false;
+      return;
     }
 
     // If long-press already triggered, do not trigger again

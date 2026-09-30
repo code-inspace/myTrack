@@ -112,19 +112,26 @@ export const AgendaView: React.FC = () => {
           }}
           onDeleteTask={(taskId) => deleteTask.mutate(taskId)}
           onUpdateTask={(taskId, values) => updateTask.mutate({ taskId, values })}
-          onCreateTaskAtTime={(date, startTime, endTime) => {
+          onCreateTaskAtTime={(date, startTime, endTime, onCreated) => {
             const isPast = isTaskInThePast(date, startTime, endTime);
-            createTask.mutate({
-              title: "Nouvelle tâche",
-              date,
-              startTime,
-              endTime,
-              category: "General",
-              trackingType: "BOOLEAN",
-              recurrence: "ONCE",
-              enableReminders: false,
-              completed: isPast,
-            } as any);
+            createTask.mutate(
+              {
+                title: "Nouvelle tâche",
+                date,
+                startTime,
+                endTime,
+                category: "General",
+                trackingType: "BOOLEAN",
+                recurrence: "ONCE",
+                enableReminders: false,
+                completed: isPast,
+              } as any,
+              {
+                onSuccess: (createdTask) => {
+                  onCreated?.(createdTask);
+                },
+              }
+            );
           }}
           onMoveTaskToTime={handleMoveTaskToTime}
           onDropToAllDay={handleDropToAllDay}
