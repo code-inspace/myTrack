@@ -79,8 +79,9 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
     let channel: any = null;
     try {
       const supabase = createClient();
+      const channelName = `sleep_logs_changes_${Math.random().toString(36).slice(2, 7)}`;
       channel = supabase
-        .channel("sleep_logs_changes")
+        .channel(channelName)
         .on(
           "postgres_changes",
           { event: "*", schema: "public", table: "sleep_logs" },

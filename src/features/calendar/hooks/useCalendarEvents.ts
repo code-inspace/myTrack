@@ -40,10 +40,12 @@ export function useCalendarEvents(focusedDateStr?: string) {
 
   // Supabase Realtime Listener for instant multi-device sync (Phone <-> Desktop)
   useEffect(() => {
+    let channel: any = null;
     try {
       const supabase = createClient();
-      const channel = supabase
-        .channel(`realtime-calendars-${userId}`)
+      const channelName = `realtime-calendars-${userId}-${Math.random().toString(36).slice(2, 7)}`;
+      channel = supabase
+        .channel(channelName)
         .on(
           "postgres_changes",
           {
@@ -58,13 +60,18 @@ export function useCalendarEvents(focusedDateStr?: string) {
           }
         )
         .subscribe();
-
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    } catch {
-      // Ignore if realtime fails
+    } catch (err) {
+      console.warn("useCalendarEvents realtime subscription error:", err);
     }
+
+    return () => {
+      if (channel) {
+        try {
+          const supabase = createClient();
+          supabase.removeChannel(channel);
+        } catch {}
+      }
+    };
   }, [userId, queryClient]);
 
   // 1. Calendar Subscriptions Query (from Encrypted Supabase DB + Local Cache)

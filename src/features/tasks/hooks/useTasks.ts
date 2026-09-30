@@ -40,37 +40,48 @@ export function useTasks(selectedDateStr: string) {
   // Supabase Realtime Listener across devices
   useEffect(() => {
     if (!userId) return;
-    const supabase = createClient();
-    const channel = supabase
-      .channel(`realtime-tasks-${userId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "tasks",
-          filter: `user_id=eq.${userId}`,
-        },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ["tasks"] });
-        },
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "task_completions",
-          filter: `user_id=eq.${userId}`,
-        },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ["completions"] });
-        },
-      )
-      .subscribe();
+    let channel: any = null;
+    try {
+      const supabase = createClient();
+      const channelName = `realtime-tasks-${userId}-${Math.random().toString(36).slice(2, 7)}`;
+      channel = supabase
+        .channel(channelName)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "tasks",
+            filter: `user_id=eq.${userId}`,
+          },
+          () => {
+            queryClient.invalidateQueries({ queryKey: ["tasks"] });
+          },
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "task_completions",
+            filter: `user_id=eq.${userId}`,
+          },
+          () => {
+            queryClient.invalidateQueries({ queryKey: ["completions"] });
+          },
+        )
+        .subscribe();
+    } catch (err) {
+      console.warn("useTasks realtime subscription error:", err);
+    }
 
     return () => {
-      supabase.removeChannel(channel);
+      if (channel) {
+        try {
+          const supabase = createClient();
+          supabase.removeChannel(channel);
+        } catch {}
+      }
     };
   }, [userId, queryClient]);
 
