@@ -60,7 +60,59 @@ class DashboardErrorBoundary extends React.Component<
   }
 }
 
+class PageErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; error: any }
+> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error: any) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error: any) {
+    console.error("Dashboard Page render error caught:", error);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex-1 min-h-0 flex flex-col items-center justify-center p-6 bg-[#0E0F12] text-white text-center space-y-4">
+          <div className="w-12 h-12 rounded-2xl bg-[#1C1D22] border border-[#282A30] flex items-center justify-center text-[#D4F63D] shadow-md">
+            <Sliders className="w-6 h-6" />
+          </div>
+          <h2 className="text-base font-bold text-white">Dashboard temporairement indisponible</h2>
+          <p className="text-xs text-[#8E929E] max-w-sm">
+            Une erreur est survenue lors du chargement des statistiques.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              try {
+                localStorage.removeItem(DASHBOARD_CONFIG_STORAGE_KEY);
+              } catch {}
+              this.setState({ hasError: false, error: null });
+            }}
+            className="px-4 py-2 rounded-xl bg-[#D4F63D] text-black text-xs font-bold hover:bg-[#C2E232] transition-colors cursor-pointer"
+          >
+            Réinitialiser l&apos;affichage
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function DashboardPage() {
+  return (
+    <PageErrorBoundary>
+      <DashboardPageContent />
+    </PageErrorBoundary>
+  );
+}
+
+function DashboardPageContent() {
   const [period, setPeriod] = useState<Period>("week");
   const [referenceDate, setReferenceDate] = useState<Date>(() => new Date());
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
@@ -113,38 +165,42 @@ export default function DashboardPage() {
     setTouchStart(null);
   };
 
-  const [modules, setModules] = useState<DashboardModuleConfig[]>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const stored = localStorage.getItem(DASHBOARD_CONFIG_STORAGE_KEY);
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            // Ensure any new default modules are merged in
-            const existingIds = new Set(parsed.map((p: any) => p.id));
-            const merged = [...parsed];
-            for (const def of DEFAULT_DASHBOARD_MODULES) {
-              if (!existingIds.has(def.id)) {
-                merged.push(def);
-              }
+  const [modules, setModules] = useState<DashboardModuleConfig[]>(DEFAULT_DASHBOARD_MODULES);
+
+  // Load customized module config on client mount to prevent SSR hydration mismatch
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(DASHBOARD_CONFIG_STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const validParsed = parsed.filter((p: any) => p && typeof p === "object" && typeof p.id === "string");
+          const existingIds = new Set(validParsed.map((p: any) => p.id));
+          const merged = [...validParsed];
+          for (const def of DEFAULT_DASHBOARD_MODULES) {
+            if (!existingIds.has(def.id)) {
+              merged.push(def);
             }
-            return merged;
+          }
+          if (merged.length > 0) {
+            setModules(merged);
           }
         }
-      } catch {
-        // ignore
       }
+    } catch {
+      // ignore
     }
-    return DEFAULT_DASHBOARD_MODULES;
-  });
+  }, []);
 
   const handleSaveModules = (newModules: DashboardModuleConfig[]) => {
     setModules(newModules);
     if (typeof window !== "undefined") {
-      localStorage.setItem(
-        DASHBOARD_CONFIG_STORAGE_KEY,
-        JSON.stringify(newModules)
-      );
+      try {
+        localStorage.setItem(
+          DASHBOARD_CONFIG_STORAGE_KEY,
+          JSON.stringify(newModules)
+        );
+      } catch {}
     }
   };
 
@@ -239,7 +295,9 @@ export default function DashboardPage() {
     }
   };
 
-  const enabledModules = modules.filter((m) => m.enabled);
+  const enabledModules = (Array.isArray(modules) ? modules : DEFAULT_DASHBOARD_MODULES).filter(
+    (m) => m && typeof m === "object" && typeof m.id === "string" && m.enabled !== false
+  );
 
   return (
     <div className="flex-1 min-h-0 flex flex-col w-full h-full bg-[#0E0F12] relative overflow-hidden">
@@ -287,7 +345,7 @@ export default function DashboardPage() {
         <PeriodSelector
           period={period}
           onChangePeriod={setPeriod}
-          referenceDate={referenceDate}
+          referenceDate={safeReferenceDate}
           onChangeReferenceDate={setReferenceDate}
         />
 

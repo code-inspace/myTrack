@@ -194,13 +194,23 @@ interface ChartColumnData {
 }
 
 export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetProps> = ({
-  tasks,
+  tasks = [],
   externalEvents = [],
   completions = [],
   period = "week",
   referenceDate = new Date(),
 }) => {
-  const { projects } = useProjects();
+  const { projects = [] } = useProjects();
+  const safeProjects = Array.isArray(projects) ? projects.filter(Boolean) : [];
+  const safeTasks = Array.isArray(tasks) ? tasks.filter(Boolean) : [];
+  const safeExternalEvents = Array.isArray(externalEvents) ? externalEvents.filter(Boolean) : [];
+  const safeCompletions = Array.isArray(completions) ? completions.filter(Boolean) : [];
+
+  const safeRefDate =
+    referenceDate instanceof Date && !isNaN(referenceDate.getTime())
+      ? referenceDate
+      : new Date();
+
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [selectedColumnId, setSelectedColumnId] = useState<string | null>(null);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
@@ -208,51 +218,55 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
 
   // Period Date Range calculation
   const { startDateStr, endDateStr, periodLabel } = useMemo(() => {
-    if (period === "day") {
-      const formattedDay = format(referenceDate, "yyyy-MM-dd");
-      return {
-        startDateStr: formattedDay,
-        endDateStr: formattedDay,
-        periodLabel: format(referenceDate, "EEEE d MMMM yyyy", { locale: fr }),
-      };
-    }
-    if (period === "week") {
-      const start = startOfWeek(referenceDate, { weekStartsOn: 1 });
-      const end = endOfWeek(referenceDate, { weekStartsOn: 1 });
-      return {
-        startDateStr: format(start, "yyyy-MM-dd"),
-        endDateStr: format(end, "yyyy-MM-dd"),
-        periodLabel: `Semaine du ${format(start, "dd MMM", { locale: fr })} au ${format(end, "dd MMM", { locale: fr })}`,
-      };
-    }
-    if (period === "month") {
-      const start = startOfMonth(referenceDate);
-      const end = endOfMonth(referenceDate);
-      return {
-        startDateStr: format(start, "yyyy-MM-dd"),
-        endDateStr: format(end, "yyyy-MM-dd"),
-        periodLabel: format(referenceDate, "MMMM yyyy", { locale: fr }),
-      };
-    }
+    try {
+      if (period === "day") {
+        const formattedDay = format(safeRefDate, "yyyy-MM-dd");
+        return {
+          startDateStr: formattedDay,
+          endDateStr: formattedDay,
+          periodLabel: format(safeRefDate, "EEEE d MMMM yyyy", { locale: fr }),
+        };
+      }
+      if (period === "week") {
+        const start = startOfWeek(safeRefDate, { weekStartsOn: 1 });
+        const end = endOfWeek(safeRefDate, { weekStartsOn: 1 });
+        return {
+          startDateStr: format(start, "yyyy-MM-dd"),
+          endDateStr: format(end, "yyyy-MM-dd"),
+          periodLabel: `Semaine du ${format(start, "dd MMM", { locale: fr })} au ${format(end, "dd MMM", { locale: fr })}`,
+        };
+      }
+      if (period === "month") {
+        const start = startOfMonth(safeRefDate);
+        const end = endOfMonth(safeRefDate);
+        return {
+          startDateStr: format(start, "yyyy-MM-dd"),
+          endDateStr: format(end, "yyyy-MM-dd"),
+          periodLabel: format(safeRefDate, "MMMM yyyy", { locale: fr }),
+        };
+      }
+    } catch {}
     return {
       startDateStr: "1970-01-01",
       endDateStr: "2099-12-31",
       periodLabel: "Toutes les dates",
     };
-  }, [period, referenceDate]);
+  }, [period, safeRefDate]);
 
   // Map project ID to project object & colors
   const projectMap = useMemo(() => {
     const map = new Map<string, { id: string; name: string; color: string }>();
-    projects.forEach((p) => {
-      map.set(p.id, {
-        id: p.id,
-        name: p.name,
-        color: p.color || "#D4F63D",
-      });
+    safeProjects.forEach((p) => {
+      if (p && p.id) {
+        map.set(p.id, {
+          id: p.id,
+          name: p.name || "Projet",
+          color: p.color || "#D4F63D",
+        });
+      }
     });
     return map;
-  }, [projects]);
+  }, [safeProjects]);
 
   // Selected project object for drill-down view
   const selectedProject = useMemo(() => {
@@ -403,8 +417,8 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
     const projectTotalsMap = new Map<string, number>();
 
     if (period === "month") {
-      const mStart = startOfMonth(referenceDate);
-      const mEnd = endOfMonth(referenceDate);
+      const mStart = startOfMonth(safeRefDate);
+      const mEnd = endOfMonth(safeRefDate);
       const weekStarts = eachWeekOfInterval({ start: mStart, end: mEnd }, { weekStartsOn: 1 });
 
       weekStarts.forEach((wStart) => {
@@ -459,8 +473,8 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
       });
     } else {
       // Week
-      const wStart = startOfWeek(referenceDate, { weekStartsOn: 1 });
-      const wEnd = endOfWeek(referenceDate, { weekStartsOn: 1 });
+      const wStart = startOfWeek(safeRefDate, { weekStartsOn: 1 });
+      const wEnd = endOfWeek(safeRefDate, { weekStartsOn: 1 });
       const days = eachDayOfInterval({ start: wStart, end: wEnd });
 
       days.forEach((dayDate) => {

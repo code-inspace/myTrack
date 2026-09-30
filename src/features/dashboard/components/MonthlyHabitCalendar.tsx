@@ -26,33 +26,55 @@ interface MonthlyHabitCalendarProps {
 const FRENCH_DAYS_SHORT = ["L", "M", "M", "J", "V", "S", "D"];
 
 export const MonthlyHabitCalendar: React.FC<MonthlyHabitCalendarProps> = ({
-  tasks,
-  completions,
+  tasks = [],
+  completions = [],
   monthDate,
 }) => {
   const [selectedTaskId, setSelectedTaskId] = useState<string>("ALL");
 
-  const monthStart = startOfMonth(monthDate);
-  const monthEnd = endOfMonth(monthDate);
+  const safeTasks = Array.isArray(tasks) ? tasks.filter(Boolean) : [];
+  const safeCompletions = Array.isArray(completions) ? completions.filter(Boolean) : [];
+  const safeMonthDate =
+    monthDate instanceof Date && !isNaN(monthDate.getTime()) ? monthDate : new Date();
+
+  const monthStart = startOfMonth(safeMonthDate);
+  const monthEnd = endOfMonth(safeMonthDate);
   const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 });
   const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
 
-  const calendarDays = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
-  const monthName = format(monthDate, "MMMM yyyy", { locale: fr });
-  const selectedTask = tasks.find((t) => t.id === selectedTaskId);
+  let calendarDays: Date[] = [];
+  try {
+    calendarDays = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
+  } catch {
+    calendarDays = [];
+  }
+
+  let monthName = "";
+  try {
+    monthName = format(safeMonthDate, "MMMM yyyy", { locale: fr });
+  } catch {
+    monthName = "Mois";
+  }
+
+  const selectedTask = safeTasks.find((t) => t.id === selectedTaskId);
 
   // Calculate monthly stats for the selected habit (or all habits)
-  const daysInCurrentMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
+  let daysInCurrentMonth: Date[] = [];
+  try {
+    daysInCurrentMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
+  } catch {
+    daysInCurrentMonth = [];
+  }
   let scheduledDaysCount = 0;
   let completedDaysCount = 0;
 
   daysInCurrentMonth.forEach((d) => {
     const dateStr = format(d, "yyyy-MM-dd");
     if (selectedTaskId === "ALL") {
-      const scheduledTasks = tasks.filter((t) =>
+      const scheduledTasks = safeTasks.filter((t) =>
         isTaskScheduledForDate(t.recurrence, t.recurrenceConfig, d, t.createdAt)
       );
-      const dayCompletions = completions.filter((c) => c.date === dateStr && c.completed);
+      const dayCompletions = safeCompletions.filter((c) => c.date === dateStr && c.completed);
       if (scheduledTasks.length > 0) {
         scheduledDaysCount++;
         if (dayCompletions.length >= scheduledTasks.length) {

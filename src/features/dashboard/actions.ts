@@ -7,9 +7,19 @@ export async function getDashboardData(
   userId?: string,
   referenceDate: Date = new Date()
 ): Promise<DashboardStats> {
-  const [tasks, completions] = await Promise.all([
-    fetchTasks(userId),
-    fetchCompletions(userId),
-  ]);
-  return calculateDashboardStats(tasks, completions, period, referenceDate);
+  const safeRefDate =
+    referenceDate instanceof Date && !isNaN(referenceDate.getTime())
+      ? referenceDate
+      : new Date();
+
+  try {
+    const [tasks, completions] = await Promise.all([
+      fetchTasks(userId).catch(() => []),
+      fetchCompletions(userId).catch(() => []),
+    ]);
+    return calculateDashboardStats(tasks || [], completions || [], period, safeRefDate);
+  } catch (error) {
+    console.warn("Error calculating dashboard stats, returning fallback:", error);
+    return calculateDashboardStats([], [], period, safeRefDate);
+  }
 }

@@ -110,31 +110,48 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
     return map;
   }, [historyLogs]);
 
+  const safeRefDate =
+    referenceDate instanceof Date && !isNaN(referenceDate.getTime())
+      ? referenceDate
+      : new Date();
+
   // Determine list of days to display based on global page period
   const daysInterval = useMemo(() => {
-    if (period === "day") {
-      return [referenceDate];
+    try {
+      if (period === "day") {
+        return [safeRefDate];
+      }
+      if (period === "month" || period === "all") {
+        const start = startOfMonth(safeRefDate);
+        const end = endOfMonth(safeRefDate);
+        return eachDayOfInterval({ start, end });
+      }
+      // Default "week": Monday to Sunday
+      const start = startOfWeek(safeRefDate, { weekStartsOn: 1 });
+      return eachDayOfInterval({ start, end: addDays(start, 6) });
+    } catch {
+      return [safeRefDate];
     }
-    if (period === "month" || period === "all") {
-      const start = startOfMonth(referenceDate);
-      const end = endOfMonth(referenceDate);
-      return eachDayOfInterval({ start, end });
-    }
-    // Default "week": Monday to Sunday
-    const start = startOfWeek(referenceDate, { weekStartsOn: 1 });
-    return eachDayOfInterval({ start, end: addDays(start, 6) });
-  }, [period, referenceDate]);
+  }, [period, safeRefDate]);
 
   // Build data points for each day in interval
   const points = useMemo(() => {
     return daysInterval.map((d, index) => {
-      const dateStr = format(d, "yyyy-MM-dd");
-      const prevDateStr = format(subDays(d, 1), "yyyy-MM-dd");
+      let dateStr = todayStr;
+      let prevDateStr = todayStr;
+      let fullDateLabel = "Aujourd'hui";
+      let dayNum = 1;
+      let weekdayInitial = "L";
+      let isMonday = false;
 
-      const fullDateLabel = format(d, "d MMMM yyyy", { locale: fr });
-      const dayNum = parseInt(format(d, "d"), 10);
-      const weekdayInitial = format(d, "EEEEE", { locale: fr }).toUpperCase();
-      const isMonday = d.getDay() === 1;
+      try {
+        dateStr = format(d, "yyyy-MM-dd");
+        prevDateStr = format(subDays(d, 1), "yyyy-MM-dd");
+        fullDateLabel = format(d, "d MMMM yyyy", { locale: fr });
+        dayNum = parseInt(format(d, "d"), 10);
+        weekdayInitial = format(d, "EEEEE", { locale: fr }).toUpperCase();
+        isMonday = d.getDay() === 1;
+      } catch {}
 
       // 1. Strict Future Date Guard: Any day after today cannot have completed sleep
       if (dateStr > todayStr) {

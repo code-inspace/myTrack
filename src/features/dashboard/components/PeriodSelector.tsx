@@ -27,38 +27,47 @@ export const PeriodSelector: React.FC<PeriodSelectorProps> = ({
     { id: "all", label: "Global" },
   ];
 
+  const safeDate =
+    referenceDate instanceof Date && !isNaN(referenceDate.getTime())
+      ? referenceDate
+      : new Date();
+
   const handlePrev = () => {
     if (period === "day") {
-      onChangeReferenceDate(subDays(referenceDate, 1));
+      onChangeReferenceDate(subDays(safeDate, 1));
     } else if (period === "week") {
-      onChangeReferenceDate(subWeeks(referenceDate, 1));
+      onChangeReferenceDate(subWeeks(safeDate, 1));
     } else if (period === "month") {
-      onChangeReferenceDate(subMonths(referenceDate, 1));
+      onChangeReferenceDate(subMonths(safeDate, 1));
     }
   };
 
   const handleNext = () => {
     if (period === "day") {
-      onChangeReferenceDate(addDays(referenceDate, 1));
+      onChangeReferenceDate(addDays(safeDate, 1));
     } else if (period === "week") {
-      onChangeReferenceDate(addWeeks(referenceDate, 1));
+      onChangeReferenceDate(addWeeks(safeDate, 1));
     } else if (period === "month") {
-      onChangeReferenceDate(addMonths(referenceDate, 1));
+      onChangeReferenceDate(addMonths(safeDate, 1));
     }
   };
 
   // Label for current navigated period
   let periodSubLabel = "";
-  if (period === "day") {
-    const formatted = format(referenceDate, "EEEE d MMMM yyyy", { locale: fr });
-    periodSubLabel = formatted.charAt(0).toUpperCase() + formatted.slice(1);
-  } else if (period === "week") {
-    const start = startOfWeek(referenceDate, { weekStartsOn: 1 });
-    const end = endOfWeek(referenceDate, { weekStartsOn: 1 });
-    periodSubLabel = `${format(start, "d MMM", { locale: fr })} - ${format(end, "d MMM yyyy", { locale: fr })}`;
-  } else if (period === "month") {
-    const formatted = format(referenceDate, "MMMM yyyy", { locale: fr });
-    periodSubLabel = formatted.charAt(0).toUpperCase() + formatted.slice(1);
+  try {
+    if (period === "day") {
+      const formatted = format(safeDate, "EEEE d MMMM yyyy", { locale: fr });
+      periodSubLabel = formatted.charAt(0).toUpperCase() + formatted.slice(1);
+    } else if (period === "week") {
+      const start = startOfWeek(safeDate, { weekStartsOn: 1 });
+      const end = endOfWeek(safeDate, { weekStartsOn: 1 });
+      periodSubLabel = `${format(start, "d MMM", { locale: fr })} - ${format(end, "d MMM yyyy", { locale: fr })}`;
+    } else if (period === "month") {
+      const formatted = format(safeDate, "MMMM yyyy", { locale: fr });
+      periodSubLabel = formatted.charAt(0).toUpperCase() + formatted.slice(1);
+    }
+  } catch {
+    periodSubLabel = "—";
   }
 
   return (
