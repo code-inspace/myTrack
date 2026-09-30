@@ -77,182 +77,16 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
   const isDeletingRef = React.useRef(false);
   const activeTaskIdRef = React.useRef<string | null>(null);
 
-  // Initial snapshot to compare and only send what truly changed
-  const initialSnapshotRef = React.useRef({
-    title: task?.title || "",
-    projectId: task?.projectId || "",
-    projectCategory: task?.projectCategory || "",
-    startTime: task?.effectiveStartTime || task?.startTime || "09:00",
-    endTime: task?.effectiveEndTime || task?.endTime || "10:00",
-    enableReminders: Boolean(task?.enableReminders),
-  });
-
-  // Current working values ref for safe access in flush callbacks
-  const currentValuesRef = React.useRef({
-    title: task?.title || "",
-    projectId: task?.projectId || "",
-    projectCategory: task?.projectCategory || "",
-    startTime: task?.effectiveStartTime || task?.startTime || "09:00",
-    endTime: task?.effectiveEndTime || task?.endTime || "10:00",
-    enableReminders: Boolean(task?.enableReminders),
-  });
-
-  const isDirtyRef = React.useRef(false);
-
-  // Keep references to latest callbacks and props without triggering re-renders or effect re-runs
-  const propsRef = React.useRef({
-    task,
-    selectedDate,
-    onUpdateTask,
-    onUpdateTimes,
-    onClose,
-  });
-
-  React.useEffect(() => {
-    propsRef.current = {
-      task,
-      selectedDate,
-      onUpdateTask,
-      onUpdateTimes,
-      onClose,
-    };
-  });
-
-  // Auto-save debounce timer
-  const autoSaveTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Flush all pending changes in a SINGLE atomic request
-  const flushPendingSave = React.useCallback(() => {
-    if (autoSaveTimerRef.current) {
-      clearTimeout(autoSaveTimerRef.current);
-      autoSaveTimerRef.current = null;
-    }
-
-    const currentTask = propsRef.current.task;
-    if (!isDirtyRef.current || isDeletingRef.current || !currentTask) {
-      return;
-    }
-
-    const curr = currentValuesRef.current;
-    const init = initialSnapshotRef.current;
-
-    const trimmedTitle = curr.title.trim();
-    const hasTitleChanged = trimmedTitle !== "" && trimmedTitle !== init.title;
-    const hasProjectChanged = curr.projectId !== init.projectId;
-    const hasCategoryChanged = curr.projectCategory !== init.projectCategory;
-    const hasStartTimeChanged = curr.startTime !== init.startTime;
-    const hasEndTimeChanged = curr.endTime !== init.endTime;
-    const hasRemindersChanged = curr.enableReminders !== init.enableReminders;
-
-    if (
-      !hasTitleChanged &&
-      !hasProjectChanged &&
-      !hasCategoryChanged &&
-      !hasStartTimeChanged &&
-      !hasEndTimeChanged &&
-      !hasRemindersChanged
-    ) {
-      isDirtyRef.current = false;
-      return;
-    }
-
-    const effectiveTitle = trimmedTitle || currentTask.title;
-    const isSleep = isSleepTitle(effectiveTitle);
-    const isNap = isNapTitle(effectiveTitle);
-
-    const updates: Partial<TaskFormValues> = {
-      date: propsRef.current.selectedDate,
-    };
-
-    if (hasTitleChanged) {
-      updates.title = effectiveTitle;
-    }
-    if (hasProjectChanged) {
-      updates.projectId = curr.projectId || null;
-      updates.isNoProject = !curr.projectId;
-    }
-    if (hasCategoryChanged || hasProjectChanged) {
-      updates.projectCategory = curr.projectCategory || null;
-    }
-    if (hasStartTimeChanged) {
-      updates.startTime = curr.startTime;
-    }
-    if (hasEndTimeChanged) {
-      updates.endTime = curr.endTime;
-    }
-    if (hasRemindersChanged) {
-      updates.enableReminders = curr.enableReminders;
-    }
-
-    if (isSleep || isNap) {
-      updates.category = "Santé";
-      updates.tag = "Santé";
-      updates.trackingType = "DURATION";
-      updates.targetValue = currentTask.targetValue || (isNap ? 30 : 480);
-      const parsed = extractTimesFromTitle(effectiveTitle);
-      if (parsed.cleanTitle && parsed.cleanTitle !== effectiveTitle) {
-        updates.title = parsed.cleanTitle;
-      }
-      if (parsed.startTime) {
-        updates.startTime = parsed.startTime;
-      }
-      if (parsed.endTime) {
-        updates.endTime = parsed.endTime;
-      }
-    }
-
-    // Single consolidated atomic mutation (handles title, project, subproject, and times together)
-    propsRef.current.onUpdateTask?.(currentTask.id, updates);
-
-    // If sleep/nap, sync sleep log
-    if (isSleep || isNap) {
-      syncTaskWithSleepLog(
-        {
-          ...currentTask,
-          title: updates.title || effectiveTitle,
-          startTime: updates.startTime || curr.startTime,
-          endTime: updates.endTime || curr.endTime,
-          trackingType: "DURATION",
-          targetValue: updates.targetValue || currentTask.targetValue || (isNap ? 30 : 480),
-        },
-        propsRef.current.selectedDate
-      ).catch((e) => console.warn("syncTaskWithSleepLog error:", e));
-    }
-
-    // Update snapshot to prevent duplicate writes
-    initialSnapshotRef.current = { ...currentValuesRef.current };
-    isDirtyRef.current = false;
-  }, []);
-
-  const scheduleAutoSave = React.useCallback(() => {
-    isDirtyRef.current = true;
-    setSaveStatus("saving");
-    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
-    autoSaveTimerRef.current = setTimeout(() => {
-      flushPendingSave();
-      setSaveStatus("saved");
-      setTimeout(() => setSaveStatus("idle"), 1500);
-    }, 600);
-  }, [flushPendingSave]);
-
-  // Synchronize ONLY when a different task is opened or modal is freshly opened
+  // Synchronize state strictly when a new task is opened
   React.useEffect(() => {
     if (!isOpen || !task) {
-      if (isDirtyRef.current) {
-        flushPendingSave();
-      }
       activeTaskIdRef.current = null;
       return;
     }
 
-    // If opening a new task
     if (task.id !== activeTaskIdRef.current) {
-      if (isDirtyRef.current) {
-        flushPendingSave();
-      }
       activeTaskIdRef.current = task.id;
       isDeletingRef.current = false;
-      isDirtyRef.current = false;
 
       const initTitle = task.title || "";
       const initProj = task.projectId || "";
@@ -270,52 +104,120 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
       setIsRemindersEnabled(initReminders);
       setNewSubprojectInput("");
       setSaveStatus("idle");
-
-      initialSnapshotRef.current = {
-        title: initTitle,
-        projectId: initProj,
-        projectCategory: initCat,
-        startTime: initStart,
-        endTime: initEnd,
-        enableReminders: initReminders,
-      };
-
-      currentValuesRef.current = {
-        title: initTitle,
-        projectId: initProj,
-        projectCategory: initCat,
-        startTime: initStart,
-        endTime: initEnd,
-        enableReminders: initReminders,
-      };
     } else {
-      // If same task, only sync external completion state if changed
       setIsDone(Boolean(task.isCompletedToday));
     }
-  }, [isOpen, task?.id, task?.isCompletedToday, flushPendingSave]);
+  }, [isOpen, task?.id, task?.isCompletedToday]);
 
-  // Flush pending save on unmount
-  React.useEffect(() => {
-    return () => {
-      flushPendingSave();
-    };
-  }, [flushPendingSave]);
-
-  const handleClose = React.useCallback(() => {
-    flushPendingSave();
+  // Cancel action: Discards all changes without saving
+  const handleCancel = React.useCallback(() => {
     onClose();
-  }, [flushPendingSave, onClose]);
+  }, [onClose]);
 
-  // Handle Escape key to close with save
+  // Validate & Save action: Saves all changes atomically in ONE single update
+  const handleSaveAndClose = React.useCallback(() => {
+    if (!task || isDeletingRef.current) {
+      onClose();
+      return;
+    }
+
+    const trimmedTitle = title.trim();
+    const effectiveTitle = trimmedTitle || task.title;
+    const isSleep = isSleepTitle(effectiveTitle);
+    const isNap = isNapTitle(effectiveTitle);
+
+    const initTitle = task.title || "";
+    const initProj = task.projectId || "";
+    const initCat = task.projectCategory || "";
+    const initStart = task.effectiveStartTime || task.startTime || "09:00";
+    const initEnd = task.effectiveEndTime || task.endTime || "10:00";
+    const initReminders = Boolean(task.enableReminders);
+
+    const hasTitleChanged = trimmedTitle !== "" && trimmedTitle !== initTitle;
+    const hasProjectChanged = selectedProjectId !== initProj;
+    const hasCategoryChanged = projectCategory !== initCat;
+    const hasStartTimeChanged = startTime !== initStart;
+    const hasEndTimeChanged = endTime !== initEnd;
+    const hasRemindersChanged = isRemindersEnabled !== initReminders;
+
+    if (
+      hasTitleChanged ||
+      hasProjectChanged ||
+      hasCategoryChanged ||
+      hasStartTimeChanged ||
+      hasEndTimeChanged ||
+      hasRemindersChanged
+    ) {
+      const updates: Partial<TaskFormValues> = {
+        date: selectedDate,
+      };
+
+      if (hasTitleChanged) updates.title = effectiveTitle;
+      if (hasProjectChanged) {
+        updates.projectId = selectedProjectId || null;
+        updates.isNoProject = !selectedProjectId;
+      }
+      if (hasCategoryChanged || hasProjectChanged) {
+        updates.projectCategory = projectCategory || null;
+      }
+      if (hasStartTimeChanged) updates.startTime = startTime;
+      if (hasEndTimeChanged) updates.endTime = endTime;
+      if (hasRemindersChanged) updates.enableReminders = isRemindersEnabled;
+
+      if (isSleep || isNap) {
+        updates.category = "Santé";
+        updates.tag = "Santé";
+        updates.trackingType = "DURATION";
+        updates.targetValue = task.targetValue || (isNap ? 30 : 480);
+        const parsed = extractTimesFromTitle(effectiveTitle);
+        if (parsed.cleanTitle && parsed.cleanTitle !== effectiveTitle) {
+          updates.title = parsed.cleanTitle;
+        }
+        if (parsed.startTime) updates.startTime = parsed.startTime;
+        if (parsed.endTime) updates.endTime = parsed.endTime;
+      }
+
+      onUpdateTask?.(task.id, updates);
+
+      if (isSleep || isNap) {
+        syncTaskWithSleepLog(
+          {
+            ...task,
+            title: updates.title || effectiveTitle,
+            startTime: updates.startTime || startTime,
+            endTime: updates.endTime || endTime,
+            trackingType: "DURATION",
+            targetValue: updates.targetValue || task.targetValue || (isNap ? 30 : 480),
+          },
+          selectedDate
+        ).catch((e) => console.warn("syncTaskWithSleepLog error:", e));
+      }
+    }
+
+    onClose();
+  }, [
+    task,
+    title,
+    selectedProjectId,
+    projectCategory,
+    startTime,
+    endTime,
+    isRemindersEnabled,
+    selectedDate,
+    onUpdateTask,
+    onClose,
+  ]);
+
+  // Handle Escape key to cancel
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape" && isOpen) {
-        handleClose();
+        handleCancel();
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, handleClose]);
+  }, [isOpen, handleCancel]);
 
   if (!isOpen || !task) return null;
 
@@ -342,23 +244,17 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
   };
 
   const handleToggleReminderClick = () => {
-    const nextReminders = !isRemindersEnabled;
-    setIsRemindersEnabled(nextReminders);
-    currentValuesRef.current.enableReminders = nextReminders;
-    scheduleAutoSave();
+    setIsRemindersEnabled(!isRemindersEnabled);
   };
 
   const handleTitleChange = (newVal: string) => {
     setTitle(newVal);
-    currentValuesRef.current.title = newVal;
-    scheduleAutoSave();
   };
 
   const handleDelete = (e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
     e.stopPropagation();
     isDeletingRef.current = true;
-    isDirtyRef.current = false;
     const currentTaskId = task.id;
     onClose();
     if (onDeleteTask && currentTaskId) {
@@ -370,16 +266,11 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
     if (isDeletingRef.current) return;
     setSelectedProjectId(newProjId);
     setProjectCategory("");
-    currentValuesRef.current.projectId = newProjId;
-    currentValuesRef.current.projectCategory = "";
-    scheduleAutoSave();
   };
 
   const handleSelectSubproject = (cat: string) => {
     if (isDeletingRef.current) return;
     setProjectCategory(cat);
-    currentValuesRef.current.projectCategory = cat;
-    scheduleAutoSave();
   };
 
   const handleAddNewSubproject = () => {
@@ -400,15 +291,11 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
   const handleStartTimeChange = (newStart: string) => {
     if (isDeletingRef.current) return;
     setStartTime(newStart);
-    currentValuesRef.current.startTime = newStart;
-    scheduleAutoSave();
   };
 
   const handleEndTimeChange = (newEnd: string) => {
     if (isDeletingRef.current) return;
     setEndTime(newEnd);
-    currentValuesRef.current.endTime = newEnd;
-    scheduleAutoSave();
   };
 
   const availableCategories = Array.from(
@@ -419,22 +306,34 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
     <div
       data-testid="agenda-task-detail-modal"
       className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200"
-      onClick={handleClose}
+      onClick={handleCancel}
     >
       <div
         onClick={(e) => e.stopPropagation()}
         className="relative w-full max-w-lg max-h-[90vh] flex flex-col rounded-3xl bg-[#14151C] border border-[#262836] shadow-2xl overflow-hidden text-white modal-adaptive-card"
       >
-        {/* Header: Project / Tag + Auto-save indicator + Close */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#222430] flex-shrink-0 gap-3">
-          <div className="flex items-center gap-2.5 min-w-0 flex-wrap">
+        {/* iOS-Style Header: Annuler (Top Left) | Project / Titre (Center) | Valider (Top Right) */}
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-[#222430] flex-shrink-0 gap-3">
+          {/* Top-Left: Annuler / Cross Button */}
+          <button
+            data-testid="agenda-detail-cancel-btn"
+            type="button"
+            onClick={handleCancel}
+            title="Annuler les modifications"
+            className="w-9 h-9 rounded-full bg-[#242630] text-[#E2E8F0] hover:text-white hover:bg-[#323644] flex items-center justify-center transition-all cursor-pointer shadow-sm active:scale-95 shrink-0"
+          >
+            <X className="w-5 h-5 stroke-[2.5]" />
+          </button>
+
+          {/* Top-Center: Project Selector & Subproject Badge */}
+          <div className="flex items-center justify-center gap-2 min-w-0 flex-1">
             {/* Project Selector Dropdown */}
-            <div className="relative flex items-center">
+            <div className="relative flex items-center max-w-[180px] sm:max-w-[220px]">
               <select
                 data-testid="agenda-detail-project-select"
                 value={selectedProjectId}
                 onChange={(e) => handleProjectChange(e.target.value)}
-                className="appearance-none text-xs font-bold pl-7 pr-7 py-1.5 rounded-full border cursor-pointer focus:outline-none transition-all"
+                className="appearance-none text-xs font-bold pl-7 pr-7 py-1.5 rounded-full border cursor-pointer focus:outline-none transition-all truncate w-full"
                 style={{
                   backgroundColor: currentProject ? `${currentProject.color || "#D4F63D"}18` : "#20232C",
                   borderColor: currentProject ? `${currentProject.color || "#D4F63D"}50` : "#2D313E",
@@ -449,46 +348,30 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
                 ))}
               </select>
               <span
-                className="w-2.5 h-2.5 rounded-full absolute left-2.5 pointer-events-none shadow-sm"
+                className="w-2.5 h-2.5 rounded-full absolute left-2.5 pointer-events-none shadow-sm shrink-0"
                 style={{ backgroundColor: currentProject?.color || "#94A3B8" }}
               />
-              <ChevronDown className="w-3.5 h-3.5 absolute right-2 pointer-events-none opacity-60" />
+              <ChevronDown className="w-3.5 h-3.5 absolute right-2 pointer-events-none opacity-60 shrink-0" />
             </div>
 
             {projectCategory && (
-              <span className="text-[11px] text-[#A5B4FC] bg-[#818CF8]/15 border border-[#818CF8]/30 px-2 py-0.5 rounded-md font-semibold truncate flex items-center gap-1">
+              <span className="hidden sm:flex text-[11px] text-[#A5B4FC] bg-[#818CF8]/15 border border-[#818CF8]/30 px-2 py-0.5 rounded-md font-semibold truncate items-center gap-1 shrink-0">
                 <Tag className="w-3 h-3 text-[#818CF8]" />
                 <span>{projectCategory}</span>
               </span>
             )}
           </div>
 
-          <div className="flex items-center gap-2.5">
-            {saveStatus === "saving" && (
-              <span className="flex items-center gap-1.5 text-[11px] text-[#38BDF8] animate-pulse font-medium">
-                <Loader2 className="w-3 h-3 animate-spin" />
-                <span className="hidden sm:inline">Sauvegarde auto...</span>
-              </span>
-            )}
-            {saveStatus === "saved" && (
-              <span className="flex items-center gap-1.5 text-[11px] text-[#D4F63D] font-medium animate-in fade-in duration-150">
-                <Check className="w-3 h-3 text-[#D4F63D]" />
-                <span className="hidden sm:inline">Enregistré</span>
-              </span>
-            )}
-            {saveStatus === "idle" && (
-              <span className="text-[11px] text-[#8E929E] hidden sm:inline">Enregistrement à la fermeture</span>
-            )}
-
-            <button
-              data-testid="agenda-detail-close-btn"
-              type="button"
-              onClick={handleClose}
-              className="w-8 h-8 rounded-xl bg-[#1C1E28] text-[#8E929E] hover:text-white hover:bg-[#252834] flex items-center justify-center transition-colors cursor-pointer"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
+          {/* Top-Right: Valider / Check Button (iOS Style Accent) */}
+          <button
+            data-testid="agenda-detail-save-btn"
+            type="button"
+            onClick={handleSaveAndClose}
+            title="Valider et enregistrer"
+            className="w-9 h-9 rounded-full bg-[#FF453A] sm:bg-[#D4F63D] text-white sm:text-black font-extrabold flex items-center justify-center transition-all cursor-pointer shadow-md hover:scale-105 active:scale-95 shrink-0"
+          >
+            <Check className="w-5 h-5 stroke-[3]" />
+          </button>
         </div>
 
         {/* Scrollable Body */}

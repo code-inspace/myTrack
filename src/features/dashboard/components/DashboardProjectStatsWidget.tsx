@@ -297,12 +297,13 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
           }
         }
         if (t.isActive && t.startedAt) {
-          const startDayStr = format(new Date(t.startedAt), "yyyy-MM-dd");
+          const startDayStr = typeof t.startedAt === "string" ? t.startedAt.split("T")[0] : "";
           if (isAllPeriod || (startDayStr >= startDateStr && startDayStr <= endDateStr)) {
             if (tComps.length === 0) {
               activeTasksCount++;
             }
-            const elapsedMins = Math.max(1, Math.floor((Date.now() - new Date(t.startedAt).getTime()) / 60000));
+            const startedTime = new Date(t.startedAt).getTime();
+            const elapsedMins = !isNaN(startedTime) ? Math.max(1, Math.floor((Date.now() - startedTime) / 60000)) : 30;
             pMinutes += elapsedMins;
           }
         } else if (tComps.length === 0 && isAllPeriod) {
@@ -357,9 +358,10 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
       for (const t of tasks) {
         if (!t.projectId || t.isArchived || completedTaskIds.has(t.id)) continue;
         if (t.isActive && t.startedAt) {
-          const startDayStr = format(new Date(t.startedAt), "yyyy-MM-dd");
+          const startDayStr = typeof t.startedAt === "string" ? t.startedAt.split("T")[0] : "";
           if (startDayStr === dateStr) {
-            const elapsedMins = Math.max(1, Math.floor((Date.now() - new Date(t.startedAt).getTime()) / 60000));
+            const startedTime = new Date(t.startedAt).getTime();
+            const elapsedMins = !isNaN(startedTime) ? Math.max(1, Math.floor((Date.now() - startedTime) / 60000)) : 30;
             breakdownMap.set(t.projectId, (breakdownMap.get(t.projectId) || 0) + elapsedMins);
           }
         }

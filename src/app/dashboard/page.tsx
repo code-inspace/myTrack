@@ -148,7 +148,12 @@ export default function DashboardPage() {
     }
   };
 
-  const { data: stats, isLoading } = useDashboardStats(period, referenceDate);
+  const safeReferenceDate =
+    referenceDate instanceof Date && !isNaN(referenceDate.getTime())
+      ? referenceDate
+      : new Date();
+
+  const { data: stats, isLoading } = useDashboardStats(period, safeReferenceDate);
   const { allTasks = [], allCompletions = [] } = useTasks(getTodayDateString());
   const { events: externalEvents = [] } = useCalendarEvents();
   const { user } = useAuth();
@@ -200,14 +205,14 @@ export default function DashboardPage() {
             externalEvents={externalEvents}
             completions={allCompletions}
             period={period}
-            referenceDate={referenceDate}
+            referenceDate={safeReferenceDate}
           />
         );
 
       case "SLEEP_WAVE":
         return (
           <div key="SLEEP_WAVE">
-            <SleepWaveChart period={period} referenceDate={referenceDate} />
+            <SleepWaveChart period={period} referenceDate={safeReferenceDate} />
           </div>
         );
 
@@ -218,7 +223,7 @@ export default function DashboardPage() {
               <MonthlyHabitCalendar
                 tasks={(allTasks || []).filter((t) => t.recurrence && t.recurrence !== "ONCE")}
                 completions={allCompletions}
-                monthDate={referenceDate}
+                monthDate={safeReferenceDate}
               />
             ) : (
               <StreakGridCard

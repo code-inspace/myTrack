@@ -101,10 +101,11 @@ export const WaveChart: React.FC<WaveChartProps> = ({ data, period = "week" }) =
   const areaD = coords.length > 0 ? `${pathD} L ${lastCoord.x} ${height} L ${firstCoord.x} ${height} Z` : "";
 
   // Selected point details (defaults to last point if none selected)
-  const activePoint =
+  const fallbackPoint: MomentumPoint = { label: "—", score: 0, completedCount: 0, totalScheduled: 0, date: "" };
+  const activePoint: MomentumPoint =
     selectedIdx !== null && selectedIdx < safePoints.length
-      ? safePoints[selectedIdx]
-      : safePoints[safePoints.length - 1] || safePoints[0];
+      ? safePoints[selectedIdx] || fallbackPoint
+      : safePoints[safePoints.length - 1] || safePoints[0] || fallbackPoint;
 
   const periodBadgeLabel =
     period === "day"
@@ -124,11 +125,11 @@ export const WaveChart: React.FC<WaveChartProps> = ({ data, period = "week" }) =
           <div className="w-2.5 h-2.5 rounded-full bg-[#D4F63D] animate-ping flex-shrink-0" />
           <div>
             <div className="text-xs font-extrabold text-white flex items-center gap-1.5">
-              <span>{activePoint.label} :</span>
-              <span className="text-[#D4F63D] font-mono">{activePoint.score}%</span>
+              <span>{activePoint.label || "Progression"} :</span>
+              <span className="text-[#D4F63D] font-mono">{activePoint.score ?? 0}%</span>
             </div>
             <div className="text-[10px] text-[#8E929E]">
-              {activePoint.completedCount} sur {activePoint.totalScheduled} tâche{activePoint.totalScheduled > 1 ? "s" : ""} validée{activePoint.completedCount > 1 ? "s" : ""}
+              {activePoint.completedCount ?? 0} sur {activePoint.totalScheduled ?? 0} tâche{(activePoint.totalScheduled ?? 0) > 1 ? "s" : ""} validée{(activePoint.completedCount ?? 0) > 1 ? "s" : ""}
             </div>
           </div>
         </div>
