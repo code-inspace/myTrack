@@ -118,8 +118,16 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
     };
   });
 
-  // Flush all pending changes in a SINGLE atomic request strictly upon modal close
+  // Auto-save debounce timer
+  const autoSaveTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Flush all pending changes in a SINGLE atomic request
   const flushPendingSave = React.useCallback(() => {
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = null;
+    }
+
     const currentTask = propsRef.current.task;
     if (!isDirtyRef.current || isDeletingRef.current || !currentTask) {
       return;
@@ -193,18 +201,8 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
       }
     }
 
-    // Single consolidated mutation
+    // Single consolidated atomic mutation (handles title, project, subproject, and times together)
     propsRef.current.onUpdateTask?.(currentTask.id, updates);
-
-    // If times changed and custom calendar handler exists
-    if ((hasStartTimeChanged || hasEndTimeChanged) && propsRef.current.onUpdateTimes) {
-      propsRef.current.onUpdateTimes(
-        currentTask.id,
-        updates.startTime || curr.startTime,
-        updates.endTime || curr.endTime,
-        propsRef.current.selectedDate
-      );
-    }
 
     // If sleep/nap, sync sleep log
     if (isSleep || isNap) {
@@ -225,6 +223,17 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
     initialSnapshotRef.current = { ...currentValuesRef.current };
     isDirtyRef.current = false;
   }, []);
+
+  const scheduleAutoSave = React.useCallback(() => {
+    isDirtyRef.current = true;
+    setSaveStatus("saving");
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    autoSaveTimerRef.current = setTimeout(() => {
+      flushPendingSave();
+      setSaveStatus("saved");
+      setTimeout(() => setSaveStatus("idle"), 1500);
+    }, 600);
+  }, [flushPendingSave]);
 
   // Synchronize ONLY when a different task is opened or modal is freshly opened
   React.useEffect(() => {
@@ -336,13 +345,13 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
     const nextReminders = !isRemindersEnabled;
     setIsRemindersEnabled(nextReminders);
     currentValuesRef.current.enableReminders = nextReminders;
-    isDirtyRef.current = true;
+    scheduleAutoSave();
   };
 
   const handleTitleChange = (newVal: string) => {
     setTitle(newVal);
     currentValuesRef.current.title = newVal;
-    isDirtyRef.current = true;
+    scheduleAutoSave();
   };
 
   const handleDelete = (e: React.MouseEvent | React.TouchEvent) => {
@@ -363,14 +372,14 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
     setProjectCategory("");
     currentValuesRef.current.projectId = newProjId;
     currentValuesRef.current.projectCategory = "";
-    isDirtyRef.current = true;
+    scheduleAutoSave();
   };
 
   const handleSelectSubproject = (cat: string) => {
     if (isDeletingRef.current) return;
     setProjectCategory(cat);
     currentValuesRef.current.projectCategory = cat;
-    isDirtyRef.current = true;
+    scheduleAutoSave();
   };
 
   const handleAddNewSubproject = () => {
@@ -392,14 +401,14 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
     if (isDeletingRef.current) return;
     setStartTime(newStart);
     currentValuesRef.current.startTime = newStart;
-    isDirtyRef.current = true;
+    scheduleAutoSave();
   };
 
   const handleEndTimeChange = (newEnd: string) => {
     if (isDeletingRef.current) return;
     setEndTime(newEnd);
     currentValuesRef.current.endTime = newEnd;
-    isDirtyRef.current = true;
+    scheduleAutoSave();
   };
 
   const availableCategories = Array.from(

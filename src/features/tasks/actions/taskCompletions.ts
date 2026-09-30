@@ -38,19 +38,23 @@ export async function fetchCompletions(
   const local = getStoredCompletions(targetId);
 
   try {
-    // 1. Query directly via Supabase client to bypass Serverless function invocation
-    const { data: dbCompletions, error } = await supabase
-      .from("task_completions")
-      .select("*")
-      .eq("user_id", targetId);
+    // 1. Query directly via Supabase client if authenticated
+    try {
+      const { data: dbCompletions, error } = await supabase
+        .from("task_completions")
+        .select("*")
+        .eq("user_id", targetId);
 
-    if (!error && Array.isArray(dbCompletions)) {
-      const mapped = dbCompletions.map((c: any) => mapDbCompletionToModel(c));
-      saveStoredCompletions(mapped, targetId);
-      return mapped;
+      if (!error && Array.isArray(dbCompletions) && dbCompletions.length > 0) {
+        const mapped = dbCompletions.map((c: any) => mapDbCompletionToModel(c));
+        saveStoredCompletions(mapped, targetId);
+        return mapped;
+      }
+    } catch (sbErr) {
+      console.warn("Direct Supabase fetchCompletions note:", sbErr);
     }
 
-    // Fallback to API route
+    // Fallback to API route if direct query returned empty or failed
     const res = await fetch(`/api/completions?userId=${encodeURIComponent(targetId)}`);
     if (res.ok) {
       const data = await res.json();

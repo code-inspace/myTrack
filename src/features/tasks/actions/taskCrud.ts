@@ -63,22 +63,26 @@ export async function fetchTasks(userId?: string): Promise<Task[]> {
       }).catch(() => {});
     }
 
-    // 2. Fetch fresh tasks directly via Supabase client to bypass Serverless function invocation
-    const { data: dbTasks, error } = await supabase
-      .from("tasks")
-      .select("*")
-      .eq("user_id", targetId)
-      .order("created_at", { ascending: false });
+    // 2. Fetch fresh tasks: try Supabase client first, but if empty or unauthenticated, fall back to server API route
+    try {
+      const { data: dbTasks, error } = await supabase
+        .from("tasks")
+        .select("*")
+        .eq("user_id", targetId)
+        .order("created_at", { ascending: false });
 
-    if (!error && Array.isArray(dbTasks)) {
-      const mappedTasks = await Promise.all(
-        dbTasks.map((t: any) => mapDbTaskToModelAsync(t))
-      );
-      saveStoredTasks(mappedTasks, targetId);
-      return mappedTasks;
+      if (!error && Array.isArray(dbTasks) && dbTasks.length > 0) {
+        const mappedTasks = await Promise.all(
+          dbTasks.map((t: any) => mapDbTaskToModelAsync(t))
+        );
+        saveStoredTasks(mappedTasks, targetId);
+        return mappedTasks;
+      }
+    } catch (sbErr) {
+      console.warn("Direct Supabase fetchTasks note:", sbErr);
     }
 
-    // Fallback to API route if direct Supabase client query failed
+    // Fallback to API route if direct Supabase client returned empty or failed
     const res = await fetch(`/api/tasks?userId=${encodeURIComponent(targetId)}`);
     if (res.ok) {
       const data = await res.json();
