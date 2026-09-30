@@ -153,8 +153,8 @@ export const AgendaView: React.FC = () => {
               trackingType: t.trackingType || "BOOLEAN",
               targetValue: t.targetValue || null,
               unit: t.unit || null,
-              startTime: null,
-              endTime: null,
+              startTime: t.effectiveStartTime !== undefined ? t.effectiveStartTime : (t.startTime || null),
+              endTime: t.effectiveEndTime !== undefined ? t.effectiveEndTime : (t.endTime || null),
               date: selectedDate,
             } as any);
           }}

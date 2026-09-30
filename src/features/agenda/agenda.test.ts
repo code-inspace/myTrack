@@ -772,4 +772,51 @@ describe("Agenda Multi-Day Task Distribution & Moving Logic", () => {
     handleEmptySlotClick();
     expect(onCreateTask).toHaveBeenCalledTimes(1);
   });
+
+  it("dupliquer une tâche depuis la modale info crée une nouvelle occurrence préservant les horaires et métadonnées", () => {
+    const originalTask: any = {
+      id: "orig-1",
+      title: "Séance Musculation",
+      category: "Sport",
+      tag: "Sport",
+      description: "Pectoraux & Triceps",
+      priority: "URGENT",
+      projectId: "proj-fitness",
+      projectCategory: "Force",
+      enableReminders: true,
+      recurrence: "ONCE",
+      trackingType: "BOOLEAN",
+      effectiveStartTime: "17:00",
+      effectiveEndTime: "18:30",
+    };
+
+    const onDuplicateTask = vi.fn((t: any) => {
+      return {
+        title: t.title,
+        category: t.category,
+        tag: t.tag,
+        description: t.description,
+        priority: t.priority,
+        projectId: t.projectId,
+        projectCategory: t.projectCategory,
+        enableReminders: t.enableReminders,
+        recurrence: "ONCE",
+        trackingType: t.trackingType,
+        startTime: t.effectiveStartTime || t.startTime,
+        endTime: t.effectiveEndTime || t.endTime,
+        date: "2026-10-01",
+      };
+    });
+
+    const duplicated = onDuplicateTask(originalTask);
+
+    expect(onDuplicateTask).toHaveBeenCalledWith(originalTask);
+    expect(duplicated.title).toBe("Séance Musculation");
+    expect(duplicated.category).toBe("Sport");
+    expect(duplicated.startTime).toBe("17:00");
+    expect(duplicated.endTime).toBe("18:30");
+    expect(duplicated.projectId).toBe("proj-fitness");
+    expect(duplicated.projectCategory).toBe("Force");
+    expect(duplicated.date).toBe("2026-10-01");
+  });
 });

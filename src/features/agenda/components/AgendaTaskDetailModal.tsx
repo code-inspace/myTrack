@@ -645,10 +645,10 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
                 onDuplicateTask?.(task);
               }}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-[#20232C] hover:bg-[#2B2F3D] text-[#A5B4FC] hover:text-white transition-colors cursor-pointer border border-[#2D3142]"
-              title="Créer une nouvelle occurrence aujourd'hui avec de nouveaux horaires sans écraser celle-ci"
+              title="Dupliquer cette tâche"
             >
-              <Copy className="w-3.5 h-3.5" />
-              <span>Répéter aujourd'hui</span>
+              <Copy className="w-4 h-4" />
+              <span>Dupliquer</span>
             </button>
 
             <button
