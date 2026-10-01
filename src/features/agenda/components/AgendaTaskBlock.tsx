@@ -105,8 +105,8 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
 
   const timeLabel = formatCrossDayTimeLabel(startTime, endTime, task.overnightPart);
 
-  const activeLeftPercent = isSelected ? 0 : leftPercent;
-  const activeWidthPercent = isSelected ? 100 : widthPercent;
+  const activeLeftPercent = leftPercent;
+  const activeWidthPercent = widthPercent;
 
   // Responsive height tiers for Apple-style progressive disclosure
   const isTiny = heightPx < 18;      // 1m - 17m (e.g. 3m, 5m, 15m)
@@ -204,11 +204,11 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
           : {}),
       }}
       className={cn(
-        "absolute rounded-xl border transition-[top,height,box-shadow,transform] duration-75 select-none cursor-pointer flex flex-col justify-between overflow-visible",
+        "absolute rounded-xl border transition-[top,height,box-shadow] duration-75 select-none cursor-pointer flex flex-col justify-between overflow-visible",
         !project && style.bg,
         !project && style.border,
         isSelected
-          ? "z-40 ring-1.5 ring-[#38BDF8] shadow-[0_4px_24px_rgba(56,189,248,0.4)] scale-[1.008] border-[#38BDF8] bg-[repeating-linear-gradient(135deg,rgba(255,255,255,0.07)_0px,rgba(255,255,255,0.07)_6px,transparent_6px,transparent_12px)]"
+          ? "z-40 ring-2 ring-[#38BDF8] shadow-[0_4px_24px_rgba(56,189,248,0.4)] border-[#38BDF8]"
           : "z-10 hover:ring-1 hover:ring-white/30 hover:z-25",
         task.isActive
           ? "ring-1 ring-[#D4F63D] shadow-[0_0_12px_rgba(212,246,61,0.3)] border-[#D4F63D]/80"

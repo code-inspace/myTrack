@@ -646,29 +646,25 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
 
   // Exit resize mode when clicking / tapping anywhere outside the selected task block and its handles
   useEffect(() => {
-    if (!selectedTaskId && !resizingState) return;
+    if (!selectedTaskId) return;
 
     const handleGlobalPointerDown = (e: PointerEvent) => {
+      // If currently dragging to resize, do not cancel
+      if (resizingState) return;
+
       const target = e.target as HTMLElement | null;
       if (!target) return;
 
       if (selectedTaskId) {
         const taskBlock = target.closest(`[data-agenda-block="true"][data-task-id="${selectedTaskId}"]`);
         if (taskBlock) return;
+        const resizeHandle = target.closest(`[data-testid^="agenda-resize-handle"]`);
+        if (resizeHandle) return;
       }
 
       if (target.closest("[data-testid='agenda-task-detail-modal']")) return;
 
       setSelectedTaskId(null);
-      if (resizingState) {
-        onMoveTaskToTime(
-          resizingState.taskId,
-          formatMinutesToTime(resizingState.currentStartMins),
-          formatMinutesToTime(resizingState.currentEndMins),
-          resizingState.date
-        );
-        setResizingState(null);
-      }
     };
 
     const timeoutId = setTimeout(() => {
@@ -679,7 +675,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
       clearTimeout(timeoutId);
       window.removeEventListener("pointerdown", handleGlobalPointerDown);
     };
-  }, [selectedTaskId, resizingState, onMoveTaskToTime]);
+  }, [selectedTaskId, resizingState]);
 
   const handleBackgroundClick = () => {
     if (Date.now() - justResizedRef.current < 400) return;
