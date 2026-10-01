@@ -18,8 +18,9 @@ import {
   getStoredSleepLog,
 } from "@/features/sleep/actions";
 import { DailySleepLog } from "@/features/sleep/types";
-import { getTodayDateString } from "@/lib/dates";
+import { getTodayDateString, isTaskScheduledForDate } from "@/lib/dates";
 import { createClient } from "@/utils/supabase/client";
+import { useAuth } from "@/providers/AuthProvider";
 import { Moon, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -51,14 +52,16 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
   referenceDate,
 }) => {
   const todayStr = getTodayDateString();
+  const { user } = useAuth();
+  const userId = user?.id || "";
   const [selectedDateStr, setSelectedDateStr] = useState<string | null>(null);
   const [historyLogs, setHistoryLogs] = useState<DailySleepLog[]>([]);
-  const { tasks: allTasks = [] } = useTasks(todayStr);
+  const { allTasks = [] } = useTasks(todayStr);
 
   // Fetch real sleep history & listen to realtime updates from iPhone/Widget
   useEffect(() => {
     const loadLogs = () => {
-      fetchSleepHistory(180).then((logs) => {
+      fetchSleepHistory(180, userId).then((logs) => {
         if (logs && Array.isArray(logs)) {
           setHistoryLogs(logs);
         }
@@ -179,20 +182,20 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
         };
       }
 
-      const log = logsMap.get(dateStr) || getStoredSleepLog(dateStr);
-      const prevLog = logsMap.get(prevDateStr) || getStoredSleepLog(prevDateStr);
+      const log = logsMap.get(dateStr) || getStoredSleepLog(dateStr, userId);
+      const prevLog = logsMap.get(prevDateStr) || getStoredSleepLog(prevDateStr, userId);
 
       // Find sleep / nap tasks matching this day from the tasks database / agenda
       const daySleepTasks = allTasks.filter((t) => {
-        const taskDate = t.createdAt ? t.createdAt.split("T")[0] : null;
-        const matchesDate = taskDate === dateStr || (!taskDate && dateStr === todayStr);
-        return matchesDate && isSleepOrNapTitle(t.title);
+        if (!isSleepOrNapTitle(t.title)) return false;
+        return isTaskScheduledForDate(t.recurrence, t.recurrenceConfig, d, t.createdAt, t.dateOverrides);
       });
 
+      const prevD = subDays(d, 1);
       const eveSleepTasks = allTasks.filter((t) => {
-        const taskDate = t.createdAt ? t.createdAt.split("T")[0] : null;
-        const matchesDate = taskDate === prevDateStr;
-        if (!matchesDate || !isSleepOrNapTitle(t.title)) return false;
+        if (!isSleepOrNapTitle(t.title)) return false;
+        const isScheduledEve = isTaskScheduledForDate(t.recurrence, t.recurrenceConfig, prevD, t.createdAt, t.dateOverrides);
+        if (!isScheduledEve) return false;
         const startHour = t.startTime ? parseInt(t.startTime.split(":")[0], 10) : 0;
         return startHour >= 18;
       });
