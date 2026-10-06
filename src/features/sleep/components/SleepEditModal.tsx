@@ -119,10 +119,11 @@ export const SleepEditModal: React.FC<SleepEditModalProps> = ({
         setSaveStatus("saving");
 
         if (currType === "night") {
-          // Night session bedtime key in DailySleepLog is the eve date
-          const nightLogKey = format(subDays(parseISO(eDate), 1), "yyyy-MM-dd");
+          // Night session bedtime key in DailySleepLog is targetBedDate (eve of wake-up or morning of wake-up)
+          const hour = parseInt(sTime.split(":")[0], 10) || 0;
+          const targetBedDate = sDate || (hour < 12 ? eDate : format(subDays(parseISO(eDate), 1), "yyyy-MM-dd"));
 
-          const startLog = getStoredSleepLog(nightLogKey);
+          const startLog = getStoredSleepLog(targetBedDate);
           await saveStoredSleepLog({
             ...startLog,
             bedtime: sTime,
@@ -137,12 +138,6 @@ export const SleepEditModal: React.FC<SleepEditModalProps> = ({
             wakeTime: eTime,
             wakeTimeValidated: true,
             updatedAt: new Date().toISOString(),
-          });
-
-          // Update default Sleep Target globally for the user
-          saveStoredSleepTarget({
-            targetBedtime: sTime,
-            targetWakeTime: eTime,
           });
         } else {
           // Nap session
