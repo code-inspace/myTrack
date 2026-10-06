@@ -324,6 +324,23 @@ export function cacheSleepHistoryLocally(logs: DailySleepLog[], userId?: string)
 export function getStoredSleepLog(date: string, userId?: string): DailySleepLog {
   const targetId = getEffectiveUserId(userId);
   const key = `${SLEEP_STORAGE_PREFIX}${targetId}_${date}`;
+  const todayStr = format(new Date(), "yyyy-MM-dd");
+
+  // Future dates NEVER have validated recorded sleep; they only return unvalidated target goals
+  if (date > todayStr) {
+    const target = getStoredSleepTarget(userId);
+    return {
+      date,
+      bedtime: target.targetBedtime,
+      wakeTime: target.targetWakeTime,
+      bedtimeValidated: false,
+      wakeTimeValidated: false,
+      naps: [],
+      notes: "",
+      gratitude: "",
+      manifestation: "",
+    };
+  }
 
   if (typeof window === "undefined") {
     return {
@@ -391,6 +408,12 @@ export function getNightSleepDuration(
   todayWakeTime: string;
 } | null {
   try {
+    const todayStr = format(new Date(), "yyyy-MM-dd");
+    // Strictly guard against future dates: future days cannot have recorded sleep
+    if (wakeDateStr > todayStr) {
+      return null;
+    }
+
     const d = parseISO(wakeDateStr);
     const yesterdayStr = format(subDays(d, 1), "yyyy-MM-dd");
 
@@ -459,6 +482,50 @@ export function getNightSleepDuration(
 }
 
 /**
+ * Purges any accidental or legacy sleep log records with dates in the future.
+ * Future dates are strictly target goals, never real recorded sleep.
+ */
+export async function purgeFutureSleepLogs(userId?: string): Promise<void> {
+  const targetId = getEffectiveUserId(userId);
+  const todayStr = format(new Date(), "yyyy-MM-dd");
+
+  if (typeof window !== "undefined") {
+    try {
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith(SLEEP_STORAGE_PREFIX)) {
+          const parts = key.split("_");
+          const datePart = parts[parts.length - 1];
+          if (datePart && /^\d{4}-\d{2}-\d{2}$/.test(datePart) && datePart > todayStr) {
+            keysToRemove.push(key);
+          }
+        }
+      }
+      keysToRemove.forEach((k) => localStorage.removeItem(k));
+    } catch {}
+  }
+
+  const supabase = createClient();
+  try {
+    let effectiveId = targetId;
+    if (!effectiveId) {
+      const { data: { session } } = await supabase.auth.getSession();
+      effectiveId = session?.user?.id || "";
+    }
+    if (effectiveId) {
+      await supabase
+        .from("sleep_logs")
+        .delete()
+        .eq("user_id", effectiveId)
+        .gt("date", todayStr);
+    }
+  } catch (err) {
+    console.warn("purgeFutureSleepLogs error:", err);
+  }
+}
+
+/**
  * Saves sleep log to Supabase PostgreSQL database and updates localStorage
  */
 export async function saveStoredSleepLog(
@@ -467,6 +534,16 @@ export async function saveStoredSleepLog(
 ): Promise<DailySleepLog> {
   let targetId = getEffectiveUserId(userId);
   const nowIso = new Date().toISOString();
+  const todayStr = format(new Date(), "yyyy-MM-dd");
+
+  // Future dates CANNOT have real validated recorded sleep
+  if (log.date > todayStr) {
+    return {
+      ...log,
+      bedtimeValidated: false,
+      wakeTimeValidated: false,
+    };
+  }
 
   const updatedLog: DailySleepLog = {
     ...log,
@@ -582,22 +659,28 @@ export async function fetchSleepHistory(
 ): Promise<DailySleepLog[]> {
   const supabase = createClient();
   let targetId = userId;
+  const todayStr = format(new Date(), "yyyy-MM-dd");
 
   if (!targetId) {
     const { data: { session } } = await supabase.auth.getSession();
     targetId = session?.user?.id || getEffectiveUserId();
   }
 
+  // Automatically clean up any future records
+  Promise.resolve(purgeFutureSleepLogs(targetId)).catch(() => {});
+
   try {
     const { data, error } = await supabase
       .from("sleep_logs")
       .select("*")
       .eq("user_id", targetId)
+      .lte("date", todayStr)
       .order("date", { ascending: false })
       .limit(days);
 
     if (!error && data) {
-      const mapped = data.map(mapDbSleepLogToModel);
+      const validRows = data.filter((row: any) => row.date <= todayStr);
+      const mapped = validRows.map(mapDbSleepLogToModel);
       cacheSleepHistoryLocally(mapped, targetId);
       return mapped;
     }

@@ -131,6 +131,13 @@ export async function syncTaskWithSleepLog(
   const dateStr =
     explicitDate ||
     (task.createdAt ? task.createdAt.split("T")[0] : getTodayDateString());
+  const todayStr = getTodayDateString();
+
+  // Tasks scheduled on future dates are goals/plans, NOT validated recorded sleep logs
+  if (dateStr > todayStr) {
+    return;
+  }
+
   const targetId = task.userId;
   const napId = `task-nap-${task.id}`;
 

@@ -1563,8 +1563,9 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
 
           // 3a. Morning Sleep (00:00 -> Réveil)
           // Sommeil Sauvegardé en base de données / Repéré (Violet)
-          // Pour les jours futurs sans validation explicite, c'est un objectif (Gris).
+          // Pour les jours futurs, c'est STRICTEMENT un objectif (Gris).
           const hasActualMorningSleep =
+            !isFutureDate &&
             Boolean(
               todayLog.wakeTimeValidated ||
               (todayLog.wakeTime && todayLog.wakeTime !== targetWakeTime) ||
@@ -1662,7 +1663,9 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
 
           // 3b. Evening Sleep Onset (Coucher -> 24:00)
           // Sommeil Sauvegardé en base de données / Repéré (Violet)
+          // Pour les jours futurs, c'est STRICTEMENT un objectif (Gris).
           const hasActualEveningBedtime =
+            !isFutureDate &&
             Boolean(
               todayLog.bedtimeValidated ||
               (todayLog.bedtime && todayLog.bedtime !== targetBedtime)
@@ -1733,7 +1736,7 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
           }
 
           // 3c. Daytime Naps (Sauvegardées en base -> Violet)
-          if (todayLog.naps && todayLog.naps.length > 0) {
+          if (!isFutureDate && todayLog.naps && todayLog.naps.length > 0) {
             todayLog.naps.forEach((nap, idx) => {
               if (nap.startTime) {
                 // If this nap is already represented by an existing task on today's timeline, avoid duplicate block
