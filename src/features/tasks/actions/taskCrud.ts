@@ -1,6 +1,14 @@
 import { Task, TaskCompletion, TaskFormValues } from "../types";
 import { getEffectiveUserId } from "./user";
-import { mapDbTaskToModel, mapDbTaskToModelAsync, TASKS_STORAGE_PREFIX } from "./mappers";
+import {
+  mapDbTaskToModel,
+  mapDbTaskToModelAsync,
+  serializeDateOverridesForDb,
+  TASKS_STORAGE_PREFIX,
+} from "./mappers";
+import { getCompletionFieldsAfterReschedule } from "../durationRules";
+import { getFirstColumnId, isTaskInDoneColumn } from "@/features/projects/types";
+import { getStoredProjects } from "@/features/projects/actions";
 import { getStoredTasks, saveStoredTasks, getStoredCompletions, saveStoredCompletions } from "./storage";
 import { upsertDbCompletion } from "./taskCompletions";
 import { createClient } from "@/utils/supabase/client";
@@ -48,6 +56,7 @@ export async function fetchTasks(userId?: string): Promise<Task[]> {
         ...t,
         startTime: t.startTime ? convertLocalTimeToUtc(t.startTime, t.createdAt?.split("T")[0]) : null,
         endTime: t.endTime ? convertLocalTimeToUtc(t.endTime, t.createdAt?.split("T")[0]) : null,
+        dateOverrides: serializeDateOverridesForDb(t.dateOverrides),
       }));
       const syncCompletions = localCompletions.map((c) => ({
         ...c,
@@ -126,6 +135,7 @@ export async function createDbTask(
       ...task,
       startTime: task.startTime ? convertLocalTimeToUtc(task.startTime, taskDate) : null,
       endTime: task.endTime ? convertLocalTimeToUtc(task.endTime, taskDate) : null,
+      dateOverrides: serializeDateOverridesForDb(task.dateOverrides),
     };
     const res = await fetch("/api/tasks", {
       method: "POST",
@@ -219,7 +229,10 @@ export async function createDbTask(
     isArchived: false,
     sortOrder: null,
     projectId: task.projectId || null,
-    projectStatus: task.projectId ? task.projectStatus || "TODO" : null,
+    projectStatus: task.projectId
+      ? task.projectStatus ||
+        getFirstColumnId(getStoredProjects(targetId).find((p) => p.id === task.projectId) || { columns: [] })
+      : task.projectStatus || null,
     projectCategory: task.projectId ? task.projectCategory || null : null,
     createdAt: `${taskDate}T12:00:00.000Z`,
     updatedAt: new Date().toISOString(),
@@ -299,9 +312,13 @@ export async function updateDbTask(
     ? (updates.endTime ? convertLocalTimeToUtc(updates.endTime, taskDate) : null)
     : undefined;
 
+  const projects = getStoredProjects(targetId);
+  const findProjectById = (id?: string | null) => (id ? projects.find((p) => p.id === id) : undefined);
+
   const dbUpdates: any = {
     updated_at: nowIso,
-    date_overrides: newOverrides,
+    // Local times in the app → UTC in the DB (otherwise every other date's override would be shifted)
+    date_overrides: serializeDateOverridesForDb(newOverrides),
   };
 
   if (updates.title !== undefined) {
@@ -335,9 +352,10 @@ export async function updateDbTask(
   if (updates.projectId !== undefined) {
     const isChangingProject = updates.projectId !== target?.projectId;
     dbUpdates.project_id = updates.projectId || null;
+    const newProjectFirstColumn = getFirstColumnId(findProjectById(updates.projectId) || { columns: [] });
     dbUpdates.project_status = updates.projectId
-      ? updates.projectStatus || (isChangingProject ? "TODO" : target?.projectStatus || "TODO")
-      : null;
+      ? updates.projectStatus || (isChangingProject ? newProjectFirstColumn : target?.projectStatus || newProjectFirstColumn)
+      : updates.projectStatus || null;
     dbUpdates.project_category = updates.projectId
       ? isChangingProject
         ? (updates.projectCategory || null)
@@ -345,7 +363,8 @@ export async function updateDbTask(
       : null;
   } else {
     if (updates.projectStatus !== undefined) {
-      dbUpdates.project_status = target?.projectId ? (updates.projectStatus || null) : null;
+      // Tasks without a project keep their plain TODO/DONE status (the "no project" board).
+      dbUpdates.project_status = updates.projectStatus || null;
     }
     if (updates.projectCategory !== undefined) {
       dbUpdates.project_category = target?.projectId ? (updates.projectCategory || null) : null;
@@ -374,7 +393,9 @@ export async function updateDbTask(
       const targetDate = updates.date || getTodayDateString();
       const completions = getStoredCompletions(targetId);
       const isDoneOnDate = completions.some((c) => c.taskId === updated.id && c.date === targetDate && c.completed);
-      const isTaskCompleted = isDoneOnDate || updated.projectStatus === "DONE";
+      const isTaskCompleted =
+        isDoneOnDate ||
+        (updated.recurrence === "ONCE" && isTaskInDoneColumn(updated, projects));
 
       if (isTaskCompleted) {
         cancelTaskPushNotifications({
@@ -420,11 +441,7 @@ export async function updateDbTask(
               date: compDate,
               completed: existingComp.completed,
               value: existingComp.value,
-              duration: existingComp.duration,
-              scheduledStartTime: updated.startTime,
-              scheduledEndTime: updated.endTime,
-              actualStartTime: existingComp.completed ? updated.startTime : (existingComp.actualStartTime ? updated.startTime : null),
-              actualEndTime: existingComp.completed ? updated.endTime : (existingComp.actualEndTime ? updated.endTime : null),
+              ...getCompletionFieldsAfterReschedule(existingComp, updated.startTime ?? null, updated.endTime ?? null),
             });
           }
         } catch (compErr) {
@@ -445,6 +462,7 @@ export async function updateDbTask(
     };
     if (utcStart !== undefined) serverUpdates.startTime = utcStart;
     if (utcEnd !== undefined) serverUpdates.endTime = utcEnd;
+    serverUpdates.dateOverrides = dbUpdates.date_overrides;
     if (updates.date !== undefined && (updates.recurrence === "ONCE" || target?.recurrence === "ONCE")) {
       serverUpdates.createdAt = `${updates.date}T12:00:00.000Z`;
     }
@@ -544,9 +562,15 @@ export async function updateDbTask(
     projectStatus:
       (updates.projectId !== undefined ? (updates.projectId || null) : (baseTask.projectId || null))
         ? (updates.projectId !== undefined && updates.projectId !== baseTask.projectId
-            ? (updates.projectStatus || "TODO")
-            : (updates.projectStatus !== undefined ? (updates.projectStatus || "TODO") : (baseTask.projectStatus || "TODO")))
-        : null,
+            ? (updates.projectStatus || getFirstColumnId(findProjectById(updates.projectId) || { columns: [] }))
+            : (updates.projectStatus !== undefined
+                ? (updates.projectStatus || getFirstColumnId(findProjectById(baseTask.projectId) || { columns: [] }))
+                : (baseTask.projectStatus || getFirstColumnId(findProjectById(baseTask.projectId) || { columns: [] }))))
+        : (updates.projectStatus !== undefined
+            ? updates.projectStatus || null
+            : updates.projectId !== undefined
+            ? null // leaving a project: its column id means nothing on the "no project" board
+            : baseTask.projectStatus || null),
     projectCategory:
       (updates.projectId !== undefined ? (updates.projectId || null) : (baseTask.projectId || null))
         ? (updates.projectId !== undefined && updates.projectId !== baseTask.projectId
@@ -574,7 +598,9 @@ export async function updateDbTask(
   const targetDate = updates.date || getTodayDateString();
   const completions = getStoredCompletions(targetId);
   const isDoneOnDate = completions.some((c) => c.taskId === updatedTask.id && c.date === targetDate && c.completed);
-  const isTaskCompleted = isDoneOnDate || updatedTask.projectStatus === "DONE";
+  const isTaskCompleted =
+    isDoneOnDate ||
+    (updatedTask.recurrence === "ONCE" && isTaskInDoneColumn(updatedTask, getStoredProjects(targetId)));
 
   if (isTaskCompleted) {
     cancelTaskPushNotifications({

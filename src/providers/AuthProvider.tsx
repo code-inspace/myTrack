@@ -14,6 +14,24 @@ import { createClient } from "@/utils/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { loginOneSignalUser, logoutOneSignalUser } from "@/lib/onesignal/client";
+import { LiveActivityBridge } from "@/lib/native/liveActivity";
+
+/** Gives the iOS widget/intents a token for /api/widget/* bound to the signed-in user. */
+async function syncNativeWidgetAuth(signedIn: boolean): Promise<void> {
+  if (!signedIn) {
+    await LiveActivityBridge.setWidgetAuth(null);
+    return;
+  }
+  try {
+    const res = await fetch("/api/widget/token");
+    if (res.ok) {
+      const { token } = await res.json();
+      await LiveActivityBridge.setWidgetAuth(token || null);
+    }
+  } catch {
+    // offline: keep the previously stored token
+  }
+}
 
 interface AuthContextType {
   user: UserSession | null;
@@ -99,11 +117,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUser(mapped);
           setStoredUserSession(mapped);
           loginOneSignalUser(mapped.id);
+          syncNativeWidgetAuth(true);
         } else {
-          const stored = getStoredUserSession();
-          if (!stored) {
-            setUser(null);
-          }
+          // A user cached in localStorage without a Supabase session can't reach its data
+          // (RLS + authenticated API routes): require a fresh sign-in instead of a fake session.
+          setUser(null);
+          setStoredUserSession(null);
         }
         setIsLoading(false);
       })
@@ -120,6 +139,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(null);
         setStoredUserSession(null);
         logoutOneSignalUser();
+        syncNativeWidgetAuth(false);
         queryClient.invalidateQueries();
         return;
       }
@@ -129,6 +149,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(mapped);
         setStoredUserSession(mapped);
         loginOneSignalUser(mapped.id);
+        if (event === "SIGNED_IN") syncNativeWidgetAuth(true);
         queryClient.invalidateQueries();
       }
     });

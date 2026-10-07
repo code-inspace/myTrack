@@ -1,4 +1,15 @@
-import { parseISO, subDays, format } from "date-fns";
+import {
+  parseISO,
+  subDays,
+  addDays,
+  format,
+  startOfWeek,
+  endOfWeek,
+  startOfMonth,
+  endOfMonth,
+  subMonths,
+  differenceInCalendarDays,
+} from "date-fns";
 import { DashboardStats, DayStatus, HabitStreakStat, HabitRollingDay, MomentumPoint, Period } from "./types";
 import { isTaskScheduledForDate } from "@/lib/dates";
 
@@ -13,6 +24,8 @@ export interface TaskRecord {
   unit?: string | null;
   trackingType: "BOOLEAN" | "NUMBER" | "DURATION" | "QUANTITY";
   createdAt?: string | Date;
+  dateOverrides?: Record<string, { skipped?: boolean; startTime?: string | null; endTime?: string | null }> | null;
+  isArchived?: boolean;
 }
 
 export interface CompletionRecord {
@@ -25,13 +38,81 @@ export interface CompletionRecord {
 }
 
 const FRENCH_DAYS = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
+/** Upper bound for "all time" scans and streak walks (perf guard). */
+const MAX_HISTORY_DAYS = 730;
+
+function toDateStr(value: string | Date | undefined): string | null {
+  if (!value) return null;
+  if (typeof value === "string") return value.split("T")[0] || null;
+  return isNaN(value.getTime()) ? null : format(value, "yyyy-MM-dd");
+}
 
 /**
- * Calculates current consecutive streak up to referenceDate
+ * The one scheduling rule shared by the agenda and the stats: a habit occurs on a date when its
+ * recurrence (and per-date overrides: moved / skipped occurrences) says so, it isn't archived, and
+ * the date isn't before the habit's start date.
+ */
+export function isHabitScheduledOn(task: TaskRecord, date: Date): boolean {
+  if (task.isArchived) return false;
+  const startDate = toDateStr(task.createdAt);
+  const dateStr = format(date, "yyyy-MM-dd");
+  if (startDate && dateStr < startDate) return false;
+  return isTaskScheduledForDate(task.recurrence, task.recurrenceConfig, date, task.createdAt, task.dateOverrides);
+}
+
+/** Scheduled habits of a date, and how many of them were completed that date. */
+function getDayCounts(tasks: TaskRecord[], completedKeys: Set<string>, date: Date) {
+  const dateStr = format(date, "yyyy-MM-dd");
+  const scheduled = tasks.filter((t) => isHabitScheduledOn(t, date));
+  const completed = scheduled.filter((t) => completedKeys.has(`${t.id}|${dateStr}`)).length;
+  return { scheduled: scheduled.length, completed };
+}
+
+function getCompletedKeys(completions: CompletionRecord[]): Set<string> {
+  return new Set(completions.filter((c) => c && c.completed && c.date).map((c) => `${c.taskId}|${c.date}`));
+}
+
+/** Completion ratio in %: 0 when nothing was scheduled (nothing to achieve isn't a 100% day). */
+function ratio(completed: number, scheduled: number): number {
+  return scheduled > 0 ? Math.min(100, Math.round((completed / scheduled) * 100)) : 0;
+}
+
+/**
+ * Calendar range of a period, the same as goals use: the day, the Monday–Sunday week, the
+ * calendar month, or everything since the first habit started — never past the reference date.
+ */
+export function getPeriodRange(
+  period: Period,
+  referenceDate: Date,
+  tasks: TaskRecord[] = [],
+): { start: Date; end: Date } {
+  const end = referenceDate;
+  if (period === "day") return { start: referenceDate, end };
+  if (period === "week") return { start: startOfWeek(referenceDate, { weekStartsOn: 1 }), end };
+  if (period === "month") return { start: startOfMonth(referenceDate), end };
+  const startDates = tasks.map((t) => toDateStr(t.createdAt)).filter((d): d is string => Boolean(d)).sort();
+  const earliest = startDates[0] ? parseISO(startDates[0]) : subDays(referenceDate, 59);
+  const floor = subDays(referenceDate, MAX_HISTORY_DAYS - 1);
+  const start = earliest < floor ? floor : earliest > referenceDate ? referenceDate : earliest;
+  return { start, end };
+}
+
+function eachDay(start: Date, end: Date): Date[] {
+  const days: Date[] = [];
+  const count = Math.max(0, differenceInCalendarDays(end, start));
+  for (let i = 0; i <= count; i++) days.push(addDays(start, i));
+  return days;
+}
+
+/**
+ * Calculates current consecutive streak up to referenceDate: consecutive days with at least one
+ * completed habit. When `tasks` are given, days with no habit scheduled are skipped (they neither
+ * extend nor break the streak). An unfinished today doesn't break it either.
  */
 export function calculateCurrentStreak(
   completions: CompletionRecord[],
-  referenceDate: Date = new Date()
+  referenceDate: Date = new Date(),
+  tasks?: TaskRecord[]
 ): number {
   if (!completions || completions.length === 0) return 0;
   const safeRefDate = referenceDate instanceof Date && !isNaN(referenceDate.getTime()) ? referenceDate : new Date();
@@ -44,30 +125,25 @@ export function calculateCurrentStreak(
   }
 
   let streak = 0;
-  let checkDate = safeRefDate;
-  const todayStr = format(safeRefDate, "yyyy-MM-dd");
-
-  if (!completedDates.has(todayStr)) {
-    checkDate = subDays(safeRefDate, 1);
-  }
-
-  while (true) {
-    const dateStr = format(checkDate, "yyyy-MM-dd");
+  for (let i = 0; i < MAX_HISTORY_DAYS; i++) {
+    const day = subDays(safeRefDate, i);
+    const dateStr = format(day, "yyyy-MM-dd");
     if (completedDates.has(dateStr)) {
       streak += 1;
-      checkDate = subDays(checkDate, 1);
-    } else {
-      break;
+      continue;
     }
+    if (i === 0) continue; // today isn't over yet
+    if (tasks && !tasks.some((t) => isHabitScheduledOn(t, day))) continue; // rest day
+    break;
   }
 
   return streak;
 }
 
 /**
- * Calculates the best streak ever recorded
+ * Calculates the best streak ever recorded (same day rules as calculateCurrentStreak).
  */
-export function calculateBestStreak(completions: CompletionRecord[]): number {
+export function calculateBestStreak(completions: CompletionRecord[], tasks?: TaskRecord[]): number {
   if (!completions || completions.length === 0) return 0;
 
   const completedDates = Array.from(
@@ -82,28 +158,42 @@ export function calculateBestStreak(completions: CompletionRecord[]): number {
   for (let i = 1; i < completedDates.length; i++) {
     const prev = parseISO(completedDates[i - 1]);
     const curr = parseISO(completedDates[i]);
-    const diff = Math.round((curr.getTime() - prev.getTime()) / (1000 * 3600 * 24));
+    const diff = differenceInCalendarDays(curr, prev);
 
-    if (diff === 1) {
-      currentStreak += 1;
-      if (currentStreak > maxStreak) {
-        maxStreak = currentStreak;
+    // Days in between only break the streak if a habit was scheduled on one of them
+    let broken = diff > 1;
+    if (broken && tasks && diff <= MAX_HISTORY_DAYS) {
+      broken = false;
+      for (let d = 1; d < diff; d++) {
+        const between = addDays(prev, d);
+        if (tasks.some((t) => isHabitScheduledOn(t, between))) {
+          broken = true;
+          break;
+        }
       }
-    } else if (diff > 1) {
+    }
+
+    if (!broken) {
+      currentStreak += 1;
+    } else {
       currentStreak = 1;
     }
+    if (currentStreak > maxStreak) maxStreak = currentStreak;
   }
 
   return maxStreak;
 }
 
 /**
- * Calculates current consecutive streak for a specific habit / task
+ * Calculates current consecutive streak for a specific habit / task: consecutive scheduled
+ * occurrences completed. Unscheduled days (week-ends of a Lun-Ven habit, other days of a weekly
+ * habit) are skipped. Without `task`, every day counts as scheduled.
  */
 export function calculateHabitStreak(
   taskId: string,
   completions: CompletionRecord[],
-  referenceDate: Date = new Date()
+  referenceDate: Date = new Date(),
+  task?: TaskRecord
 ): number {
   if (!completions || completions.length === 0 || !taskId) return 0;
   const safeRefDate = referenceDate instanceof Date && !isNaN(referenceDate.getTime()) ? referenceDate : new Date();
@@ -115,25 +205,44 @@ export function calculateHabitStreak(
     }
   }
 
+  const startDate = task ? toDateStr(task.createdAt) : null;
   let streak = 0;
-  let checkDate = safeRefDate;
-  const todayStr = format(safeRefDate, "yyyy-MM-dd");
-
-  if (!taskCompletedDates.has(todayStr)) {
-    checkDate = subDays(safeRefDate, 1);
-  }
-
-  while (true) {
-    const dateStr = format(checkDate, "yyyy-MM-dd");
+  for (let i = 0; i < MAX_HISTORY_DAYS; i++) {
+    const day = subDays(safeRefDate, i);
+    const dateStr = format(day, "yyyy-MM-dd");
     if (taskCompletedDates.has(dateStr)) {
       streak += 1;
-      checkDate = subDays(checkDate, 1);
-    } else {
-      break;
+      continue;
     }
+    if (startDate && dateStr < startDate) break;
+    if (i === 0) continue; // today isn't over yet
+    if (task && !isHabitScheduledOn(task, day)) continue;
+    break;
   }
 
   return streak;
+}
+
+function calculateBestHabitStreak(task: TaskRecord, completions: CompletionRecord[], referenceDate: Date): number {
+  const doneDates = new Set(
+    completions.filter((c) => c.taskId === task.id && c.completed && c.date).map((c) => c.date)
+  );
+  if (doneDates.size === 0) return 0;
+  const { start } = getPeriodRange("all", referenceDate, [task]);
+  const firstDone = Array.from(doneDates).sort()[0];
+  const from = parseISO(firstDone) < start ? parseISO(firstDone) : start;
+  let best = 0;
+  let current = 0;
+  for (const day of eachDay(from, referenceDate)) {
+    const dateStr = format(day, "yyyy-MM-dd");
+    if (doneDates.has(dateStr)) {
+      current += 1;
+      best = Math.max(best, current);
+    } else if (isHabitScheduledOn(task, day) && dateStr !== format(referenceDate, "yyyy-MM-dd")) {
+      current = 0;
+    }
+  }
+  return best;
 }
 
 /**
@@ -149,7 +258,7 @@ export function calculateHabitStreakStats(
   const safeRefDate = referenceDate instanceof Date && !isNaN(referenceDate.getTime()) ? referenceDate : new Date();
 
   return safeTasks.map((task) => {
-    const currentStreak = calculateHabitStreak(task.id, safeCompletions, safeRefDate);
+    const currentStreak = calculateHabitStreak(task.id, safeCompletions, safeRefDate, task);
 
     // Calculate rolling 7 days (from 6 days ago to today)
     const rolling7Days: HabitRollingDay[] = [];
@@ -161,19 +270,14 @@ export function calculateHabitStreakStats(
       const dateStr = format(d, "yyyy-MM-dd");
       const dayName = FRENCH_DAYS[d.getDay()];
 
-      const isScheduled = isTaskScheduledForDate(
-        task.recurrence,
-        task.recurrenceConfig,
-        d,
-        task.createdAt
-      );
+      const isScheduled = isHabitScheduledOn(task, d);
 
       const isCompleted = safeCompletions.some(
         (c) => c.taskId === task.id && c.date === dateStr && c.completed
       );
 
       if (isScheduled) scheduledCount++;
-      if (isCompleted) completedCount++;
+      if (isScheduled && isCompleted) completedCount++;
 
       rolling7Days.push({
         date: dateStr,
@@ -183,19 +287,14 @@ export function calculateHabitStreakStats(
       });
     }
 
-    const completionRate7Days =
-      scheduledCount > 0
-        ? Math.round((completedCount / scheduledCount) * 100)
-        : completedCount > 0
-        ? 100
-        : 0;
+    const completionRate7Days = ratio(completedCount, scheduledCount);
 
     return {
       taskId: task.id,
       taskTitle: task.title || "Habitude",
       category: (task as any).tag || task.category || "General",
       currentStreak,
-      bestStreak: Math.max(currentStreak, 1),
+      bestStreak: Math.max(currentStreak, calculateBestHabitStreak(task, safeCompletions, safeRefDate)),
       rolling7Days,
       completionRate7Days,
     };
@@ -220,26 +319,17 @@ export function calculateLast7DaysStatus(
     const dateStr = format(dateObj, "yyyy-MM-dd");
     const dayName = FRENCH_DAYS[dateObj.getDay()];
 
-    const scheduledTasks = safeTasks.filter((t) =>
-      isTaskScheduledForDate(t.recurrence, t.recurrenceConfig, dateObj, t.createdAt)
+    const { scheduled: totalScheduled, completed: completedCount } = getDayCounts(
+      safeTasks,
+      getCompletedKeys(safeCompletions),
+      dateObj
     );
 
-    const dayCompletions = safeCompletions.filter((c) => c.date === dateStr && c.completed);
-    const completedCount = dayCompletions.length;
-    const totalScheduled = scheduledTasks.length;
-
-    const completionPercentage =
-      totalScheduled > 0
-        ? Math.round((completedCount / totalScheduled) * 100)
-        : completedCount > 0
-        ? 100
-        : 0;
+    const completionPercentage = ratio(completedCount, totalScheduled);
 
     let status: "completed" | "missed" | "empty" = "empty";
     if (totalScheduled > 0) {
-      status = completedCount >= totalScheduled ? "completed" : completedCount > 0 ? "completed" : "missed";
-    } else if (completedCount > 0) {
-      status = "completed";
+      status = completedCount > 0 ? "completed" : "missed";
     }
 
     result.push({
@@ -248,7 +338,7 @@ export function calculateLast7DaysStatus(
       completedCount,
       totalScheduled,
       completionPercentage,
-      isAllCompleted: totalScheduled > 0 ? completedCount >= totalScheduled : completedCount > 0,
+      isAllCompleted: totalScheduled > 0 && completedCount >= totalScheduled,
       status,
     });
   }
@@ -269,39 +359,31 @@ export function calculateDashboardStats(
   const safeCompletions = (Array.isArray(completions) ? completions : []).filter((c): c is CompletionRecord => Boolean(c && c.taskId));
   const safeRefDate = referenceDate instanceof Date && !isNaN(referenceDate.getTime()) ? referenceDate : new Date();
 
-  // Filter out one-shot tasks: Dashboard only tracks recurring habits
-  const recurringTasks = safeTasks.filter((t) => t.recurrence && t.recurrence !== "ONCE");
+  // Dashboard only tracks recurring habits (one-shot tasks are measured by project goals);
+  // archived habits are hidden everywhere, so they don't count either.
+  const recurringTasks = safeTasks.filter((t) => t.recurrence && t.recurrence !== "ONCE" && !t.isArchived);
   const recurringTaskIds = new Set(recurringTasks.map((t) => t.id));
   const recurringCompletions = safeCompletions.filter((c) => recurringTaskIds.has(c.taskId));
+  const completedKeys = getCompletedKeys(recurringCompletions);
 
   const habitStreaks = calculateHabitStreakStats(recurringTasks, recurringCompletions, safeRefDate);
   const last7DaysStatus = calculateLast7DaysStatus(recurringTasks, recurringCompletions, safeRefDate);
 
-  // Period calculation
-  const daysInPeriod = period === "day" ? 1 : period === "week" ? 7 : period === "month" ? 30 : 60;
-  let totalScheduledInPeriod = 0;
-  let totalCompletedInPeriod = 0;
+  // Period = same calendar range as goals (day / Mon–Sun week / month / all), up to the reference date
+  const sumRange = (start: Date, end: Date) => {
+    let scheduled = 0;
+    let completed = 0;
+    for (const day of eachDay(start, end)) {
+      const counts = getDayCounts(recurringTasks, completedKeys, day);
+      scheduled += counts.scheduled;
+      completed += counts.completed;
+    }
+    return { scheduled, completed };
+  };
 
-  for (let i = daysInPeriod - 1; i >= 0; i--) {
-    const dateObj = subDays(safeRefDate, i);
-    const dateStr = format(dateObj, "yyyy-MM-dd");
-
-    const scheduled = recurringTasks.filter((t) =>
-      isTaskScheduledForDate(t.recurrence, t.recurrenceConfig, dateObj, t.createdAt)
-    ).length;
-
-    const completed = recurringCompletions.filter((c) => c.date === dateStr && c.completed).length;
-
-    totalScheduledInPeriod += scheduled;
-    totalCompletedInPeriod += completed;
-  }
-
-  const completionRate =
-    totalScheduledInPeriod > 0
-      ? Math.min(100, Math.round((totalCompletedInPeriod / totalScheduledInPeriod) * 100))
-      : totalCompletedInPeriod > 0
-      ? 100
-      : 0;
+  const range = getPeriodRange(period, safeRefDate, recurringTasks);
+  const { scheduled: totalScheduledInPeriod, completed: totalCompletedInPeriod } = sumRange(range.start, range.end);
+  const completionRate = ratio(totalCompletedInPeriod, totalScheduledInPeriod);
 
   // Average habit streak across active habits
   const avgHabitStreak =
@@ -309,28 +391,38 @@ export function calculateDashboardStats(
       ? habitStreaks.reduce((acc, h) => acc + h.currentStreak, 0) / habitStreaks.length
       : 0;
 
-  // Adapted Momentum score based on habit completion consistency
-  const streakBonus = Math.min(30, Math.round(avgHabitStreak * 8));
-  const rawMomentum = Math.round(completionRate * 0.6 + streakBonus + Math.min(10, totalCompletedInPeriod * 1.5));
-  const momentum = Math.max(0, Math.min(100, rawMomentum || (completionRate > 0 ? completionRate : 50)));
+  // Momentum score based on habit completion consistency (0 when there's no activity at all)
+  const computeMomentum = (rate: number, completed: number, streak: number) =>
+    Math.max(0, Math.min(100, Math.round(rate * 0.6 + Math.min(30, Math.round(streak * 8)) + Math.min(10, completed * 1.5))));
+  const momentum = computeMomentum(completionRate, totalCompletedInPeriod, avgHabitStreak);
+
+  // Delta vs the previous period of the same kind
+  const previousRef =
+    period === "day"
+      ? subDays(safeRefDate, 1)
+      : period === "week"
+      ? subDays(startOfWeek(safeRefDate, { weekStartsOn: 1 }), 1)
+      : period === "month"
+      ? endOfMonth(subMonths(safeRefDate, 1))
+      : subDays(safeRefDate, 30);
+  const previousRange = getPeriodRange(period === "all" ? "month" : period, previousRef, recurringTasks);
+  const previous = sumRange(previousRange.start, previousRange.end);
+  const previousMomentum = computeMomentum(ratio(previous.completed, previous.scheduled), previous.completed, 0);
+  const momentumDelta = momentum - previousMomentum;
 
   // Period-aware Curve Points Generation (Jour | Semaine | Mois | Tout le temps)
   const momentumHistory: MomentumPoint[] = [];
+  const pushPoint = (date: string, label: string, start: Date, end: Date) => {
+    const isFuture = start > safeRefDate;
+    const { scheduled, completed } = isFuture ? { scheduled: 0, completed: 0 } : sumRange(start, end > safeRefDate ? safeRefDate : end);
+    momentumHistory.push({ date, label, score: ratio(completed, scheduled), completedCount: completed, totalScheduled: scheduled });
+  };
 
   if (period === "day") {
     // 5 progressive hourly segments across the day
-    const dayDateStr = format(referenceDate, "yyyy-MM-dd");
-    const dayCompleted = recurringCompletions.filter((c) => c.date === dayDateStr && c.completed).length;
-    const dayScheduled = recurringTasks.filter((t) =>
-      isTaskScheduledForDate(t.recurrence, t.recurrenceConfig, referenceDate, t.createdAt)
-    ).length;
-
-    const dayScore =
-      dayScheduled > 0
-        ? Math.round((dayCompleted / dayScheduled) * 100)
-        : dayCompleted > 0
-        ? 100
-        : 0;
+    const dayDateStr = format(safeRefDate, "yyyy-MM-dd");
+    const { scheduled: dayScheduled, completed: dayCompleted } = getDayCounts(recurringTasks, completedKeys, safeRefDate);
+    const dayScore = ratio(dayCompleted, dayScheduled);
 
     const dayHours = [
       { label: "8h", ratio: 0.2 },
@@ -341,108 +433,45 @@ export function calculateDashboardStats(
     ];
 
     for (const h of dayHours) {
-      const pointCompleted = Math.round(dayCompleted * h.ratio);
-      const pointScheduled = Math.max(1, Math.round(dayScheduled * h.ratio));
-      const pointScore = Math.min(100, Math.round(dayScore * h.ratio));
-
       momentumHistory.push({
         date: `${dayDateStr}T${h.label}:00`,
         label: h.label,
-        score: pointScore,
-        completedCount: pointCompleted,
-        totalScheduled: pointScheduled,
+        score: Math.min(100, Math.round(dayScore * h.ratio)),
+        completedCount: Math.round(dayCompleted * h.ratio),
+        totalScheduled: Math.max(1, Math.round(dayScheduled * h.ratio)),
       });
     }
   } else if (period === "week") {
-    // 7 days of the reference week (Monday to Sunday)
+    // The 7 days of the reference week (Monday to Sunday)
+    const weekStart = startOfWeek(safeRefDate, { weekStartsOn: 1 });
     for (let i = 0; i < 7; i++) {
-      const dayDate = subDays(referenceDate, 6 - i);
-      const dayDateStr = format(dayDate, "yyyy-MM-dd");
-      const dayCompleted = recurringCompletions.filter((c) => c.date === dayDateStr && c.completed).length;
-      const dayScheduled = recurringTasks.filter((t) =>
-        isTaskScheduledForDate(t.recurrence, t.recurrenceConfig, dayDate, t.createdAt)
-      ).length;
-
-      const dayName = FRENCH_DAYS[dayDate.getDay()];
-      const dayScore =
-        dayScheduled > 0
-          ? Math.round((dayCompleted / dayScheduled) * 100)
-          : dayCompleted > 0
-          ? 100
-          : 0;
-
-      momentumHistory.push({
-        date: dayDateStr,
-        label: `${dayName} ${format(dayDate, "d")}`,
-        score: dayScore,
-        completedCount: dayCompleted,
-        totalScheduled: dayScheduled,
-      });
+      const dayDate = addDays(weekStart, i);
+      pushPoint(format(dayDate, "yyyy-MM-dd"), `${FRENCH_DAYS[dayDate.getDay()]} ${format(dayDate, "d")}`, dayDate, dayDate);
     }
   } else if (period === "month") {
-    // 4 to 5 weekly segments of the month (e.g. Sem 1, Sem 2, Sem 3, Sem 4, Sem 5)
-    for (let w = 4; w >= 0; w--) {
-      let weekCompleted = 0;
-      let weekScheduled = 0;
-      const weekEndDate = subDays(referenceDate, w * 6);
-
-      for (let d = 0; d < 6; d++) {
-        const currDate = subDays(weekEndDate, d);
-        const currDateStr = format(currDate, "yyyy-MM-dd");
-        weekCompleted += recurringCompletions.filter((c) => c.date === currDateStr && c.completed).length;
-        weekScheduled += recurringTasks.filter((t) =>
-          isTaskScheduledForDate(t.recurrence, t.recurrenceConfig, currDate, t.createdAt)
-        ).length;
-      }
-
-      const weekScore =
-        weekScheduled > 0
-          ? Math.round((weekCompleted / weekScheduled) * 100)
-          : weekCompleted > 0
-          ? 100
-          : 0;
-
-      momentumHistory.push({
-        date: format(weekEndDate, "yyyy-MM-dd"),
-        label: `Sem ${5 - w}`,
-        score: weekScore,
-        completedCount: weekCompleted,
-        totalScheduled: weekScheduled,
-      });
+    // Monday-based weekly segments of the calendar month
+    const monthStart = startOfMonth(safeRefDate);
+    const monthEnd = endOfMonth(safeRefDate);
+    let segStart = monthStart;
+    let index = 1;
+    while (segStart <= monthEnd) {
+      const weekEnd = endOfWeek(segStart, { weekStartsOn: 1 });
+      const segEnd = weekEnd > monthEnd ? monthEnd : weekEnd;
+      pushPoint(format(segEnd, "yyyy-MM-dd"), `Sem ${index}`, segStart, segEnd);
+      segStart = addDays(segEnd, 1);
+      index += 1;
     }
   } else {
-    // All-time: 6 monthly aggregate progression points
+    // All-time: the last 6 calendar months
+    const FRENCH_MONTHS_SHORT = ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Août", "Sep", "Oct", "Nov", "Déc"];
     for (let m = 5; m >= 0; m--) {
-      let monthCompleted = 0;
-      let monthScheduled = 0;
-      const monthRef = subDays(referenceDate, m * 30);
-
-      for (let d = 0; d < 30; d++) {
-        const currDate = subDays(monthRef, d);
-        const currDateStr = format(currDate, "yyyy-MM-dd");
-        monthCompleted += recurringCompletions.filter((c) => c.date === currDateStr && c.completed).length;
-        monthScheduled += recurringTasks.filter((t) =>
-          isTaskScheduledForDate(t.recurrence, t.recurrenceConfig, currDate, t.createdAt)
-        ).length;
-      }
-
-      const monthScore =
-        monthScheduled > 0
-          ? Math.round((monthCompleted / monthScheduled) * 100)
-          : monthCompleted > 0
-          ? 100
-          : 0;
-
-      const FRENCH_MONTHS_SHORT = ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Août", "Sep", "Oct", "Nov", "Déc"];
-      const monthLabel = FRENCH_MONTHS_SHORT[monthRef.getMonth()];
-
-      momentumHistory.push({
-        date: format(monthRef, "yyyy-MM-dd"),
-        label: monthLabel,
-        score: monthScore,
-        completedCount: monthCompleted,
-        totalScheduled: monthScheduled,
-      });
+      const monthRef = subMonths(safeRefDate, m);
+      pushPoint(
+        format(monthRef, "yyyy-MM-dd"),
+        FRENCH_MONTHS_SHORT[monthRef.getMonth()],
+        startOfMonth(monthRef),
+        endOfMonth(monthRef)
+      );
     }
   }
 
@@ -450,12 +479,12 @@ export function calculateDashboardStats(
   const totalTargetWins = Math.max(totalWins, totalScheduledInPeriod);
   const averageDailyCompletion = Math.round(completionRate);
   const tasksMissed = Math.max(0, totalScheduledInPeriod - totalCompletedInPeriod);
-  const globalStreak = calculateCurrentStreak(recurringCompletions, referenceDate);
-  const bestGlobalStreak = calculateBestStreak(recurringCompletions);
+  const globalStreak = calculateCurrentStreak(recurringCompletions, safeRefDate, recurringTasks);
+  const bestGlobalStreak = calculateBestStreak(recurringCompletions, recurringTasks);
 
   return {
     momentum,
-    momentumDelta: 10,
+    momentumDelta,
     momentumHistory,
     completionRate,
     totalWins,

@@ -18,6 +18,10 @@ import {
   cancelTaskPushNotifications,
 } from "@/lib/onesignal/client";
 import { LiveActivityBridge } from "@/lib/native/liveActivity";
+import { serializeDateOverridesForDb } from "./mappers";
+import { getDefaultTaskDurationMinutes, getCompletionFieldsAfterReschedule } from "../durationRules";
+import { isTaskInDoneColumn } from "@/features/projects/types";
+import { getStoredProjects } from "@/features/projects/actions";
 
 export async function updateDbTaskActive(
   taskId: string,
@@ -132,11 +136,11 @@ export async function updateDbTaskStartedAt(
   const target = tasks.find((t) => t.id === taskId);
   const isRecurring = target?.recurrence && target.recurrence !== "ONCE";
 
-  // Calculate new end time if current end time is before new start time
+  // Provisional end: the task's own end time, else the shared default block length
   let provisionalEndTime = target?.endTime;
   if (!provisionalEndTime) {
-    const endH = (hours + 1) % 24;
-    provisionalEndTime = `${String(endH).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+    const endMinutes = (hours * 60 + minutes + getDefaultTaskDurationMinutes(target)) % (24 * 60);
+    provisionalEndTime = `${String(Math.floor(endMinutes / 60)).padStart(2, "0")}:${String(endMinutes % 60).padStart(2, "0")}`;
   }
 
   const utcStartTime = convertLocalTimeToUtc(startedAtTime, todayStr);
@@ -144,15 +148,17 @@ export async function updateDbTaskStartedAt(
     ? convertLocalTimeToUtc(provisionalEndTime, todayStr)
     : null;
 
+  // Overrides are local times in the app; serialized to UTC (all dates, not just today) for the DB.
   const currentOverrides = target?.dateOverrides || {};
-  const updatedOverrides = {
+  const localOverrides = {
     ...currentOverrides,
     [todayStr]: {
       ...(currentOverrides[todayStr] || {}),
-      startTime: utcStartTime,
-      endTime: utcProvisionalEndTime,
+      startTime: startedAtTime,
+      endTime: provisionalEndTime,
     },
   };
+  const updatedOverrides = serializeDateOverridesForDb(localOverrides);
 
   // 1. Synchronously update local tasks storage
   const updated = tasks.map((t) => {
@@ -162,14 +168,7 @@ export async function updateDbTaskStartedAt(
         startedAt: newStartedAtIso,
         startTime: !isRecurring ? startedAtTime : t.startTime,
         endTime: !isRecurring ? provisionalEndTime : t.endTime,
-        dateOverrides: {
-          ...currentOverrides,
-          [todayStr]: {
-            ...(currentOverrides[todayStr] || {}),
-            startTime: startedAtTime,
-            endTime: provisionalEndTime,
-          },
-        },
+        dateOverrides: localOverrides,
         updatedAt: nowIso,
       };
     }
@@ -342,15 +341,14 @@ export async function updateTaskSchedule({
     );
     saveStoredTasks(updated, targetId);
   } else if (isRecurring && !applyToAll) {
-    // Specific day override
+    // Specific day override (local times in the app, UTC in the DB)
     const currentOverrides = target?.dateOverrides || {};
-    const updatedOverrides = {
+    const localOverrides: Record<string, any> = {
       ...currentOverrides,
+      ...(originDate && originDate !== date ? { [originDate]: { skipped: true } } : {}),
+      [date]: { startTime, endTime },
     };
-    if (originDate && originDate !== date) {
-      updatedOverrides[originDate] = { skipped: true };
-    }
-    updatedOverrides[date] = { startTime: utcStart, endTime: utcEnd };
+    const updatedOverrides = serializeDateOverridesForDb(localOverrides);
 
     try {
       await supabase
@@ -384,11 +382,7 @@ export async function updateTaskSchedule({
       t.id === taskId
         ? {
             ...t,
-            dateOverrides: {
-              ...currentOverrides,
-              ...(originDate && originDate !== date ? { [originDate]: { skipped: true } } : {}),
-              [date]: { startTime, endTime },
-            },
+            dateOverrides: localOverrides,
             updatedAt: nowIso,
           }
         : t,
@@ -435,7 +429,10 @@ export async function updateTaskSchedule({
   // Reschedule or cancel push notification for this task
   const completions = getStoredCompletions(targetId);
   const isDoneOnDate = completions.some((c) => c.taskId === taskId && c.date === date && c.completed);
-  const isTaskCompleted = isDoneOnDate || target?.projectStatus === "DONE";
+  const isRecurringTask = Boolean(target?.recurrence && target.recurrence !== "ONCE");
+  const isTaskCompleted =
+    isDoneOnDate ||
+    (!isRecurringTask && Boolean(target) && isTaskInDoneColumn(target!, getStoredProjects(targetId)));
 
   if (isTaskCompleted) {
     if (target) {
@@ -467,19 +464,8 @@ export async function updateTaskSchedule({
     }).catch(() => {});
   }
 
-  // Also synchronize any existing completion actual/scheduled execution times for completed tasks on this date
+  // Existing completions follow the moved/resized block (see getCompletionFieldsAfterReschedule)
   try {
-    let cleanDuration: number | null = null;
-    if (startTime && endTime) {
-      const [sh, sm] = startTime.split(":").map(Number);
-      const [eh, em] = endTime.split(":").map(Number);
-      if (!isNaN(sh) && !isNaN(eh)) {
-        let diff = eh * 60 + em - (sh * 60 + sm);
-        if (diff < 0) diff += 24 * 60;
-        cleanDuration = Math.max(1, diff);
-      }
-    }
-
     const completions = getStoredCompletions(targetId);
     if (originDate && originDate !== date) {
       const oldComp = completions.find((c) => c.taskId === taskId && c.date === originDate);
@@ -495,11 +481,7 @@ export async function updateTaskSchedule({
           date,
           completed: oldComp.completed,
           value: oldComp.value,
-          duration: cleanDuration ?? oldComp.duration,
-          scheduledStartTime: startTime,
-          scheduledEndTime: endTime,
-          actualStartTime: oldComp.completed ? startTime : (oldComp.actualStartTime ? startTime : null),
-          actualEndTime: oldComp.completed ? endTime : (oldComp.actualEndTime ? endTime : null),
+          ...getCompletionFieldsAfterReschedule(oldComp, startTime, endTime),
         });
       }
     }
@@ -512,11 +494,7 @@ export async function updateTaskSchedule({
         date,
         completed: existingComp.completed,
         value: existingComp.value,
-        duration: cleanDuration ?? existingComp.duration,
-        scheduledStartTime: startTime,
-        scheduledEndTime: endTime,
-        actualStartTime: existingComp.completed ? startTime : (existingComp.actualStartTime ? startTime : null),
-        actualEndTime: existingComp.completed ? endTime : (existingComp.actualEndTime ? endTime : null),
+        ...getCompletionFieldsAfterReschedule(existingComp, startTime, endTime),
       });
     }
   } catch (e) {
@@ -566,9 +544,10 @@ export async function updateTaskSortOrder(
 }
 
 /**
- * Moves a single occurrence of a task from one date to another (used by drag-and-drop onto the day strip).
- * For a ONCE task this just changes its date. For a recurring task, the origin date is marked "skipped"
- * and the destination date gets an added-occurrence override, both stored in the existing dateOverrides JSONB.
+ * Moves a single occurrence of a task from one date to another (used by drag-and-drop onto the day strip),
+ * keeping its times. Same path as an agenda move (updateTaskSchedule): a ONCE task changes date, a
+ * recurring task gets its origin date "skipped" and an override on the destination — and in both
+ * cases the completion and reminders follow the occurrence.
  */
 export async function moveTaskOccurrence(
   taskId: string,
@@ -591,42 +570,23 @@ export async function moveTaskOccurrence(
   const target = tasks.find((t) => t.id === taskId);
   if (!target) return;
 
-  const nowIso = new Date().toISOString();
-
-  if (target.recurrence === "ONCE") {
-    await updateDbTask(taskId, { date: toDate, recurrence: "ONCE" }, targetId);
-    return;
-  }
-
   const currentOverrides = target.dateOverrides || {};
   const carriedStart =
-    currentOverrides[fromDate]?.startTime ?? target.startTime ?? null;
+    target.recurrence !== "ONCE" && currentOverrides[fromDate]?.startTime !== undefined
+      ? currentOverrides[fromDate].startTime
+      : target.startTime ?? null;
   const carriedEnd =
-    currentOverrides[fromDate]?.endTime ?? target.endTime ?? null;
+    target.recurrence !== "ONCE" && currentOverrides[fromDate]?.endTime !== undefined
+      ? currentOverrides[fromDate].endTime
+      : target.endTime ?? null;
 
-  const updatedOverrides = {
-    ...currentOverrides,
-    [fromDate]: { skipped: true },
-    [toDate]: {
-      startTime: carriedStart,
-      endTime: carriedEnd,
-      movedFrom: fromDate,
-    },
-  };
-
-  try {
-    await supabase
-      .from("tasks")
-      .update({ date_overrides: updatedOverrides, updated_at: nowIso })
-      .eq("id", taskId);
-  } catch (err) {
-    console.warn("Supabase moveTaskOccurrence error:", err);
-  }
-
-  const updated = tasks.map((t) =>
-    t.id === taskId
-      ? { ...t, dateOverrides: updatedOverrides, updatedAt: nowIso }
-      : t,
-  );
-  saveStoredTasks(updated, targetId);
+  await updateTaskSchedule({
+    taskId,
+    date: toDate,
+    originDate: fromDate,
+    startTime: carriedStart,
+    endTime: carriedEnd,
+    applyToAll: false,
+    userId: targetId,
+  });
 }

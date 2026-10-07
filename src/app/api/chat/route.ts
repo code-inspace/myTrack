@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getRequestUserId, unauthorizedResponse } from "@/lib/supabase/serverAuth";
 import { getAIProvider } from "@/lib/ai/provider";
 import { AICoachContext } from "@/lib/ai/types";
 
 export async function POST(req: NextRequest) {
   try {
+    const userId = await getRequestUserId(req);
+    if (!userId) return unauthorizedResponse();
     const body = await req.json();
     const { messages, context } = body as {
       messages: Array<{ role: "user" | "assistant" | "system"; content: string }>;

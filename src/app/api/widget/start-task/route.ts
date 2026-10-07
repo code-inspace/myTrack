@@ -1,33 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { unauthorizedResponse } from "@/lib/supabase/serverAuth";
+import { resolveWidgetContext } from "@/lib/supabase/widgetContext";
 import { decryptText, isEncrypted } from "@/lib/crypto/encryption";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://bvdyjpxngcdindqhprmc.supabase.co";
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2ZHlqcHhuZ2NkaW5kcWhwcm1jIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NzQzNjYwMywiZXhwIjoyMTAzMDEyNjAzfQ.IlUB0n1mLfapf60gWlUZsJiOm7YpRYHiv0mlcTJgby0";
-
-function getAdminClient() {
-  return createSupabaseClient(supabaseUrl, serviceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-}
 
 // POST /api/widget/start-task
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    const body = await req.json().catch(() => ({}));
     const taskId = body?.taskId;
+
+    const ctx = await resolveWidgetContext(req, body);
+    if (!ctx) return unauthorizedResponse();
+    const { supabase, userId } = ctx;
 
     if (!taskId) {
       return NextResponse.json({ success: false, error: "Missing taskId" }, { status: 400 });
     }
 
-    const supabase = getAdminClient();
-    const now = new Date().toISOString();
+    const nowDate = new Date();
+    const nowIso = nowDate.toISOString();
+    // DB times are stored as UTC "HH:mm"; the occurrence date is the user's local date.
+    const nowUtcTime = ctx.utcTime(nowDate);
+    const today = ctx.localDate(nowDate);
 
-    // 1. Si plus d'1 autre tâche est en cours, désactiver les plus anciennes pour garder au max 2 tâches actives au total
+    // 1. Same rule as the app (updateDbTaskActive): at most 2 active tasks per user — keep the most
+    //    recently started other task, deactivate the older ones.
     const { data: activeTasks } = await supabase
       .from("tasks")
       .select("id, started_at")
+      .eq("user_id", userId)
       .eq("is_active", true)
       .neq("id", taskId)
       .order("started_at", { ascending: false });
@@ -37,17 +39,13 @@ export async function POST(req: NextRequest) {
       if (idsToDeactivate.length > 0) {
         await supabase
           .from("tasks")
-          .update({ is_active: false, started_at: null, updated_at: now })
+          .update({ is_active: false, started_at: null, updated_at: nowIso })
+          .eq("user_id", userId)
           .in("id", idsToDeactivate);
       }
     }
 
-    // 2. Activer la tâche sélectionnée et synchroniser le début d'exécution pour aujourd'hui
-    const nowDate = new Date();
-    const nowIso = nowDate.toISOString();
-    const nowTime = `${String(nowDate.getHours()).padStart(2, "0")}:${String(nowDate.getMinutes()).padStart(2, "0")}`;
-    const today = `${nowDate.getFullYear()}-${String(nowDate.getMonth() + 1).padStart(2, "0")}-${String(nowDate.getDate()).padStart(2, "0")}`;
-
+    // 2. Activate the task and sync today's execution start
     const { data, error } = await supabase
       .from("tasks")
       .update({
@@ -56,54 +54,63 @@ export async function POST(req: NextRequest) {
         updated_at: nowIso,
       })
       .eq("id", taskId)
+      .eq("user_id", userId)
       .select("*")
       .single();
 
     if (error || !data) {
-      return NextResponse.json({ success: false, error: error?.message }, { status: 500 });
+      return NextResponse.json({ success: false, error: error?.message || "Task not found" }, { status: 404 });
     }
 
-    if (data.user_id) {
-      const isRecurring = data.recurrence && data.recurrence !== "ONCE";
-      if (!isRecurring) {
-        await supabase
-          .from("tasks")
-          .update({
-            start_time: nowTime,
-            updated_at: nowIso,
-          })
-          .eq("id", taskId);
-      } else {
-        const overrides = data.date_overrides || {};
-        await supabase
-          .from("tasks")
-          .update({
-            date_overrides: {
-              ...overrides,
-              [today]: {
-                ...(overrides[today] || {}),
-                startTime: nowTime,
-              },
+    const isRecurring = data.recurrence && data.recurrence !== "ONCE";
+    if (!isRecurring) {
+      await supabase
+        .from("tasks")
+        .update({ start_time: nowUtcTime, updated_at: nowIso })
+        .eq("id", taskId)
+        .eq("user_id", userId);
+    } else {
+      const overrides = data.date_overrides || {};
+      await supabase
+        .from("tasks")
+        .update({
+          date_overrides: {
+            ...overrides,
+            [today]: {
+              ...(overrides[today] || {}),
+              startTime: nowUtcTime,
             },
-            updated_at: nowIso,
-          })
-          .eq("id", taskId);
-      }
-
-      await supabase.from("task_completions").upsert(
-        [
-          {
-            task_id: taskId,
-            user_id: data.user_id,
-            date: today,
-            completed: false,
-            scheduled_start_time: nowTime,
-            actual_start_time: nowTime,
-            updated_at: nowIso,
           },
-        ],
-        { onConflict: "task_id,date" }
-      );
+          updated_at: nowIso,
+        })
+        .eq("id", taskId)
+        .eq("user_id", userId);
+    }
+
+    // Don't reset an existing completion of today (it would drop its accumulated duration).
+    const { data: existingComp } = await supabase
+      .from("task_completions")
+      .select("id, actual_start_time")
+      .eq("task_id", taskId)
+      .eq("date", today)
+      .maybeSingle();
+    if (!existingComp) {
+      await supabase.from("task_completions").insert([
+        {
+          task_id: taskId,
+          user_id: userId,
+          date: today,
+          completed: false,
+          scheduled_start_time: nowUtcTime,
+          actual_start_time: nowUtcTime,
+          updated_at: nowIso,
+        },
+      ]);
+    } else if (!existingComp.actual_start_time) {
+      await supabase
+        .from("task_completions")
+        .update({ actual_start_time: nowUtcTime, updated_at: nowIso })
+        .eq("id", existingComp.id);
     }
 
     let title = data.title;

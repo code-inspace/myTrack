@@ -317,3 +317,71 @@ export function isTaskInThePast(
 }
 
 
+
+function getZonedFields(instant: Date, timeZone: string) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(instant);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value || "00";
+  return {
+    year: get("year"),
+    month: get("month"),
+    day: get("day"),
+    hour: get("hour"),
+    minute: get("minute"),
+    second: get("second"),
+  };
+}
+
+export function isValidTimeZone(timeZone?: string | null): timeZone is string {
+  if (!timeZone) return false;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Server-side equivalent of the device-local helpers: the calendar date "yyyy-MM-dd" and wall-clock
+ * time "HH:mm" of an instant in an explicit IANA timezone (the server itself usually runs in UTC).
+ */
+export function getZonedDateTimeParts(
+  instant: Date,
+  timeZone?: string | null,
+): { dateStr: string; timeStr: string } {
+  const tz = isValidTimeZone(timeZone) ? timeZone : "UTC";
+  const f = getZonedFields(instant, tz);
+  return { dateStr: `${f.year}-${f.month}-${f.day}`, timeStr: `${f.hour}:${f.minute}` };
+}
+
+/** Converts a wall-clock "HH:mm" on `dateStr` in `timeZone` into the UTC "HH:mm" stored in the database. */
+export function convertZonedTimeToUtc(
+  localTimeStr: string,
+  dateStr: string,
+  timeZone?: string | null,
+): string {
+  if (!localTimeStr || !localTimeStr.includes(":")) return localTimeStr;
+  const tz = isValidTimeZone(timeZone) ? timeZone : "UTC";
+  const [h, m] = localTimeStr.split(":").map(Number);
+  const [y, mo, d] = dateStr.split("-").map(Number);
+  const naiveUtc = Date.UTC(y, mo - 1, d, h, m, 0);
+  const offsetAt = (ms: number) => {
+    const f = getZonedFields(new Date(ms), tz);
+    return (
+      Date.UTC(+f.year, +f.month - 1, +f.day, +f.hour, +f.minute, +f.second) - ms
+    );
+  };
+  let instant = naiveUtc - offsetAt(naiveUtc);
+  instant = naiveUtc - offsetAt(instant);
+  const result = new Date(instant);
+  return `${String(result.getUTCHours()).padStart(2, "0")}:${String(result.getUTCMinutes()).padStart(2, "0")}`;
+}

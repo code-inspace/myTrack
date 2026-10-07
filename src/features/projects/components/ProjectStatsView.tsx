@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
+import { getCompletionMinutes, getDefaultTaskDurationMinutes, minutesBetween } from "@/features/tasks/durationRules";
 import { Task, TaskCompletion } from "@/features/tasks/types";
 import { ExternalCalendarEvent } from "@/features/calendar/types";
 import { getExternalEventDurationMinutes } from "@/features/calendar/lib/duration";
@@ -33,64 +34,18 @@ interface ProjectStatsViewProps {
 }
 
 // Helpers for duration calculation
+// Same duration rules as goals (features/tasks/durationRules)
 function getTaskCompletionDurationMinutes(c: TaskCompletion, task?: Task): number {
-  if (c.actualStartTime && c.actualEndTime) {
-    const [h1, m1] = c.actualStartTime.split(":").map(Number);
-    const [h2, m2] = c.actualEndTime.split(":").map(Number);
-    if (!isNaN(h1) && !isNaN(h2)) {
-      let diff = h2 * 60 + m2 - (h1 * 60 + m1);
-      if (diff < 0) diff += 24 * 60;
-      if (diff > 0) return diff;
-    }
-  }
-  if (c.scheduledStartTime && c.scheduledEndTime) {
-    const [h1, m1] = c.scheduledStartTime.split(":").map(Number);
-    const [h2, m2] = c.scheduledEndTime.split(":").map(Number);
-    if (!isNaN(h1) && !isNaN(h2)) {
-      let diff = h2 * 60 + m2 - (h1 * 60 + m1);
-      if (diff < 0) diff += 24 * 60;
-      if (diff > 0) return diff;
-    }
-  }
-  if (task?.startTime && task?.endTime) {
-    const [h1, m1] = task.startTime.split(":").map(Number);
-    const [h2, m2] = task.endTime.split(":").map(Number);
-    if (!isNaN(h1) && !isNaN(h2)) {
-      let diff = h2 * 60 + m2 - (h1 * 60 + m1);
-      if (diff < 0) diff += 24 * 60;
-      if (diff > 0) return diff;
-    }
-  }
-  if (typeof c.duration === "number" && c.duration > 0 && c.duration <= 24 * 60) {
-    return c.duration;
-  }
-  if (task?.isActive && task?.startedAt) {
-    const elapsed = Math.max(1, Math.floor((Date.now() - new Date(task.startedAt).getTime()) / 60000));
-    return Math.min(24 * 60, elapsed);
-  }
-  if (task?.trackingType === "DURATION" && task.targetValue) {
-    return Number(task.targetValue);
-  }
-  if (task?.unit === "min" && task.targetValue) {
-    return Number(task.targetValue);
-  }
-  return 30; // fallback per completed session
+  return (
+    getCompletionMinutes(c) ??
+    (minutesBetween(c.scheduledStartTime, c.scheduledEndTime) || null) ??
+    (minutesBetween(task?.startTime, task?.endTime) || null) ??
+    getDefaultTaskDurationMinutes(task)
+  );
 }
 
 function getTaskScheduledDurationMinutes(task: Task): number {
-  if (task.startTime && task.endTime) {
-    const [h1, m1] = task.startTime.split(":").map(Number);
-    const [h2, m2] = task.endTime.split(":").map(Number);
-    const diff = h2 * 60 + m2 - (h1 * 60 + m1);
-    if (diff > 0) return diff;
-  }
-  if (task.trackingType === "DURATION" && task.targetValue) {
-    return Number(task.targetValue);
-  }
-  if (task.unit === "min" && task.targetValue) {
-    return Number(task.targetValue);
-  }
-  return 30;
+  return (minutesBetween(task.startTime, task.endTime) || null) ?? getDefaultTaskDurationMinutes(task);
 }
 
 export function formatDurationHoursMinutes(totalMinutes: number): string {

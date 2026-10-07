@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo, useState, useEffect, useRef } from "react";
+import { isEveningBedtimeHour } from "@/features/sleep/sleepRules";
 import { Period } from "@/features/dashboard/types";
 import {
   format,
@@ -197,7 +198,7 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
         const isScheduledEve = isTaskScheduledForDate(t.recurrence, t.recurrenceConfig, prevD, t.createdAt, t.dateOverrides);
         if (!isScheduledEve) return false;
         const startHour = t.startTime ? parseInt(t.startTime.split(":")[0], 10) : 0;
-        return startHour >= 18;
+        return isEveningBedtimeHour(startHour);
       });
 
       // Night sleep: bedtime from eve (D-1) [>= 18h] or early morning of this day (D) [< 12h] + wakeTime from this day (D)
@@ -210,7 +211,7 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
       const hasPrevEveningBedtime = Boolean(
         prevLog?.bedtime &&
         prevBedHour !== null &&
-        prevBedHour >= 18 &&
+        isEveningBedtimeHour(prevBedHour) &&
         (prevLog.bedtimeValidated || prevLog.updatedAt || prevLog.bedtime !== "23:00")
       );
 
@@ -246,7 +247,7 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
       } else if (hasPrevEveningBedtime && prevLog?.bedtime) {
         bedtime = prevLog.bedtime;
       } else if (hasTodayWake) {
-        if (prevBedHour !== null && prevBedHour >= 18 && prevLog?.bedtime) {
+        if (prevBedHour !== null && isEveningBedtimeHour(prevBedHour) && prevLog?.bedtime) {
           bedtime = prevLog.bedtime;
         } else if (todayBedHour !== null && todayBedHour < 12 && log?.bedtime) {
           bedtime = log.bedtime;

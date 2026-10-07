@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getRequestUserId, unauthorizedResponse } from "@/lib/supabase/serverAuth";
 import { CalendarSubscription, ExternalCalendarEvent } from "@/features/calendar/types";
 import { fetchCalDavOrIcs } from "@/features/calendar/lib/caldavClient";
 import { parseISO, subDays, addDays } from "date-fns";
@@ -12,6 +13,8 @@ const ICS_CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
 
 export async function POST(req: NextRequest) {
   try {
+    const userId = await getRequestUserId(req);
+    if (!userId) return unauthorizedResponse();
     const body = await req.json();
 
     // 1. Single Subscription Test Mode

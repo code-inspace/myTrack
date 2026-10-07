@@ -36,3 +36,33 @@ export function getProjectColumns(project: Pick<Project, "columns">): ProjectCol
 export function generateColumnId(): string {
   return "col-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
+
+/** Status of a task without project on the "no project" board (plain TODO/DONE). */
+export const NO_PROJECT_TODO_STATUS = "TODO";
+export const NO_PROJECT_DONE_STATUS = "DONE";
+
+/** Column a task lands in when it joins a project or is reopened: the project's first column. */
+export function getFirstColumnId(project: Pick<Project, "columns"> | null | undefined): string {
+  if (!project) return NO_PROJECT_TODO_STATUS;
+  return getProjectColumns(project)[0]?.id || NO_PROJECT_TODO_STATUS;
+}
+
+/** The project's "done" column (isDone flag, else legacy "DONE" id, else last column). */
+export function getDoneColumnId(project: Pick<Project, "columns"> | null | undefined): string {
+  if (!project) return NO_PROJECT_DONE_STATUS;
+  return getProjectColumns(project).find((c) => c.isDone)?.id || NO_PROJECT_DONE_STATUS;
+}
+
+/**
+ * Whether a task sits in its board's done column — the project's own done column (custom id)
+ * or "DONE" for tasks without a project. Never compare projectStatus to "DONE" directly.
+ */
+export function isTaskInDoneColumn(
+  task: { projectId?: string | null; projectStatus?: string | null },
+  projects: Array<Pick<Project, "id" | "columns">> = [],
+): boolean {
+  if (!task.projectStatus) return false;
+  if (!task.projectId) return task.projectStatus === NO_PROJECT_DONE_STATUS;
+  const project = projects.find((p) => p.id === task.projectId);
+  return task.projectStatus === getDoneColumnId(project || { columns: [] });
+}

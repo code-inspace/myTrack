@@ -3,8 +3,7 @@ import { encryptText, isEncrypted } from "../src/lib/crypto/encryption";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://bvdyjpxngcdindqhprmc.supabase.co";
 const supabaseKey =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2ZHlqcHhuZ2NkaW5kcWhwcm1jIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NzQzNjYwMywiZXhwIjoyMTAzMDEyNjAzfQ.IlUB0n1mLfapf60gWlUZsJiOm7YpRYHiv0mlcTJgby0";
+  process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 // Configure client with pure HTTP (no websocket)
 const supabase = createClient(supabaseUrl, supabaseKey, {

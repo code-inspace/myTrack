@@ -1,24 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { encryptText, decryptText, isEncrypted } from "@/lib/crypto/encryption";
+import { getAdminClient, getRequestUserId, unauthorizedResponse } from "@/lib/supabase/serverAuth";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://bvdyjpxngcdindqhprmc.supabase.co";
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2ZHlqcHhuZ2NkaW5kcWhwcm1jIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NzQzNjYwMywiZXhwIjoyMTAzMDEyNjAzfQ.IlUB0n1mLfapf60gWlUZsJiOm7YpRYHiv0mlcTJgby0";
-
-function getAdminClient() {
-  return createSupabaseClient(supabaseUrl, serviceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-}
-
-// GET /api/projects?userId=...
+// GET /api/projects
 export async function GET(req: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url);
-    const userId = searchParams.get("userId");
-    if (!userId) {
-      return NextResponse.json({ error: "Missing userId" }, { status: 400 });
-    }
+    const userId = await getRequestUserId(req);
+    if (!userId) return unauthorizedResponse();
 
     const supabase = getAdminClient();
     const { data, error } = await supabase
@@ -61,13 +49,12 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { name, color = "#D4F63D", columns = [], categories = [], userId } = body;
+    const { name, color = "#D4F63D", columns = [], categories = [] } = body;
 
+    const userId = await getRequestUserId(req);
+    if (!userId) return unauthorizedResponse();
     if (!name || !name.trim()) {
       return NextResponse.json({ error: "Missing project name" }, { status: 400 });
-    }
-    if (!userId) {
-      return NextResponse.json({ error: "Missing userId" }, { status: 400 });
     }
 
     const supabase = getAdminClient();
@@ -112,8 +99,10 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   try {
     const body = await req.json();
-    const { id, name, color, columns, categories, userId } = body;
+    const { id, name, color, columns, categories } = body;
 
+    const userId = await getRequestUserId(req);
+    if (!userId) return unauthorizedResponse();
     if (!id) {
       return NextResponse.json({ error: "Missing project id" }, { status: 400 });
     }
@@ -136,12 +125,11 @@ export async function PATCH(req: NextRequest) {
       updates.categories = categories;
     }
 
-    let query = supabase.from("projects").update(updates).eq("id", id);
-    if (userId) {
-      query = query.eq("user_id", userId);
-    }
-
-    const { error } = await query;
+    const { error } = await supabase
+      .from("projects")
+      .update(updates)
+      .eq("id", id)
+      .eq("user_id", userId);
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
@@ -152,24 +140,20 @@ export async function PATCH(req: NextRequest) {
   }
 }
 
-// DELETE /api/projects?id=...&userId=...
+// DELETE /api/projects?id=...
 export async function DELETE(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
-    const userId = searchParams.get("userId");
+    const userId = await getRequestUserId(req);
+    if (!userId) return unauthorizedResponse();
 
     if (!id) {
       return NextResponse.json({ error: "Missing project id" }, { status: 400 });
     }
 
     const supabase = getAdminClient();
-    let query = supabase.from("projects").delete().eq("id", id);
-    if (userId) {
-      query = query.eq("user_id", userId);
-    }
-
-    const { error } = await query;
+    const { error } = await supabase.from("projects").delete().eq("id", id).eq("user_id", userId);
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }

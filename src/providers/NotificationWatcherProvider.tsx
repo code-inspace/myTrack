@@ -5,6 +5,8 @@ import { getStoredTasks, getStoredCompletions } from "@/features/tasks/actions";
 import { getStoredPreferences, getStoredReminders } from "@/features/notifications/actions";
 import { sendNativeNotification } from "@/lib/notifications/service";
 import { getTodayDateString, isTaskScheduledForDate } from "@/lib/dates";
+import { getStoredProjects } from "@/features/projects/actions";
+import { isTaskInDoneColumn } from "@/features/projects/types";
 
 function subtractMinutesFromTimeString(timeStr: string, minutesToSubtract: number): string {
   if (!timeStr || !timeStr.includes(":")) return "";
@@ -81,14 +83,17 @@ export default function NotificationWatcherProvider({ children }: { children: Re
       tasks.forEach((task) => {
         if (task.isArchived) return;
         if (!task.enableReminders) return;
-        if (task.projectStatus === "DONE") return;
+        // A finished one-shot task (its board's done column, custom id included) gets no reminder;
+        // recurring habits are judged per day by their completion below.
+        if (task.recurrence === "ONCE" && isTaskInDoneColumn(task, getStoredProjects())) return;
 
         // Check if task is scheduled for today
         const isScheduled = isTaskScheduledForDate(
           task.recurrence,
           task.recurrenceConfig,
           now,
-          task.createdAt
+          task.createdAt,
+          task.dateOverrides
         );
         if (!isScheduled) return;
 
@@ -174,7 +179,7 @@ export default function NotificationWatcherProvider({ children }: { children: Re
           sentNotificationsRef.current.add(cacheKey);
 
           const pendingCount = tasks.filter((t) => {
-            const isSched = isTaskScheduledForDate(t.recurrence, t.recurrenceConfig, now, t.createdAt);
+            const isSched = isTaskScheduledForDate(t.recurrence, t.recurrenceConfig, now, t.createdAt, t.dateOverrides);
             const comp = completions.find((c) => c.taskId === t.id && c.date === todayDateStr);
             return !t.isArchived && isSched && !comp?.completed;
           }).length;

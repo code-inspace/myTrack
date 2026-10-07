@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useRef, useEffect, useState, useMemo } from "react";
+import { SLEEP_EVENING_START_HOUR } from "@/features/sleep/sleepRules";
 import { Task, TaskWithCompletion, TaskCompletion } from "@/features/tasks/types";
 import { AgendaTaskBlock } from "./AgendaTaskBlock";
 import { isSameDay, parseISO, addDays, subDays, startOfWeek, format } from "date-fns";
@@ -1674,7 +1675,7 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
           if (!hasTaskEveningSleep) {
             if (hasActualEveningBedtime && todayLog.bedtime) {
               const bedMins = parseTimeToMinutes(todayLog.bedtime);
-              if (bedMins >= 18 * 60 && bedMins < 1440) {
+              if (bedMins >= SLEEP_EVENING_START_HOUR * 60 && bedMins < 1440) {
                 const duration = 1440 - bedMins;
                 const tomorrowWakeTime = tomorrowLog.wakeTime || targetWakeTime;
                 const dur = computeSleepDuration(todayLog.bedtime, tomorrowWakeTime);

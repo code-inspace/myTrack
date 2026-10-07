@@ -20,7 +20,8 @@ import {
 } from "../actions";
 import { useAuth } from "@/providers/AuthProvider";
 import { getStoredProjects } from "@/features/projects/actions";
-import { getProjectColumns, DEFAULT_PROJECT_COLUMNS } from "@/features/projects/types";
+import { getDoneColumnId, getFirstColumnId, NO_PROJECT_DONE_STATUS, NO_PROJECT_TODO_STATUS } from "@/features/projects/types";
+import { getDefaultTaskDurationMinutes, getTargetDurationMinutes } from "../durationRules";
 import { addHoursToTimeString, getTodayDateString, isTaskInThePast } from "@/lib/dates";
 import { format, addMinutes } from "date-fns";
 import { LiveActivityBridge } from "@/lib/native/liveActivity";
@@ -74,7 +75,7 @@ export function useTaskMutations() {
       } as Omit<Task, "id" | "createdAt" | "updatedAt"> & { date?: string; completed?: boolean });
 
       if (isAutoStart) {
-        const duration = (created.targetValue as number) || 30;
+        const duration = getDefaultTaskDurationMinutes(created);
         const provisionalEndTime = format(addMinutes(now, duration), "HH:mm");
 
         try {
@@ -120,8 +121,10 @@ export function useTaskMutations() {
               currentStatus: "IN_PROGRESS",
               startedAtTimestamp: Math.floor(Date.now() / 1000),
               elapsedSeconds: 0,
-              targetDurationSeconds: ((created.targetValue || 30) as number) * 60,
-              totalFormattedDuration: `${created.targetValue || 30} min`,
+              targetDurationSeconds: (getTargetDurationMinutes(created) ?? 0) * 60 || undefined,
+              totalFormattedDuration: getTargetDurationMinutes(created)
+                ? `${getTargetDurationMinutes(created)} min`
+                : undefined,
               subtitle: created.category || "En cours",
               progress: 0,
             },
@@ -261,11 +264,18 @@ export function useTaskMutations() {
               ? (values.projectCategory || null)
               : (values.projectCategory !== undefined ? (values.projectCategory || null) : (t.projectCategory || null))
             : null;
+          const firstColumnId = getFirstColumnId(
+            getStoredProjects(userId).find((p) => p.id === nextProjectId) || { columns: [] },
+          );
           const nextProjectStatus = nextProjectId
             ? isChangingProject
-              ? (values.projectStatus || "TODO")
-              : (values.projectStatus !== undefined ? (values.projectStatus || "TODO") : (t.projectStatus || "TODO"))
-            : null;
+              ? (values.projectStatus || firstColumnId)
+              : (values.projectStatus !== undefined ? (values.projectStatus || firstColumnId) : (t.projectStatus || firstColumnId))
+            : (values.projectStatus !== undefined
+                ? values.projectStatus || null
+                : isChangingProject
+                ? null
+                : t.projectStatus || null);
 
           return {
             ...t,
@@ -619,31 +629,21 @@ export function useTaskMutations() {
       // Optimistically update tasks: update projectStatus
       const targetTask = prevTasks?.find((t) => t.id === taskId);
       if (targetTask) {
-        if (targetTask.projectId) {
-          const projects = getStoredProjects(userId);
-          const project = projects.find((p) => p.id === targetTask.projectId);
-          const columns = project ? getProjectColumns(project) : DEFAULT_PROJECT_COLUMNS;
-          const doneColumn =
-            columns.find((c) => c.isDone) ||
-            columns[columns.length - 1] ||
-            DEFAULT_PROJECT_COLUMNS[DEFAULT_PROJECT_COLUMNS.length - 1];
-          const firstColumn = columns[0] || DEFAULT_PROJECT_COLUMNS[0];
-
-          const targetStatus = newStatus ? doneColumn.id : firstColumn.id;
-
-          queryClient.setQueryData<Task[]>(["tasks", userId], (old = []) =>
-            old.map((t) =>
-              t.id === taskId ? { ...t, projectStatus: targetStatus } : t,
-            ),
-          );
-        } else {
-          const targetStatus = newStatus ? "DONE" : "TODO";
-          queryClient.setQueryData<Task[]>(["tasks", userId], (old = []) =>
-            old.map((t) =>
-              t.id === taskId ? { ...t, projectStatus: targetStatus } : t,
-            ),
-          );
-        }
+        // Same rules as closeTaskAsCompleted / reopenTaskAsIncomplete
+        const project = targetTask.projectId
+          ? getStoredProjects(userId).find((p) => p.id === targetTask.projectId)
+          : undefined;
+        const doneStatus = targetTask.projectId ? getDoneColumnId(project || { columns: [] }) : NO_PROJECT_DONE_STATUS;
+        const reopenStatus = targetTask.projectId ? getFirstColumnId(project || { columns: [] }) : NO_PROJECT_TODO_STATUS;
+        const isRecurring = targetTask.recurrence !== "ONCE";
+        const shouldReopen =
+          targetTask.projectStatus === doneStatus || (!isRecurring && Boolean(targetTask.projectId));
+        const targetStatus = newStatus ? doneStatus : shouldReopen ? reopenStatus : targetTask.projectStatus;
+        queryClient.setQueryData<Task[]>(["tasks", userId], (old = []) =>
+          old.map((t) =>
+            t.id === taskId ? { ...t, projectStatus: targetStatus } : t,
+          ),
+        );
       }
 
       // Optimistically update completions
@@ -726,17 +726,9 @@ export function useTaskMutations() {
       ]);
 
       const targetTask = prevTasks?.find((t) => t.id === taskId);
-      let targetDoneStatus = "DONE";
-      if (targetTask?.projectId) {
-        const projects = getStoredProjects(userId);
-        const project = projects.find((p) => p.id === targetTask.projectId);
-        const columns = project ? getProjectColumns(project) : DEFAULT_PROJECT_COLUMNS;
-        const doneColumn =
-          columns.find((c) => c.isDone) ||
-          columns[columns.length - 1] ||
-          DEFAULT_PROJECT_COLUMNS[DEFAULT_PROJECT_COLUMNS.length - 1];
-        targetDoneStatus = doneColumn.id;
-      }
+      const targetDoneStatus = targetTask?.projectId
+        ? getDoneColumnId(getStoredProjects(userId).find((p) => p.id === targetTask.projectId) || { columns: [] })
+        : NO_PROJECT_DONE_STATUS;
 
       queryClient.setQueryData<Task[]>(["tasks", userId], (old = []) =>
         old.map((t) =>
@@ -827,21 +819,26 @@ export function useTaskMutations() {
       ]);
 
       if (!skipProjectStatusReset) {
+        // Same rule as reopenTaskAsIncomplete
         const targetTask = prevTasks?.find((t) => t.id === taskId);
-        let firstColumnId = "TODO";
-        if (targetTask?.projectId) {
-          const projects = getStoredProjects(userId);
-          const project = projects.find((p) => p.id === targetTask.projectId);
-          const columns = project ? getProjectColumns(project) : DEFAULT_PROJECT_COLUMNS;
-          const firstColumn = columns[0] || DEFAULT_PROJECT_COLUMNS[0];
-          firstColumnId = firstColumn.id;
+        if (targetTask) {
+          const project = targetTask.projectId
+            ? getStoredProjects(userId).find((p) => p.id === targetTask.projectId)
+            : undefined;
+          const doneStatus = targetTask.projectId ? getDoneColumnId(project || { columns: [] }) : NO_PROJECT_DONE_STATUS;
+          const reopenStatus = targetTask.projectId ? getFirstColumnId(project || { columns: [] }) : NO_PROJECT_TODO_STATUS;
+          const shouldReset =
+            targetTask.projectStatus === doneStatus ||
+            reopenAllDates ||
+            (targetTask.recurrence === "ONCE" && Boolean(targetTask.projectId));
+          if (shouldReset) {
+            queryClient.setQueryData<Task[]>(["tasks", userId], (old = []) =>
+              old.map((t) =>
+                t.id === taskId ? { ...t, projectStatus: reopenStatus } : t,
+              ),
+            );
+          }
         }
-
-        queryClient.setQueryData<Task[]>(["tasks", userId], (old = []) =>
-          old.map((t) =>
-            t.id === taskId ? { ...t, projectStatus: firstColumnId } : t,
-          ),
-        );
       }
 
       // Optimistically uncomplete records in cache
@@ -912,7 +909,7 @@ export function useTaskMutations() {
         targetTask?.recurrence && targetTask.recurrence !== "ONCE";
 
       const provisionalEndTime =
-        targetTask?.endTime || addHoursToTimeString(nowTime, 1);
+        targetTask?.endTime || addHoursToTimeString(nowTime, getDefaultTaskDurationMinutes(targetTask) / 60);
       await updateTaskSchedule({
         taskId,
         date,
@@ -933,7 +930,8 @@ export function useTaskMutations() {
         completed: existing?.completed || false,
         scheduledStartTime: nowTime,
         scheduledEndTime: provisionalEndTime,
-        actualStartTime: nowTime,
+        // A restart keeps the day's first real start (finish uses the earliest start too)
+        actualStartTime: existing?.actualStartTime || nowTime,
         actualEndTime: existing?.actualEndTime || null,
       });
 
@@ -954,8 +952,10 @@ export function useTaskMutations() {
             currentStatus: "IN_PROGRESS",
             startedAtTimestamp: Math.floor(Date.now() / 1000),
             elapsedSeconds: 0,
-            targetDurationSeconds: ((targetTask?.targetValue || 30) as number) * 60,
-            totalFormattedDuration: `${targetTask?.targetValue || 30} min`,
+            targetDurationSeconds: (getTargetDurationMinutes(targetTask) ?? 0) * 60 || undefined,
+            totalFormattedDuration: getTargetDurationMinutes(targetTask)
+              ? `${getTargetDurationMinutes(targetTask)} min`
+              : undefined,
             subtitle: targetTask?.category || "En cours",
             progress: 0,
           }
@@ -1133,16 +1133,21 @@ export function useTaskMutations() {
       const completionUpdater = (old: any) => {
         const list = Array.isArray(old) ? [...old] : [];
         const existingIdx = list.findIndex((c) => c.taskId === taskId && c.date === targetDate);
+        const existingItem = existingIdx >= 0 ? list[existingIdx] : undefined;
+        // Same accumulation as the mutation: previous completed duration + this session, earliest start
+        const prevDuration =
+          existingItem?.completed && typeof existingItem.duration === "number" ? existingItem.duration : 0;
+        const earliestStart = existingItem?.actualStartTime || actualStart;
         const completionItem: TaskCompletion = {
           id: existingIdx >= 0 ? list[existingIdx].id : `comp-${Date.now()}`,
           taskId,
           userId,
           date: targetDate,
           completed: true,
-          duration: durationMinutes,
-          actualStartTime: actualStart,
+          duration: prevDuration + durationMinutes,
+          actualStartTime: earliestStart,
           actualEndTime: nowTime,
-          scheduledStartTime: actualStart,
+          scheduledStartTime: earliestStart,
           scheduledEndTime: nowTime,
           createdAt: existingIdx >= 0 ? list[existingIdx].createdAt : now.toISOString(),
           updatedAt: now.toISOString(),

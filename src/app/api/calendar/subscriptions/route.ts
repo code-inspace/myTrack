@@ -1,16 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { encryptText, decryptText, isEncrypted } from "@/lib/crypto/encryption";
 import { CalendarSubscription } from "@/features/calendar/types";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://bvdyjpxngcdindqhprmc.supabase.co";
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2ZHlqcHhuZ2NkaW5kcWhwcm1jIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NzQzNjYwMywiZXhwIjoyMTAzMDEyNjAzfQ.IlUB0n1mLfapf60gWlUZsJiOm7YpRYHiv0mlcTJgby0";
-
-function getAdminClient() {
-  return createSupabaseClient(supabaseUrl, serviceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-}
+import { getAdminClient, getRequestUserId, unauthorizedResponse } from "@/lib/supabase/serverAuth";
 
 async function mapRowToModel(row: any): Promise<CalendarSubscription> {
   let name = row.name;
@@ -42,23 +33,19 @@ async function mapRowToModel(row: any): Promise<CalendarSubscription> {
   };
 }
 
-// GET /api/calendar/subscriptions?userId=...
+// GET /api/calendar/subscriptions
 export async function GET(req: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url);
-    const userId = searchParams.get("userId");
-
-    if (!userId) {
-      return NextResponse.json({ error: "Missing userId" }, { status: 400 });
-    }
+    const userId = await getRequestUserId(req);
+    if (!userId) return unauthorizedResponse();
 
     const supabase = getAdminClient();
 
-    let query = supabase.from("calendar_subscriptions").select("*");
-    if (userId !== "00000000-0000-0000-0000-000000000001") {
-      query = query.eq("user_id", userId);
-    }
-    const { data, error } = await query.order("created_at", { ascending: true });
+    const { data, error } = await supabase
+      .from("calendar_subscriptions")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: true });
 
     if (error) {
       console.warn("Supabase calendar_subscriptions GET query error:", error.message);
@@ -90,12 +77,9 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { subscription, localSubscriptions, userId } = body;
-    const targetUserId = userId || subscription?.userId;
-
-    if (!targetUserId) {
-      return NextResponse.json({ error: "Missing userId" }, { status: 400 });
-    }
+    const { subscription, localSubscriptions } = body;
+    const targetUserId = await getRequestUserId(req);
+    if (!targetUserId) return unauthorizedResponse();
 
     const supabase = getAdminClient();
     const nowIso = new Date().toISOString();
@@ -161,7 +145,18 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Missing subscription URL" }, { status: 400 });
       }
 
-      const subId = subscription.id || "cal-" + Date.now() + "-" + Math.random().toString(36).substring(2, 7);
+      let subId = subscription.id || "cal-" + Date.now() + "-" + Math.random().toString(36).substring(2, 7);
+      if (subscription.id) {
+        // Never let an upsert by id take over another user's subscription row.
+        const { data: sameId } = await supabase
+          .from("calendar_subscriptions")
+          .select("user_id")
+          .eq("id", subscription.id)
+          .maybeSingle();
+        if (sameId && sameId.user_id !== targetUserId) {
+          subId = "cal-" + Date.now() + "-" + Math.random().toString(36).substring(2, 7);
+        }
+      }
       const encryptedName = await encryptText(subscription.name || "Agenda");
       const encryptedUrl = await encryptText(subscription.url);
       const encryptedUsername = subscription.username ? await encryptText(subscription.username) : null;
@@ -208,10 +203,12 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   try {
     const body = await req.json();
-    const { id, updates, userId } = body;
+    const { id, updates } = body;
 
-    if (!id || !userId) {
-      return NextResponse.json({ error: "Missing id or userId" }, { status: 400 });
+    const userId = await getRequestUserId(req);
+    if (!userId) return unauthorizedResponse();
+    if (!id || !updates) {
+      return NextResponse.json({ error: "Missing id" }, { status: 400 });
     }
 
     const supabase = getAdminClient();
@@ -267,15 +264,16 @@ export async function PUT(req: NextRequest) {
   }
 }
 
-// DELETE /api/calendar/subscriptions?id=...&userId=...
+// DELETE /api/calendar/subscriptions?id=...
 export async function DELETE(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
-    const userId = searchParams.get("userId");
+    const userId = await getRequestUserId(req);
+    if (!userId) return unauthorizedResponse();
 
-    if (!id || !userId) {
-      return NextResponse.json({ error: "Missing id or userId" }, { status: 400 });
+    if (!id) {
+      return NextResponse.json({ error: "Missing id" }, { status: 400 });
     }
 
     const supabase = getAdminClient();

@@ -1,22 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendOneSignalPushNotification, cancelOneSignalNotification } from "@/lib/onesignal/server";
-import { createClient } from "@/utils/supabase/client";
+import { getAdminClient, getRequestUserId, unauthorizedResponse } from "@/lib/supabase/serverAuth";
+import { getProjectColumns } from "@/features/projects/types";
 
 // Helper to cancel any existing scheduled notifications for a given task/item
-async function cancelExistingNotifications(taskId: string, userId?: string) {
-  const supabase = createClient();
+async function cancelExistingNotifications(taskId: string, userId: string) {
+  const supabase = getAdminClient();
   try {
-    let query = supabase
+    const { data, error } = await supabase
       .from("reminders")
       .select("id, onesignal_notification_id")
       .eq("task_id", taskId)
+      .eq("user_id", userId)
       .in("status", ["pending", "scheduled"]);
-
-    if (userId && userId !== "00000000-0000-0000-0000-000000000001") {
-      query = query.eq("user_id", userId);
-    }
-
-    const { data, error } = await query;
     if (!error && data && data.length > 0) {
       for (const row of data) {
         if (row.onesignal_notification_id) {
@@ -39,7 +35,7 @@ async function cancelExistingNotifications(taskId: string, userId?: string) {
 
 // Store a newly scheduled reminder record in database for future cancellation
 async function storeScheduledReminder(params: {
-  userId?: string;
+  userId: string;
   taskId?: string;
   title: string;
   body: string;
@@ -47,8 +43,8 @@ async function storeScheduledReminder(params: {
   onesignalId?: string | null;
   reminderType?: string;
 }) {
-  const supabase = createClient();
-  const userId = params.userId || "00000000-0000-0000-0000-000000000001";
+  const supabase = getAdminClient();
+  const userId = params.userId;
   const nowIso = new Date().toISOString();
 
   try {
@@ -85,8 +81,9 @@ function computeUtcDateFromLocal(dateStr: string, timeStr: string, tzOffsetMinut
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+    const userId = await getRequestUserId(req);
+    if (!userId) return unauthorizedResponse();
     const {
-      userId,
       taskTitle,
       taskId,
       startTime,
@@ -119,7 +116,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "taskTitle is required" }, { status: 400 });
     }
 
-    const todayDateStr = new Date().toISOString().split("T")[0];
+    // "Today" in the user's timezone (getTimezoneOffset sign: UTC - local, in minutes), not the server's.
+    const todayDateStr = new Date(Date.now() - (Number(timezoneOffsetMinutes) || 0) * 60000)
+      .toISOString()
+      .split("T")[0];
     const scheduledDateStr = date || todayDateStr;
 
     // Block notifications for past dates entirely
@@ -134,16 +134,34 @@ export async function POST(req: NextRequest) {
 
     // Check if task is archived, DONE, disabled, or already completed
     if (taskId) {
-      const supabase = createClient();
+      const supabase = getAdminClient();
       try {
         const { data: taskData } = await supabase
           .from("tasks")
-          .select("is_archived, project_status, recurrence, date_overrides")
+          .select("is_archived, project_id, project_status, recurrence, date_overrides")
           .eq("id", taskId)
+          .eq("user_id", userId)
           .maybeSingle();
 
+        if (!taskData) {
+          return NextResponse.json({ error: "Task not found" }, { status: 404 });
+        }
+
+        let doneColumnId = "DONE";
+        if (taskData.project_id) {
+          const { data: project } = await supabase
+            .from("projects")
+            .select("columns")
+            .eq("id", taskData.project_id)
+            .maybeSingle();
+          const columns = getProjectColumns({ columns: Array.isArray(project?.columns) ? project.columns : [] });
+          doneColumnId = columns.find((c) => c.isDone)?.id || doneColumnId;
+        }
+        const isRecurringTask = Boolean(taskData.recurrence && taskData.recurrence !== "ONCE");
+
         if (taskData) {
-          if (taskData.is_archived || taskData.project_status === "DONE") {
+          // A recurring habit's board column doesn't mean every future occurrence is done.
+          if (taskData.is_archived || (!isRecurringTask && taskData.project_status === doneColumnId)) {
             console.log(`[API /api/notifications/schedule] Task ${taskId} is archived or DONE. Skipping push.`);
             await cancelExistingNotifications(taskId, userId);
             return NextResponse.json({ success: true, skipped: true, message: "Task is archived or completed" });
@@ -157,17 +175,13 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        let compQuery = supabase
+        const { data: compData } = await supabase
           .from("task_completions")
           .select("completed")
           .eq("task_id", taskId)
-          .eq("date", scheduledDateStr);
-
-        if (userId && userId !== "00000000-0000-0000-0000-000000000001") {
-          compQuery = compQuery.eq("user_id", userId);
-        }
-
-        const { data: compData } = await compQuery.maybeSingle();
+          .eq("user_id", userId)
+          .eq("date", scheduledDateStr)
+          .maybeSingle();
         if (compData?.completed) {
           console.log(`[API /api/notifications/schedule] Task ${taskId} is completed on ${scheduledDateStr}. Skipping push.`);
           await cancelExistingNotifications(taskId, userId);
@@ -195,7 +209,7 @@ export async function POST(req: NextRequest) {
         return;
       }
 
-      console.log(`[API /api/notifications/schedule] Scheduling push for ${deliveryDate.toISOString()} to user=${userId || "all"}`);
+      console.log(`[API /api/notifications/schedule] Scheduling push for ${deliveryDate.toISOString()} to user=${userId}`);
 
       const pushRes = await sendOneSignalPushNotification({
         userId,

@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { TaskRecord, CompletionRecord } from "@/features/analytics/calculations";
-import { isTaskScheduledForDate } from "@/lib/dates";
+import { TaskRecord, CompletionRecord, isHabitScheduledOn } from "@/features/analytics/calculations";
 import {
   format,
   startOfMonth,
@@ -71,10 +70,11 @@ export const MonthlyHabitCalendar: React.FC<MonthlyHabitCalendarProps> = ({
   daysInCurrentMonth.forEach((d) => {
     const dateStr = format(d, "yyyy-MM-dd");
     if (selectedTaskId === "ALL") {
-      const scheduledTasks = safeTasks.filter((t) =>
-        isTaskScheduledForDate(t.recurrence, t.recurrenceConfig, d, t.createdAt)
+      const scheduledTasks = safeTasks.filter((t) => isHabitScheduledOn(t, d));
+      // Only completions of habits scheduled that day count (same rule as the dashboard stats)
+      const dayCompletions = safeCompletions.filter(
+        (c) => c.date === dateStr && c.completed && scheduledTasks.some((t) => t.id === c.taskId)
       );
-      const dayCompletions = safeCompletions.filter((c) => c.date === dateStr && c.completed);
       if (scheduledTasks.length > 0) {
         scheduledDaysCount++;
         if (dayCompletions.length >= scheduledTasks.length) {
@@ -82,12 +82,7 @@ export const MonthlyHabitCalendar: React.FC<MonthlyHabitCalendarProps> = ({
         }
       }
     } else if (selectedTask) {
-      const isSched = isTaskScheduledForDate(
-        selectedTask.recurrence,
-        selectedTask.recurrenceConfig,
-        d,
-        selectedTask.createdAt
-      );
+      const isSched = isHabitScheduledOn(selectedTask, d);
       const isDone = completions.some(
         (c) => c.taskId === selectedTaskId && c.date === dateStr && c.completed
       );
@@ -194,20 +189,15 @@ export const MonthlyHabitCalendar: React.FC<MonthlyHabitCalendarProps> = ({
             let dayRate = 0;
 
             if (selectedTaskId === "ALL") {
-              const scheduled = tasks.filter((t) =>
-                isTaskScheduledForDate(t.recurrence, t.recurrenceConfig, d, t.createdAt)
+              const scheduled = tasks.filter((t) => isHabitScheduledOn(t, d));
+              const dayCompletions = completions.filter(
+                (c) => c.date === dateStr && c.completed && scheduled.some((t) => t.id === c.taskId)
               );
-              const dayCompletions = completions.filter((c) => c.date === dateStr && c.completed);
               isScheduled = scheduled.length > 0;
               isDone = isScheduled && dayCompletions.length >= scheduled.length;
               dayRate = scheduled.length > 0 ? Math.round((dayCompletions.length / scheduled.length) * 100) : 0;
             } else if (selectedTask) {
-              isScheduled = isTaskScheduledForDate(
-                selectedTask.recurrence,
-                selectedTask.recurrenceConfig,
-                d,
-                selectedTask.createdAt
-              );
+              isScheduled = isHabitScheduledOn(selectedTask, d);
               isDone = completions.some(
                 (c) => c.taskId === selectedTaskId && c.date === dateStr && c.completed
               );

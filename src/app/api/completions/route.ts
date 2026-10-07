@@ -1,23 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { getAdminClient, getRequestUserId, unauthorizedResponse } from "@/lib/supabase/serverAuth";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://bvdyjpxngcdindqhprmc.supabase.co";
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2ZHlqcHhuZ2NkaW5kcWhwcm1jIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NzQzNjYwMywiZXhwIjoyMTAzMDEyNjAzfQ.IlUB0n1mLfapf60gWlUZsJiOm7YpRYHiv0mlcTJgby0";
-
-function getAdminClient() {
-  return createSupabaseClient(supabaseUrl, serviceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-}
-
-// GET /api/completions?userId=...
+// GET /api/completions
 export async function GET(req: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url);
-    const userId = searchParams.get("userId");
-    if (!userId) {
-      return NextResponse.json({ error: "Missing userId" }, { status: 400 });
-    }
+    const userId = await getRequestUserId(req);
+    if (!userId) return unauthorizedResponse();
 
     const supabase = getAdminClient();
     const { data, error } = await supabase
@@ -56,28 +44,45 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { completion, userId } = body;
-    const targetUserId = userId || completion?.userId;
+    const { completion } = body;
+    const targetUserId = await getRequestUserId(req);
+    if (!targetUserId) return unauthorizedResponse();
 
-    if (!targetUserId || !completion?.taskId || !completion?.date) {
+    if (!completion?.taskId || !completion?.date) {
       return NextResponse.json({ error: "Missing required completion fields" }, { status: 400 });
     }
 
     const supabase = getAdminClient();
-    const record = {
+    const { data: ownedTask } = await supabase
+      .from("tasks")
+      .select("id")
+      .eq("id", completion.taskId)
+      .eq("user_id", targetUserId)
+      .maybeSingle();
+    if (!ownedTask) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 });
+    }
+
+    // Partial upsert: fields the client didn't send keep their stored value instead of being nulled.
+    const record: Record<string, any> = {
       task_id: completion.taskId,
       user_id: targetUserId,
       date: completion.date,
       completed: Boolean(completion.completed),
-      value: completion.value !== undefined ? completion.value : null,
-      duration: completion.duration !== undefined ? completion.duration : null,
-      notes: completion.notes || null,
-      scheduled_start_time: completion.scheduledStartTime || null,
-      scheduled_end_time: completion.scheduledEndTime || null,
-      actual_start_time: completion.actualStartTime || null,
-      actual_end_time: completion.actualEndTime || null,
       updated_at: new Date().toISOString(),
     };
+    const optionalFields: Array<[string, string]> = [
+      ["value", "value"],
+      ["duration", "duration"],
+      ["notes", "notes"],
+      ["scheduledStartTime", "scheduled_start_time"],
+      ["scheduledEndTime", "scheduled_end_time"],
+      ["actualStartTime", "actual_start_time"],
+      ["actualEndTime", "actual_end_time"],
+    ];
+    for (const [key, column] of optionalFields) {
+      if (completion[key] !== undefined) record[column] = completion[key];
+    }
 
     const { error } = await supabase
       .from("task_completions")

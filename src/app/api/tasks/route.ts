@@ -1,24 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { encryptText, decryptText, isEncrypted } from "@/lib/crypto/encryption";
+import { getAdminClient, getRequestUserId, unauthorizedResponse } from "@/lib/supabase/serverAuth";
+import { getProjectColumns } from "@/features/projects/types";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://bvdyjpxngcdindqhprmc.supabase.co";
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2ZHlqcHhuZ2NkaW5kcWhwcm1jIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NzQzNjYwMywiZXhwIjoyMTAzMDEyNjAzfQ.IlUB0n1mLfapf60gWlUZsJiOm7YpRYHiv0mlcTJgby0";
+const isValidUuid = (id?: string | null) =>
+  Boolean(id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id));
 
-function getAdminClient() {
-  return createSupabaseClient(supabaseUrl, serviceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+/** Returns the project row only if it belongs to the user (service-role queries bypass RLS). */
+async function getOwnedProject(supabase: ReturnType<typeof getAdminClient>, projectId: string, userId: string) {
+  if (!isValidUuid(projectId)) return null;
+  const { data } = await supabase
+    .from("projects")
+    .select("id, columns")
+    .eq("id", projectId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  return data;
 }
 
-// GET /api/tasks?userId=...
+function getFirstProjectColumnId(project: { columns?: any } | null): string {
+  const columns = getProjectColumns({ columns: Array.isArray(project?.columns) ? project!.columns : [] });
+  return columns[0]?.id || "TODO";
+}
+
+// GET /api/tasks
 export async function GET(req: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url);
-    const userId = searchParams.get("userId");
-    if (!userId) {
-      return NextResponse.json({ error: "Missing userId" }, { status: 400 });
-    }
+    const userId = await getRequestUserId(req);
+    if (!userId) return unauthorizedResponse();
 
     const supabase = getAdminClient();
     const { data, error } = await supabase
@@ -83,11 +92,11 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { task, userId } = body;
-    const targetUserId = userId || task?.userId;
-
-    if (!targetUserId) {
-      return NextResponse.json({ error: "Missing userId" }, { status: 400 });
+    const { task } = body;
+    const targetUserId = await getRequestUserId(req);
+    if (!targetUserId) return unauthorizedResponse();
+    if (!task?.title) {
+      return NextResponse.json({ error: "Missing task" }, { status: 400 });
     }
 
     const supabase = getAdminClient();
@@ -107,8 +116,7 @@ export async function POST(req: NextRequest) {
     const taskDate = task.date || new Date().toISOString().split("T")[0];
     const createdIso = taskDate ? `${taskDate}T12:00:00.000Z` : new Date().toISOString();
 
-    const isValidUuid = (id?: string) =>
-      Boolean(id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id));
+    const project = task.projectId ? await getOwnedProject(supabase, task.projectId, targetUserId) : null;
 
     const insertPayload: any = {
       user_id: targetUserId,
@@ -129,9 +137,9 @@ export async function POST(req: NextRequest) {
       is_active: Boolean(task.isActive),
       started_at: task.startedAt || (task.isActive ? new Date().toISOString() : null),
       is_archived: false,
-      project_id: isValidUuid(task.projectId) ? task.projectId : null,
-      project_status: task.projectId ? task.projectStatus || "TODO" : null,
-      project_category: task.projectId ? task.projectCategory || null : null,
+      project_id: project ? project.id : null,
+      project_status: project ? task.projectStatus || getFirstProjectColumnId(project) : task.projectStatus || null,
+      project_category: project ? task.projectCategory || null : null,
       created_at: createdIso,
     };
 
@@ -167,19 +175,28 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   try {
     const body = await req.json();
-    const { taskId, updates, userId } = body;
+    const { taskId, updates } = body;
 
-    if (!taskId) {
+    const userId = await getRequestUserId(req);
+    if (!userId) return unauthorizedResponse();
+    if (!taskId || !updates) {
       return NextResponse.json({ error: "Missing taskId" }, { status: 400 });
     }
 
     const supabase = getAdminClient();
+    const { data: existing } = await supabase
+      .from("tasks")
+      .select("id, project_id, date_overrides")
+      .eq("id", taskId)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (!existing) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 });
+    }
+
     const dbPayload: any = {
       updated_at: new Date().toISOString(),
     };
-
-    const isValidUuid = (id?: string | null) =>
-      Boolean(id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id));
 
     if (updates.isActive !== undefined) {
       dbPayload.is_active = Boolean(updates.isActive);
@@ -247,64 +264,77 @@ export async function PATCH(req: NextRequest) {
       dbPayload.category = updates.category;
     }
 
-    if (updates.projectId !== undefined) {
-      dbPayload.project_id = isValidUuid(updates.projectId) ? updates.projectId : null;
-      dbPayload.project_status = updates.projectId
-        ? updates.projectStatus !== undefined
-          ? updates.projectStatus
-          : "TODO"
+    const requestedProjectId =
+      updates.projectId !== undefined ? updates.projectId : updates.project_id;
+    const requestedProjectStatus =
+      updates.projectStatus !== undefined ? updates.projectStatus : updates.project_status;
+    const requestedProjectCategory =
+      updates.projectCategory !== undefined ? updates.projectCategory : updates.project_category;
+
+    if (requestedProjectId !== undefined) {
+      const project = requestedProjectId
+        ? await getOwnedProject(supabase, requestedProjectId, userId)
         : null;
-      dbPayload.project_category = updates.projectId
-        ? updates.projectCategory !== undefined
-          ? updates.projectCategory
-          : null
-        : null;
-    } else if (updates.project_id !== undefined) {
-      dbPayload.project_id = isValidUuid(updates.project_id) ? updates.project_id : null;
-      if (updates.project_status !== undefined) {
-        dbPayload.project_status = updates.project_status;
-      }
-      if (updates.project_category !== undefined) {
-        dbPayload.project_category = updates.project_category;
+      const isChangingProject = (project?.id || null) !== (existing.project_id || null);
+      dbPayload.project_id = project ? project.id : null;
+      if (project) {
+        dbPayload.project_status =
+          requestedProjectStatus !== undefined && requestedProjectStatus !== null
+            ? requestedProjectStatus
+            : isChangingProject
+              ? getFirstProjectColumnId(project)
+              : undefined;
+        if (dbPayload.project_status === undefined) delete dbPayload.project_status;
+        if (requestedProjectCategory !== undefined || isChangingProject) {
+          dbPayload.project_category = requestedProjectCategory || null;
+        }
+      } else {
+        // Tasks without a project keep a plain TODO/DONE status (used by the "no project" board).
+        dbPayload.project_status = requestedProjectStatus || null;
+        dbPayload.project_category = null;
       }
     } else {
-      if (updates.projectStatus !== undefined) {
-        dbPayload.project_status = updates.projectStatus || null;
-      } else if (updates.project_status !== undefined) {
-        dbPayload.project_status = updates.project_status || null;
+      if (requestedProjectStatus !== undefined) {
+        dbPayload.project_status = requestedProjectStatus || null;
       }
-      if (updates.projectCategory !== undefined) {
-        dbPayload.project_category = updates.projectCategory || null;
-      } else if (updates.project_category !== undefined) {
-        dbPayload.project_category = updates.project_category || null;
+      if (requestedProjectCategory !== undefined) {
+        dbPayload.project_category = existing.project_id ? requestedProjectCategory || null : null;
       }
     }
 
-    if (updates.dateOverrides !== undefined) {
-      dbPayload.date_overrides = updates.dateOverrides;
-    } else if (updates.date_overrides !== undefined) {
-      dbPayload.date_overrides = updates.date_overrides;
+    // date_overrides holds both per-date entries ("yyyy-MM-dd") and task metadata ("_key").
+    // A client sending dateOverrides replaces the per-date entries, but metadata it didn't send
+    // is preserved; metadata-only updates are merged into the stored value instead of replacing it.
+    const storedOverrides: Record<string, any> =
+      existing.date_overrides && typeof existing.date_overrides === "object" ? existing.date_overrides : {};
+    const incomingOverrides =
+      updates.dateOverrides !== undefined ? updates.dateOverrides : updates.date_overrides;
+    let nextOverrides: Record<string, any> | undefined;
+    if (incomingOverrides !== undefined) {
+      const storedMeta = Object.fromEntries(
+        Object.entries(storedOverrides).filter(([key]) => key.startsWith("_")),
+      );
+      nextOverrides = { ...storedMeta, ...(incomingOverrides || {}) };
     }
+    const mergeMeta = (meta: Record<string, any>) => {
+      nextOverrides = { ...(nextOverrides || storedOverrides), ...meta };
+    };
 
-    if (updates.projectCategory !== undefined || updates.project_category !== undefined) {
-      const cat = updates.projectCategory !== undefined ? updates.projectCategory : updates.project_category;
-      dbPayload.date_overrides = {
-        ...(dbPayload.date_overrides || {}),
-        _projectCategory: cat || null,
-      };
+    if (requestedProjectCategory !== undefined) {
+      mergeMeta({ _projectCategory: requestedProjectCategory || null });
     }
-
     if (updates.isNoProject !== undefined || updates.is_no_project !== undefined) {
       const isNoProj = updates.isNoProject !== undefined ? Boolean(updates.isNoProject) : Boolean(updates.is_no_project);
-      dbPayload.date_overrides = {
-        ...(dbPayload.date_overrides || {}),
-        _isNoProject: isNoProj,
-      };
-    } else if (updates.projectId || updates.project_id) {
-      dbPayload.date_overrides = {
-        ...(dbPayload.date_overrides || {}),
-        _isNoProject: false,
-      };
+      mergeMeta({ _isNoProject: isNoProj });
+    } else if (requestedProjectId) {
+      mergeMeta({ _isNoProject: false });
+    }
+    if (updates.enableReminders !== undefined) mergeMeta({ _enableReminders: Boolean(updates.enableReminders) });
+    if (updates.reminderOffsetMinutes !== undefined) mergeMeta({ _reminderOffsetMinutes: updates.reminderOffsetMinutes });
+    if (updates.reminderTimes !== undefined) mergeMeta({ _reminderTimes: updates.reminderTimes });
+
+    if (nextOverrides !== undefined) {
+      dbPayload.date_overrides = nextOverrides;
     }
 
     if (updates.createdAt !== undefined) {
@@ -332,7 +362,11 @@ export async function PATCH(req: NextRequest) {
       dbPayload.description = updates.description ? await encryptText(updates.description) : null;
     }
 
-    const { error } = await supabase.from("tasks").update(dbPayload).eq("id", taskId);
+    const { error } = await supabase
+      .from("tasks")
+      .update(dbPayload)
+      .eq("id", taskId)
+      .eq("user_id", userId);
     if (error) {
       console.error("API /api/tasks PATCH error:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
@@ -345,21 +379,32 @@ export async function PATCH(req: NextRequest) {
   }
 }
 
-// DELETE /api/tasks?id=...&userId=...
+// DELETE /api/tasks?id=...
 export async function DELETE(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
 
+    const userId = await getRequestUserId(req);
+    if (!userId) return unauthorizedResponse();
     if (!id) {
       return NextResponse.json({ error: "Missing id" }, { status: 400 });
     }
 
     const supabase = getAdminClient();
+    const { data: owned } = await supabase
+      .from("tasks")
+      .select("id")
+      .eq("id", id)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (!owned) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 });
+    }
     await supabase.from("task_completions").delete().eq("task_id", id);
     await supabase.from("reminders").delete().eq("task_id", id);
     await supabase.from("notification_schedules").delete().eq("task_id", id);
-    const { error } = await supabase.from("tasks").delete().eq("id", id);
+    const { error } = await supabase.from("tasks").delete().eq("id", id).eq("user_id", userId);
 
     if (error) {
       console.error("API /api/tasks DELETE error:", error);

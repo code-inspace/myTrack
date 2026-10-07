@@ -16,7 +16,37 @@ import {
 } from "@/lib/dates";
 import { cancelTaskPushNotifications } from "@/lib/onesignal/client";
 import { getStoredProjects } from "@/features/projects/actions";
-import { getProjectColumns, DEFAULT_PROJECT_COLUMNS } from "@/features/projects/types";
+import {
+  getDoneColumnId,
+  getFirstColumnId,
+  NO_PROJECT_DONE_STATUS,
+  NO_PROJECT_TODO_STATUS,
+  Project,
+} from "@/features/projects/types";
+import { getDefaultTaskDurationMinutes } from "../durationRules";
+
+async function findProject(projectId: string, userId: string): Promise<Project | undefined> {
+  const local = getStoredProjects(userId).find((p) => p.id === projectId);
+  if (local) return local;
+  try {
+    const supabase = createClient();
+    const { data } = await supabase.from("projects").select("*").eq("id", projectId).single();
+    if (data) {
+      return {
+        id: data.id,
+        userId: data.user_id,
+        name: data.name,
+        color: data.color || "#D4F63D",
+        columns: Array.isArray(data.columns) ? data.columns : [],
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+      };
+    }
+  } catch {
+    // ignore
+  }
+  return undefined;
+}
 
 export async function fetchCompletions(
   userId?: string,
@@ -209,16 +239,18 @@ export async function closeTaskAsCompleted(
       ? target.dateOverrides[date].endTime
       : target?.endTime;
 
+  // Same default block length everywhere (task target duration, else 60 min).
+  const defaultMinutes = getDefaultTaskDurationMinutes(target);
   const actualStartTime = wasStarted
     ? existing!.actualStartTime!
-    : effectiveStart || existing?.scheduledStartTime || subtractMinutesFromTime(nowTime, 30);
+    : effectiveStart || existing?.scheduledStartTime || subtractMinutesFromTime(nowTime, defaultMinutes);
 
   // CRITICAL: NEVER set end time to nowTime if an end time is already indicated on the task / override / completion
   const actualEndTime =
     existing?.actualEndTime ||
     effectiveEnd ||
     existing?.scheduledEndTime ||
-    (effectiveStart ? addHoursToTimeString(effectiveStart, 1) : nowTime);
+    (effectiveStart ? addHoursToTimeString(effectiveStart, defaultMinutes / 60) : nowTime);
 
   const scheduledStartTime =
     effectiveStart || existing?.scheduledStartTime || actualStartTime;
@@ -279,40 +311,11 @@ export async function syncProjectStatusToDoneColumn(
   }
   if (!target) return;
 
-  if (target.projectId) {
-    let project = getStoredProjects(userId).find((p) => p.id === target?.projectId);
-    if (!project) {
-      try {
-        const { data } = await supabase.from("projects").select("*").eq("id", target.projectId).single();
-        if (data) {
-          project = {
-            id: data.id,
-            userId: data.user_id,
-            name: data.name,
-            color: data.color || "#D4F63D",
-            columns: Array.isArray(data.columns) ? data.columns : [],
-            createdAt: data.created_at,
-            updatedAt: data.updated_at,
-          };
-        }
-      } catch {
-        // ignore
-      }
-    }
-
-    const columns = project ? getProjectColumns(project) : DEFAULT_PROJECT_COLUMNS;
-    const doneColumn =
-      columns.find((c) => c.isDone) ||
-      columns[columns.length - 1] ||
-      DEFAULT_PROJECT_COLUMNS[DEFAULT_PROJECT_COLUMNS.length - 1];
-
-    if (doneColumn && target.projectStatus !== doneColumn.id) {
-      await updateDbTask(taskId, { projectStatus: doneColumn.id }, userId);
-    }
-  } else {
-    if (target.projectStatus !== "DONE") {
-      await updateDbTask(taskId, { projectStatus: "DONE" }, userId);
-    }
+  // Tasks without a project use the plain "DONE" status of the "no project" board.
+  const project = target.projectId ? await findProject(target.projectId, userId) : undefined;
+  const doneStatus = target.projectId ? getDoneColumnId(project || { columns: [] }) : NO_PROJECT_DONE_STATUS;
+  if (target.projectStatus !== doneStatus) {
+    await updateDbTask(taskId, { projectStatus: doneStatus }, userId);
   }
 }
 
@@ -393,9 +396,19 @@ export async function reopenTaskAsIncomplete(
       value:
         options?.value !== undefined ? options.value : existing?.value || null,
       duration: options?.duration !== undefined ? options.duration : null,
+      // Same effective schedule as closeTaskAsCompleted: the date override wins over the task times.
       scheduledStartTime:
-        target?.startTime || existing?.scheduledStartTime || null,
-      scheduledEndTime: target?.endTime || existing?.scheduledEndTime || null,
+        (target?.dateOverrides?.[date]?.startTime !== undefined
+          ? target.dateOverrides[date].startTime
+          : target?.startTime) ||
+        existing?.scheduledStartTime ||
+        null,
+      scheduledEndTime:
+        (target?.dateOverrides?.[date]?.endTime !== undefined
+          ? target.dateOverrides[date].endTime
+          : target?.endTime) ||
+        existing?.scheduledEndTime ||
+        null,
       actualStartTime: null,
       actualEndTime: null,
       notes: null,
@@ -404,36 +417,16 @@ export async function reopenTaskAsIncomplete(
 
   // Dragging a Kanban card out of "done" already sets its new column explicitly — only the
   // habit-list/agenda reopen flow should jump the task back to the board's first column.
-  if (!options?.skipProjectStatusReset && target?.projectId) {
-    let project = getStoredProjects(targetId).find(
-      (p) => p.id === target?.projectId,
-    );
-    if (!project) {
-      try {
-        const { data } = await supabase.from("projects").select("*").eq("id", target.projectId).single();
-        if (data) {
-          project = {
-            id: data.id,
-            userId: data.user_id,
-            name: data.name,
-            color: data.color || "#D4F63D",
-            columns: Array.isArray(data.columns) ? data.columns : [],
-            createdAt: data.created_at,
-            updatedAt: data.updated_at,
-          };
-        }
-      } catch {
-        // ignore
-      }
-    }
-    const columns = project ? getProjectColumns(project) : DEFAULT_PROJECT_COLUMNS;
-    const firstColumn = columns[0] || DEFAULT_PROJECT_COLUMNS[0];
-    if (firstColumn && target.projectStatus !== firstColumn.id) {
-      await updateDbTask(taskId, { projectStatus: firstColumn.id }, targetId);
-    }
-  } else if (!options?.skipProjectStatusReset && !target?.projectId) {
-    if (target && target.projectStatus === "DONE") {
-      await updateDbTask(taskId, { projectStatus: "TODO" }, targetId);
+  if (!options?.skipProjectStatusReset && target) {
+    const isRecurring = target.recurrence && target.recurrence !== "ONCE";
+    // Reopening one occurrence of a recurring habit doesn't move its card, unless it sat in done.
+    const project = target.projectId ? await findProject(target.projectId, targetId) : undefined;
+    const doneStatus = target.projectId ? getDoneColumnId(project || { columns: [] }) : NO_PROJECT_DONE_STATUS;
+    const reopenStatus = target.projectId ? getFirstColumnId(project || { columns: [] }) : NO_PROJECT_TODO_STATUS;
+    const shouldReset =
+      target.projectStatus === doneStatus || options?.reopenAllDates || (!isRecurring && Boolean(target.projectId));
+    if (shouldReset && target.projectStatus !== reopenStatus) {
+      await updateDbTask(taskId, { projectStatus: reopenStatus }, targetId);
     }
   }
 }

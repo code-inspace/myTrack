@@ -71,7 +71,17 @@ export async function loginWithCredentials(
       };
     }
 
-    if (data.user) {
+    if (data.user && data.session?.access_token && data.session?.refresh_token) {
+      // Install the session in the browser Supabase client (cookie storage): RLS queries and the
+      // authenticated /api routes both rely on it — a localStorage user alone isn't a session.
+      const supabase = createClient();
+      const { error: sessionError } = await supabase.auth.setSession({
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+      });
+      if (sessionError) {
+        return { success: false, error: sessionError.message };
+      }
       setStoredUserSession(data.user);
       return { success: true, user: data.user };
     }

@@ -94,13 +94,16 @@ export default function GoalsPage() {
   // Compute progress for each goal for the selected period & referenceDate
   const goalsWithProgress = useMemo(() => {
     return displayedGoals.map((goal) => {
+      // A goal is always measured over its own period (a weekly goal over the week), whatever
+      // period the page is filtered on.
       const progress = computeGoalProgress({
         goal,
-        period,
+        period: goal.periodType || period,
         referenceDate,
         tasks: allTasks,
         completions: allCompletions,
         externalEvents,
+        projects,
       });
       return {
         goal,
@@ -108,7 +111,7 @@ export default function GoalsPage() {
         project: projectsById.get(goal.projectId) || null,
       };
     });
-  }, [displayedGoals, period, referenceDate, allTasks, allCompletions, externalEvents, projectsById]);
+  }, [displayedGoals, period, referenceDate, allTasks, allCompletions, externalEvents, projectsById, projects]);
 
   // Summary aggregation
   const summaryStats = useMemo(() => {

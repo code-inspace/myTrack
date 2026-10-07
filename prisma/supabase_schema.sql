@@ -69,7 +69,7 @@ CREATE TABLE IF NOT EXISTS public.tasks (
     end_time TEXT,
     deadline TEXT,
     priority TEXT DEFAULT 'NORMAL',
-    recurrence "RecurrenceType" DEFAULT 'DAILY' NOT NULL,
+    recurrence "RecurrenceType" DEFAULT 'ONCE' NOT NULL,
     recurrence_config JSONB,
     tracking_type "TrackingType" DEFAULT 'BOOLEAN' NOT NULL,
     target_value DOUBLE PRECISION,
@@ -125,8 +125,8 @@ CREATE TABLE IF NOT EXISTS public.sleep_logs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
     date TEXT NOT NULL, -- Format YYYY-MM-DD
-    bedtime TEXT DEFAULT '23:00',
-    wake_time TEXT DEFAULT '07:00',
+    bedtime TEXT,
+    wake_time TEXT,
     bedtime_validated BOOLEAN DEFAULT false NOT NULL,
     wake_time_validated BOOLEAN DEFAULT false NOT NULL,
     naps JSONB DEFAULT '[]'::jsonb,
@@ -140,11 +140,11 @@ CREATE TABLE IF NOT EXISTS public.sleep_logs (
 
 -- 7. Calendar Subscriptions Table
 CREATE TABLE IF NOT EXISTS public.calendar_subscriptions (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id TEXT PRIMARY KEY, -- app-generated "cal-..." ids (see migration 0007)
     user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
     url TEXT NOT NULL,
-    color TEXT DEFAULT '#6366F1',
+    color TEXT DEFAULT '#3B82F6',
     enabled BOOLEAN DEFAULT true NOT NULL,
     username TEXT,
     password TEXT,

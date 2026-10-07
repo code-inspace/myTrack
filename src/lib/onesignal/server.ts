@@ -57,9 +57,11 @@ export async function sendOneSignalPushNotification(
     payload.include_subscription_ids = [params.subscriptionId];
     targetType = `subscription (${params.subscriptionId})`;
   } else {
-    // Broadcast to subscribed users
-    payload.included_segments = ["Total Subscriptions", "Subscribed Users"];
-    targetType = "segments (Total Subscriptions)";
+    // Never broadcast a personal reminder to every subscriber.
+    return {
+      success: false,
+      error: "No notification target (userId or subscriptionId) provided",
+    };
   }
 
   // Schedule time (send_after in UTC format e.g. "Sun, 23 Aug 2026 21:00:00 GMT")

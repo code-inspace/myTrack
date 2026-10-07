@@ -1,22 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const supabaseUrl =
-  process.env.NEXT_PUBLIC_SUPABASE_URL || "https://bvdyjpxngcdindqhprmc.supabase.co";
-const serviceRoleKey =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2ZHlqcHhuZ2NkaW5kcWhwcm1jIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NzQzNjYwMywiZXhwIjoyMTAzMDEyNjAzfQ.IlUB0n1mLfapf60gWlUZsJiOm7YpRYHiv0mlcTJgby0";
+import { getRequestUserId, unauthorizedResponse } from "@/lib/supabase/serverAuth";
 
-const headers = {
-  apikey: serviceRoleKey,
-  Authorization: `Bearer ${serviceRoleKey}`,
-  "Content-Type": "application/json",
-};
+// Goals are stored in the auth user's metadata (not the `goals` table), via the Auth admin API.
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+function getAdminHeaders() {
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+  }
+  return {
+    apikey: serviceRoleKey,
+    Authorization: `Bearer ${serviceRoleKey}`,
+    "Content-Type": "application/json",
+  };
+}
 
 async function getGoalsForUser(userId: string): Promise<any[]> {
   try {
     const res = await fetch(`${supabaseUrl}/auth/v1/admin/users/${userId}`, {
       method: "GET",
-      headers,
+      headers: getAdminHeaders(),
     });
     if (res.ok) {
       const user = await res.json();
@@ -36,7 +41,7 @@ async function saveGoalsForUser(userId: string, goals: any[]): Promise<boolean> 
     // 1. Get current metadata to preserve existing fields
     const getRes = await fetch(`${supabaseUrl}/auth/v1/admin/users/${userId}`, {
       method: "GET",
-      headers,
+      headers: getAdminHeaders(),
     });
     let currentMetadata = {};
     if (getRes.ok) {
@@ -47,7 +52,7 @@ async function saveGoalsForUser(userId: string, goals: any[]): Promise<boolean> 
     // 2. Update with new goals list
     const updateRes = await fetch(`${supabaseUrl}/auth/v1/admin/users/${userId}`, {
       method: "PUT",
-      headers,
+      headers: getAdminHeaders(),
       body: JSON.stringify({
         user_metadata: {
           ...currentMetadata,
@@ -63,15 +68,11 @@ async function saveGoalsForUser(userId: string, goals: any[]): Promise<boolean> 
   }
 }
 
-// GET /api/goals?userId=xxx
+// GET /api/goals
 export async function GET(req: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url);
-    const userId = searchParams.get("userId");
-
-    if (!userId) {
-      return NextResponse.json({ success: false, error: "Missing userId" }, { status: 400 });
-    }
+    const userId = await getRequestUserId(req);
+    if (!userId) return unauthorizedResponse();
 
     const goals = await getGoalsForUser(userId);
     return NextResponse.json(
@@ -90,7 +91,6 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const {
       id,
-      userId,
       title,
       projectId,
       projectCategory,
@@ -105,7 +105,9 @@ export async function POST(req: NextRequest) {
       color,
     } = body;
 
-    if (!userId || !projectId || (!targetMinutes && !targetCount)) {
+    const userId = await getRequestUserId(req);
+    if (!userId) return unauthorizedResponse();
+    if (!projectId || (!targetMinutes && !targetCount)) {
       return NextResponse.json(
         { success: false, error: "Missing required fields" },
         { status: 400 }
@@ -160,7 +162,6 @@ export async function PUT(req: NextRequest) {
     const body = await req.json();
     const {
       id,
-      userId,
       title,
       projectId,
       projectCategory,
@@ -175,8 +176,10 @@ export async function PUT(req: NextRequest) {
       color,
     } = body;
 
-    if (!id || !userId) {
-      return NextResponse.json({ success: false, error: "Missing goal id or userId" }, { status: 400 });
+    const userId = await getRequestUserId(req);
+    if (!userId) return unauthorizedResponse();
+    if (!id) {
+      return NextResponse.json({ success: false, error: "Missing goal id" }, { status: 400 });
     }
 
     const now = new Date().toISOString();
@@ -248,15 +251,16 @@ export async function PUT(req: NextRequest) {
   }
 }
 
-// DELETE /api/goals?id=xxx&userId=yyy
+// DELETE /api/goals?id=xxx
 export async function DELETE(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
-    const userId = searchParams.get("userId");
+    const userId = await getRequestUserId(req);
+    if (!userId) return unauthorizedResponse();
 
-    if (!id || !userId) {
-      return NextResponse.json({ success: false, error: "Missing goal id or userId" }, { status: 400 });
+    if (!id) {
+      return NextResponse.json({ success: false, error: "Missing goal id" }, { status: 400 });
     }
 
     const currentGoals = await getGoalsForUser(userId);

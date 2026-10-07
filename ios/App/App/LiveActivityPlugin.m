@@ -11,4 +11,5 @@ CAP_PLUGIN(LiveActivityPlugin, "LiveActivityPlugin",
     CAP_PLUGIN_METHOD(syncSleepMode, CAPPluginReturnPromise);
     CAP_PLUGIN_METHOD(checkAuthorization, CAPPluginReturnPromise);
     CAP_PLUGIN_METHOD(openSettings, CAPPluginReturnPromise);
+    CAP_PLUGIN_METHOD(setWidgetAuth, CAPPluginReturnPromise);
 )

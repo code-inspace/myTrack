@@ -1,26 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cancelOneSignalNotification } from "@/lib/onesignal/server";
-import { createClient } from "@/utils/supabase/client";
+import { getAdminClient, getRequestUserId, unauthorizedResponse } from "@/lib/supabase/serverAuth";
 
 export async function POST(req: NextRequest) {
   try {
-    const { taskId, userId, reminderType } = await req.json();
+    const { taskId, reminderType } = await req.json();
+    const userId = await getRequestUserId(req);
+    if (!userId) return unauthorizedResponse();
 
-    if (!taskId && !userId) {
-      return NextResponse.json({ error: "taskId or userId is required" }, { status: 400 });
-    }
-
-    const supabase = createClient();
+    const supabase = getAdminClient();
     let query = supabase
       .from("reminders")
       .select("id, onesignal_notification_id")
+      .eq("user_id", userId)
       .in("status", ["pending", "scheduled"]);
 
     if (taskId) {
       query = query.eq("task_id", taskId);
-    }
-    if (userId && userId !== "00000000-0000-0000-0000-000000000001") {
-      query = query.eq("user_id", userId);
     }
     if (reminderType) {
       query = query.eq("reminder_type", reminderType);
@@ -43,7 +39,8 @@ export async function POST(req: NextRequest) {
         .in(
           "id",
           data.map((r: any) => r.id)
-        );
+        )
+        .eq("user_id", userId);
     }
 
     return NextResponse.json({

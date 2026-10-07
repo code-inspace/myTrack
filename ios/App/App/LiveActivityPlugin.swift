@@ -16,7 +16,8 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "syncStandby", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "syncSleepMode", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "checkAuthorization", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "openSettings", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "openSettings", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setWidgetAuth", returnType: CAPPluginReturnPromise)
     ]
 
     @objc func getActiveTask(_ call: CAPPluginCall) {
@@ -716,6 +717,21 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
             "frequentUpdatesEnabled": info.frequentPushesEnabled,
             "supported": true
         ])
+    }
+
+    /// Stores the per-user widget token (sent as `X-Widget-Token` by the intents) and the device
+    /// timezone in the App Group, or clears them on logout.
+    @objc func setWidgetAuth(_ call: CAPPluginCall) {
+        let suite = UserDefaults(suiteName: "group.com.mytrack.app") ?? UserDefaults.standard
+        if let token = call.getString("token"), !token.isEmpty {
+            suite.set(token, forKey: "mytrack_widget_token")
+        } else {
+            suite.removeObject(forKey: "mytrack_widget_token")
+        }
+        if let timezone = call.getString("timezone"), !timezone.isEmpty {
+            suite.set(timezone, forKey: "mytrack_widget_timezone")
+        }
+        call.resolve(["success": true])
     }
 
     @objc func openSettings(_ call: CAPPluginCall) {

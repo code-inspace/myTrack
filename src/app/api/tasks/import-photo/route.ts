@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getRequestUserId, unauthorizedResponse } from "@/lib/supabase/serverAuth";
 import { format } from "date-fns";
 
 export interface ExtractedPhotoTask {
@@ -14,6 +15,8 @@ export interface ExtractedPhotoTask {
 
 export async function POST(req: NextRequest) {
   try {
+    const userId = await getRequestUserId(req);
+    if (!userId) return unauthorizedResponse();
     const body = await req.json();
     const { image, referenceDate } = body as {
       image: string;

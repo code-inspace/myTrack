@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getRequestUserId, unauthorizedResponse } from "@/lib/supabase/serverAuth";
 import { parseVoiceTranscriptToTasks } from "@/features/voice/parser";
 import { format } from "date-fns";
 
 export async function POST(req: NextRequest) {
   try {
+    const userId = await getRequestUserId(req);
+    if (!userId) return unauthorizedResponse();
     const body = await req.json();
     const { transcript, referenceDate } = body;
 

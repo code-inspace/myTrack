@@ -94,6 +94,7 @@ public struct StopTaskIntent: AppIntent {
             request.httpMethod = "POST"
             request.timeoutInterval = 3.0
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            MyTrackWidgetAuth.apply(to: &request)
             let body: [String: Any] = ["taskId": currentTaskId]
             request.httpBody = try? JSONSerialization.data(withJSONObject: body)
             _ = try? await URLSession.shared.data(for: request)
@@ -189,6 +190,7 @@ public struct StopLiveActivityIntent: LiveActivityIntent {
             request.httpMethod = "POST"
             request.timeoutInterval = 3.0
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            MyTrackWidgetAuth.apply(to: &request)
             let body: [String: Any] = ["taskId": currentTaskId]
             request.httpBody = try? JSONSerialization.data(withJSONObject: body)
             _ = try? await URLSession.shared.data(for: request)
@@ -376,6 +378,7 @@ public struct StartTaskIntent: AppIntent {
             request.httpMethod = "POST"
             request.timeoutInterval = 5.0
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            MyTrackWidgetAuth.apply(to: &request)
             let body: [String: Any] = ["taskId": currentTaskId]
             request.httpBody = try? JSONSerialization.data(withJSONObject: body)
             _ = try? await URLSession.shared.data(for: request)
@@ -550,6 +553,7 @@ public struct SleepStartNowIntent: AppIntent, LiveActivityIntent {
             request.httpMethod = "POST"
             request.timeoutInterval = 3.0
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            MyTrackWidgetAuth.apply(to: &request)
             let body: [String: Any] = [
                 "action": "BEDTIME_NOW",
                 "time": nowTimeStr,
@@ -639,6 +643,7 @@ public struct SleepWakeNowIntent: AppIntent, LiveActivityIntent {
             request.httpMethod = "POST"
             request.timeoutInterval = 3.0
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            MyTrackWidgetAuth.apply(to: &request)
             let body: [String: Any] = [
                 "action": "WAKE_NOW",
                 "time": nowTimeStr,
@@ -654,3 +659,16 @@ public struct SleepWakeNowIntent: AppIntent, LiveActivityIntent {
     }
 }
 
+
+// MARK: - Authentification des appels widget → API
+/// Les routes /api/widget/* exigent le jeton par utilisateur transmis par l'app (setWidgetAuth).
+enum MyTrackWidgetAuth {
+    static func apply(to request: inout URLRequest) {
+        let suite = UserDefaults(suiteName: "group.com.mytrack.app") ?? UserDefaults.standard
+        if let token = suite.string(forKey: "mytrack_widget_token"), !token.isEmpty {
+            request.setValue(token, forHTTPHeaderField: "X-Widget-Token")
+        }
+        let timezone = suite.string(forKey: "mytrack_widget_timezone") ?? TimeZone.current.identifier
+        request.setValue(timezone, forHTTPHeaderField: "X-Timezone")
+    }
+}

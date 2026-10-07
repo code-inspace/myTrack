@@ -1,34 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { unauthorizedResponse } from "@/lib/supabase/serverAuth";
+import { resolveWidgetContext } from "@/lib/supabase/widgetContext";
 import { decryptText, isEncrypted } from "@/lib/crypto/encryption";
 import { fetchCalDavOrIcs } from "@/features/calendar/lib/caldavClient";
-import { format, subDays, addDays } from "date-fns";
+import { subDays, addDays } from "date-fns";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://bvdyjpxngcdindqhprmc.supabase.co";
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2ZHlqcHhuZ2NkaW5kcWhwcm1jIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NzQzNjYwMywiZXhwIjoyMTAzMDEyNjAzfQ.IlUB0n1mLfapf60gWlUZsJiOm7YpRYHiv0mlcTJgby0";
-
-function getAdminClient() {
-  return createSupabaseClient(supabaseUrl, serviceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-}
 
 // GET /api/widget/tasks
-export async function GET(_req: NextRequest) {
+export async function GET(req: NextRequest) {
   try {
-    const supabase = getAdminClient();
-    
+    const ctx = await resolveWidgetContext(req);
+    if (!ctx) return unauthorizedResponse();
+    const { supabase, userId } = ctx;
+
     // 1. Fetch active tasks & projects
     const [{ data: taskRows }, { data: projectRows }] = await Promise.all([
       supabase
         .from("tasks")
         .select("*")
+        .eq("user_id", userId)
         .eq("is_archived", false)
         .order("created_at", { ascending: false })
         .limit(20),
       supabase
         .from("projects")
-        .select("id, name, color"),
+        .select("id, name, color")
+        .eq("user_id", userId),
     ]);
 
     const projectMap = new Map((projectRows || []).map((p: any) => [p.id, p]));
@@ -75,6 +72,7 @@ export async function GET(_req: NextRequest) {
       const { data: subRows } = await supabase
         .from("calendar_subscriptions")
         .select("*")
+        .eq("user_id", userId)
         .eq("enabled", true);
 
       if (subRows && subRows.length > 0) {
@@ -105,7 +103,7 @@ export async function GET(_req: NextRequest) {
         if (validSubs.length > 0) {
           const rangeStart = subDays(today, 1);
           const rangeEnd = addDays(today, 1);
-          const todayStr = format(today, "yyyy-MM-dd");
+          const todayStr = ctx.localDate(today);
 
           await Promise.all(
             validSubs.map(async (sub) => {

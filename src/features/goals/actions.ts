@@ -2,6 +2,8 @@ import { Goal, GoalProgressResult, formatMinutesToHours, formatCountUnit } from 
 import { Period } from "@/features/dashboard/types";
 import { Task, TaskCompletion } from "@/features/tasks/types";
 import { ExternalCalendarEvent } from "@/features/calendar/types";
+import { Project, isTaskInDoneColumn } from "@/features/projects/types";
+import { getCompletionMinutes, getDefaultTaskDurationMinutes, minutesBetween } from "@/features/tasks/durationRules";
 import { getEffectiveUserId } from "@/features/tasks/actions";
 import { createClient } from "@/utils/supabase/client";
 import {
@@ -211,8 +213,11 @@ export function computeGoalProgress(params: {
   tasks: Task[];
   completions: TaskCompletion[];
   externalEvents?: ExternalCalendarEvent[];
+  projects?: Array<Pick<Project, "id" | "columns">>;
 }): GoalProgressResult {
-  const { goal, period, referenceDate, tasks, completions, externalEvents = [] } = params;
+  const { goal, referenceDate, tasks, completions, externalEvents = [], projects = [] } = params;
+  // The goal's own period wins; "all" isn't a goal period, so it falls back to the goal's type.
+  const period: Period = goal.periodType || (params.period === "all" ? "week" : params.period);
 
   // 1. Définir la plage de dates
   let startDateStr = format(referenceDate, "yyyy-MM-dd");
@@ -289,6 +294,7 @@ export function computeGoalProgress(params: {
   // Filtrer les tâches correspondant au projet et aux sous-projets ciblés de l'objectif
   const matchingTasks = tasks.filter((t) => {
     if (t.projectId !== goal.projectId) return false;
+    if (t.isArchived) return false;
     if (targetCategories.length > 0) {
       return targetCategories.some((targetCat) => matchesCategoryOrTitle(targetCat, t));
     }
@@ -315,32 +321,12 @@ export function computeGoalProgress(params: {
     if (!matchingTask) continue;
 
     if (c.completed) {
-      let sessionMinutes = 0;
-      if (c.actualStartTime && c.actualEndTime) {
-        const [h1, m1] = c.actualStartTime.split(":").map(Number);
-        const [h2, m2] = c.actualEndTime.split(":").map(Number);
-        let diff = h2 * 60 + m2 - (h1 * 60 + m1);
-        if (diff < 0) diff += 24 * 60;
-        if (diff > 0) {
-          sessionMinutes = typeof c.duration === "number" && c.duration > diff ? c.duration : diff;
-        }
-      }
-      if (sessionMinutes === 0 && typeof c.duration === "number" && c.duration > 0) {
-        sessionMinutes = c.duration;
-      }
-      if (sessionMinutes === 0 && matchingTask.startTime && matchingTask.endTime) {
-        const [h1, m1] = matchingTask.startTime.split(":").map(Number);
-        const [h2, m2] = matchingTask.endTime.split(":").map(Number);
-        let diff = h2 * 60 + m2 - (h1 * 60 + m1);
-        if (diff < 0) diff += 24 * 60;
-        if (diff > 0) sessionMinutes = diff;
-      }
-      if (sessionMinutes === 0 && matchingTask.targetValue) {
-        sessionMinutes = Number(matchingTask.targetValue) || 30;
-      }
-      if (sessionMinutes === 0) {
-        sessionMinutes = 30;
-      }
+      // Measured time first (timer duration / actual span), then the planned block, then the
+      // shared default length (task target duration if DURATION-tracked, else 60 min).
+      const sessionMinutes =
+        getCompletionMinutes(c) ??
+        (minutesBetween(matchingTask.startTime, matchingTask.endTime) || null) ??
+        getDefaultTaskDurationMinutes(matchingTask);
       totalMinutes += sessionMinutes;
     }
   }
@@ -350,9 +336,11 @@ export function computeGoalProgress(params: {
     for (const t of matchingTasks) {
       if (t.isActive && t.startedAt) {
         const startTimestamp = new Date(t.startedAt).getTime();
+        // Only the running time inside the goal's period counts
+        const periodStartMs = new Date(`${startDateStr}T00:00:00`).getTime();
         if (!isNaN(startTimestamp)) {
           const nowMs = Date.now();
-          const elapsedMinutes = Math.max(1, Math.floor((nowMs - startTimestamp) / 60000));
+          const elapsedMinutes = Math.max(1, Math.floor((nowMs - Math.max(startTimestamp, periodStartMs)) / 60000));
           totalMinutes += elapsedMinutes;
         }
       }
@@ -362,12 +350,13 @@ export function computeGoalProgress(params: {
   // C. Tâches non récurrentes marquées terminées sans completion explicite mais avec projectStatus === 'DONE'
   for (const t of matchingTasks) {
     const isRecurring = t.recurrence && t.recurrence !== "ONCE";
-    if (t.projectStatus === "DONE" && !t.isActive && !isRecurring) {
+    if (isTaskInDoneColumn(t, projects) && !t.isActive && !isRecurring) {
       const hasComp = periodCompletions.some((c) => c.taskId === t.id && c.completed);
       if (!hasComp) {
         const taskDate = (t as any).date || t.deadline || (t.createdAt ? t.createdAt.split("T")[0] : null);
         if (taskDate && taskDate >= startDateStr && taskDate <= endDateStr) {
-          totalMinutes += Number(t.targetValue) || 30;
+          totalMinutes +=
+            (minutesBetween(t.startTime, t.endTime) || null) ?? getDefaultTaskDurationMinutes(t);
         }
       }
     }
@@ -376,6 +365,8 @@ export function computeGoalProgress(params: {
   // D. Filtrer et ajouter les événements de calendrier externes associés au projet/sous-projet
   const matchingEvents = externalEvents.filter((e) => {
     if (e.projectId !== goal.projectId) return false;
+    // The period applies to every event, with or without a sub-category filter
+    if (!(e.date >= startDateStr && e.date <= endDateStr)) return false;
     if (targetCategories.length > 0) {
       return targetCategories.some((targetCat) => {
         const normTarget = targetCat.trim().toLowerCase();
@@ -407,7 +398,7 @@ export function computeGoalProgress(params: {
         totalMinutes += diff;
       }
     } else {
-      totalMinutes += 60;
+      totalMinutes += getDefaultTaskDurationMinutes(null);
     }
   }
 
@@ -419,7 +410,7 @@ export function computeGoalProgress(params: {
   // Completed non-recurring tasks marked DONE without a completion row in the period
   for (const t of matchingTasks) {
     const isRecurring = t.recurrence && t.recurrence !== "ONCE";
-    if (t.projectStatus === "DONE" && !t.isActive && !isRecurring) {
+    if (isTaskInDoneColumn(t, projects) && !t.isActive && !isRecurring) {
       const hasComp = periodCompletions.some((c) => c.taskId === t.id && c.completed);
       if (!hasComp) {
         const taskDate = (t as any).date || t.deadline || (t.createdAt ? t.createdAt.split("T")[0] : null);

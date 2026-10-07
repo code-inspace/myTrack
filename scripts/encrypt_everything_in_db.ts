@@ -2,8 +2,11 @@ import { encryptText, isEncrypted } from "../src/lib/crypto/encryption";
 
 const SUPABASE_URL = "https://bvdyjpxngcdindqhprmc.supabase.co";
 const SERVICE_KEY =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2ZHlqcHhuZ2NkaW5kcWhwcm1jIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NzQzNjYwMywiZXhwIjoyMTAzMDEyNjAzfQ.IlUB0n1mLfapf60gWlUZsJiOm7YpRYHiv0mlcTJgby0";
+  process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  throw new Error("SUPABASE_SERVICE_ROLE_KEY is required");
+}
 
 const headers = {
   apikey: SERVICE_KEY,

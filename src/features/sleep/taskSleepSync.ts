@@ -1,4 +1,5 @@
 import { DailySleepLog, NapSession } from "./types";
+import { isNightSleepHour, isEveningBedtimeHour, SLEEP_MORNING_END_HOUR } from "./sleepRules";
 import { getStoredSleepLog, saveStoredSleepLog } from "./actions";
 import { getTodayDateString, addHoursToTimeString } from "@/lib/dates";
 import { format, parseISO, subDays, addDays } from "date-fns";
@@ -206,7 +207,7 @@ export async function syncTaskWithSleepLog(
     const endHour = parseInt(endTime.split(":")[0], 10) || 0;
 
     // Daytime sleep (e.g. 10h - 12h, 13h - 15h) treated as nap session regardless of title
-    const isDaytime = startHour >= 7 && startHour < 18;
+    const isDaytime = !isNightSleepHour(startHour);
     if (isDaytime) {
       const currentLog = getStoredSleepLog(dateStr, targetId);
       const existingNaps = currentLog.naps || [];
@@ -258,10 +259,10 @@ export async function syncTaskWithSleepLog(
     let bedDate = dateStr;
     let wakeDate = dateStr;
 
-    if (startHour >= 18) {
+    if (isEveningBedtimeHour(startHour)) {
       bedDate = dateStr;
       wakeDate = format(addDays(parseISO(dateStr), 1), "yyyy-MM-dd");
-    } else if (startHour < 7) {
+    } else if (startHour < SLEEP_MORNING_END_HOUR) {
       bedDate = format(subDays(parseISO(dateStr), 1), "yyyy-MM-dd");
       wakeDate = dateStr;
 
@@ -271,7 +272,7 @@ export async function syncTaskWithSleepLog(
       const hasExistingEvening =
         existingBedLog.bedtimeValidated &&
         existingBedLog.bedtime &&
-        parseInt(existingBedLog.bedtime.split(":")[0], 10) >= 18 &&
+        isEveningBedtimeHour(parseInt(existingBedLog.bedtime.split(":")[0], 10)) &&
         existingBedLog.taskId &&
         existingBedLog.taskId !== task.id;
 

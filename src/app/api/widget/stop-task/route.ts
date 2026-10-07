@@ -1,157 +1,126 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { unauthorizedResponse } from "@/lib/supabase/serverAuth";
+import { resolveWidgetContext, getProjectDoneColumnId, WidgetContext } from "@/lib/supabase/widgetContext";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://bvdyjpxngcdindqhprmc.supabase.co";
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2ZHlqcHhuZ2NkaW5kcWhwcm1jIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NzQzNjYwMywiZXhwIjoyMTAzMDEyNjAzfQ.IlUB0n1mLfapf60gWlUZsJiOm7YpRYHiv0mlcTJgby0";
+/**
+ * Mirrors the app's finishTaskExecution: the occurrence date is the user's local date of the
+ * start, durations are accumulated in minutes, and the earliest start of the day is kept.
+ */
+interface TaskRow {
+  id: string;
+  started_at: string | null;
+  start_time: string | null;
+  recurrence: string | null;
+  date_overrides: Record<string, Record<string, unknown>> | null;
+  project_id: string | null;
+}
 
-function getAdminClient() {
-  return createSupabaseClient(supabaseUrl, serviceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+async function finishTask(ctx: WidgetContext, task: TaskRow, now: Date) {
+  const { supabase, userId } = ctx;
+  const nowIso = now.toISOString();
+  const nowUtcTime = ctx.utcTime(now);
+
+  let startInstant: Date | null = null;
+  if (task.started_at) {
+    const parsed = new Date(task.started_at);
+    if (!isNaN(parsed.getTime())) startInstant = parsed;
+  }
+  const date = ctx.localDate(startInstant || now);
+  const sessionStartUtc = startInstant ? ctx.utcTime(startInstant) : task.start_time || nowUtcTime;
+  const sessionMinutes = startInstant
+    ? Math.max(1, Math.round((now.getTime() - startInstant.getTime()) / 60000))
+    : 1;
+
+  await supabase
+    .from("tasks")
+    .update({ is_active: false, started_at: null, updated_at: nowIso })
+    .eq("id", task.id)
+    .eq("user_id", userId);
+
+  const { data: existingComp } = await supabase
+    .from("task_completions")
+    .select("*")
+    .eq("task_id", task.id)
+    .eq("date", date)
+    .maybeSingle();
+
+  const prevDuration =
+    existingComp?.completed && typeof existingComp?.duration === "number" ? existingComp.duration : 0;
+  const earliestStart = existingComp?.actual_start_time || sessionStartUtc;
+
+  await supabase.from("task_completions").upsert(
+    [
+      {
+        task_id: task.id,
+        user_id: userId,
+        date,
+        completed: true,
+        duration: prevDuration + sessionMinutes,
+        actual_start_time: earliestStart,
+        actual_end_time: nowUtcTime,
+        scheduled_start_time: earliestStart,
+        scheduled_end_time: nowUtcTime,
+        updated_at: nowIso,
+      },
+    ],
+    { onConflict: "task_id,date" },
+  );
+
+  // Position the occurrence on the agenda like the app does (ONCE: task times, recurring: date override).
+  const isRecurring = task.recurrence && task.recurrence !== "ONCE";
+  if (isRecurring) {
+    const overrides = task.date_overrides || {};
+    await supabase
+      .from("tasks")
+      .update({
+        date_overrides: {
+          ...overrides,
+          [date]: { ...(overrides[date] || {}), startTime: earliestStart, endTime: nowUtcTime },
+        },
+      })
+      .eq("id", task.id)
+      .eq("user_id", userId);
+  } else {
+    await supabase
+      .from("tasks")
+      .update({ start_time: earliestStart, end_time: nowUtcTime })
+      .eq("id", task.id)
+      .eq("user_id", userId);
+  }
+
+  const doneColumnId = task.project_id ? await getProjectDoneColumnId(supabase, task.project_id) : "DONE";
+  await supabase
+    .from("tasks")
+    .update({ project_status: doneColumnId, updated_at: nowIso })
+    .eq("id", task.id)
+    .eq("user_id", userId);
 }
 
 // POST /api/widget/stop-task
 export async function POST(req: NextRequest) {
   try {
-    let taskId: string | undefined;
-    try {
-      const body = await req.json();
-      taskId = body?.taskId;
-    } catch {}
+    const body = await req.json().catch(() => ({}));
+    const taskId: string | undefined = body?.taskId;
 
-    const supabase = getAdminClient();
+    const ctx = await resolveWidgetContext(req, body);
+    if (!ctx) return unauthorizedResponse();
+    const { supabase, userId } = ctx;
     const now = new Date();
-    const nowTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
-    if (taskId) {
-      const { data: task } = await supabase.from("tasks").select("*").eq("id", taskId).maybeSingle();
-      let actualStart = nowTime;
-      let durationMinutes = 1;
+    let query = supabase.from("tasks").select("*").eq("user_id", userId);
+    // Without a specific task, close every active task of THIS user only.
+    query = taskId ? query.eq("id", taskId) : query.eq("is_active", true);
+    const { data: tasks } = await query;
 
-      if (task?.started_at) {
-        const startDate = new Date(task.started_at);
-        if (!isNaN(startDate.getTime())) {
-          actualStart = `${String(startDate.getHours()).padStart(2, "0")}:${String(startDate.getMinutes()).padStart(2, "0")}`;
-          durationMinutes = Math.max(1, Math.round((now.getTime() - startDate.getTime()) / 60000));
-        }
-      } else if (task?.start_time) {
-        actualStart = task.start_time;
-      }
-
-      // 1. Deactivate task
-      await supabase
-        .from("tasks")
-        .update({
-          is_active: false,
-          started_at: null,
-          updated_at: now.toISOString(),
-        })
-        .eq("id", taskId);
-
-      // 2. Record completion
-      if (task?.user_id) {
-        const { data: existingComp } = await supabase
-          .from("task_completions")
-          .select("*")
-          .eq("task_id", taskId)
-          .eq("date", today)
-          .maybeSingle();
-
-        const prevDuration = existingComp?.completed && typeof existingComp?.duration === "number" ? existingComp.duration : 0;
-        const totalDuration = prevDuration + durationMinutes;
-        const earliestStart = existingComp?.actual_start_time || actualStart;
-
-        await supabase.from("task_completions").upsert(
-          [
-            {
-              task_id: taskId,
-              user_id: task.user_id,
-              date: today,
-              completed: true,
-              duration: totalDuration,
-              actual_start_time: earliestStart,
-              actual_end_time: nowTime,
-              scheduled_start_time: earliestStart,
-              scheduled_end_time: nowTime,
-              updated_at: now.toISOString(),
-            },
-          ],
-          { onConflict: "task_id,date" }
-        );
-
-        // 3. Sync project status if linked to a project
-        if (task.project_id) {
-          try {
-            const { data: project } = await supabase
-              .from("projects")
-              .select("columns")
-              .eq("id", task.project_id)
-              .maybeSingle();
-
-            let doneColumnId = "DONE";
-            if (project?.columns && Array.isArray(project.columns)) {
-              const doneCol = project.columns.find((c: any) => c.isDone) || project.columns[project.columns.length - 1];
-              if (doneCol?.id) doneColumnId = doneCol.id;
-            }
-
-            await supabase
-              .from("tasks")
-              .update({ project_status: doneColumnId, updated_at: now.toISOString() })
-              .eq("id", taskId);
-          } catch (projErr) {
-            console.warn("stop-task project sync error:", projErr);
-          }
-        }
-      }
-    } else {
-      // Clôturer toutes les tâches actives s'il n'y a pas d'ID spécifique
-      const { data: activeTasks } = await supabase.from("tasks").select("*").eq("is_active", true);
-
-      await supabase
-        .from("tasks")
-        .update({
-          is_active: false,
-          started_at: null,
-          updated_at: now.toISOString(),
-        })
-        .eq("is_active", true);
-
-      if (activeTasks && activeTasks.length > 0) {
-        const completionRecords = activeTasks.map((task: any) => {
-          let actualStart = nowTime;
-          let durationMinutes = 1;
-          if (task.started_at) {
-            const startDate = new Date(task.started_at);
-            if (!isNaN(startDate.getTime())) {
-              actualStart = `${String(startDate.getHours()).padStart(2, "0")}:${String(startDate.getMinutes()).padStart(2, "0")}`;
-              durationMinutes = Math.max(1, Math.round((now.getTime() - startDate.getTime()) / 60000));
-            }
-          } else if (task.start_time) {
-            actualStart = task.start_time;
-          }
-          return {
-            task_id: task.id,
-            user_id: task.user_id,
-            date: today,
-            completed: true,
-            duration: durationMinutes,
-            actual_start_time: actualStart,
-            actual_end_time: nowTime,
-            scheduled_start_time: actualStart,
-            scheduled_end_time: nowTime,
-            updated_at: now.toISOString(),
-          };
-        });
-
-        await supabase.from("task_completions").upsert(completionRecords, { onConflict: "task_id,date" });
-      }
+    for (const task of tasks || []) {
+      await finishTask(ctx, task, now);
     }
 
-    return NextResponse.json({ success: true }, {
-      headers: { "Cache-Control": "no-store, max-age=0" }
-    });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err?.message }, { status: 500 });
+    return NextResponse.json(
+      { success: true, stopped: (tasks || []).length },
+      { headers: { "Cache-Control": "no-store, max-age=0" } },
+    );
+  } catch (err) {
+    return NextResponse.json({ success: false, error: (err as Error)?.message }, { status: 500 });
   }
 }

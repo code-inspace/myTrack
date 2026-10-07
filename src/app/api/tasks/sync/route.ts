@@ -1,31 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { encryptText } from "@/lib/crypto/encryption";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://bvdyjpxngcdindqhprmc.supabase.co";
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2ZHlqcHhuZ2NkaW5kcWhwcm1jIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NzQzNjYwMywiZXhwIjoyMTAzMDEyNjAzfQ.IlUB0n1mLfapf60gWlUZsJiOm7YpRYHiv0mlcTJgby0";
-
-function getAdminClient() {
-  return createSupabaseClient(supabaseUrl, serviceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-}
+import { getAdminClient, getRequestUserId, unauthorizedResponse } from "@/lib/supabase/serverAuth";
 
 // POST /api/tasks/sync: Takes local tasks + completions from client and pushes any missing to DB
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { localTasks = [], localCompletions = [], userId } = body;
+    const { localTasks = [], localCompletions = [] } = body;
 
-    if (!userId) {
-      return NextResponse.json({ error: "Missing userId" }, { status: 400 });
-    }
+    const userId = await getRequestUserId(req);
+    if (!userId) return unauthorizedResponse();
 
     const supabase = getAdminClient();
 
     // 1. Fetch current DB tasks
     const { data: dbTasks } = await supabase.from("tasks").select("id, title").eq("user_id", userId);
     const dbIds = new Set((dbTasks || []).map((t: any) => t.id));
+    const { data: ownedProjects } = await supabase.from("projects").select("id").eq("user_id", userId);
+    const ownedProjectIds = new Set((ownedProjects || []).map((p: any) => p.id));
 
     const idMapping = new Map<string, string>(); // oldLocalId -> newDbUuid
 
@@ -62,9 +54,9 @@ export async function POST(req: NextRequest) {
         is_active: false,
         started_at: null,
         is_archived: false,
-        project_id: isValidUuid(task.projectId) ? task.projectId : null,
-        project_status: task.projectId ? task.projectStatus || "TODO" : null,
-        project_category: task.projectId ? task.projectCategory || null : null,
+        project_id: ownedProjectIds.has(task.projectId) ? task.projectId : null,
+        project_status: task.projectStatus || (ownedProjectIds.has(task.projectId) ? "TODO" : null),
+        project_category: ownedProjectIds.has(task.projectId) ? task.projectCategory || null : null,
         created_at: task.createdAt || new Date().toISOString(),
       };
 
@@ -74,6 +66,7 @@ export async function POST(req: NextRequest) {
 
       const { data, error } = await supabase.from("tasks").insert([insertPayload]).select().single();
       if (!error && data) {
+        dbIds.add(data.id);
         if (task.id !== data.id) {
           idMapping.set(task.id, data.id);
         }
@@ -84,7 +77,7 @@ export async function POST(req: NextRequest) {
     for (const comp of localCompletions) {
       if (!comp || !comp.taskId || !comp.date) continue;
       const effectiveTaskId = idMapping.get(comp.taskId) || comp.taskId;
-      if (!isValidUuid(effectiveTaskId)) continue;
+      if (!isValidUuid(effectiveTaskId) || !dbIds.has(effectiveTaskId)) continue;
 
       const record = {
         task_id: effectiveTaskId,

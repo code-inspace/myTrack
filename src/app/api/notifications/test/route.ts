@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendOneSignalPushNotification } from "@/lib/onesignal/server";
+import { getRequestUserId, unauthorizedResponse } from "@/lib/supabase/serverAuth";
 
 export async function POST(req: NextRequest) {
   try {
+    const userId = await getRequestUserId(req);
+    if (!userId) return unauthorizedResponse();
     const body = await req.json().catch(() => ({}));
     const {
-      userId,
       delayMinutes = 2,
       customTitle = "🔔 Test MyTrack — Notification Push",
       customBody,
@@ -14,7 +16,7 @@ export async function POST(req: NextRequest) {
     const targetDate = new Date(Date.now() + delayMinutes * 60 * 1000);
     const bodyText = customBody || `🎉 Notification de test programmée pour ${targetDate.toLocaleTimeString("fr-FR")} reçue avec succès !`;
 
-    console.log(`[Test Route] Scheduling test notification for ${targetDate.toUTCString()} (Local: ${targetDate.toLocaleTimeString("fr-FR")}) to user=${userId || "all"}`);
+    console.log(`[Test Route] Scheduling test notification for ${targetDate.toUTCString()} (Local: ${targetDate.toLocaleTimeString("fr-FR")}) to user=${userId}`);
 
     const pushRes = await sendOneSignalPushNotification({
       userId,

@@ -61,6 +61,7 @@ interface LiveActivityPluginInterface {
   }): Promise<{ success: boolean }>;
   checkAuthorization(): Promise<{ enabled: boolean; frequentUpdatesEnabled: boolean; supported: boolean; reason?: string }>;
   openSettings(): Promise<{ success: boolean }>;
+  setWidgetAuth(options: { token: string | null; timezone?: string }): Promise<{ success: boolean }>;
 }
 
 const NativeLiveActivity = registerPlugin<LiveActivityPluginInterface>("LiveActivityPlugin");
@@ -82,6 +83,22 @@ export const LiveActivityBridge = {
       return await NativeLiveActivity.checkAuthorization();
     } catch (err: any) {
       return { enabled: false, frequentUpdatesEnabled: false, supported: true, reason: err?.message };
+    }
+  },
+
+  /**
+   * Hands the native widget/intents the per-user token they send to /api/widget/* (or clears it
+   * on logout), plus the device timezone so the server resolves "today" for this user.
+   */
+  async setWidgetAuth(token: string | null): Promise<void> {
+    if (Capacitor.getPlatform() !== "ios") return;
+    try {
+      await NativeLiveActivity.setWidgetAuth({
+        token,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      });
+    } catch (err) {
+      console.warn("[LiveActivityBridge] setWidgetAuth note:", err);
     }
   },
 

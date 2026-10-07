@@ -1,5 +1,5 @@
 import { Task, TaskCompletion } from "../types";
-import { convertUtcTimeToLocal } from "@/lib/dates";
+import { convertUtcTimeToLocal, convertLocalTimeToUtc } from "@/lib/dates";
 import { isEncrypted, decryptText } from "@/lib/crypto/encryption";
 
 export const TASKS_STORAGE_PREFIX = "mytrack_tasks_";
@@ -59,7 +59,7 @@ export function mapDbTaskToModel(row: any): Task {
         ? Boolean(row.enable_reminders)
         : rawOverrides._enableReminders !== undefined
         ? Boolean(rawOverrides._enableReminders)
-        : true,
+        : false,
     reminderOffsetMinutes:
       row.reminderOffsetMinutes !== undefined && row.reminderOffsetMinutes !== null
         ? row.reminderOffsetMinutes
@@ -72,7 +72,8 @@ export function mapDbTaskToModel(row: any): Task {
     isArchived: row.isArchived !== undefined ? Boolean(row.isArchived) : Boolean(row.is_archived),
     sortOrder: row.sortOrder !== undefined ? row.sortOrder : (row.sort_order !== undefined && row.sort_order !== null ? row.sort_order : null),
     projectId: row.projectId !== undefined ? (row.projectId || null) : (row.project_id !== undefined ? (row.project_id || null) : null),
-    projectStatus: row.projectId || row.project_id ? (row.projectStatus || row.project_status || null) : null,
+    // Kept even without a project: the "no project" board uses plain TODO/DONE statuses.
+    projectStatus: row.projectStatus || row.project_status || null,
     projectCategory: (row.projectId || row.project_id)
       ? (row.projectCategory !== undefined
           ? (row.projectCategory || null)
@@ -83,6 +84,27 @@ export function mapDbTaskToModel(row: any): Task {
     createdAt: row.createdAt || row.created_at || new Date().toISOString(),
     updatedAt: row.updatedAt || row.updated_at || new Date().toISOString(),
   };
+}
+
+/**
+ * Inverse of the read mapping above: per-date overrides are kept in device-local "HH:mm" in the
+ * app, but stored in UTC in the database (keyed by the local date). Metadata ("_key") is untouched.
+ */
+export function serializeDateOverridesForDb(
+  overrides: Record<string, any> | null | undefined,
+): Record<string, any> {
+  const result: Record<string, any> = {};
+  for (const [k, v] of Object.entries(overrides || {})) {
+    if (k.startsWith("_") || !v || typeof v !== "object") {
+      result[k] = v;
+      continue;
+    }
+    const entry: Record<string, any> = { ...v };
+    if ("startTime" in entry) entry.startTime = entry.startTime ? convertLocalTimeToUtc(entry.startTime, k) : null;
+    if ("endTime" in entry) entry.endTime = entry.endTime ? convertLocalTimeToUtc(entry.endTime, k) : null;
+    result[k] = entry;
+  }
+  return result;
 }
 
 // Convert Supabase task row to camelCase Task with asynchronous decryption of sensitive fields

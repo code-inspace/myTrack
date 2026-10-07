@@ -1,17 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
-
-import { convertLocalTimeToUtc } from "@/lib/dates";
-import { format, subDays } from "date-fns";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://bvdyjpxngcdindqhprmc.supabase.co";
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2ZHlqcHhuZ2NkaW5kcWhwcm1jIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NzQzNjYwMywiZXhwIjoyMTAzMDEyNjAzfQ.IlUB0n1mLfapf60gWlUZsJiOm7YpRYHiv0mlcTJgby0";
-
-function getAdminClient() {
-  return createSupabaseClient(supabaseUrl, serviceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-}
+import { convertZonedTimeToUtc, getZonedDateTimeParts } from "@/lib/dates";
+import { format, subDays, parseISO } from "date-fns";
+import { unauthorizedResponse } from "@/lib/supabase/serverAuth";
+import { resolveWidgetContext } from "@/lib/supabase/widgetContext";
+import { isAfterMidnightBedtime } from "@/features/sleep/sleepRules";
 
 // POST /api/widget/sleep-action
 export async function POST(req: NextRequest) {
@@ -23,31 +15,22 @@ export async function POST(req: NextRequest) {
     const time = body?.time;
     const timestamp = body?.timestamp;
 
-    const supabase = getAdminClient();
+    // The user is the authenticated one — never "the last active user" or "the first user".
+    const ctx = await resolveWidgetContext(req, body);
+    if (!ctx) return unauthorizedResponse();
+    const { supabase, userId, timeZone } = ctx;
+
     const now = timestamp ? new Date(timestamp * 1000) : new Date();
-    const nowTimeStr = time || `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-
-    // Récupérer le user principal de l'application
-    let userId = body?.userId;
-    if (!userId) {
-      const { data: latestLog } = await supabase
-        .from("sleep_logs")
-        .select("user_id")
-        .order("updated_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (latestLog?.user_id) {
-        userId = latestLog.user_id;
-      } else {
-        const { data: firstUser } = await supabase.from("users").select("id").limit(1).maybeSingle();
-        userId = firstUser?.id;
-      }
-    }
+    const zonedNow = getZonedDateTimeParts(now, timeZone);
+    const nowTimeStr = time || zonedNow.timeStr;
+    const todayStr = zonedNow.dateStr;
+    const isAfterMidnight = isAfterMidnightBedtime(nowTimeStr);
+    const bedDateForNow = isAfterMidnight
+      ? format(subDays(parseISO(todayStr), 1), "yyyy-MM-dd")
+      : todayStr;
 
     if (userId) {
-      const utcNowTime = convertLocalTimeToUtc(nowTimeStr, todayStr);
+      const utcNowTime = convertZonedTimeToUtc(nowTimeStr, todayStr, timeZone);
 
       if (action === "NOT_SLEEPING") {
         // L'utilisateur a cliqué sur "Je ne dors pas" :
@@ -71,7 +54,7 @@ export async function POST(req: NextRequest) {
             {
               user_id: userId,
               date: todayStr,
-              bedtime: existingLog?.bedtime || convertLocalTimeToUtc("23:00", todayStr),
+              bedtime: existingLog?.bedtime ?? null,
               wake_time: existingLog?.wake_time || utcNowTime,
               bedtime_validated: Boolean(existingLog?.bedtime_validated),
               wake_time_validated: true,
@@ -94,7 +77,7 @@ export async function POST(req: NextRequest) {
             {
               user_id: userId,
               date: todayStr,
-              bedtime: existingLog?.bedtime || convertLocalTimeToUtc("23:00", todayStr),
+              bedtime: existingLog?.bedtime ?? null,
               wake_time: utcNowTime,
               bedtime_validated: Boolean(existingLog?.bedtime_validated),
               wake_time_validated: true,
@@ -104,9 +87,7 @@ export async function POST(req: NextRequest) {
           { onConflict: "user_id,date" }
         );
       } else if (action === "BEDTIME_NOW") {
-        const targetBedDate = now.getHours() < 7
-          ? format(subDays(now, 1), "yyyy-MM-dd")
-          : todayStr;
+        const targetBedDate = bedDateForNow;
 
         const { data: existingLog } = await supabase
           .from("sleep_logs")
@@ -121,7 +102,7 @@ export async function POST(req: NextRequest) {
               user_id: userId,
               date: targetBedDate,
               bedtime: utcNowTime,
-              wake_time: existingLog?.wake_time || convertLocalTimeToUtc("07:00", targetBedDate),
+              wake_time: existingLog?.wake_time ?? null,
               bedtime_validated: true,
               wake_time_validated: false,
               updated_at: new Date().toISOString(),
@@ -132,9 +113,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const effectiveDate = action === "BEDTIME_NOW" && now.getHours() < 7
-      ? format(subDays(now, 1), "yyyy-MM-dd")
-      : todayStr;
+    const effectiveDate = action === "BEDTIME_NOW" ? bedDateForNow : todayStr;
 
     return NextResponse.json(
       {

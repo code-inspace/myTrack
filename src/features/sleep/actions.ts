@@ -1,4 +1,5 @@
 import { DailySleepLog, NapSession } from "./types";
+import { isNightSleepTime, isAfterMidnightBedtime, isEveningBedtimeHour } from "./sleepRules";
 import { getStoredUserSession } from "@/features/auth/actions";
 import {
   subtractMinutesFromTime,
@@ -99,12 +100,11 @@ function currentLocalTimeStr(): string {
 }
 
 /**
- * A "coucher"/"réveil" quick action pressed between 20:00 and 07:00 is assumed to be the main
- * night's sleep; outside that window it's assumed to be a daytime nap.
+ * A "coucher"/"réveil" quick action pressed in the night window (see sleepRules) is assumed to be
+ * the main night's sleep; outside that window it's assumed to be a daytime nap.
  */
 function isNightWindow(timeStr: string): boolean {
-  const hour = parseInt(timeStr.split(":")[0], 10) || 0;
-  return hour >= 20 || hour < 7;
+  return isNightSleepTime(timeStr);
 }
 
 /**
@@ -115,8 +115,7 @@ function isNightWindow(timeStr: string): boolean {
  */
 export function getEffectiveBedDate(timeStr: string, baseDateStr?: string): string {
   const base = baseDateStr ? parseISO(baseDateStr) : new Date();
-  const hour = parseInt(timeStr.split(":")[0], 10) || 0;
-  if (hour < 7) {
+  if (isAfterMidnightBedtime(timeStr)) {
     return format(subDays(base, 1), "yyyy-MM-dd");
   }
   return format(base, "yyyy-MM-dd");
@@ -198,8 +197,10 @@ export async function recordWakeUpNow(userId?: string): Promise<{ log: DailySlee
 }
 
 function mapDbSleepLogToModel(row: any): DailySleepLog {
-  const localBedtime = convertUtcTimeToLocal(row.bedtime || "23:00", row.date);
-  const localWakeTime = convertUtcTimeToLocal(row.wake_time || "07:00", row.date);
+  // Missing times fall back to the user's sleep target (as unvalidated placeholders), like local logs.
+  const target = getStoredSleepTarget(row.user_id);
+  const localBedtime = row.bedtime ? convertUtcTimeToLocal(row.bedtime, row.date) : target.targetBedtime;
+  const localWakeTime = row.wake_time ? convertUtcTimeToLocal(row.wake_time, row.date) : target.targetWakeTime;
 
   let rawNotes = row.notes || "";
   let gratitude = row.gratitude || "";
@@ -342,11 +343,12 @@ export function getStoredSleepLog(date: string, userId?: string): DailySleepLog 
     };
   }
 
+  const sleepTarget = getStoredSleepTarget(userId);
   if (typeof window === "undefined") {
     return {
       date,
-      bedtime: "23:00",
-      wakeTime: "07:00",
+      bedtime: sleepTarget.targetBedtime,
+      wakeTime: sleepTarget.targetWakeTime,
       bedtimeValidated: false,
       wakeTimeValidated: false,
       naps: [],
@@ -384,12 +386,11 @@ export function getStoredSleepLog(date: string, userId?: string): DailySleepLog 
     console.warn("getStoredSleepLog parse error:", err);
   }
 
-  // Default initial sleep log
-  const defaultBedtime = "23:00";
+  // Default initial sleep log: the user's target times, unvalidated
   return {
     date,
-    bedtime: defaultBedtime,
-    wakeTime: "07:00",
+    bedtime: sleepTarget.targetBedtime,
+    wakeTime: sleepTarget.targetWakeTime,
     bedtimeValidated: false,
     wakeTimeValidated: false,
     naps: [],
@@ -434,7 +435,7 @@ export function getNightSleepDuration(
     const hasYesterdayEvening = Boolean(
       yesterdayLog.bedtime &&
       yesterdayBedHour !== null &&
-      yesterdayBedHour >= 18 &&
+      isEveningBedtimeHour(yesterdayBedHour) &&
       (yesterdayLog.bedtimeValidated || yesterdayLog.updatedAt || yesterdayLog.bedtime !== "23:00")
     );
 
@@ -460,7 +461,7 @@ export function getNightSleepDuration(
       bedtime = todayLog.bedtime;
     } else if (hasYesterdayEvening && yesterdayLog.bedtime) {
       bedtime = yesterdayLog.bedtime;
-    } else if (yesterdayLog.bedtime && yesterdayBedHour !== null && yesterdayBedHour >= 18) {
+    } else if (yesterdayLog.bedtime && yesterdayBedHour !== null && isEveningBedtimeHour(yesterdayBedHour)) {
       bedtime = yesterdayLog.bedtime;
     } else if (todayLog.bedtime && todayBedHour !== null && todayBedHour < 12) {
       bedtime = todayLog.bedtime;
