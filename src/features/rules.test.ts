@@ -7,7 +7,13 @@ import {
   getCompletionFieldsAfterReschedule,
   DEFAULT_TASK_DURATION_MINUTES,
 } from "@/features/tasks/durationRules";
-import { getDoneColumnId, getFirstColumnId, isTaskInDoneColumn } from "@/features/projects/types";
+import {
+  getDoneColumnId,
+  getFirstColumnId,
+  isTaskInDoneColumn,
+  resolveAllBoardColumnId,
+  resolveStatusForAllBoardColumn,
+} from "@/features/projects/types";
 import { isNightSleepTime, isAfterMidnightBedtime } from "@/features/sleep/sleepRules";
 import { convertZonedTimeToUtc, getZonedDateTimeParts } from "@/lib/dates";
 import { serializeDateOverridesForDb, mapDbTaskToModel } from "@/features/tasks/actions/mappers";
@@ -238,5 +244,36 @@ describe("goal rules", () => {
       ],
     });
     expect(result.actualMinutes).toBe(60);
+  });
+});
+
+describe("all-projects board columns", () => {
+  const board = [
+    { id: "b-todo", label: "À faire" },
+    { id: "b-review", label: "Revue" },
+    { id: "b-done", label: "Terminé", isDone: true },
+  ];
+  const project = {
+    columns: [
+      { id: "p-backlog", label: "À faire" },
+      { id: "p-review", label: "revue " },
+      { id: "p-shipped", label: "Livré", isDone: true },
+    ],
+  };
+
+  it("places a task by same name, done-to-done, else first column", () => {
+    expect(resolveAllBoardColumnId({ projectId: "p", projectStatus: "p-review" }, board, project)).toBe("b-review");
+    expect(resolveAllBoardColumnId({ projectId: "p", projectStatus: "p-shipped" }, board, project)).toBe("b-done");
+    expect(resolveAllBoardColumnId({ projectId: "p", projectStatus: "p-backlog" }, board, project, true)).toBe("b-done");
+    expect(resolveAllBoardColumnId({ projectId: null, projectStatus: "DONE" }, board, null)).toBe("b-done");
+    expect(resolveAllBoardColumnId({ projectId: null, projectStatus: "TODO" }, board, null)).toBe("b-todo");
+  });
+
+  it("translates a drop back into the task's own project column", () => {
+    expect(resolveStatusForAllBoardColumn({ projectId: "p" }, board[1], project)).toBe("p-review");
+    expect(resolveStatusForAllBoardColumn({ projectId: "p" }, board[2], project)).toBe("p-shipped");
+    expect(resolveStatusForAllBoardColumn({ projectId: null }, board[2], null)).toBe("DONE");
+    // no equivalent column in the project: keeps the board column
+    expect(resolveStatusForAllBoardColumn({ projectId: null }, board[1], null)).toBe("b-review");
   });
 });

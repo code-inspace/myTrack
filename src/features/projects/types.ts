@@ -66,3 +66,46 @@ export function isTaskInDoneColumn(
   const project = projects.find((p) => p.id === task.projectId);
   return task.projectStatus === getDoneColumnId(project || { columns: [] });
 }
+
+/**
+ * The all-projects board has its own (user-editable) columns, while each task's status is a column
+ * of its own project (or TODO/DONE without project). A task is shown in the board column with the
+ * same id, else the same name; its project's done column always maps to the board's done column.
+ */
+function normalizeLabel(label?: string | null): string {
+  return (label || "").trim().toLowerCase();
+}
+
+export function resolveAllBoardColumnId(
+  task: { projectId?: string | null; projectStatus?: string | null },
+  boardColumns: ProjectColumn[],
+  project: Pick<Project, "columns"> | null | undefined,
+  isCompleted = false,
+): string | undefined {
+  const board = getProjectColumns({ columns: boardColumns });
+  const boardDone = board.find((c) => c.isDone);
+  const ownColumns = getProjectColumns(project || { columns: [] });
+  const ownStatus = task.projectStatus || ownColumns[0]?.id;
+
+  if (isCompleted || ownStatus === getDoneColumnId(task.projectId ? project || { columns: [] } : null)) {
+    return boardDone?.id ?? board[board.length - 1]?.id;
+  }
+  if (ownStatus && board.some((c) => c.id === ownStatus)) return ownStatus;
+  const ownLabel = normalizeLabel(ownColumns.find((c) => c.id === ownStatus)?.label);
+  const byLabel = ownLabel ? board.find((c) => normalizeLabel(c.label) === ownLabel) : undefined;
+  return byLabel?.id ?? board[0]?.id;
+}
+
+/** Status a task gets when dropped in a board column (inverse of resolveAllBoardColumnId). */
+export function resolveStatusForAllBoardColumn(
+  task: { projectId?: string | null },
+  boardColumn: ProjectColumn,
+  project: Pick<Project, "columns"> | null | undefined,
+): string {
+  const ownColumns = getProjectColumns(project || { columns: [] });
+  if (boardColumn.isDone) return getDoneColumnId(task.projectId ? project || { columns: [] } : null);
+  if (ownColumns.some((c) => c.id === boardColumn.id)) return boardColumn.id;
+  const byLabel = ownColumns.find((c) => normalizeLabel(c.label) === normalizeLabel(boardColumn.label));
+  // No equivalent in the task's project: keep the board column (its own board shows it first column)
+  return byLabel?.id ?? boardColumn.id;
+}

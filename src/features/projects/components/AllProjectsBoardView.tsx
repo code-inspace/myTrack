@@ -3,9 +3,18 @@
 import React, { useMemo, useState } from "react";
 import { Task, TaskCompletion } from "@/features/tasks/types";
 import { TASK_CATEGORIES } from "@/features/tasks/options";
-import { Project, DEFAULT_PROJECT_COLUMNS } from "../types";
-import { BoardColumn, groupTasksByColumn } from "./KanbanBoard";
-import { ArrowLeft, Calendar } from "lucide-react";
+import {
+  Project,
+  ProjectColumn,
+  getProjectColumns,
+  resolveAllBoardColumnId,
+  resolveStatusForAllBoardColumn,
+} from "../types";
+import { BoardColumn } from "./KanbanBoard";
+import { ColumnsEditor } from "./ColumnsEditor";
+import { useAllProjectsBoardColumns } from "../allBoardColumns";
+import { useAuth } from "@/providers/AuthProvider";
+import { ArrowLeft, Calendar, Columns3, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   DndContext,
@@ -62,9 +71,23 @@ export const AllProjectsBoardView: React.FC<AllProjectsBoardViewProps> = ({
     });
   };
 
-  const columns = DEFAULT_PROJECT_COLUMNS;
+  const { user } = useAuth();
+  const { columns: storedColumns, saveColumns } = useAllProjectsBoardColumns(user?.id);
+  const columns = useMemo(() => getProjectColumns({ columns: storedColumns }), [storedColumns]);
+  const [isEditingColumns, setIsEditingColumns] = useState(false);
+  const [draftColumns, setDraftColumns] = useState<ProjectColumn[]>([]);
 
   const projectById = useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects]);
+
+  const isTaskCompleted = (task: Task) =>
+    Boolean(completions?.some((c) => c.taskId === task.id && c.completed));
+  const boardColumnOf = (task: Task) =>
+    resolveAllBoardColumnId(
+      task,
+      columns,
+      task.projectId ? projectById.get(task.projectId) : null,
+      isTaskCompleted(task),
+    );
 
   const filteredTasks = useMemo(() => {
     return tasks
@@ -77,7 +100,16 @@ export const AllProjectsBoardView: React.FC<AllProjectsBoardViewProps> = ({
       });
   }, [tasks, categoryFilter, projectFilter]);
 
-  const tasksByColumn = groupTasksByColumn(filteredTasks, columns, completions);
+  const tasksByColumn = useMemo(() => {
+    const groups = new Map<string, Task[]>(columns.map((c) => [c.id, []]));
+    for (const task of filteredTasks) {
+      const bucket = boardColumnOf(task);
+      if (bucket && groups.has(bucket)) groups.get(bucket)!.push(task);
+    }
+    return groups;
+    // boardColumnOf only reads columns / projectById / completions
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredTasks, columns, projectById, completions]);
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -86,23 +118,20 @@ export const AllProjectsBoardView: React.FC<AllProjectsBoardViewProps> = ({
     const task = filteredTasks.find((t) => t.id === active.id);
     if (!task) return;
 
-    const doneColumn = columns.find((c) => c.isDone) || columns[columns.length - 1];
     const targetColumn = columns.find((c) => c.id === newStatus);
+    if (!targetColumn) return;
 
-    const isCurrentlyCompleted = Boolean(
-      completions?.some((c) => c.taskId === task.id && c.completed) ||
-      task.projectStatus === "DONE" ||
-      (doneColumn && task.projectStatus === doneColumn.id)
-    );
-
-    const currentEffectiveStatus = isCurrentlyCompleted && doneColumn
-      ? doneColumn.id
-      : (task.projectStatus || columns[0]?.id);
-
-    if (currentEffectiveStatus !== newStatus) {
-      const isTargetDone = Boolean(targetColumn?.isDone);
-      const wasDone = isCurrentlyCompleted;
-      onChangeStatus(String(active.id), newStatus, isTargetDone, wasDone);
+    // Moves are expressed in the task's own project columns (same id, same name, or done)
+    const currentBoardColumnId = boardColumnOf(task);
+    if (currentBoardColumnId !== targetColumn.id) {
+      const project = task.projectId ? projectById.get(task.projectId) : null;
+      const doneBoardColumnId = columns.find((c) => c.isDone)?.id;
+      onChangeStatus(
+        String(active.id),
+        resolveStatusForAllBoardColumn(task, targetColumn, project),
+        Boolean(targetColumn.isDone),
+        currentBoardColumnId === doneBoardColumnId,
+      );
     }
   };
 
@@ -124,6 +153,19 @@ export const AllProjectsBoardView: React.FC<AllProjectsBoardViewProps> = ({
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            data-testid="all-projects-edit-columns"
+            onClick={() => {
+              setDraftColumns(columns);
+              setIsEditingColumns(true);
+            }}
+            title="Modifier les colonnes de ce tableau"
+            className="h-9 px-3 rounded-xl flex items-center gap-1.5 text-xs font-semibold transition-all cursor-pointer border bg-[#17181F] border-[#282B36] text-[#8E929E] hover:text-white hover:bg-[#22242C]"
+          >
+            <Columns3 className="w-3.5 h-3.5" />
+            <span>Colonnes</span>
+          </button>
           <button
             type="button"
             onClick={toggleCalendarVisibility}
@@ -189,6 +231,61 @@ export const AllProjectsBoardView: React.FC<AllProjectsBoardViewProps> = ({
           </div>
         </div>
       </DndContext>
+
+      {isEditingColumns && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsEditingColumns(false);
+          }}
+        >
+          <div
+            data-testid="all-projects-columns-modal"
+            className="modal-adaptive-card w-full max-w-md max-h-[90vh] overflow-y-auto bg-[#1C1D22] border border-[#282A30] rounded-3xl p-5 shadow-2xl space-y-4"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-base font-bold text-white">Colonnes de « Tous les projets »</h3>
+                <p className="text-[11px] text-[#8E929E] mt-1 leading-snug">
+                  Une tâche se range dans la colonne qui porte le même nom que sa colonne dans son projet.
+                  Les colonnes « Fait » se correspondent toujours.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEditingColumns(false)}
+                className="p-2 rounded-full bg-[#252830] text-[#8E929E] hover:text-white cursor-pointer"
+                title="Fermer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <ColumnsEditor columns={draftColumns} onChange={setDraftColumns} title="Colonnes du tableau" />
+
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setIsEditingColumns(false)}
+                className="px-4 py-2 rounded-xl bg-[#252830] hover:bg-[#343740] text-[#8E929E] hover:text-white text-xs font-semibold cursor-pointer"
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                data-testid="all-projects-columns-save"
+                onClick={async () => {
+                  await saveColumns(draftColumns);
+                  setIsEditingColumns(false);
+                }}
+                className="px-4 py-2 rounded-xl bg-[#D4F63D] hover:bg-[#c5e636] text-black text-xs font-bold cursor-pointer"
+              >
+                Enregistrer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
