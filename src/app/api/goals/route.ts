@@ -1,67 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { getRequestUserId, unauthorizedResponse } from "@/lib/supabase/serverAuth";
+import { getAdminClient, getRequestUserId, unauthorizedResponse } from "@/lib/supabase/serverAuth";
 
 // Goals are stored in the auth user's metadata (not the `goals` table), via the Auth admin API.
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-
-function getAdminHeaders() {
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!supabaseUrl || !serviceRoleKey) {
-    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
-  }
-  return {
-    apikey: serviceRoleKey,
-    Authorization: `Bearer ${serviceRoleKey}`,
-    "Content-Type": "application/json",
-  };
-}
-
+// The supabase-js admin client works with both legacy service_role JWTs and new sb_secret_ keys.
 async function getGoalsForUser(userId: string): Promise<any[]> {
   try {
-    const res = await fetch(`${supabaseUrl}/auth/v1/admin/users/${userId}`, {
-      method: "GET",
-      headers: getAdminHeaders(),
-    });
-    if (res.ok) {
-      const user = await res.json();
-      const goals = user?.user_metadata?.goals;
-      if (Array.isArray(goals)) {
-        return goals;
-      }
-    }
+    const { data, error } = await getAdminClient().auth.admin.getUserById(userId);
+    if (error) throw error;
+    const goals = data?.user?.user_metadata?.goals;
+    return Array.isArray(goals) ? goals : [];
   } catch (e) {
     console.error("[API Goals] Error fetching user goals:", e);
+    return [];
   }
-  return [];
 }
 
 async function saveGoalsForUser(userId: string, goals: any[]): Promise<boolean> {
   try {
-    // 1. Get current metadata to preserve existing fields
-    const getRes = await fetch(`${supabaseUrl}/auth/v1/admin/users/${userId}`, {
-      method: "GET",
-      headers: getAdminHeaders(),
+    const admin = getAdminClient();
+    // Preserve the other metadata fields (name, avatar, board columns…)
+    const { data, error: getError } = await admin.auth.admin.getUserById(userId);
+    if (getError) throw getError;
+    const { error } = await admin.auth.admin.updateUserById(userId, {
+      user_metadata: { ...(data?.user?.user_metadata || {}), goals },
     });
-    let currentMetadata = {};
-    if (getRes.ok) {
-      const user = await getRes.json();
-      currentMetadata = user?.user_metadata || {};
-    }
-
-    // 2. Update with new goals list
-    const updateRes = await fetch(`${supabaseUrl}/auth/v1/admin/users/${userId}`, {
-      method: "PUT",
-      headers: getAdminHeaders(),
-      body: JSON.stringify({
-        user_metadata: {
-          ...currentMetadata,
-          goals,
-        },
-      }),
-    });
-
-    return updateRes.ok;
+    if (error) throw error;
+    return true;
   } catch (e) {
     console.error("[API Goals] Error saving user goals:", e);
     return false;
