@@ -1,7 +1,24 @@
 "use client";
 
 import React, { useState } from "react";
-import { Plus, Trash2, Columns3, CheckCircle2 } from "lucide-react";
+import { Plus, Trash2, Columns3, CheckCircle2, GripVertical } from "lucide-react";
+import {
+  DndContext,
+  DragEndEvent,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
 import { ProjectColumn, generateColumnId } from "../types";
 
@@ -13,7 +30,40 @@ interface ColumnsEditorProps {
   title?: string;
 }
 
-/** Board columns editor (rename, "done" flag, add, delete) shared by projects and the all-projects board. */
+/** One draggable row; only the grip handle starts a drag so the name field stays editable. */
+const SortableColumnRow: React.FC<{ id: string; draggable: boolean; children: React.ReactNode }> = ({
+  id,
+  draggable,
+  children,
+}) => {
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
+    useSortable({ id, disabled: !draggable });
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={cn("flex items-center gap-1.5", isDragging && "relative z-10 opacity-90")}
+    >
+      {draggable && (
+        <button
+          type="button"
+          ref={setActivatorNodeRef}
+          {...attributes}
+          {...listeners}
+          data-testid={`column-drag-handle-${id}`}
+          title="Glisser pour déplacer la colonne"
+          aria-label="Déplacer la colonne"
+          className="p-1.5 -ml-1 rounded-lg text-[#6B7280] hover:text-white hover:bg-[#252830] cursor-grab active:cursor-grabbing touch-none flex-shrink-0"
+        >
+          <GripVertical className="w-3.5 h-3.5" />
+        </button>
+      )}
+      {children}
+    </div>
+  );
+};
+
+/** Board columns editor (reorder, rename, "done" flag, add, delete) shared by projects and the all-projects board. */
 export const ColumnsEditor: React.FC<ColumnsEditorProps> = ({
   columns,
   onChange,
@@ -21,6 +71,19 @@ export const ColumnsEditor: React.FC<ColumnsEditorProps> = ({
   title = "Colonnes du board",
 }) => {
   const [columnToDeleteId, setColumnToDeleteId] = useState<string | null>(null);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const handleDragEnd = ({ active, over }: DragEndEvent) => {
+    if (!over || active.id === over.id) return;
+    const from = columns.findIndex((c) => c.id === active.id);
+    const to = columns.findIndex((c) => c.id === over.id);
+    if (from < 0 || to < 0) return;
+    // The parent saves on change (project form autosave / all-projects "Enregistrer")
+    onChange(arrayMove(columns, from, to));
+  };
 
   return (
     <div className="space-y-1.5">
@@ -28,86 +91,89 @@ export const ColumnsEditor: React.FC<ColumnsEditorProps> = ({
         <Columns3 className="w-3.5 h-3.5" />
         {title}
       </label>
-      <div className="space-y-2">
-        {columns.map((col) => {
-          const isConfirmingDelete = columnToDeleteId === col.id;
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={columns.map((c) => c.id)} strategy={verticalListSortingStrategy}>
+          <div className="space-y-2">
+            {columns.map((col) => {
+              const isConfirmingDelete = columnToDeleteId === col.id;
 
-          if (isConfirmingDelete) {
-            return (
-              <div
-                key={col.id}
-                className="flex items-center justify-between p-2 rounded-xl bg-red-500/10 border border-red-500/30 text-xs animate-in fade-in"
-              >
-                <span className="text-red-300 font-medium truncate pr-2">
-                  Supprimer la colonne &laquo;&nbsp;{col.label || "Sans titre"}&nbsp;&raquo; ?
-                </span>
-                <div className="flex items-center gap-1.5 flex-shrink-0">
+              if (isConfirmingDelete) {
+                return (
+                  <SortableColumnRow key={col.id} id={col.id} draggable={false}>
+                    <div className="flex-1 flex items-center justify-between p-2 rounded-xl bg-red-500/10 border border-red-500/30 text-xs animate-in fade-in">
+                      <span className="text-red-300 font-medium truncate pr-2">
+                        Supprimer la colonne &laquo;&nbsp;{col.label || "Sans titre"}&nbsp;&raquo; ?
+                      </span>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onChange(columns.length > 1 ? columns.filter((c) => c.id !== col.id) : columns);
+                            setColumnToDeleteId(null);
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold text-[11px] transition-all cursor-pointer"
+                        >
+                          Supprimer
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setColumnToDeleteId(null)}
+                          className="px-2 py-1 rounded-lg bg-[#252830] hover:bg-[#343740] text-[#8E929E] hover:text-white text-[11px] font-semibold transition-all cursor-pointer"
+                        >
+                          Annuler
+                        </button>
+                      </div>
+                    </div>
+                  </SortableColumnRow>
+                );
+              }
+
+              return (
+                <SortableColumnRow key={col.id} id={col.id} draggable={columns.length > 1}>
+                  <input
+                    type="text"
+                    placeholder="Nom de la colonne"
+                    value={col.label}
+                    onChange={(e) => onChange(columns.map((c) => (c.id === col.id ? { ...c, label: e.target.value } : c)))}
+                    onBlur={() => onCommit?.()}
+                    className="flex-1 px-3 py-2 rounded-xl bg-[#252830] border border-[#343740] focus:border-[#D4F63D] text-white text-xs outline-none transition-all placeholder-[#6B7280]"
+                  />
                   <button
                     type="button"
-                    onClick={() => {
-                      onChange(columns.length > 1 ? columns.filter((c) => c.id !== col.id) : columns);
-                      setColumnToDeleteId(null);
-                    }}
-                    className="px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold text-[11px] transition-all cursor-pointer"
+                    onClick={() => onChange(columns.map((c) => (c.id === col.id ? { ...c, isDone: !c.isDone } : c)))}
+                    title="Marque la tâche comme terminée quand elle arrive dans cette colonne"
+                    className={cn(
+                      "flex items-center gap-1 px-2 py-2 rounded-lg text-[10px] font-bold transition-colors flex-shrink-0 cursor-pointer border",
+                      col.isDone
+                        ? "bg-[#D4F63D]/15 border-[#D4F63D] text-[#D4F63D]"
+                        : "bg-transparent border-[#343740] text-[#6B7280] hover:text-[#9CA3AF] hover:border-[#4B5563]"
+                    )}
                   >
-                    Supprimer
+                    <CheckCircle2 className="w-3.5 h-3.5" />
                   </button>
                   <button
                     type="button"
-                    onClick={() => setColumnToDeleteId(null)}
-                    className="px-2 py-1 rounded-lg bg-[#252830] hover:bg-[#343740] text-[#8E929E] hover:text-white text-[11px] font-semibold transition-all cursor-pointer"
+                    onClick={() => setColumnToDeleteId(col.id)}
+                    disabled={columns.length <= 1}
+                    title="Supprimer la colonne"
+                    className={cn(
+                      "p-2 rounded-lg transition-colors flex-shrink-0",
+                      columns.length > 1
+                        ? "text-[#8E929E] hover:text-red-400 hover:bg-[#252830] cursor-pointer"
+                        : "text-[#4B5563] cursor-not-allowed opacity-40"
+                    )}
                   >
-                    Annuler
+                    <Trash2 className="w-3.5 h-3.5" />
                   </button>
-                </div>
-              </div>
-            );
-          }
-
-          return (
-            <div key={col.id} className="flex items-center gap-1.5">
-              <input
-                type="text"
-                placeholder="Nom de la colonne"
-                value={col.label}
-                onChange={(e) => onChange(columns.map((c) => (c.id === col.id ? { ...c, label: e.target.value } : c)))}
-                onBlur={() => onCommit?.()}
-                className="flex-1 px-3 py-2 rounded-xl bg-[#252830] border border-[#343740] focus:border-[#D4F63D] text-white text-xs outline-none transition-all placeholder-[#6B7280]"
-              />
-              <button
-                type="button"
-                onClick={() => onChange(columns.map((c) => (c.id === col.id ? { ...c, isDone: !c.isDone } : c)))}
-                title="Marque la tâche comme terminée quand elle arrive dans cette colonne"
-                className={cn(
-                  "flex items-center gap-1 px-2 py-2 rounded-lg text-[10px] font-bold transition-colors flex-shrink-0 cursor-pointer border",
-                  col.isDone
-                    ? "bg-[#D4F63D]/15 border-[#D4F63D] text-[#D4F63D]"
-                    : "bg-transparent border-[#343740] text-[#6B7280] hover:text-[#9CA3AF] hover:border-[#4B5563]"
-                )}
-              >
-                <CheckCircle2 className="w-3.5 h-3.5" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setColumnToDeleteId(col.id)}
-                disabled={columns.length <= 1}
-                title="Supprimer la colonne"
-                className={cn(
-                  "p-2 rounded-lg transition-colors flex-shrink-0",
-                  columns.length > 1
-                    ? "text-[#8E929E] hover:text-red-400 hover:bg-[#252830] cursor-pointer"
-                    : "text-[#4B5563] cursor-not-allowed opacity-40"
-                )}
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          );
-        })}
-      </div>
+                </SortableColumnRow>
+              );
+            })}
+          </div>
+        </SortableContext>
+      </DndContext>
       <p className="text-[10px] text-[#6B7280] flex items-center gap-1">
         <CheckCircle2 className="w-3 h-3 text-[#D4F63D]" />
-        Marque une colonne comme &quot;Fait&quot; pour qu&apos;y déposer une tâche la valide automatiquement
+        Glisse la poignée pour réordonner. Marque une colonne comme &quot;Fait&quot; pour qu&apos;y déposer une tâche la valide automatiquement
       </p>
       <button
         type="button"
