@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { groqChatCompletion } from "@/lib/ai/groqModels";
 import { getRequestUserId, unauthorizedResponse } from "@/lib/supabase/serverAuth";
 import { format } from "date-fns";
 
@@ -12,9 +13,6 @@ export interface ExtractedPhotoTask {
   isCompleted?: boolean;
   priority?: "low" | "medium" | "high";
 }
-
-/** Groq vision model (the former llama-3.2-11b-vision-preview has been decommissioned by Groq). */
-const DEFAULT_GROQ_VISION_MODEL = "qwen/qwen3.8-27b";
 
 /** Parses the model's JSON answer, tolerating ```json fences or text around the object. */
 function parseTasksFromContent(content: string): ExtractedPhotoTask[] {
@@ -48,10 +46,16 @@ export async function POST(req: NextRequest) {
       ? image
       : `data:image/jpeg;base64,${image}`;
 
+    // Free Groq key only (the paid OpenAI API is never used)
     const apiKey =
-      process.env.AI_API_KEY ||
-      process.env.GROQ_API_KEY ||
-      process.env.OPENAI_API_KEY;
+      process.env.GROQ_API_KEY || (process.env.AI_API_KEY?.startsWith("gsk_") ? process.env.AI_API_KEY : undefined);
+    if (!apiKey) {
+      return NextResponse.json({
+        success: false,
+        error: "Aucune clé Groq configurée : ajoute GROQ_API_KEY.",
+        tasks: [],
+      });
+    }
 
     const systemPrompt = `Tu es un assistant expert en OCR et extraction de listes de tâches manuscrites ou imprimées sur papier en français.
 Date de référence du jour: ${refDateStr}.
@@ -81,127 +85,31 @@ Réponds UNIQUEMENT avec un objet JSON valide sous cette forme exacte:
   ]
 }`;
 
-    // Real provider failures are reported instead of a generic message
-    const providerErrors: string[] = [];
-
-    // 1. Try Groq Vision
-    if (process.env.GROQ_API_KEY || (process.env.AI_API_KEY && process.env.AI_API_KEY.startsWith("gsk_"))) {
-      const groqKey = process.env.GROQ_API_KEY || process.env.AI_API_KEY;
-      try {
-        const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${groqKey}`,
-          },
-          body: JSON.stringify({
-            model: process.env.AI_VISION_MODEL || DEFAULT_GROQ_VISION_MODEL,
-            messages: [
-              {
-                role: "user",
-                content: [
-                  { type: "text", text: systemPrompt },
-                  { type: "image_url", image_url: { url: dataUri } },
-                ],
-              },
+    // The vision model is picked automatically among the Groq models that read images
+    try {
+      const { content, model } = await groqChatCompletion(apiKey, "vision", {
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: systemPrompt },
+              { type: "image_url", image_url: { url: dataUri } },
             ],
-            temperature: 0.1,
-            response_format: { type: "json_object" },
-          }),
-        });
-
-        const groqData = await groqRes.json();
-        const content = groqData.choices?.[0]?.message?.content;
-        if (!groqRes.ok || !content) {
-          providerErrors.push(`Groq : ${groqData.error?.message || `HTTP ${groqRes.status}`}`);
-        }
-        if (content) {
-          const tasks = parseTasksFromContent(content);
-
-          if (tasks.length > 0) {
-            return NextResponse.json({
-              success: true,
-              tasks,
-              provider: "groq-vision",
-            });
-          }
-        }
-      } catch (err) {
-        console.warn("[import-photo] Groq Vision attempt error:", err);
-        providerErrors.push(`Groq : ${(err as Error)?.message || "réponse illisible"}`);
-      }
-    }
-
-    // 2. Try OpenAI Vision (GPT-4o / GPT-4o-mini)
-    if (process.env.OPENAI_API_KEY || (apiKey && apiKey.startsWith("sk-"))) {
-      const openAiKey = process.env.OPENAI_API_KEY || apiKey;
-      try {
-        const oaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${openAiKey}`,
           },
-          body: JSON.stringify({
-            model: "gpt-4o-mini",
-            messages: [
-              {
-                role: "user",
-                content: [
-                  { type: "text", text: systemPrompt },
-                  { type: "image_url", image_url: { url: dataUri } },
-                ],
-              },
-            ],
-            temperature: 0.1,
-            response_format: { type: "json_object" },
-          }),
-        });
-
-        const oaiData = await oaiRes.json();
-        const content = oaiData.choices?.[0]?.message?.content;
-        if (!oaiRes.ok || !content) {
-          providerErrors.push(`OpenAI : ${oaiData.error?.message || `HTTP ${oaiRes.status}`}`);
-        }
-        if (content) {
-          const tasks = parseTasksFromContent(content);
-
-          if (tasks.length > 0) {
-            return NextResponse.json({
-              success: true,
-              tasks,
-              provider: "openai-vision",
-            });
-          }
-        }
-      } catch (err) {
-        console.warn("[import-photo] OpenAI Vision attempt error:", err);
-        providerErrors.push(`OpenAI : ${(err as Error)?.message || "réponse illisible"}`);
-      }
-    }
-
-    // 3. No key configured, or the provider failed (its message is shown), or nothing was read
-    if (providerErrors.length > 0) {
-      console.error("[import-photo] Vision providers failed:", providerErrors);
+        ],
+        temperature: 0.1,
+        response_format: { type: "json_object" },
+      });
+      // An empty list is a valid answer: the modal then explains that nothing was detected
+      return NextResponse.json({ success: true, tasks: parseTasksFromContent(content), provider: model });
+    } catch (err) {
+      console.error("[import-photo] Groq vision failed:", err);
       return NextResponse.json({
         success: false,
-        error: `L'analyse IA a échoué (${providerErrors.join(" · ")}).`,
+        error: `L'analyse IA a échoué (${(err as Error).message}).`,
         tasks: [],
       });
     }
-    const hasVisionKey = Boolean(
-      process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY || (apiKey && /^(gsk_|sk-)/.test(apiKey)),
-    );
-    // An empty list is a valid answer: the modal then explains that nothing was detected
-    return NextResponse.json(
-      hasVisionKey
-        ? { success: true, tasks: [] }
-        : {
-            success: false,
-            error: "Aucun modèle de vision configuré : ajoute GROQ_API_KEY ou OPENAI_API_KEY.",
-            tasks: [],
-          },
-    );
   } catch (error: any) {
     console.error("Error in /api/tasks/import-photo:", error);
     return NextResponse.json(

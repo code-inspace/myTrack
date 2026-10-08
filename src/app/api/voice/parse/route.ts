@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { groqChatCompletion } from "@/lib/ai/groqModels";
 import { getRequestUserId, unauthorizedResponse } from "@/lib/supabase/serverAuth";
 import { parseVoiceTranscriptToTasks } from "@/features/voice/parser";
 import { format } from "date-fns";
@@ -31,14 +32,15 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. LLM Fallback if available and local parser returned empty
-    const apiKey = process.env.AI_API_KEY || process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
+    // Free Groq key only; the model is picked automatically (see groqModels.ts)
+    const apiKey =
+      process.env.GROQ_API_KEY || (process.env.AI_API_KEY?.startsWith("gsk_") ? process.env.AI_API_KEY : undefined);
     if (apiKey) {
-      const model = process.env.AI_MODEL || "openai/gpt-oss-120b";
       const prompt = `Tu es un assistant qui extrait des tâches, habitudes et projets depuis une transcription vocale en français.
 Date de référence: ${refDateStr}.
 Transcription vocale: "${transcript}".
 
-Réponds UNIQUEMENT avec un tableau JSON valide d'objets suivant cette structure TypeScript:
+Réponds UNIQUEMENT avec un objet JSON valide {"tasks": [...]} dont chaque tâche suit cette structure TypeScript:
 [
   {
     "title": "Nom de la tâche",
@@ -54,24 +56,14 @@ Réponds UNIQUEMENT avec un tableau JSON valide d'objets suivant cette structure
 ]`;
 
       try {
-        const aiRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${apiKey}`,
-          },
-          body: JSON.stringify({
-            model,
-            messages: [{ role: "user", content: prompt }],
-            temperature: 0.2,
-            response_format: { type: "json_object" },
-          }),
+        const { content: rawContent } = await groqChatCompletion(apiKey, "chat", {
+          messages: [{ role: "user", content: prompt }],
+          temperature: 0.2,
+          response_format: { type: "json_object" },
         });
-
-        const aiData = await aiRes.json();
-        const rawContent = aiData.choices?.[0]?.message?.content;
         if (rawContent) {
-          const parsed = JSON.parse(rawContent);
+          const cleaned = rawContent.replace(/<think>[\s\S]*?<\/think>/g, "").replace(/```(?:json)?/g, "").trim();
+          const parsed = JSON.parse(cleaned.slice(Math.max(0, cleaned.search(/[[{]/))));
           const tasks = Array.isArray(parsed) ? parsed : parsed.tasks || [];
           if (tasks.length > 0) {
             return NextResponse.json({
