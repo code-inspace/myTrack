@@ -222,6 +222,14 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
   const [selectedExternalEvent, setSelectedExternalEvent] = useState<ExternalCalendarEvent | null>(null);
   const [selectedTaskIdForDetail, setSelectedTaskIdForDetail] = useState<string | null>(null);
   const [selectedTaskForDetailSnapshot, setSelectedTaskForDetailSnapshot] = useState<TaskWithCompletion | null>(null);
+  // Day of the column the detail modal was opened from (in 3-day / week view it isn't the
+  // selected date). An overnight task shown on its "end" day belongs to the day it started.
+  const [detailDate, setDetailDate] = useState<string | null>(null);
+  const openDetailForDay = (task: TaskWithCompletion, dayStr: string) => {
+    setDetailDate(task.overnightOriginDate || dayStr);
+    setSelectedTaskIdForDetail(task.id);
+    setSelectedTaskForDetailSnapshot(task);
+  };
 
   const activeTaskForDetail = useMemo(() => {
     if (!selectedTaskIdForDetail) return null;
@@ -229,8 +237,8 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
     const foundTask = taskList.find((t) => t.id === selectedTaskIdForDetail) ||
       (selectedTaskForDetailSnapshot?.id === selectedTaskIdForDetail ? selectedTaskForDetailSnapshot : null);
     if (!foundTask) return null;
-    return mapTaskWithCompletion(foundTask, allCompletions, selectedDate);
-  }, [selectedTaskIdForDetail, allTasks, tasks, allCompletions, selectedDate, selectedTaskForDetailSnapshot]);
+    return mapTaskWithCompletion(foundTask, allCompletions, detailDate || selectedDate);
+  }, [selectedTaskIdForDetail, allTasks, tasks, allCompletions, selectedDate, detailDate, selectedTaskForDetailSnapshot]);
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const justResizedRef = useRef<number>(0);
@@ -692,6 +700,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
       updatedAt: new Date().toISOString(),
     };
 
+    setDetailDate(date);
     setSelectedTaskIdForDetail(tempId);
     setSelectedTaskForDetailSnapshot(optimisticTask);
 
@@ -1049,8 +1058,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
                               }}
                               onClick={() => {
                                 setSelectedTaskId(task.id);
-                                setSelectedTaskIdForDetail(task.id);
-                                setSelectedTaskForDetailSnapshot(task);
+                                openDetailForDay(task, dayStr);
                                 onSelectTask?.(task);
                               }}
                               className={cn(
@@ -1177,8 +1185,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
                   onDragStartTask={onDragStartTask}
                   onSelectTask={(t) => {
                     if (Date.now() - justResizedRef.current < 400) return;
-                    setSelectedTaskIdForDetail(t.id);
-                    setSelectedTaskForDetailSnapshot(t);
+                    openDetailForDay(t, dayStr);
                     onSelectTask?.(t);
                   }}
                   onSelectForResize={(t) => {
@@ -1225,13 +1232,14 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
       <AgendaTaskDetailModal
         task={activeTaskForDetail}
         isOpen={Boolean(selectedTaskIdForDetail && activeTaskForDetail)}
-        selectedDate={selectedDate}
+        selectedDate={detailDate || selectedDate}
         onClose={() => {
           setSelectedTaskIdForDetail(null);
           setSelectedTaskForDetailSnapshot(null);
+          setDetailDate(null);
         }}
         onToggleComplete={(taskId, date) =>
-          onToggleComplete(taskId, date || (activeTaskForDetail as any)?.date || selectedDate)
+          onToggleComplete(taskId, date || detailDate || (activeTaskForDetail as any)?.date || selectedDate)
         }
         onToggleReminder={onToggleReminder}
         onDuplicateTask={onDuplicateTask}

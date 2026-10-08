@@ -242,7 +242,8 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
         colors: [currentProject?.color || "#D4F63D", "#38BDF8", "#FFFFFF"],
       });
     }
-    onToggleComplete?.(task.id, (task as any).date || selectedDate);
+    // A recurring task is completed for the day it's shown on (its "date" is just its start date)
+    onToggleComplete?.(task.id, isRecurring ? selectedDate : (task as any).date || selectedDate);
   };
 
   const handleToggleReminderClick = () => {
