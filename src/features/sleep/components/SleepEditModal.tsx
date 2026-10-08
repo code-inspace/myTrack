@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Moon, Sun, Sparkles, Clock, Calendar, X, Trash2, Check, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getStoredSleepLog, saveStoredSleepLog, saveStoredSleepTarget } from "../actions";
+import { getStoredSleepLog, saveStoredSleepLog, setUserSleepObjective, getUserSleepObjective } from "../actions";
 import { DailySleepLog, NapSession } from "../types";
 import { format, parseISO, differenceInMinutes, subDays } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -15,6 +15,8 @@ export interface SleepSessionData {
   endDate: string;   // "YYYY-MM-DD"
   endTime: string;   // "HH:MM"
   napId?: string;
+  /** Edits the user's sleep objective (times only, shown on upcoming nights) instead of a log */
+  isObjective?: boolean;
 }
 
 interface SleepEditModalProps {
@@ -45,6 +47,12 @@ export const SleepEditModal: React.FC<SleepEditModalProps> = ({
   // instead of appending a new nap on every change.
   const napIdRef = useRef<string | undefined>(undefined);
   const [isNewNap, setIsNewNap] = useState(false);
+  const isObjective = Boolean(initialSession?.isObjective);
+  // Read inside performSave (a stable callback) to know whether the objective is being edited
+  const isObjectiveRef = useRef(false);
+  useEffect(() => {
+    isObjectiveRef.current = Boolean(initialSession?.isObjective);
+  }, [initialSession]);
   // Lets the init effect (declared above performSave) trigger the first save of a new nap.
   const performSaveRef = useRef<
     ((type: "night" | "nap", sDate: string, sTime: string, eDate: string, eTime: string, napId?: string) => Promise<void>) | null
@@ -88,7 +96,12 @@ export const SleepEditModal: React.FC<SleepEditModalProps> = ({
         // A new nap is created right away (the modal only autosaves; delete removes it again),
         // except on a future day, which can't hold recorded sleep.
         const todayStr = format(new Date(), "yyyy-MM-dd");
-        if (type === "nap" && !initialSession.napId && initStartDate <= todayStr) {
+        if (initialSession.isObjective) {
+          // Opening "Objectif sommeil" without an objective yet creates it with the shown times
+          if (!getUserSleepObjective()) {
+            performSaveRef.current?.("night", initStartDate, initStartTime, initEndDate, initEndTime, undefined);
+          }
+        } else if (type === "nap" && !initialSession.napId && initStartDate <= todayStr) {
           performSaveRef.current?.("nap", initStartDate, initStartTime, initEndDate, initEndTime, undefined);
         }
       }, 50);
@@ -134,7 +147,9 @@ export const SleepEditModal: React.FC<SleepEditModalProps> = ({
 
         setSaveStatus("saving");
 
-        if (currType === "night") {
+        if (isObjectiveRef.current) {
+          await setUserSleepObjective({ targetBedtime: sTime, targetWakeTime: eTime });
+        } else if (currType === "night") {
           // Night session bedtime key in DailySleepLog is targetBedDate (eve of wake-up or morning of wake-up)
           const hour = parseInt(sTime.split(":")[0], 10) || 0;
           const targetBedDate = sDate || (hour < 12 ? eDate : format(subDays(parseISO(eDate), 1), "yyyy-MM-dd"));
@@ -322,7 +337,9 @@ export const SleepEditModal: React.FC<SleepEditModalProps> = ({
 
   const handleDelete = async () => {
     try {
-      if (sessionType === "night") {
+      if (isObjective) {
+        await setUserSleepObjective(null);
+      } else if (sessionType === "night") {
         const nightLogKey = format(subDays(parseISO(endDate), 1), "yyyy-MM-dd");
 
         const startLog = getStoredSleepLog(nightLogKey);
@@ -402,10 +419,18 @@ export const SleepEditModal: React.FC<SleepEditModalProps> = ({
             )}
             <div>
               <h2 className="text-base font-bold text-white leading-tight">
-                {sessionType === "nap" ? (isNewNap ? "Nouvelle Sieste" : "Modifier la Sieste") : "Modifier le Sommeil"}
+                {isObjective
+                  ? "Objectif de sommeil"
+                  : sessionType === "nap"
+                    ? (isNewNap ? "Nouvelle Sieste" : "Modifier la Sieste")
+                    : "Modifier le Sommeil"}
               </h2>
               <span className="text-[11px] text-[#94A3B8]">
-                {sessionType === "nap" ? "Temps de repos diurne" : "Nuit de sommeil"}
+                {isObjective
+                  ? "Affiché sur les nuits à venir"
+                  : sessionType === "nap"
+                    ? "Temps de repos diurne"
+                    : "Nuit de sommeil"}
               </span>
             </div>
           </div>
@@ -437,7 +462,7 @@ export const SleepEditModal: React.FC<SleepEditModalProps> = ({
           </div>
         </div>
 
-        {(isFullyFuture || (sessionType === "night" && isEndInFuture)) && (
+        {!isObjective && (isFullyFuture || (sessionType === "night" && isEndInFuture)) && (
           <div
             data-testid="sleep-future-notice"
             className="p-3 rounded-2xl bg-[#3B2F0B]/60 border border-[#FCD34D]/40 text-[11px] leading-snug text-[#FDE68A] flex-shrink-0"
@@ -458,12 +483,12 @@ export const SleepEditModal: React.FC<SleepEditModalProps> = ({
                 <span>Début (Coucher)</span>
               </label>
               <span className="text-[11px] text-[#94A3B8] font-medium">
-                {formatFrenchDate(startDate)}
+                {isObjective ? "Chaque soir" : formatFrenchDate(startDate)}
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
+            <div className={cn("grid gap-2", isObjective ? "grid-cols-1" : "grid-cols-2")}>
+              <div className={cn("space-y-1", isObjective && "hidden")}>
                 <span className="text-[10px] text-[#64748B] uppercase font-semibold">Date</span>
                 <input
                   type="date"
@@ -509,12 +534,12 @@ export const SleepEditModal: React.FC<SleepEditModalProps> = ({
                 <span>Fin (Réveil)</span>
               </label>
               <span className="text-[11px] text-[#94A3B8] font-medium">
-                {formatFrenchDate(endDate)}
+                {isObjective ? "Chaque matin" : formatFrenchDate(endDate)}
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
+            <div className={cn("grid gap-2", isObjective ? "grid-cols-1" : "grid-cols-2")}>
+              <div className={cn("space-y-1", isObjective && "hidden")}>
                 <span className="text-[10px] text-[#64748B] uppercase font-semibold">Date</span>
                 <input
                   type="date"
@@ -588,7 +613,9 @@ export const SleepEditModal: React.FC<SleepEditModalProps> = ({
             {confirmDelete ? (
               <div className="p-3 rounded-2xl bg-red-500/10 border border-red-500/30 space-y-2 animate-in fade-in">
                 <p className="text-xs text-red-300 font-medium">
-                  Supprimer cette session de sommeil ? Les heures associées seront réinitialisées.
+                  {isObjective
+                    ? "Supprimer l'objectif de sommeil ? Il ne s'affichera plus dans l'agenda."
+                    : "Supprimer cette session de sommeil ? Les heures associées seront réinitialisées."}
                 </p>
                 <div className="flex items-center gap-2">
                   <button
@@ -614,7 +641,7 @@ export const SleepEditModal: React.FC<SleepEditModalProps> = ({
                 className="w-full py-2 rounded-2xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 font-semibold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                <span>Supprimer cette session</span>
+                <span>{isObjective ? "Supprimer l'objectif" : "Supprimer cette session"}</span>
               </button>
             )}
           </div>

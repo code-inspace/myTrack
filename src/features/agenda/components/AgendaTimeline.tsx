@@ -28,7 +28,15 @@ import { ExternalEventBlock } from "@/features/calendar/components/ExternalEvent
 import { ExternalEventDetailModal } from "@/features/calendar/components/ExternalEventDetailModal";
 import { ExternalCalendarEvent } from "@/features/calendar/types";
 import { AgendaSleepBlock } from "./AgendaSleepBlock";
-import { getStoredSleepLog, computeSleepDuration, fetchSleepHistory, isSleepTitle, getStoredSleepTarget } from "@/features/sleep/actions";
+import {
+  getStoredSleepLog,
+  computeSleepDuration,
+  fetchSleepHistory,
+  isSleepTitle,
+  getStoredSleepTarget,
+  getUserSleepObjective,
+  syncUserSleepObjectiveFromAccount,
+} from "@/features/sleep/actions";
 import { SleepEditModal, SleepSessionData } from "@/features/sleep/components/SleepEditModal";
 import { useProjects } from "@/features/projects/hooks";
 import { useAuth } from "@/providers/AuthProvider";
@@ -269,7 +277,40 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
     setIsSleepModalOpen(true);
   };
 
+  // Records the night ending on that morning (past days and today); prefilled with what's
+  // already recorded, else the user's objective, else 23:00 → 07:00.
+  const openNightForDay = (dayStr: string) => {
+    if (dayStr > getTodayDateString()) return;
+    const previousDay = format(subDays(parseISO(dayStr), 1), "yyyy-MM-dd");
+    const eveLog = getStoredSleepLog(previousDay, user?.id);
+    const morningLog = getStoredSleepLog(dayStr, user?.id);
+    const fallback = getUserSleepObjective(user?.id) || getStoredSleepTarget(user?.id);
+    setEditingSleepSession({
+      sessionType: "night",
+      startDate: previousDay,
+      startTime: (eveLog.bedtimeValidated && eveLog.bedtime) || fallback.targetBedtime,
+      endDate: dayStr,
+      endTime: (morningLog.wakeTimeValidated && morningLog.wakeTime) || fallback.targetWakeTime,
+    });
+    setIsSleepModalOpen(true);
+  };
+
+  const openSleepObjective = () => {
+    const objective = getUserSleepObjective(user?.id) || getStoredSleepTarget(user?.id);
+    const today = getTodayDateString();
+    setEditingSleepSession({
+      sessionType: "night",
+      startDate: today,
+      startTime: objective.targetBedtime,
+      endDate: format(addDays(parseISO(today), 1), "yyyy-MM-dd"),
+      endTime: objective.targetWakeTime,
+      isObjective: true,
+    });
+    setIsSleepModalOpen(true);
+  };
+
   useEffect(() => {
+    syncUserSleepObjectiveFromAccount(user?.id);
     fetchSleepHistory(60, user?.id).then(() => {
       setSleepSyncVersion((v) => v + 1);
     });
@@ -762,7 +803,25 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
               </button>
             </div>
 
-            {viewMode === "day" && <NewNapButton dayStr={selectedDate} onAdd={openNewNap} withLabel />}
+            <button
+              type="button"
+              data-testid="agenda-sleep-objective"
+              onClick={openSleepObjective}
+              title="Définir l'objectif de sommeil affiché sur les nuits à venir"
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer",
+                getUserSleepObjective(user?.id)
+                  ? "bg-[#1E1B3A] border-[#818CF8]/40 text-[#A5B4FC] hover:border-[#818CF8]"
+                  : "bg-[#17181F] border-[#282B36] text-[#8E929E] hover:text-white hover:bg-[#22242C]"
+              )}
+            >
+              <Moon className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Objectif sommeil</span>
+            </button>
+
+            {viewMode === "day" && (
+              <SleepDayButtons dayStr={selectedDate} onAddNight={openNightForDay} onAddNap={openNewNap} withLabel />
+            )}
 
             {/* iCal / Google Calendars Configuration Button */}
             <button
@@ -860,7 +919,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
                       >
                         {format(dayDate, "d MMM", { locale: fr })}
                       </span>
-                      <NewNapButton dayStr={dayStr} onAdd={openNewNap} />
+                      <SleepDayButtons dayStr={dayStr} onAddNight={openNightForDay} onAddNap={openNewNap} />
                     </div>
                   );
                 })}
@@ -1209,38 +1268,56 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
 };
 
 
-/** "+ Sieste" for a day; disabled (with the reason) on future days, which only hold the objective. */
-const NewNapButton: React.FC<{ dayStr: string; onAdd: (dayStr: string) => void; withLabel?: boolean }> = ({
-  dayStr,
-  onAdd,
-  withLabel = false,
-}) => {
+/**
+ * "+ Nuit" (record the night ending that morning) and "+ Sieste" for a day; disabled (with the
+ * reason) on future days, which can't hold recorded sleep.
+ */
+const SleepDayButtons: React.FC<{
+  dayStr: string;
+  onAddNight: (dayStr: string) => void;
+  onAddNap: (dayStr: string) => void;
+  withLabel?: boolean;
+}> = ({ dayStr, onAddNight, onAddNap, withLabel = false }) => {
   const isFuture = dayStr > getTodayDateString();
+  const futureTitle = "Jour futur : on ne peut pas y enregistrer de sommeil";
+  const buttonClass = cn(
+    "inline-flex items-center gap-1 rounded-lg border text-[10px] font-semibold transition-colors",
+    withLabel ? "px-3 py-1.5 text-xs rounded-xl" : "px-1.5 py-0.5",
+    isFuture
+      ? "border-[#282B36] text-[#4B5563] cursor-not-allowed"
+      : "border-[#A855F7]/40 text-[#C084FC] hover:bg-[#A855F7]/15 cursor-pointer"
+  );
   return (
-    <button
-      type="button"
-      data-testid={`agenda-add-nap-${dayStr}`}
-      disabled={isFuture}
-      onClick={(e) => {
-        e.stopPropagation();
-        onAdd(dayStr);
-      }}
-      title={
-        isFuture
-          ? "Jour futur : seul l'objectif de sommeil s'affiche, impossible d'y enregistrer une sieste"
-          : "Ajouter une sieste ce jour-là"
-      }
-      className={cn(
-        "inline-flex items-center gap-1 rounded-lg border text-[10px] font-semibold transition-colors",
-        withLabel ? "px-3 py-1.5 text-xs rounded-xl" : "mt-1 px-1.5 py-0.5",
-        isFuture
-          ? "border-[#282B36] text-[#4B4F5C] cursor-not-allowed"
-          : "border-[#A855F7]/40 text-[#C084FC] hover:bg-[#A855F7]/15 cursor-pointer"
-      )}
-    >
-      <Moon className="w-3 h-3" />
-      <span>{withLabel ? "+ Sieste" : "+"}</span>
-    </button>
+    <span className={cn("inline-flex items-center gap-1", !withLabel && "mt-1")}>
+      <button
+        type="button"
+        data-testid={`agenda-add-night-${dayStr}`}
+        disabled={isFuture}
+        onClick={(e) => {
+          e.stopPropagation();
+          onAddNight(dayStr);
+        }}
+        title={isFuture ? futureTitle : "Enregistrer la nuit qui se termine ce matin-là"}
+        className={buttonClass}
+      >
+        <Moon className="w-3 h-3" />
+        <span>{withLabel ? "+ Nuit" : "Nuit"}</span>
+      </button>
+      <button
+        type="button"
+        data-testid={`agenda-add-nap-${dayStr}`}
+        disabled={isFuture}
+        onClick={(e) => {
+          e.stopPropagation();
+          onAddNap(dayStr);
+        }}
+        title={isFuture ? futureTitle : "Ajouter une sieste ce jour-là"}
+        className={buttonClass}
+      >
+        <Sparkles className="w-3 h-3" />
+        <span>{withLabel ? "+ Sieste" : "Sieste"}</span>
+      </button>
+    </span>
   );
 };
 
@@ -1627,6 +1704,11 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
 
           const todayDateStr = getTodayDateString();
           const isFutureDate = dayDate > todayDateStr;
+          const userObjective = getUserSleepObjective(userId);
+          const objectiveBedtime = userObjective?.targetBedtime || targetBedtime;
+          const objectiveWakeTime = userObjective?.targetWakeTime || targetWakeTime;
+          const objectiveBedMins = parseTimeToMinutes(objectiveBedtime);
+          const objectiveWakeMins = parseTimeToMinutes(objectiveWakeTime);
 
           // 3a. Morning Sleep (00:00 -> Réveil)
           // Sommeil Sauvegardé en base de données / Repéré (Violet)
@@ -1697,25 +1779,31 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
                   totalColumns: 1,
                 });
               }
-            } else {
+            } else if (
+              // Objectives only exist if the user set one, and only for what's still ahead:
+              // future days, or this morning while the wake-up time isn't reached yet.
+              userObjective &&
+              (isFutureDate || (dayDate === todayDateStr && currentTimeMinutes < objectiveWakeMins))
+            ) {
               // Objectif de Sommeil Matin (Gris)
-              const targetMorningDuration = targetWakeMins;
-              const targetDur = computeSleepDuration(targetBedtime, targetWakeTime);
+              const targetMorningDuration = objectiveWakeMins;
+              const targetDur = computeSleepDuration(objectiveBedtime, objectiveWakeTime);
               const targetDurText = targetDur?.text || "8h";
               sleepItems.push({
                 type: "sleep",
                 sleepItem: {
                   id: `sleep-target-morning-${dayDate}`,
                   label: "Objectif Sommeil",
-                  subLabel: `Prévu ${targetWakeTime} • ${targetDurText}`,
+                  subLabel: `Prévu ${objectiveWakeTime} • ${targetDurText}`,
                   isNap: false,
                   variant: "objective",
                   sessionData: {
                     sessionType: "night",
                     startDate: yesterdayDateStr,
-                    startTime: targetBedtime,
+                    startTime: objectiveBedtime,
                     endDate: dayDate,
-                    endTime: targetWakeTime,
+                    endTime: objectiveWakeTime,
+                    isObjective: true,
                   },
                 },
                 id: `sleep-target-morning-${dayDate}`,
@@ -1773,27 +1861,28 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
                   totalColumns: 1,
                 });
               }
-            } else {
-              // Objectif Coucher Soir (Gris)
-              const targetEveningDuration = 1440 - targetBedMins;
+            } else if (userObjective && dayDate >= todayDateStr) {
+              // Objectif Coucher Soir (Gris): tonight and the coming nights only
+              const targetEveningDuration = 1440 - objectiveBedMins;
               sleepItems.push({
                 type: "sleep",
                 sleepItem: {
                   id: `sleep-target-evening-${dayDate}`,
                   label: "Objectif Coucher",
-                  subLabel: `Coucher ${targetBedtime} (Prévu)`,
+                  subLabel: `Coucher ${objectiveBedtime} (Prévu)`,
                   isNap: false,
                   variant: "objective",
                   sessionData: {
                     sessionType: "night",
                     startDate: dayDate,
-                    startTime: targetBedtime,
+                    startTime: objectiveBedtime,
                     endDate: tomorrowDateStr,
-                    endTime: targetWakeTime,
+                    endTime: objectiveWakeTime,
+                    isObjective: true,
                   },
                 },
                 id: `sleep-target-evening-${dayDate}`,
-                startMins: targetBedMins,
+                startMins: objectiveBedMins,
                 layoutEndMins: 1440,
                 height: targetEveningDuration,
                 column: 0,

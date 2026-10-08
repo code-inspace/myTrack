@@ -53,6 +53,74 @@ export function saveStoredSleepTarget(target: SleepTargetConfig, userId?: string
   }
 }
 
+/**
+ * The sleep objective the user set themselves (agenda "Objectif sommeil"), or null. Unlike
+ * getStoredSleepTarget (which falls back to 23:00 → 07:00 to prefill forms), nothing is shown
+ * as an objective unless this returns a value. Old versions saved a target automatically when a
+ * night was edited, so only this dedicated key counts as a user choice.
+ */
+const USER_SLEEP_OBJECTIVE_KEY = "mytrack_sleep_objective_v2_";
+const SLEEP_OBJECTIVE_METADATA_KEY = "sleepObjective";
+
+function isValidObjective(value: unknown): value is SleepTargetConfig {
+  const v = value as SleepTargetConfig | null;
+  return Boolean(v && /^\d{2}:\d{2}$/.test(v.targetBedtime) && /^\d{2}:\d{2}$/.test(v.targetWakeTime));
+}
+
+export function getUserSleepObjective(userId?: string): SleepTargetConfig | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(`${USER_SLEEP_OBJECTIVE_KEY}${getEffectiveUserId(userId)}`);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return isValidObjective(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function cacheUserSleepObjective(objective: SleepTargetConfig | null, userId?: string) {
+  try {
+    const key = `${USER_SLEEP_OBJECTIVE_KEY}${getEffectiveUserId(userId)}`;
+    if (objective) localStorage.setItem(key, JSON.stringify(objective));
+    else localStorage.removeItem(key);
+  } catch {
+    // storage unavailable: the account copy still holds it
+  }
+}
+
+/** Sets (or clears with null) the user's sleep objective, on this device and on the account. */
+export async function setUserSleepObjective(objective: SleepTargetConfig | null, userId?: string): Promise<void> {
+  cacheUserSleepObjective(objective, userId);
+  if (objective) saveStoredSleepTarget(objective, userId);
+  try {
+    window.dispatchEvent(new CustomEvent("mytrack:sleep-auto-detected"));
+  } catch {}
+  try {
+    await createClient().auth.updateUser({ data: { [SLEEP_OBJECTIVE_METADATA_KEY]: objective } });
+  } catch (err) {
+    console.warn("setUserSleepObjective account sync note:", err);
+  }
+}
+
+/** Pulls the objective saved on the account (set from another device) into this device. */
+export async function syncUserSleepObjectiveFromAccount(userId?: string): Promise<void> {
+  try {
+    const { data } = await createClient().auth.getUser();
+    const metadata = data?.user?.user_metadata;
+    if (!metadata || !(SLEEP_OBJECTIVE_METADATA_KEY in metadata)) return;
+    const remote = metadata[SLEEP_OBJECTIVE_METADATA_KEY];
+    const next = isValidObjective(remote) ? remote : null;
+    const current = getUserSleepObjective(userId);
+    if (JSON.stringify(current) !== JSON.stringify(next)) {
+      cacheUserSleepObjective(next, userId);
+      if (next) saveStoredSleepTarget(next, userId);
+      window.dispatchEvent(new CustomEvent("mytrack:sleep-auto-detected"));
+    }
+  } catch {
+    // offline: keep the local copy
+  }
+}
+
 export function getEffectiveUserId(explicitUserId?: string): string {
   if (explicitUserId) return explicitUserId;
   const session = getStoredUserSession();
