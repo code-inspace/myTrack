@@ -12,7 +12,6 @@ import {
   BellOff,
   Edit3,
   Trash2,
-  Flame,
   Repeat,
   Sparkles,
   ChevronDown,
@@ -25,7 +24,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProjects, useProjectMutations } from "@/features/projects/hooks";
-import { getPriorityTitleClass, getPriorityIconColorClass } from "@/features/tasks/priority";
+import { PriorityBadge } from "@/features/tasks/components/PriorityBadge";
 import confetti from "canvas-confetti";
 import { isOvernightTimeRange } from "@/lib/dates";
 import {
@@ -383,12 +382,7 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
           <div className="space-y-2">
             <div className="flex items-start gap-2.5">
               {task.priority && task.priority !== "NORMAL" && (
-                <Flame
-                  className={cn(
-                    "w-5 h-5 flex-shrink-0 mt-2",
-                    getPriorityIconColorClass(task.priority)
-                  )}
-                />
+                <PriorityBadge priority={task.priority} size="md" className="mt-6 text-white" />
               )}
               <div className="flex-1 min-w-0">
                 <label className="text-[10px] uppercase font-bold text-[#8E929E] tracking-wider block mb-1">

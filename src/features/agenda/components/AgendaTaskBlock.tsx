@@ -2,9 +2,9 @@
 
 import React, { useRef } from "react";
 import { TaskWithCompletion } from "@/features/tasks/types";
-import { Flame, Repeat, Clock, Moon } from "lucide-react";
+import { Repeat, Clock, Moon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getPriorityTitleClass, getPriorityIconColorClass } from "@/features/tasks/priority";
+import { PriorityBadge } from "@/features/tasks/components/PriorityBadge";
 import { useProjects } from "@/features/projects/hooks";
 import { isOvernightTimeRange, formatCrossDayTimeLabel } from "@/lib/dates";
 import { isSleepTitle, isNapTitle } from "@/features/sleep/actions";
@@ -216,8 +216,7 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
           ? "ring-1 ring-[#D4F63D] shadow-[0_0_12px_rgba(212,246,61,0.3)] border-[#D4F63D]/80"
           : "",
         task.isCompletedToday ? "opacity-60 line-through" : "",
-        !task.isCompletedToday && !task.isActive && task.priority === "VERY_URGENT" ? "ring-2 ring-red-500" : "",
-        !task.isCompletedToday && !task.isActive && task.priority === "URGENT" ? "ring-1 ring-amber-500" : ""
+        false
       )}
     >
       {/* --- APPLE CALENDAR STYLE RESIZE HANDLES & LIVE TIME BADGES --- */}
@@ -361,7 +360,7 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
                 </span>
               ) : null}
               {task.priority && task.priority !== "NORMAL" && !task.isCompletedToday && (
-                <Flame className={cn("w-2.5 h-2.5 flex-shrink-0", getPriorityIconColorClass(task.priority))} />
+                <PriorityBadge priority={task.priority} size="xs" className="text-white" />
               )}
               <h4
                 className={cn(
@@ -404,7 +403,7 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
                   </span>
                 ) : null}
                 {task.priority && task.priority !== "NORMAL" && !task.isCompletedToday && (
-                  <Flame className={cn("w-3 h-3 flex-shrink-0", getPriorityIconColorClass(task.priority))} />
+                  <PriorityBadge priority={task.priority} size="xs" className="text-white" />
                 )}
                 <h4
                   className={cn(

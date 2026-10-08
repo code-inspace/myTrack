@@ -2,9 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import { TaskWithCompletion } from "../types";
-import { Clock, Repeat, Square, Edit3, Flame } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { getPriorityIconColorClass } from "../priority";
+import { Clock, Repeat, Square, Edit3 } from "lucide-react";
+import { PriorityBadge } from "./PriorityBadge";
 import { useProjects } from "@/features/projects/hooks";
 
 interface ActiveTaskBannerProps {
@@ -127,7 +126,7 @@ export const ActiveTaskBanner: React.FC<ActiveTaskBannerProps> = ({
             )}
             <h3 className="text-xl font-bold text-[#111214] leading-tight flex items-center gap-1.5">
               {task.priority && task.priority !== "NORMAL" && (
-                <Flame className={cn("w-4 h-4 flex-shrink-0", getPriorityIconColorClass(task.priority))} />
+                <PriorityBadge priority={task.priority} size="md" />
               )}
               <span>{task.title}</span>
             </h3>

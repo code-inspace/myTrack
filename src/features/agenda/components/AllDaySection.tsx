@@ -2,9 +2,9 @@
 
 import React, { useState } from "react";
 import { TaskWithCompletion } from "@/features/tasks/types";
-import { CheckCircle2, Circle, Sparkles, Bell, BellOff, Edit3, Flame, ChevronDown } from "lucide-react";
+import { CheckCircle2, Circle, Sparkles, Bell, BellOff, Edit3, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getPriorityIconColorClass } from "@/features/tasks/priority";
+import { PriorityBadge } from "@/features/tasks/components/PriorityBadge";
 import { useProjects } from "@/features/projects/hooks";
 
 interface AllDaySectionProps {
@@ -152,8 +152,7 @@ export const AllDaySection: React.FC<AllDaySectionProps> = ({
                   !project && style.border,
                   project && "text-white",
                   task.isCompletedToday ? "opacity-60 line-through" : "",
-                  !task.isCompletedToday && task.priority === "VERY_URGENT" ? "ring-2 ring-red-500" : "",
-                  !task.isCompletedToday && task.priority === "URGENT" ? "ring-1 ring-amber-500" : ""
+                  false
                 )}
                 title="Glisse vers la timeline pour définir une heure"
               >
@@ -186,7 +185,7 @@ export const AllDaySection: React.FC<AllDaySectionProps> = ({
                   </span>
                 )}
                 {task.priority && task.priority !== "NORMAL" && !task.isCompletedToday && (
-                  <Flame className={cn("w-3 h-3 flex-shrink-0", getPriorityIconColorClass(task.priority))} />
+                  <PriorityBadge priority={task.priority} size="xs" />
                 )}
                 <span className="truncate max-w-[140px]">{task.title}</span>
 

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef } from "react";
+import { PriorityBadge } from "./PriorityBadge";
 import { Task } from "@/features/tasks/types";
 import { Project } from "@/features/projects/types";
 import { cn } from "@/lib/utils";
@@ -9,8 +10,7 @@ import {
   Tag,
   Sparkles,
   CheckCircle2,
-  AlertCircle,
-} from "lucide-react";
+  } from "lucide-react";
 
 interface TaskAutoCompleteSuggestionsProps {
   query: string;
@@ -259,12 +259,7 @@ export const TaskAutoCompleteSuggestions: React.FC<TaskAutoCompleteSuggestionsPr
                 )}
 
                 {/* Priority */}
-                {isUrgent && (
-                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-red-500/15 border border-red-500/30 text-red-400 font-bold">
-                    <AlertCircle className="w-2.5 h-2.5" />
-                    <span>Urgent</span>
-                  </span>
-                )}
+                {isUrgent && <PriorityBadge priority={task.priority} size="xs" className="text-[#E5E7EB]" />}
                 {isHigh && (
                   <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-300 font-bold">
                     <span>Haute</span>

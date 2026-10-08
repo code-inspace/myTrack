@@ -5,9 +5,9 @@ import { Task, TaskCompletion } from "@/features/tasks/types";
 import { ProjectColumn } from "../types";
 import { ExternalCalendarEvent } from "@/features/calendar/types";
 import { ExternalEventBoardCard } from "@/features/calendar/components/ExternalEventBoardCard";
-import { GripVertical, Flame, CheckCircle2, Pencil, Plus, Tag } from "lucide-react";
+import { GripVertical, CheckCircle2, Pencil, Plus, Tag } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getPriorityCardClass, getPriorityTitleClass, getPriorityIconColorClass } from "@/features/tasks/priority";
+import { PriorityBadge } from "@/features/tasks/components/PriorityBadge";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { getTodayDateString } from "@/lib/dates";
 import { format, parseISO, subDays } from "date-fns";
@@ -78,23 +78,21 @@ export const BoardCard: React.FC<{
       }}
       className={cn(
         "rounded-xl bg-[#1C1D22] border border-[#282A30] p-3 flex items-start gap-2 transition-all",
-        isDragging ? "opacity-40 ring-2 ring-[#D4F63D]/50 z-10 relative" : "",
-        getPriorityCardClass(task.priority)
+        isDragging ? "opacity-40 ring-2 ring-[#D4F63D]/50 z-10 relative" : ""
       )}
     >
       <div {...attributes} {...listeners} className="text-[#6B7280] cursor-grab active:cursor-grabbing mt-0.5 touch-none">
         <GripVertical className="w-3.5 h-3.5" />
       </div>
       {task.priority && task.priority !== "NORMAL" && (
-        <Flame className={cn("w-3.5 h-3.5 flex-shrink-0 mt-0.5", getPriorityIconColorClass(task.priority))} />
+        <PriorityBadge priority={task.priority} className="mt-0.5 text-[#E5E7EB]" />
       )}
       <div className="flex-1 min-w-0">
         <button
           type="button"
           onClick={() => onEditTask(task)}
           className={cn(
-            "block w-full text-left text-xs font-semibold text-white truncate cursor-pointer hover:text-[#D4F63D]",
-            getPriorityTitleClass(task.priority)
+            "block w-full text-left text-xs font-semibold text-white truncate cursor-pointer hover:text-[#D4F63D]"
           )}
         >
           {task.title}

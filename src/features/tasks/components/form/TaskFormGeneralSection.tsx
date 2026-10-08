@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
+import { PriorityBadge } from "../PriorityBadge";
 import {
   CalendarDays,
   Flag,
@@ -18,7 +19,6 @@ import { TaskFormState } from "../useTaskForm";
 import { isSleepTitle, isNapTitle } from "@/features/sleep/actions";
 import {
   PRIORITY_OPTIONS,
-  getPriorityIconColorClass,
 } from "@/features/tasks/priority";
 import { TASK_TAGS, TRACKING_TYPE_OPTIONS } from "@/features/tasks/options";
 import { useProjects, useProjectMutations } from "@/features/projects/hooks";
@@ -165,7 +165,10 @@ export const TaskFormGeneralSection: React.FC<TaskFormGeneralSectionProps> = ({
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-[#17181D] text-[#D4F63D] border border-[#2E323E]">
-              {PRIORITY_OPTIONS.find((o) => o.id === form.priority)?.label}
+              <span className="inline-flex items-center gap-1">
+                <PriorityBadge priority={form.priority} size="xs" />
+                {PRIORITY_OPTIONS.find((o) => o.id === form.priority)?.label}
+              </span>
             </span>
             <ChevronDown
               className={cn(
@@ -189,19 +192,11 @@ export const TaskFormGeneralSection: React.FC<TaskFormGeneralSectionProps> = ({
                 className={cn(
                   "px-2 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer flex items-center justify-center gap-1.5",
                   form.priority === opt.id
-                    ? opt.id === "VERY_URGENT"
-                      ? "bg-red-500/15 border-red-500 text-red-400 font-extrabold"
-                      : opt.id === "URGENT"
-                        ? "bg-amber-500/15 border-amber-500 text-amber-400 font-bold"
-                        : "bg-[#D4F63D]/15 border-[#D4F63D] text-[#D4F63D]"
+                    ? "bg-[#D4F63D]/15 border-[#D4F63D] text-[#D4F63D] font-bold"
                     : "bg-[#1C1D22] border-[#343740] text-[#9CA3AF] hover:border-[#4B5563]",
                 )}
               >
-                {opt.id !== "NORMAL" && (
-                  <Flame
-                    className={cn("w-3 h-3", getPriorityIconColorClass(opt.id))}
-                  />
-                )}
+                <PriorityBadge priority={opt.id} size="xs" />
                 <span className="truncate">{opt.label}</span>
               </button>
             ))}

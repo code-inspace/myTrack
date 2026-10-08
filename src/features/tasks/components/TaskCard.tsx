@@ -2,13 +2,13 @@
 
 import React from "react";
 import { TaskWithCompletion } from "../types";
-import { Clock, Repeat, Play, Check, Plus, Trash2, Edit3, GripVertical, Bell, BellOff, Flag, Flame, Moon } from "lucide-react";
+import { Clock, Repeat, Play, Check, Plus, Trash2, Edit3, GripVertical, Bell, BellOff, Flag, Moon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import confetti from "canvas-confetti";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { getTodayDateString, isOvernightTimeRange, formatCrossDayTimeLabel } from "@/lib/dates";
-import { getPriorityCardClass, getPriorityTitleClass, getPriorityIconColorClass } from "../priority";
+import { PriorityBadge } from "./PriorityBadge";
 import { useProjects } from "@/features/projects/hooks";
 
 interface TaskCardProps {
@@ -111,7 +111,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           : !project
           ? "bg-[#1C1D22] hover:bg-[#22242B] border-[#282A30] hover:border-[#383C48]"
           : "hover:brightness-110",
-        !isCompleted && getPriorityCardClass(task.priority)
+        false
       )}
     >
       {/* Left colored accent bar for project-assigned tasks */}
@@ -193,11 +193,10 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               className={cn(
                 "text-base font-bold transition-colors leading-tight text-white break-words hover:text-[#D4F63D] flex items-center gap-1.5",
                 isCompleted ? "text-[#8E929E] line-through" : "text-[#F3F4F6]",
-                !isCompleted && getPriorityTitleClass(task.priority)
               )}
             >
               {task.priority && task.priority !== "NORMAL" && !isCompleted && (
-                <Flame className={cn("w-3.5 h-3.5 flex-shrink-0", getPriorityIconColorClass(task.priority))} />
+                <PriorityBadge priority={task.priority} />
               )}
               <span className="break-words">{task.title}</span>
             </h4>

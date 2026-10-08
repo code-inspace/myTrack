@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect, useRef } from "react";
+import { PriorityBadge } from "@/features/tasks/components/PriorityBadge";
 import { Task } from "@/features/tasks/types";
 import { Project } from "../types";
 import { useTaskMutations } from "@/features/tasks/hooks";
@@ -402,9 +403,7 @@ function DraggableTaskCard({
             </span>
           )}
           {task.priority && task.priority !== "NORMAL" && (
-            <span className="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase tracking-wider bg-red-500/10 text-red-400 border border-red-500/20">
-              {task.priority === "VERY_URGENT" ? "Urgent +" : "Urgent"}
-            </span>
+            <PriorityBadge priority={task.priority} size="xs" className="text-[#E5E7EB]" />
           )}
         </div>
 
