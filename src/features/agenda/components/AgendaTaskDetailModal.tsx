@@ -77,14 +77,16 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
   const isDeletingRef = React.useRef(false);
   const activeTaskIdRef = React.useRef<string | null>(null);
 
-  // Synchronize state strictly when a new task is opened
+  // Fill the form only when the modal opens. While it stays open, the same task can be replaced
+  // (optimistic "temp-…" id → server id after a creation, or a sync/realtime refresh): resetting
+  // then would wipe what the user is typing. Only the done state follows the live task.
   React.useEffect(() => {
     if (!isOpen || !task) {
       activeTaskIdRef.current = null;
       return;
     }
 
-    if (task.id !== activeTaskIdRef.current) {
+    if (activeTaskIdRef.current === null) {
       activeTaskIdRef.current = task.id;
       isDeletingRef.current = false;
 
@@ -105,6 +107,7 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
       setNewSubprojectInput("");
       setSaveStatus("idle");
     } else {
+      activeTaskIdRef.current = task.id;
       setIsDone(Boolean(task.isCompletedToday));
     }
   }, [isOpen, task?.id, task?.isCompletedToday]);
