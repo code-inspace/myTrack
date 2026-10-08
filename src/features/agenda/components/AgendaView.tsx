@@ -72,6 +72,28 @@ export const AgendaView: React.FC = () => {
     });
   };
 
+  // Moves an occurrence to another day keeping its hours (drop on the date strip or a day header).
+  // Goes through updateSchedule, whose optimistic update shows the move immediately.
+  const handleMoveOccurrenceToDay = (taskId: string, targetDate: string, originDate?: string) => {
+    const task = allTasks.find((t) => t.id === taskId) || tasks.find((t) => t.id === taskId);
+    if (!task) return;
+    const isRecurring = task.recurrence && task.recurrence !== "ONCE";
+    const fromDate = originDate || (isRecurring ? selectedDate : (task as any).date) || selectedDate;
+    if (fromDate === targetDate) return;
+    const override = isRecurring ? task.dateOverrides?.[fromDate] : undefined;
+    const startTime = override?.startTime !== undefined ? override.startTime : task.startTime ?? null;
+    const endTime = override?.endTime !== undefined ? override.endTime : task.endTime ?? null;
+
+    updateSchedule.mutate({
+      taskId,
+      date: targetDate,
+      originDate: fromDate,
+      startTime,
+      endTime,
+      applyToAll: !isRecurring,
+    });
+  };
+
   const handleCreateOrUpdateTask = (values: TaskFormValues, taskId?: string) => {
     if (taskId) {
       updateTask.mutate({ taskId, values });
@@ -89,6 +111,7 @@ export const AgendaView: React.FC = () => {
           title="Mon Agenda"
           selectedDate={selectedDate}
           onSelectDate={setSelectedDate}
+          onDropDate={(dateStr, taskId, originDate) => handleMoveOccurrenceToDay(taskId, dateStr, originDate)}
         />
       </div>
 
@@ -135,6 +158,9 @@ export const AgendaView: React.FC = () => {
           }}
           onMoveTaskToTime={handleMoveTaskToTime}
           onDropToAllDay={handleDropToAllDay}
+          onMoveTaskOccurrence={(taskId, targetDate, originDate) =>
+            handleMoveOccurrenceToDay(taskId, targetDate, originDate)
+          }
           onDragStartTask={handleDragStartTask}
           onDuplicateTask={(t) => {
             createTask.mutate({

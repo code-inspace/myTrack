@@ -36,7 +36,7 @@ interface TasksHeaderWithNavProps {
   isSyncing?: boolean;
   /** true while a habit card is being dragged, to hint that the day strip accepts drops */
   isDragActive?: boolean;
-  onDropDate?: (dateStr: string, taskId: string) => void;
+  onDropDate?: (dateStr: string, taskId: string, originDate?: string) => void;
 }
 
 export const TasksHeaderWithNav: React.FC<TasksHeaderWithNavProps> = ({

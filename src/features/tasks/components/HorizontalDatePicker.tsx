@@ -32,13 +32,13 @@ interface HorizontalDatePickerProps {
   onSelectDate: (date: string) => void;
   /** true while a habit card is being dragged, to hint that days accept drops */
   isDragActive?: boolean;
-  onDropDate?: (dateStr: string, taskId: string) => void;
+  onDropDate?: (dateStr: string, taskId: string, originDate?: string) => void;
 }
 
 const DayDropTarget: React.FC<{
   dateStr: string;
   isDragActive?: boolean;
-  onDropDate?: (dateStr: string, taskId: string) => void;
+  onDropDate?: (dateStr: string, taskId: string, originDate?: string) => void;
   children: React.ReactNode;
 }> = ({
   dateStr,
@@ -58,7 +58,7 @@ const DayDropTarget: React.FC<{
         e.preventDefault();
         const taskId = e.dataTransfer.getData("taskId") || e.dataTransfer.getData("text/plain");
         if (taskId && onDropDate) {
-          onDropDate(dateStr, taskId);
+          onDropDate(dateStr, taskId, e.dataTransfer.getData("originDate") || undefined);
         }
       }}
       className={cnClass(
