@@ -13,6 +13,17 @@ export interface ExtractedPhotoTask {
   priority?: "low" | "medium" | "high";
 }
 
+/** Groq vision model (the former llama-3.2-11b-vision-preview has been decommissioned by Groq). */
+const DEFAULT_GROQ_VISION_MODEL = "qwen/qwen3.8-27b";
+
+/** Parses the model's JSON answer, tolerating ```json fences or text around the object. */
+function parseTasksFromContent(content: string): ExtractedPhotoTask[] {
+  const cleaned = content.replace(/<think>[\s\S]*?<\/think>/g, "").replace(/```(?:json)?/g, "").trim();
+  const start = cleaned.search(/[[{]/);
+  const parsed = JSON.parse(start >= 0 ? cleaned.slice(start) : cleaned);
+  return Array.isArray(parsed) ? parsed : parsed.tasks || [];
+}
+
 export async function POST(req: NextRequest) {
   try {
     const userId = await getRequestUserId(req);
@@ -70,6 +81,9 @@ Réponds UNIQUEMENT avec un objet JSON valide sous cette forme exacte:
   ]
 }`;
 
+    // Real provider failures are reported instead of a generic message
+    const providerErrors: string[] = [];
+
     // 1. Try Groq Vision
     if (process.env.GROQ_API_KEY || (process.env.AI_API_KEY && process.env.AI_API_KEY.startsWith("gsk_"))) {
       const groqKey = process.env.GROQ_API_KEY || process.env.AI_API_KEY;
@@ -81,7 +95,7 @@ Réponds UNIQUEMENT avec un objet JSON valide sous cette forme exacte:
             Authorization: `Bearer ${groqKey}`,
           },
           body: JSON.stringify({
-            model: "llama-3.2-11b-vision-preview",
+            model: process.env.AI_VISION_MODEL || DEFAULT_GROQ_VISION_MODEL,
             messages: [
               {
                 role: "user",
@@ -98,11 +112,11 @@ Réponds UNIQUEMENT avec un objet JSON valide sous cette forme exacte:
 
         const groqData = await groqRes.json();
         const content = groqData.choices?.[0]?.message?.content;
+        if (!groqRes.ok || !content) {
+          providerErrors.push(`Groq : ${groqData.error?.message || `HTTP ${groqRes.status}`}`);
+        }
         if (content) {
-          const parsed = JSON.parse(content);
-          const tasks: ExtractedPhotoTask[] = Array.isArray(parsed)
-            ? parsed
-            : parsed.tasks || [];
+          const tasks = parseTasksFromContent(content);
 
           if (tasks.length > 0) {
             return NextResponse.json({
@@ -114,6 +128,7 @@ Réponds UNIQUEMENT avec un objet JSON valide sous cette forme exacte:
         }
       } catch (err) {
         console.warn("[import-photo] Groq Vision attempt error:", err);
+        providerErrors.push(`Groq : ${(err as Error)?.message || "réponse illisible"}`);
       }
     }
 
@@ -145,11 +160,11 @@ Réponds UNIQUEMENT avec un objet JSON valide sous cette forme exacte:
 
         const oaiData = await oaiRes.json();
         const content = oaiData.choices?.[0]?.message?.content;
+        if (!oaiRes.ok || !content) {
+          providerErrors.push(`OpenAI : ${oaiData.error?.message || `HTTP ${oaiRes.status}`}`);
+        }
         if (content) {
-          const parsed = JSON.parse(content);
-          const tasks: ExtractedPhotoTask[] = Array.isArray(parsed)
-            ? parsed
-            : parsed.tasks || [];
+          const tasks = parseTasksFromContent(content);
 
           if (tasks.length > 0) {
             return NextResponse.json({
@@ -161,15 +176,32 @@ Réponds UNIQUEMENT avec un objet JSON valide sous cette forme exacte:
         }
       } catch (err) {
         console.warn("[import-photo] OpenAI Vision attempt error:", err);
+        providerErrors.push(`OpenAI : ${(err as Error)?.message || "réponse illisible"}`);
       }
     }
 
-    // 3. Fallback response if no keys or service error: returns empty with message
-    return NextResponse.json({
-      success: false,
-      error: "Aucun modèle de vision configuré ou image illisible. Vérifiez vos clés API AI.",
-      tasks: [],
-    });
+    // 3. No key configured, or the provider failed (its message is shown), or nothing was read
+    if (providerErrors.length > 0) {
+      console.error("[import-photo] Vision providers failed:", providerErrors);
+      return NextResponse.json({
+        success: false,
+        error: `L'analyse IA a échoué (${providerErrors.join(" · ")}).`,
+        tasks: [],
+      });
+    }
+    const hasVisionKey = Boolean(
+      process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY || (apiKey && /^(gsk_|sk-)/.test(apiKey)),
+    );
+    // An empty list is a valid answer: the modal then explains that nothing was detected
+    return NextResponse.json(
+      hasVisionKey
+        ? { success: true, tasks: [] }
+        : {
+            success: false,
+            error: "Aucun modèle de vision configuré : ajoute GROQ_API_KEY ou OPENAI_API_KEY.",
+            tasks: [],
+          },
+    );
   } catch (error: any) {
     console.error("Error in /api/tasks/import-photo:", error);
     return NextResponse.json(

@@ -122,6 +122,8 @@ I'm your personal MyTrack coach. With **${context.totalWins} wins**, a **${conte
   }
 }
 
+const DEFAULT_GROQ_CHAT_MODEL = "openai/gpt-oss-120b";
+
 /**
  * Universal AI Provider Factory
  * Supports Groq LLMs (openai/gpt-oss-120b, openai/gpt-oss-20b, qwen/qwen3.6-27b), OpenAI, Gemini, or Heuristic Engine.
@@ -136,23 +138,34 @@ export function getAIProvider(): AIProvider {
       name: "Groq AI Coach",
       generateResponse: async (request: AIRequest): Promise<AIResponse> => {
         try {
-          const model = process.env.AI_MODEL || "openai/gpt-oss-120b";
-          const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${apiKey}`,
-            },
-            body: JSON.stringify({
-              model,
-              messages: [
-                { role: "system", content: `${SYSTEM_COACH_PROMPT}\n${formatAIContext(request.context)}` },
-                ...request.messages,
-              ],
-              temperature: 0.7,
-            }),
-          });
-          const data = await response.json();
+          const callGroq = (model: string) =>
+            fetch("https://api.groq.com/openai/v1/chat/completions", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${apiKey}`,
+              },
+              body: JSON.stringify({
+                model,
+                messages: [
+                  { role: "system", content: `${SYSTEM_COACH_PROMPT}\n${formatAIContext(request.context)}` },
+                  ...request.messages,
+                ],
+                temperature: 0.7,
+              }),
+            }).then((res) => res.json());
+
+          const configuredModel = process.env.AI_MODEL || DEFAULT_GROQ_CHAT_MODEL;
+          let data = await callGroq(configuredModel);
+          // Groq retires models regularly: a configured model that no longer exists falls back to
+          // the default one instead of silently degrading to the heuristic engine.
+          if (
+            configuredModel !== DEFAULT_GROQ_CHAT_MODEL &&
+            ["model_not_found", "model_decommissioned"].includes(data?.error?.code)
+          ) {
+            console.warn(`Groq model "${configuredModel}" unavailable, using ${DEFAULT_GROQ_CHAT_MODEL}`);
+            data = await callGroq(DEFAULT_GROQ_CHAT_MODEL);
+          }
           const content = data.choices?.[0]?.message?.content;
           if (content) {
             return {
