@@ -46,6 +46,15 @@ export async function fetchTasks(userId?: string): Promise<Task[]> {
   if (!targetId) return [];
 
   const local = getStoredTasks(targetId);
+  let syncedLocalIds = new Set<string>();
+  // Local-only tasks (created offline or while the API failed) that the server doesn't have yet:
+  // always kept in the list until a sync confirms them.
+  const withUnsyncedLocal = (serverTasks: Task[]): Task[] => {
+    const pending = local.filter(
+      (t) => t.id?.startsWith("task-") && !syncedLocalIds.has(t.id) && !serverTasks.some((s) => s.id === t.id),
+    );
+    return pending.length > 0 ? [...pending, ...serverTasks] : serverTasks;
+  };
 
   try {
     // 1. Only push newly created offline tasks to server sync endpoint (ignore existing UUID tasks to prevent resurrecting deleted ones)
@@ -65,11 +74,26 @@ export async function fetchTasks(userId?: string): Promise<Task[]> {
         actualStartTime: c.actualStartTime ? convertLocalTimeToUtc(c.actualStartTime, c.date) : null,
         actualEndTime: c.actualEndTime ? convertLocalTimeToUtc(c.actualEndTime, c.date) : null,
       }));
-      fetch("/api/tasks/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ localTasks: syncTasks, localCompletions: syncCompletions, userId: targetId }),
-      }).catch(() => {});
+      // Awaited: the server list below must not replace these local-only tasks before they exist
+      // on the server (a failed sync used to erase them from both sides).
+      try {
+        const res = await fetch("/api/tasks/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ localTasks: syncTasks, localCompletions: syncCompletions, userId: targetId }),
+        });
+        if (res.ok) {
+          const { idMapping = {} } = await res.json();
+          // Re-key the synced completions so they aren't orphaned under the old local id
+          const remapped = localCompletions.map((c) =>
+            idMapping[c.taskId] ? { ...c, taskId: idMapping[c.taskId] } : c,
+          );
+          saveStoredCompletions(remapped, targetId);
+          syncedLocalIds = new Set(Object.keys(idMapping));
+        }
+      } catch (syncErr) {
+        console.warn("Offline tasks sync failed, keeping them locally:", syncErr);
+      }
     }
 
     // 2. Fetch fresh tasks: try Supabase client first, but if empty or unauthenticated, fall back to server API route
@@ -81,8 +105,8 @@ export async function fetchTasks(userId?: string): Promise<Task[]> {
         .order("created_at", { ascending: false });
 
       if (!error && Array.isArray(dbTasks) && dbTasks.length > 0) {
-        const mappedTasks = await Promise.all(
-          dbTasks.map((t: any) => mapDbTaskToModelAsync(t))
+        const mappedTasks = withUnsyncedLocal(
+          await Promise.all(dbTasks.map((t: any) => mapDbTaskToModelAsync(t))),
         );
         saveStoredTasks(mappedTasks, targetId);
         return mappedTasks;
@@ -96,8 +120,8 @@ export async function fetchTasks(userId?: string): Promise<Task[]> {
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data.tasks)) {
-        const mappedTasks = await Promise.all(
-          data.tasks.map((t: any) => mapDbTaskToModelAsync(t))
+        const mappedTasks = withUnsyncedLocal(
+          await Promise.all(data.tasks.map((t: any) => mapDbTaskToModelAsync(t))),
         );
         saveStoredTasks(mappedTasks, targetId);
         return mappedTasks;

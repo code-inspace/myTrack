@@ -156,8 +156,12 @@ export function useTasks(selectedDateStr: string) {
     placeholderData: () => getStoredTasks(userId),
     enabled: Boolean(userId),
     staleTime: 1000 * 60 * 2,
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
+    // The local cache is shown instantly but treated as stale: refetch on open and whenever the
+    // app comes back to the foreground (a PWA is rarely restarted and its realtime socket sleeps)
+    initialDataUpdatedAt: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
     refetchInterval: false,
   });
 
@@ -175,8 +179,12 @@ export function useTasks(selectedDateStr: string) {
     placeholderData: () => getStoredCompletions(userId),
     enabled: Boolean(userId),
     staleTime: 1000 * 60 * 2,
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
+    // The local cache is shown instantly but treated as stale: refetch on open and whenever the
+    // app comes back to the foreground (a PWA is rarely restarted and its realtime socket sleeps)
+    initialDataUpdatedAt: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
     refetchInterval: false,
   });
 

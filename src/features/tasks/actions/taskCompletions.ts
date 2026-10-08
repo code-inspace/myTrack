@@ -66,6 +66,13 @@ export async function fetchCompletions(
   if (!targetId) return [];
 
   const local = getStoredCompletions(targetId);
+  // Completions of local-only tasks ("task-…", not yet on the server) must survive a refresh
+  const withLocalOnly = (serverCompletions: TaskCompletion[]): TaskCompletion[] => {
+    const pending = local.filter(
+      (c) => c.taskId?.startsWith("task-") && !serverCompletions.some((s) => s.taskId === c.taskId && s.date === c.date),
+    );
+    return pending.length > 0 ? [...serverCompletions, ...pending] : serverCompletions;
+  };
 
   try {
     // 1. Query directly via Supabase client if authenticated
@@ -76,7 +83,7 @@ export async function fetchCompletions(
         .eq("user_id", targetId);
 
       if (!error && Array.isArray(dbCompletions) && dbCompletions.length > 0) {
-        const mapped = dbCompletions.map((c: any) => mapDbCompletionToModel(c));
+        const mapped = withLocalOnly(dbCompletions.map((c: any) => mapDbCompletionToModel(c)));
         saveStoredCompletions(mapped, targetId);
         return mapped;
       }
@@ -89,7 +96,7 @@ export async function fetchCompletions(
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data.completions)) {
-        const mapped = data.completions.map((c: any) => mapDbCompletionToModel(c));
+        const mapped = withLocalOnly(data.completions.map((c: any) => mapDbCompletionToModel(c)));
         saveStoredCompletions(mapped, targetId);
         return mapped;
       }
