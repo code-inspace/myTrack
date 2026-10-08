@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
+import { PriorityBadge } from "../PriorityBadge";
 import { Task, TaskWithCompletion } from "@/features/tasks/types";
 import { ExternalCalendarEvent } from "@/features/calendar/types";
 import { ExternalEventTaskCard } from "@/features/calendar/components/ExternalEventTaskCard";
@@ -18,7 +19,7 @@ import { DesktopWidgetsPane } from "./DesktopWidgetsPane";
 import { DesktopDatePicker } from "./DesktopDatePicker";
 import { TaskAutoCompleteSuggestions } from "../TaskAutoCompleteSuggestions";
 import { useProjects } from "@/features/projects/hooks";
-import { CheckCircle2, Plus, Flame, Inbox, Calendar, RefreshCw, Play, Moon, Sun, RotateCw } from "lucide-react";
+import { CheckCircle2, Plus, Inbox, Calendar, RefreshCw, Play, Moon, Sun, RotateCw } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -415,7 +416,7 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
               : "bg-[#181920] border border-[#282A34] text-[#8E929E] hover:text-white hover:bg-[#20222B]"
           )}
         >
-          <Flame className="w-3 h-3 text-[#F97316]" />
+          <PriorityBadge priority="URGENT" size="xs" />
           <span>Prioritaires</span>
           <span className={cn("px-1.5 py-0.2 rounded-full text-[10px]", statusFilter === "urgent" ? "bg-black/15 text-black" : "bg-[#282A34] text-[#8E929E]")}>
             {counts.urgent}
