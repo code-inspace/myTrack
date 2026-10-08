@@ -251,6 +251,24 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
   const [isSleepModalOpen, setIsSleepModalOpen] = useState(false);
   const [editingSleepSession, setEditingSleepSession] = useState<SleepSessionData | null>(null);
 
+  // Naps can be added on any displayed day up to today; future days only hold the sleep objective.
+  const openNewNap = (dayStr: string) => {
+    if (dayStr > getTodayDateString()) return;
+    const now = new Date();
+    const isToday = dayStr === getTodayDateString();
+    const startTime = isToday
+      ? `${String(now.getHours()).padStart(2, "0")}:${String(Math.floor(now.getMinutes() / 5) * 5).padStart(2, "0")}`
+      : "14:00";
+    setEditingSleepSession({
+      sessionType: "nap",
+      startDate: dayStr,
+      startTime,
+      endDate: dayStr,
+      endTime: addHoursToTimeString(startTime, 0.5),
+    });
+    setIsSleepModalOpen(true);
+  };
+
   useEffect(() => {
     fetchSleepHistory(60, user?.id).then(() => {
       setSleepSyncVersion((v) => v + 1);
@@ -293,10 +311,11 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
       return [selectedDate];
     }
     if (viewMode === "3days") {
+      // Centered on the selected day: the day before, the selected day, the day after
       return [
+        format(subDays(parsedSelectedDate, 1), "yyyy-MM-dd"),
         selectedDate,
         format(addDays(parsedSelectedDate, 1), "yyyy-MM-dd"),
-        format(addDays(parsedSelectedDate, 2), "yyyy-MM-dd"),
       ];
     }
     // "week": 7 days starting from Monday
@@ -743,6 +762,8 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
               </button>
             </div>
 
+            {viewMode === "day" && <NewNapButton dayStr={selectedDate} onAdd={openNewNap} withLabel />}
+
             {/* iCal / Google Calendars Configuration Button */}
             <button
               type="button"
@@ -839,6 +860,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
                       >
                         {format(dayDate, "d MMM", { locale: fr })}
                       </span>
+                      <NewNapButton dayStr={dayStr} onAdd={openNewNap} />
                     </div>
                   );
                 })}
@@ -1186,6 +1208,42 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
   );
 };
 
+
+/** "+ Sieste" for a day; disabled (with the reason) on future days, which only hold the objective. */
+const NewNapButton: React.FC<{ dayStr: string; onAdd: (dayStr: string) => void; withLabel?: boolean }> = ({
+  dayStr,
+  onAdd,
+  withLabel = false,
+}) => {
+  const isFuture = dayStr > getTodayDateString();
+  return (
+    <button
+      type="button"
+      data-testid={`agenda-add-nap-${dayStr}`}
+      disabled={isFuture}
+      onClick={(e) => {
+        e.stopPropagation();
+        onAdd(dayStr);
+      }}
+      title={
+        isFuture
+          ? "Jour futur : seul l'objectif de sommeil s'affiche, impossible d'y enregistrer une sieste"
+          : "Ajouter une sieste ce jour-là"
+      }
+      className={cn(
+        "inline-flex items-center gap-1 rounded-lg border text-[10px] font-semibold transition-colors",
+        withLabel ? "px-3 py-1.5 text-xs rounded-xl" : "mt-1 px-1.5 py-0.5",
+        isFuture
+          ? "border-[#282B36] text-[#4B4F5C] cursor-not-allowed"
+          : "border-[#A855F7]/40 text-[#C084FC] hover:bg-[#A855F7]/15 cursor-pointer"
+      )}
+    >
+      <Moon className="w-3 h-3" />
+      <span>{withLabel ? "+ Sieste" : "+"}</span>
+    </button>
+  );
+};
+
 interface DayGridColumnProps {
   dayDate: string;
   tasks: TaskWithCompletion[];
@@ -1312,6 +1370,14 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
     if (longPressEmptyTimerRef.current) {
       clearTimeout(longPressEmptyTimerRef.current);
       longPressEmptyTimerRef.current = null;
+    }
+
+    // Releasing the pointer over a block (e.g. right after the long press that selected it for
+    // resizing) bubbles up here: it isn't a tap on empty space, so it must not exit resize mode.
+    // Exiting on a real tap outside is handled on pointerdown (and by the global listener).
+    if (!pointerDownCoordRef.current) {
+      hasTriggeredRef.current = false;
+      return;
     }
 
     if (selectedTaskId !== null || resizingState !== null) {

@@ -41,6 +41,14 @@ export const SleepEditModal: React.FC<SleepEditModalProps> = ({
 
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isInitialMountRef = useRef(true);
+  // Id of the nap being edited; set once a new nap is first saved so later autosaves update it
+  // instead of appending a new nap on every change.
+  const napIdRef = useRef<string | undefined>(undefined);
+  const [isNewNap, setIsNewNap] = useState(false);
+  // Lets the init effect (declared above performSave) trigger the first save of a new nap.
+  const performSaveRef = useRef<
+    ((type: "night" | "nap", sDate: string, sTime: string, eDate: string, eTime: string, napId?: string) => Promise<void>) | null
+  >(null);
 
   // Initialize session state on open
   useEffect(() => {
@@ -69,12 +77,20 @@ export const SleepEditModal: React.FC<SleepEditModalProps> = ({
       setEndDate(initEndDate);
       setEndTime(initEndTime);
       setNapId(initialSession.napId);
+      napIdRef.current = initialSession.napId;
+      setIsNewNap(type === "nap" && !initialSession.napId);
       setConfirmDelete(false);
       setSaveStatus("idle");
 
       // Mark mount complete after a short tick
       setTimeout(() => {
         isInitialMountRef.current = false;
+        // A new nap is created right away (the modal only autosaves; delete removes it again),
+        // except on a future day, which can't hold recorded sleep.
+        const todayStr = format(new Date(), "yyyy-MM-dd");
+        if (type === "nap" && !initialSession.napId && initStartDate <= todayStr) {
+          performSaveRef.current?.("nap", initStartDate, initStartTime, initEndDate, initEndTime, undefined);
+        }
       }, 50);
     }
   }, [isOpen, initialSession]);
@@ -145,14 +161,18 @@ export const SleepEditModal: React.FC<SleepEditModalProps> = ({
           const existingNaps = dayLog.naps || [];
           let updatedNaps: NapSession[];
 
-          if (currentNapId) {
+          const editedNapId = currentNapId || napIdRef.current;
+          if (editedNapId && existingNaps.some((n) => n.id === editedNapId)) {
             updatedNaps = existingNaps.map((n) =>
-              n.id === currentNapId ? { ...n, startTime: sTime, endTime: eTime } : n
+              n.id === editedNapId ? { ...n, startTime: sTime, endTime: eTime } : n
             );
           } else {
+            const newNapId = editedNapId || "nap-" + Date.now();
+            napIdRef.current = newNapId;
+            setNapId(newNapId);
             updatedNaps = [
               ...existingNaps,
-              { id: "nap-" + Date.now(), startTime: sTime, endTime: eTime },
+              { id: newNapId, startTime: sTime, endTime: eTime },
             ];
           }
 
@@ -182,6 +202,10 @@ export const SleepEditModal: React.FC<SleepEditModalProps> = ({
     [onSaved]
   );
 
+  useEffect(() => {
+    performSaveRef.current = performSave;
+  }, [performSave]);
+
   // Trigger auto-save whenever fields change after initialization
   const triggerAutoSave = useCallback(
     (
@@ -199,15 +223,15 @@ export const SleepEditModal: React.FC<SleepEditModalProps> = ({
       }
 
       if (immediate) {
-        performSave(newType, newStartDate, newStartTime, newEndDate, newEndTime, napId);
+        performSave(newType, newStartDate, newStartTime, newEndDate, newEndTime, napIdRef.current);
       } else {
         setSaveStatus("saving");
         saveTimeoutRef.current = setTimeout(() => {
-          performSave(newType, newStartDate, newStartTime, newEndDate, newEndTime, napId);
+          performSave(newType, newStartDate, newStartTime, newEndDate, newEndTime, napIdRef.current);
         }, 400);
       }
     },
-    [napId, performSave]
+    [performSave]
   );
 
   // Clean up timer on unmount
@@ -220,6 +244,13 @@ export const SleepEditModal: React.FC<SleepEditModalProps> = ({
   }, []);
 
   if (!isOpen || !initialSession) return null;
+
+  // Future days only hold the sleep objective (see saveStoredSleepLog): say so instead of
+  // silently dropping the change.
+  const todayStr = format(new Date(), "yyyy-MM-dd");
+  const isStartInFuture = startDate > todayStr;
+  const isEndInFuture = endDate > todayStr;
+  const isFullyFuture = sessionType === "nap" ? isStartInFuture : isStartInFuture && isEndInFuture;
 
   const handleStartTimeChange = (newTime: string) => {
     setStartTime(newTime);
@@ -371,7 +402,7 @@ export const SleepEditModal: React.FC<SleepEditModalProps> = ({
             )}
             <div>
               <h2 className="text-base font-bold text-white leading-tight">
-                {sessionType === "nap" ? "Modifier la Sieste" : "Modifier le Sommeil"}
+                {sessionType === "nap" ? (isNewNap ? "Nouvelle Sieste" : "Modifier la Sieste") : "Modifier le Sommeil"}
               </h2>
               <span className="text-[11px] text-[#94A3B8]">
                 {sessionType === "nap" ? "Temps de repos diurne" : "Nuit de sommeil"}
@@ -405,6 +436,17 @@ export const SleepEditModal: React.FC<SleepEditModalProps> = ({
             )}
           </div>
         </div>
+
+        {(isFullyFuture || (sessionType === "night" && isEndInFuture)) && (
+          <div
+            data-testid="sleep-future-notice"
+            className="p-3 rounded-2xl bg-[#3B2F0B]/60 border border-[#FCD34D]/40 text-[11px] leading-snug text-[#FDE68A] flex-shrink-0"
+          >
+            {isFullyFuture
+              ? "Jour futur : seul l'objectif de sommeil s'affiche, rien ne peut y être enregistré."
+              : "Le réveil tombe sur un jour futur : seule l'heure de coucher est enregistrée, le réveil reste l'objectif."}
+          </div>
+        )}
 
         {/* Form Body */}
         <div className="flex-1 overflow-y-auto overscroll-contain pr-1 pb-6 space-y-4 min-h-0">

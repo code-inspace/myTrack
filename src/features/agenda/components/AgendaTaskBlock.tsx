@@ -176,7 +176,9 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
 
   return (
     <div
-      draggable
+      // While selected for resizing, a native drag would start on the slightest mouse move (desktop)
+      // and cancel the pointer interaction — only the resize handles should react then.
+      draggable={!isSelected}
       data-agenda-block="true"
       data-task-id={task.id}
       data-testid={`agenda-task-block-${task.id}`}
