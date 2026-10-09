@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useRef, useEffect, useState, useMemo } from "react";
+import { isSleepOrNapTitle } from "@/features/sleep/taskSleepSync";
 import { SLEEP_EVENING_START_HOUR } from "@/features/sleep/sleepRules";
 import { Task, TaskWithCompletion, TaskCompletion } from "@/features/tasks/types";
 import { AgendaTaskBlock } from "./AgendaTaskBlock";
@@ -126,8 +127,9 @@ export function computeTasksForDate(
         return !task.dateOverrides[targetDateStr].skipped;
       }
 
-      // 3. For all-day/to-do tasks (without fixed startTime) that are uncompleted, carry over to today
-      if (!task.startTime && targetDateStr === todayStr && originalDate < todayStr) {
+      // 3. An uncompleted one-off task (with or without an hour) carries over to today and keeps
+      // its hour. Sleep / nap entries are records of a night, not to-dos: never carried over.
+      if (targetDateStr === todayStr && originalDate < todayStr && !isSleepOrNapTitle(task.title)) {
         return true;
       }
 

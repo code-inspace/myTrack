@@ -170,7 +170,7 @@ describe("Agenda Multi-Day Task Distribution & Moving Logic", () => {
     expect(tasksFuture.some((t) => t.id === "t-daily")).toBe(true);
   });
 
-  it("strictly displays tasks created on yesterday (past date) on yesterday's agenda column and not today", async () => {
+  it("displays a task created yesterday on yesterday's column, and carries it to today while unfinished", async () => {
     const { computeTasksForDate } = await import("./components/AgendaTimeline");
     const { getTodayDateString } = await import("@/lib/dates");
     const { subDays, format, parseISO } = await import("date-fns");
@@ -200,10 +200,16 @@ describe("Agenda Multi-Day Task Distribution & Moving Logic", () => {
     expect(foundOnYesterday?.effectiveStartTime).toBe("14:00");
     expect(foundOnYesterday?.effectiveEndTime).toBe("15:00");
 
-    // 2. Must NOT appear on today's agenda view
+    // 2. Unfinished: carried over to today, keeping its hours
     const todayTasks = computeTasksForDate(todayStr, [taskYesterday], []);
     const foundOnToday = todayTasks.find((t) => t.id === "t-created-yesterday");
-    expect(foundOnToday).toBeUndefined();
+    expect(foundOnToday).toBeDefined();
+    expect(foundOnToday?.effectiveStartTime).toBe("14:00");
+
+    // 3. Once done yesterday, it stays on yesterday only
+    const done: any = [{ id: "c1", taskId: "t-created-yesterday", userId: "u1", date: yesterdayStr, completed: true }];
+    const todayAfterDone = computeTasksForDate(todayStr, [taskYesterday], done);
+    expect(todayAfterDone.find((t) => t.id === "t-created-yesterday")).toBeUndefined();
   });
 
   it("accurately updates effective start and end times for completed/archived tasks when resized", async () => {

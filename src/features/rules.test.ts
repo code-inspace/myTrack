@@ -277,3 +277,34 @@ describe("all-projects board columns", () => {
     expect(resolveStatusForAllBoardColumn({ projectId: null }, board[1], null)).toBe("b-review");
   });
 });
+
+describe("carry-over of unfinished one-off tasks", () => {
+  it("carries a timed one-off task to today, but not sleep entries nor finished tasks", async () => {
+    const { computeTasksForDate } = await import("@/features/agenda/components/AgendaTimeline");
+    const { format, subDays } = await import("date-fns");
+    const today = format(new Date(), "yyyy-MM-dd");
+    const yesterday = format(subDays(new Date(), 1), "yyyy-MM-dd");
+    const base = {
+      userId: "u",
+      category: "General",
+      recurrence: "ONCE" as const,
+      trackingType: "BOOLEAN" as const,
+      isActive: false,
+      isArchived: false,
+      createdAt: `${yesterday}T12:00:00.000Z`,
+      updatedAt: `${yesterday}T12:00:00.000Z`,
+    };
+    const tasks = [
+      { ...base, id: "timed", title: "Appeler le client", startTime: "10:00", endTime: "11:00" },
+      { ...base, id: "sleep", title: "Sieste", startTime: "14:00", endTime: "14:30" },
+      { ...base, id: "done", title: "Fait", startTime: "09:00", endTime: "10:00" },
+    ];
+    const completions = [
+      { id: "c", taskId: "done", userId: "u", date: yesterday, completed: true, createdAt: "", updatedAt: "" },
+    ];
+    const ids = computeTasksForDate(today, tasks, completions).map((t) => t.id);
+    expect(ids).toContain("timed");
+    expect(ids).not.toContain("sleep");
+    expect(ids).not.toContain("done");
+  });
+});
