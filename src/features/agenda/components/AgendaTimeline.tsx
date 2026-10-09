@@ -372,6 +372,10 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
     return Array.from({ length: 7 }, (_, i) => format(addDays(startMon, i), "yyyy-MM-dd"));
   }, [viewMode, selectedDate, parsedSelectedDate]);
 
+  // 3 days always fit the screen (columns share the width); only the week view keeps a minimum
+  // column width and scrolls horizontally on small screens.
+  const dayColumnMinWidthClass = viewMode === "week" ? "min-w-[120px] md:min-w-[150px]" : "min-w-0";
+
   // Helper to distinguish all-day vs timed tasks
   const isTaskAllDay = (t: TaskWithCompletion) => {
     const time = t.effectiveStartTime !== undefined ? t.effectiveStartTime : t.startTime;
@@ -909,7 +913,8 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
                         }
                       }}
                       className={cn(
-                        "flex-1 min-w-[120px] md:min-w-[150px] py-1.5 px-2 text-center border-r border-[#202228] transition-colors cursor-pointer",
+                        "flex-1 py-1.5 px-2 text-center border-r border-[#202228] transition-colors cursor-pointer",
+                        dayColumnMinWidthClass,
                         isCurrentSelected ? "bg-[#1C1E28]" : "hover:bg-[#181920]"
                       )}
                     >
@@ -979,7 +984,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
                     }}
                     className={cn(
                       "flex-1 p-1.5 flex flex-wrap items-center gap-1.5 border-r border-[#202228] transition-all duration-300",
-                      viewMode !== "day" ? "min-w-[120px] md:min-w-[150px]" : "min-w-0",
+                      dayColumnMinWidthClass,
                       isAllDayExpanded
                         ? "min-h-[46px] max-h-none overflow-visible"
                         : "min-h-[46px] max-h-[50px] overflow-hidden",
@@ -1163,6 +1168,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
               return (
                 <DayGridColumn
                   key={dayStr}
+                  minWidthClass={dayColumnMinWidthClass}
                   dayDate={dayStr}
                   tasks={dayTasks}
                   externalEvents={dayExternalEvents}
@@ -1360,6 +1366,7 @@ interface DayGridColumnProps {
   onSelectSleepSession?: (session: SleepSessionData) => void;
   onStartResize: (e: React.PointerEvent, task: TaskWithCompletion, edge: "top" | "bottom", dayDate: string) => void;
   sleepSyncVersion?: number;
+  minWidthClass?: string;
   userId?: string;
 }
 
@@ -1387,6 +1394,7 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
   onSelectSleepSession,
   onStartResize,
   sleepSyncVersion,
+  minWidthClass,
   userId,
 }) => {
   const colRef = useRef<HTMLDivElement>(null);
@@ -1525,7 +1533,7 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
           onGridDrop(e, dayDate, colRef.current);
         }
       }}
-      className="flex-1 min-w-[120px] md:min-w-[150px] relative border-r border-[#1D1F26]"
+      className={cn("flex-1 relative border-r border-[#1D1F26]", minWidthClass)}
     >
       {/* Background Hour Lines */}
       {HOURS.map((hour) => (

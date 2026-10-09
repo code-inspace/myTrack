@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
 import { TaskWithCompletion } from "@/features/tasks/types";
 import { Repeat, Clock, Moon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -121,11 +121,13 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const startCoordRef = useRef<{ x: number; y: number; time: number } | null>(null);
   const hasLongPressedRef = useRef(false);
+  const [isMousePointer, setIsMousePointer] = useState(false);
 
   const handlePointerDown = (e: React.PointerEvent) => {
     // Only handle primary button
     if (e.button !== 0) return;
     e.stopPropagation();
+    setIsMousePointer(e.pointerType === "mouse");
 
     startCoordRef.current = { x: e.clientX, y: e.clientY, time: Date.now() };
     hasLongPressedRef.current = false;
@@ -176,9 +178,10 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
 
   return (
     <div
-      // While selected for resizing, a native drag would start on the slightest mouse move (desktop)
-      // and cancel the pointer interaction — only the resize handles should react then.
-      draggable={!isSelected}
+      // With a mouse, a selected block must not start a native drag on the slightest move (it
+      // cancels the resize interaction). On touch the long press that selects the block is also
+      // what starts the native drag, so it must stay draggable there.
+      draggable={!(isSelected && isMousePointer)}
       data-agenda-block="true"
       data-task-id={task.id}
       data-testid={`agenda-task-block-${task.id}`}
