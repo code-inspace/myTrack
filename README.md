@@ -1,6 +1,6 @@
 # MyTrack — Full-Stack PWA
 
-Production-ready PWA pour le suivi d'habitudes, tâches quotidiennes, momentum, coaching IA et notifications push.
+Production-ready PWA pour le suivi d'habitudes, tâches quotidiennes, objectifs, sommeil et notifications push.
 
 ## 🌐 Déploiement en Ligne (Vercel)
 

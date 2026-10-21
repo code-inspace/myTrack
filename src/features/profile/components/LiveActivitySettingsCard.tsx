@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { LiveActivityBridge } from "@/lib/native/liveActivity";
-import { Smartphone, CheckCircle2, AlertTriangle, ExternalLink, Sparkles, ShieldCheck, Play, Square, Info } from "lucide-react";
+import { Smartphone, CheckCircle2, AlertTriangle, ExternalLink, Sparkles, ShieldCheck, Play, Square } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const LiveActivitySettingsCard: React.FC = () => {

@@ -175,11 +175,10 @@ describe("habit statistics rules", () => {
     expect(byDate["2026-08-22"]).toBe(1); // archived habit not counted
   });
 
-  it("uses calendar periods and gives no momentum without activity", () => {
+  it("uses calendar periods and a 0% rate without activity", () => {
     const range = getPeriodRange("week", parseISO("2026-08-19")); // Wednesday
     expect(range.start.getDay()).toBe(1);
     const stats = calculateDashboardStats([weekdays], [], "week", parseISO("2026-08-19"));
-    expect(stats.momentum).toBe(0);
     expect(stats.completionRate).toBe(0);
   });
 });

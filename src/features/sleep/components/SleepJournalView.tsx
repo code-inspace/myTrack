@@ -16,12 +16,11 @@ import {
   Sun,
   Check,
   Sparkles,
-  Clock,
   Info,
   Zap,
-  Timer,
+  Timer
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+
 import { format, subDays } from "date-fns";
 import { getTodayDateString } from "@/lib/dates";
 import { useNightMode } from "../providers/NightModeProvider";

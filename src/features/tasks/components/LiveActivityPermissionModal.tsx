@@ -2,7 +2,7 @@
 
 import React from "react";
 import { LiveActivityBridge } from "@/lib/native/liveActivity";
-import { Smartphone, ExternalLink, X, Sparkles, ShieldAlert } from "lucide-react";
+import { Smartphone, ExternalLink, X, ShieldAlert } from "lucide-react";
 
 interface LiveActivityPermissionModalProps {
   isOpen: boolean;

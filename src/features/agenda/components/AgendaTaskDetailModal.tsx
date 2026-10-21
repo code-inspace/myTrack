@@ -7,20 +7,17 @@ import {
   CheckCircle2,
   Circle,
   Clock,
-  Calendar,
   Bell,
   BellOff,
   Edit3,
   Trash2,
   Repeat,
-  Sparkles,
   ChevronDown,
   Copy,
   Moon,
   Tag,
-  Plus,
   Check,
-  Loader2,
+  Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProjects, useProjectMutations } from "@/features/projects/hooks";

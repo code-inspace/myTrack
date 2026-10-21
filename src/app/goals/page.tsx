@@ -15,8 +15,7 @@ import { useTasks } from "@/features/tasks/hooks";
 import { getTodayDateString } from "@/lib/dates";
 import { useCalendarEvents } from "@/features/calendar/hooks/useCalendarEvents";
 import { addWeeks, subWeeks, addMonths, subMonths, addDays, subDays } from "date-fns";
-import { Plus, Target, Sparkles, Filter, AlertCircle, ArrowUpDown, Calendar } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Plus, Target } from "lucide-react";
 
 export default function GoalsPage() {
   const [period, setPeriod] = useState<Period>("day");
@@ -223,13 +222,15 @@ export default function GoalsPage() {
           </button>
         </div>
 
-        {/* Period Selector Tabs & Chevron Navigation (Jour / Semaine / Mois) */}
-        <PeriodSelector
-          period={period}
-          onChangePeriod={setPeriod}
-          referenceDate={referenceDate}
-          onChangeReferenceDate={setReferenceDate}
-        />
+        {/* Period Selector Tabs & Chevron Navigation (Jour / Semaine / Mois) — sticky while goals scroll */}
+        <div className="sticky top-0 z-20 -mx-4 md:-mx-8 px-4 md:px-8 py-2 bg-[#0E0F12]/95 backdrop-blur-md">
+          <PeriodSelector
+            period={period}
+            onChangePeriod={setPeriod}
+            referenceDate={referenceDate}
+            onChangeReferenceDate={setReferenceDate}
+          />
+        </div>
 
         {/* Global Summary Header Widget */}
         {goals.length > 0 && (

@@ -58,7 +58,7 @@ describe("Analytics Calculations", () => {
     expect(habitStats[1].currentStreak).toBe(1);
   });
 
-  it("generates 7-point momentum history and dashboard stats", () => {
+  it("generates the dashboard stats", () => {
     const referenceDate = parseISO("2026-08-23");
     const tasks: TaskRecord[] = [
       {
@@ -76,7 +76,6 @@ describe("Analytics Calculations", () => {
     ];
 
     const stats = calculateDashboardStats(tasks, completions, "week", referenceDate);
-    expect(stats.momentumHistory.length).toBe(7);
     expect(stats.last7DaysStatus.length).toBe(7);
     expect(stats.habitStreaks.length).toBe(1);
     expect(stats.habitStreaks[0].currentStreak).toBe(2);
@@ -98,8 +97,6 @@ describe("Analytics Calculations", () => {
     ];
 
     const stats = calculateDashboardStats(tasks, completions, "day", referenceDate);
-    expect(stats.momentumHistory.length).toBe(5);
     expect(stats.completionRate).toBe(100);
-    expect(stats.momentumHistory[stats.momentumHistory.length - 1].score).toBe(100);
   });
 });

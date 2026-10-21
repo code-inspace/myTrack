@@ -5,15 +5,14 @@ import { PriorityBadge } from "../PriorityBadge";
 import { Task, TaskWithCompletion } from "@/features/tasks/types";
 import { ExternalCalendarEvent } from "@/features/calendar/types";
 import { ExternalEventTaskCard } from "@/features/calendar/components/ExternalEventTaskCard";
-import { getExternalEventStatus, isExternalEventDone, isExternalEventInProgress } from "@/features/calendar/lib/status";
+import { getExternalEventStatus, isExternalEventDone } from "@/features/calendar/lib/status";
 import { TaskCard } from "../TaskCard";
 import { ActiveTaskBanner } from "../ActiveTaskBanner";
 import { TaskCardSkeleton } from "../TaskCardSkeleton";
 import {
   buildAndSortUnifiedStream,
-  UnifiedStreamItem,
   getStoredStreamOrder,
-  saveStoredStreamOrder,
+  saveStoredStreamOrder
 } from "@/features/tasks/unifiedStream";
 import { DesktopWidgetsPane } from "./DesktopWidgetsPane";
 import { DesktopDatePicker } from "./DesktopDatePicker";
@@ -65,8 +64,6 @@ interface DesktopTasksViewProps {
   sleepDurationText?: string;
   isInitialLoading?: boolean;
   isSyncing?: boolean;
-  showCompleted?: boolean;
-  onToggleShowCompleted?: () => void;
 }
 
 export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
@@ -96,8 +93,6 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
   sleepDurationText,
   isInitialLoading = false,
   isSyncing = false,
-  showCompleted,
-  onToggleShowCompleted,
 }) => {
   const queryClient = useQueryClient();
   const { projects } = useProjects();
@@ -115,27 +110,6 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
     return true;
   });
 
-  const [localShowCompleted, setLocalShowCompleted] = useState<boolean>(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("mytrack_show_completed_in_tasks") !== "false";
-    }
-    return true;
-  });
-
-  const isShowCompleted = showCompleted !== undefined ? showCompleted : localShowCompleted;
-  const toggleShowCompleted = () => {
-    if (onToggleShowCompleted) {
-      onToggleShowCompleted();
-    } else {
-      setLocalShowCompleted((prev) => {
-        const next = !prev;
-        if (typeof window !== "undefined") {
-          localStorage.setItem("mytrack_show_completed_in_tasks", String(next));
-        }
-        return next;
-      });
-    }
-  };
 
   const matchingTasks = useMemo(() => {
     const cleanQuery = quickTitle.trim().toLowerCase();
@@ -292,9 +266,9 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
       manualCompletedEvents,
       showCalendar,
       streamOrder,
-      statusFilter === "done" ? true : isShowCompleted
+      true
     );
-  }, [filteredTasks, filteredExternalEvents, selectedDate, manualCompletedEvents, showCalendar, streamOrder, isShowCompleted, statusFilter]);
+  }, [filteredTasks, filteredExternalEvents, selectedDate, manualCompletedEvents, showCalendar, streamOrder]);
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -469,22 +443,6 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
               <span>Je me couche</span>
             </button>
           )}
-
-          {/* Completed tasks visibility toggle button */}
-          <button
-            type="button"
-            onClick={toggleShowCompleted}
-            title={isShowCompleted ? "Masquer les tâches déjà faites" : "Afficher les tâches déjà faites"}
-            className={cn(
-              "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer border",
-              isShowCompleted
-                ? "bg-[#D4F63D]/15 border-[#D4F63D]/40 text-[#D4F63D]"
-                : "bg-[#181920] border-[#282A34] text-[#6B7280] hover:text-[#9CA3AF]"
-            )}
-          >
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            <span>Faites {isShowCompleted ? "ON" : "OFF"}</span>
-          </button>
 
           {/* Calendar visibility toggle button */}
           <button

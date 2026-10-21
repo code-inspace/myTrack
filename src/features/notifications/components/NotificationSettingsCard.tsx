@@ -2,9 +2,8 @@
 
 import React, { useState } from "react";
 import { NotificationPreference, CustomReminder } from "../types";
-import { Bell, Clock, Plus, Trash2, Send, CheckCircle } from "lucide-react";
-import { requestNotificationPermission } from "@/lib/onesignal/client";
-import { sendNativeNotification } from "@/lib/notifications/service";
+import { Bell, Clock, Plus, Trash2, Send } from "lucide-react";
+
 
 import { NotificationPermissionButton } from "./NotificationPermissionButton";
 

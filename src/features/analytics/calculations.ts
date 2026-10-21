@@ -4,13 +4,10 @@ import {
   addDays,
   format,
   startOfWeek,
-  endOfWeek,
   startOfMonth,
-  endOfMonth,
-  subMonths,
   differenceInCalendarDays,
 } from "date-fns";
-import { DashboardStats, DayStatus, HabitStreakStat, HabitRollingDay, MomentumPoint, Period } from "./types";
+import { DashboardStats, DayStatus, HabitStreakStat, HabitRollingDay, Period } from "./types";
 import { isTaskScheduledForDate } from "@/lib/dates";
 
 export interface TaskRecord {
@@ -385,116 +382,14 @@ export function calculateDashboardStats(
   const { scheduled: totalScheduledInPeriod, completed: totalCompletedInPeriod } = sumRange(range.start, range.end);
   const completionRate = ratio(totalCompletedInPeriod, totalScheduledInPeriod);
 
-  // Average habit streak across active habits
-  const avgHabitStreak =
-    habitStreaks.length > 0
-      ? habitStreaks.reduce((acc, h) => acc + h.currentStreak, 0) / habitStreaks.length
-      : 0;
-
-  // Momentum score based on habit completion consistency (0 when there's no activity at all)
-  const computeMomentum = (rate: number, completed: number, streak: number) =>
-    Math.max(0, Math.min(100, Math.round(rate * 0.6 + Math.min(30, Math.round(streak * 8)) + Math.min(10, completed * 1.5))));
-  const momentum = computeMomentum(completionRate, totalCompletedInPeriod, avgHabitStreak);
-
-  // Delta vs the previous period of the same kind
-  const previousRef =
-    period === "day"
-      ? subDays(safeRefDate, 1)
-      : period === "week"
-      ? subDays(startOfWeek(safeRefDate, { weekStartsOn: 1 }), 1)
-      : period === "month"
-      ? endOfMonth(subMonths(safeRefDate, 1))
-      : subDays(safeRefDate, 30);
-  const previousRange = getPeriodRange(period === "all" ? "month" : period, previousRef, recurringTasks);
-  const previous = sumRange(previousRange.start, previousRange.end);
-  const previousMomentum = computeMomentum(ratio(previous.completed, previous.scheduled), previous.completed, 0);
-  const momentumDelta = momentum - previousMomentum;
-
-  // Period-aware Curve Points Generation (Jour | Semaine | Mois | Tout le temps)
-  const momentumHistory: MomentumPoint[] = [];
-  const pushPoint = (date: string, label: string, start: Date, end: Date) => {
-    const isFuture = start > safeRefDate;
-    const { scheduled, completed } = isFuture ? { scheduled: 0, completed: 0 } : sumRange(start, end > safeRefDate ? safeRefDate : end);
-    momentumHistory.push({ date, label, score: ratio(completed, scheduled), completedCount: completed, totalScheduled: scheduled });
-  };
-
-  if (period === "day") {
-    // 5 progressive hourly segments across the day
-    const dayDateStr = format(safeRefDate, "yyyy-MM-dd");
-    const { scheduled: dayScheduled, completed: dayCompleted } = getDayCounts(recurringTasks, completedKeys, safeRefDate);
-    const dayScore = ratio(dayCompleted, dayScheduled);
-
-    const dayHours = [
-      { label: "8h", ratio: 0.2 },
-      { label: "11h", ratio: 0.4 },
-      { label: "14h", ratio: 0.6 },
-      { label: "17h", ratio: 0.8 },
-      { label: "20h", ratio: 1.0 },
-    ];
-
-    for (const h of dayHours) {
-      momentumHistory.push({
-        date: `${dayDateStr}T${h.label}:00`,
-        label: h.label,
-        score: Math.min(100, Math.round(dayScore * h.ratio)),
-        completedCount: Math.round(dayCompleted * h.ratio),
-        totalScheduled: Math.max(1, Math.round(dayScheduled * h.ratio)),
-      });
-    }
-  } else if (period === "week") {
-    // The 7 days of the reference week (Monday to Sunday)
-    const weekStart = startOfWeek(safeRefDate, { weekStartsOn: 1 });
-    for (let i = 0; i < 7; i++) {
-      const dayDate = addDays(weekStart, i);
-      pushPoint(format(dayDate, "yyyy-MM-dd"), `${FRENCH_DAYS[dayDate.getDay()]} ${format(dayDate, "d")}`, dayDate, dayDate);
-    }
-  } else if (period === "month") {
-    // Monday-based weekly segments of the calendar month
-    const monthStart = startOfMonth(safeRefDate);
-    const monthEnd = endOfMonth(safeRefDate);
-    let segStart = monthStart;
-    let index = 1;
-    while (segStart <= monthEnd) {
-      const weekEnd = endOfWeek(segStart, { weekStartsOn: 1 });
-      const segEnd = weekEnd > monthEnd ? monthEnd : weekEnd;
-      pushPoint(format(segEnd, "yyyy-MM-dd"), `Sem ${index}`, segStart, segEnd);
-      segStart = addDays(segEnd, 1);
-      index += 1;
-    }
-  } else {
-    // All-time: the last 6 calendar months
-    const FRENCH_MONTHS_SHORT = ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Août", "Sep", "Oct", "Nov", "Déc"];
-    for (let m = 5; m >= 0; m--) {
-      const monthRef = subMonths(safeRefDate, m);
-      pushPoint(
-        format(monthRef, "yyyy-MM-dd"),
-        FRENCH_MONTHS_SHORT[monthRef.getMonth()],
-        startOfMonth(monthRef),
-        endOfMonth(monthRef)
-      );
-    }
-  }
-
-  const totalWins = totalCompletedInPeriod;
-  const totalTargetWins = Math.max(totalWins, totalScheduledInPeriod);
-  const averageDailyCompletion = Math.round(completionRate);
-  const tasksMissed = Math.max(0, totalScheduledInPeriod - totalCompletedInPeriod);
   const globalStreak = calculateCurrentStreak(recurringCompletions, safeRefDate, recurringTasks);
   const bestGlobalStreak = calculateBestStreak(recurringCompletions, recurringTasks);
 
   return {
-    momentum,
-    momentumDelta,
-    momentumHistory,
     completionRate,
-    totalWins,
-    totalTargetWins,
     currentStreak: globalStreak,
     bestStreak: Math.max(bestGlobalStreak, globalStreak),
     last7DaysStatus,
     habitStreaks,
-    tasksCompleted: totalCompletedInPeriod,
-    tasksMissed,
-    averageDailyCompletion,
   };
 }

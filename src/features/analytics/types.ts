@@ -10,14 +10,6 @@ export interface DayStatus {
   status: "completed" | "missed" | "empty";
 }
 
-export interface MomentumPoint {
-  date: string;
-  label: string;
-  score: number; // Daily completion percentage 0-100%
-  completedCount: number;
-  totalScheduled: number;
-}
-
 export interface HabitRollingDay {
   date: string;
   dayName: string; // e.g. "Lun", "Mar"
@@ -37,17 +29,9 @@ export interface HabitStreakStat {
 }
 
 export interface DashboardStats {
-  momentum: number;
-  momentumDelta: number; // e.g. +10
-  momentumHistory: MomentumPoint[];
   completionRate: number; // e.g. 40 (%)
-  totalWins: number; // e.g. 15
-  totalTargetWins: number; // e.g. 20
   currentStreak: number;
   bestStreak: number;
   last7DaysStatus: DayStatus[];
   habitStreaks: HabitStreakStat[];
-  tasksCompleted: number;
-  tasksMissed: number;
-  averageDailyCompletion: number;
 }

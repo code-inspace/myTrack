@@ -8,14 +8,14 @@ import { TaskCard } from "@/features/tasks/components/TaskCard";
 import { TaskFormModal } from "@/features/tasks/components/TaskFormModal";
 import { QuantityLoggingModal } from "@/features/tasks/components/QuantityLoggingModal";
 import { LiveActivityPermissionModal } from "@/features/tasks/components/LiveActivityPermissionModal";
-import { LiveActivityBridge } from "@/lib/native/liveActivity";
+
 import { InteractiveNotificationSheet } from "@/features/notifications/components/InteractiveNotificationSheet";
 import { VoiceFab } from "@/features/voice/components/VoiceFab";
 import { AgendaTimeline } from "@/features/agenda/components/AgendaTimeline";
-import { SleepJournalView } from "@/features/sleep/components/SleepJournalView";
-import { DailyBilanView } from "@/features/sleep/components/DailyBilanView";
+
+
 import { DesktopTasksView } from "@/features/tasks/components/desktop/DesktopTasksView";
-import { DesktopDatePicker } from "@/features/tasks/components/desktop/DesktopDatePicker";
+
 import { getNightSleepDuration, fetchSleepHistory, isSleepTitle, isNapTitle, extractTimesFromTitle } from "@/features/sleep/actions";
 import { useNightMode } from "@/features/sleep/providers/NightModeProvider";
 import { useTasks, useTaskMutations } from "@/features/tasks/hooks";
@@ -23,7 +23,7 @@ import { useProjects } from "@/features/projects/hooks";
 import { Task, TaskWithCompletion, TaskFormValues } from "@/features/tasks/types";
 import { TaskAutoCompleteSuggestions } from "@/features/tasks/components/TaskAutoCompleteSuggestions";
 import { mapTaskWithCompletion } from "@/features/tasks/mappers";
-import { getTodayDateString, isTaskInThePast } from "@/lib/dates";
+import { isTaskInThePast } from "@/lib/dates";
 import { CheckCircle2, Inbox, CalendarDays, Play, Moon, Sun, RotateCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -43,9 +43,8 @@ import { DAY_DROP_ID_PREFIX } from "@/features/tasks/components/HorizontalDatePi
 import { TaskCardSkeleton } from "@/features/tasks/components/TaskCardSkeleton";
 import {
   buildAndSortUnifiedStream,
-  UnifiedStreamItem,
   getStoredStreamOrder,
-  saveStoredStreamOrder,
+  saveStoredStreamOrder
 } from "@/features/tasks/unifiedStream";
 
 import { useCalendarEvents } from "@/features/calendar/hooks/useCalendarEvents";
@@ -139,23 +138,6 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
     return true;
   });
 
-  const [showCompleted, setShowCompleted] = useState<boolean>(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("mytrack_show_completed_in_tasks") !== "false";
-    }
-    return true;
-  });
-
-  const toggleShowCompleted = () => {
-    setShowCompleted((prev) => {
-      const next = !prev;
-      if (typeof window !== "undefined") {
-        localStorage.setItem("mytrack_show_completed_in_tasks", String(next));
-      }
-      return next;
-    });
-  };
-
   const {
     createTask,
     updateTask,
@@ -210,10 +192,9 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
       selectedDate,
       manualCompletedEvents,
       showCalendar,
-      streamOrder,
-      showCompleted
+      streamOrder
     );
-  }, [tasks, externalEvents, selectedDate, manualCompletedEvents, showCalendar, streamOrder, showCompleted]);
+  }, [tasks, externalEvents, selectedDate, manualCompletedEvents, showCalendar, streamOrder]);
 
   const completedCountForDay = useMemo(() => {
     const tasksDone = tasks.filter((t) => t.isCompletedToday && !isSleepTitle(t.title)).length;
@@ -519,11 +500,10 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
               selectedDate={selectedDate}
               onSelectDate={setSelectedDate}
               activeTab={activeTab}
-              onChangeTab={handleTabChange}
               isDragActive={Boolean(activeDragTaskId)}
               isSyncing={isGlobalSyncing}
-              onDropDate={(dateStr, taskId) =>
-                moveOccurrence.mutate({ taskId, fromDate: selectedDate, toDate: dateStr })
+              onDropDate={(dateStr, taskId, originDate) =>
+                moveOccurrence.mutate({ taskId, fromDate: originDate || selectedDate, toDate: dateStr })
               }
             />
           </div>
@@ -562,22 +542,6 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
                         <span>Je me couche</span>
                       </button>
                     )}
-
-                    {/* Toggle pour afficher ou masquer les tâches déjà faites */}
-                    <button
-                      type="button"
-                      onClick={toggleShowCompleted}
-                      title={showCompleted ? "Masquer les tâches déjà faites" : "Afficher les tâches déjà faites"}
-                      className={cn(
-                        "flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold transition-all cursor-pointer border",
-                        showCompleted
-                          ? "bg-[#D4F63D]/15 border-[#D4F63D]/40 text-[#D4F63D]"
-                          : "bg-[#1C1D22] border-[#282A30] text-[#6B7280] hover:text-[#9CA3AF]"
-                      )}
-                    >
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Faites {showCompleted ? "ON" : "OFF"}</span>
-                    </button>
 
                     {/* Toggle Agenda */}
                     <button
@@ -816,25 +780,6 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
                       )}
                     </SortableContext>
                   )}
-
-                  {/* Subtle helper banner when completed items are hidden */}
-                  {!showCompleted && completedCountForDay > 0 && (
-                    <div className="flex items-center justify-between px-3.5 py-2.5 rounded-2xl bg-[#1C1D22]/80 border border-[#282A30] text-xs text-[#8E929E]">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-[#D4F63D]" />
-                        <span>
-                          {completedCountForDay} élément{completedCountForDay > 1 ? "s" : ""} terminé{completedCountForDay > 1 ? "s" : ""} masqué{completedCountForDay > 1 ? "s" : ""}
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={toggleShowCompleted}
-                        className="text-xs font-bold text-[#D4F63D] hover:underline cursor-pointer"
-                      >
-                        Afficher
-                      </button>
-                    </div>
-                  )}
                 </div>
               </div>
 
@@ -850,8 +795,6 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
                   onNewTask={handleNewTask}
                   isInitialLoading={isTasksInitialLoading}
                   isSyncing={isGlobalSyncing}
-                  showCompleted={showCompleted}
-                  onToggleShowCompleted={toggleShowCompleted}
                   onEditTask={(t) => {
                     setEditingTask(t);
                     setIsTaskModalOpen(true);
@@ -927,8 +870,8 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
                   }}
                   onMoveTaskToTime={handleMoveTaskToTime}
                   onDropToAllDay={handleDropToAllDay}
-                  onMoveTaskOccurrence={(taskId, targetDate) =>
-                    moveOccurrence.mutate({ taskId, fromDate: selectedDate, toDate: targetDate })
+                  onMoveTaskOccurrence={(taskId, targetDate, originDate) =>
+                    moveOccurrence.mutate({ taskId, fromDate: originDate || selectedDate, toDate: targetDate })
                   }
                   onDragStartTask={handleDragStartTask}
                   onDuplicateTask={(t) => {

@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/providers/AuthProvider";
-import { UserPlus, ArrowLeft, LogIn } from "lucide-react";
+import { UserPlus, LogIn } from "lucide-react";
 import Link from "next/link";
 import { Logo } from "@/components/shared/Logo";
 

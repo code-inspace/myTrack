@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { ExternalCalendarEvent } from "../types";
 import { useProjects } from "@/features/projects/hooks";
 import { useCalendarEvents } from "../hooks/useCalendarEvents";
-import { X, Calendar, Clock, MapPin, AlignLeft, ExternalLink, Video, FolderKanban, Tag, Check, Trash2 } from "lucide-react";
+import { X, Calendar, Clock, MapPin, AlignLeft, ExternalLink, Video, FolderKanban, Check, Trash2 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 

@@ -2,8 +2,6 @@
 
 import React, { useState, useEffect } from "react";
 import { PeriodSelector } from "@/features/dashboard/components/PeriodSelector";
-import { MomentumGauge } from "@/features/dashboard/components/MomentumGauge";
-import { WaveChart } from "@/features/dashboard/components/WaveChart";
 import { CircularMetricCard } from "@/features/dashboard/components/CircularProgressCard";
 import { StreakGridCard } from "@/features/dashboard/components/StreakGridCard";
 import { MonthlyHabitCalendar } from "@/features/dashboard/components/MonthlyHabitCalendar";
@@ -178,7 +176,11 @@ function DashboardPageContent() {
       if (stored) {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const validParsed = parsed.filter((p: any) => p && typeof p === "object" && typeof p.id === "string");
+          // Only modules that still exist (removed ones, e.g. the old momentum module, are dropped)
+          const knownIds = new Set(DEFAULT_DASHBOARD_MODULES.map((m) => m.id));
+          const validParsed = parsed.filter(
+            (p: any) => p && typeof p === "object" && typeof p.id === "string" && knownIds.has(p.id)
+          );
           const existingIds = new Set(validParsed.map((p: any) => p.id));
           const merged = [...validParsed];
           for (const def of DEFAULT_DASHBOARD_MODULES) {
@@ -221,37 +223,13 @@ function DashboardPageContent() {
   // Render individual modules based on ID
   const renderModule = (moduleId: string) => {
     switch (moduleId) {
-      case "MOMENTUM_WAVE":
-        return (
-          <div
-            key="MOMENTUM_WAVE"
-            className="bg-[#1C1D22] border border-[#282A30] rounded-3xl p-5 shadow-sm space-y-2"
-          >
-            <MomentumGauge
-              score={stats?.momentum ?? 68}
-              delta={stats?.momentumDelta ?? 10}
-            />
-            <WaveChart data={stats?.momentumHistory || []} period={period} />
-          </div>
-        );
-
       case "METRICS":
         return (
-          <div key="METRICS" className="grid grid-cols-2 gap-3">
+          <div key="METRICS">
             <CircularMetricCard
               title="Complétion moyenne"
-              valueText={`${stats?.completionRate ?? 40}%`}
-              percentage={stats?.completionRate ?? 40}
-            />
-            <CircularMetricCard
-              title="Victoires totales"
-              valueText={`${stats?.totalWins ?? 15}`}
-              subText={`sur ${stats?.totalTargetWins ?? 20}`}
-              percentage={
-                stats && stats.totalTargetWins > 0
-                  ? Math.round((stats.totalWins / stats.totalTargetWins) * 100)
-                  : 75
-              }
+              valueText={`${stats?.completionRate ?? 0}%`}
+              percentage={stats?.completionRate ?? 0}
             />
           </div>
         );
@@ -329,7 +307,7 @@ function DashboardPageContent() {
               <span>Dashboard</span>
             </h1>
             <p className="text-xs text-[#8E929E] mt-0.5">
-              Analyse de ta progression, régularité et momentum
+              Analyse de ta progression et de ta régularité
             </p>
           </div>
 
@@ -344,22 +322,21 @@ function DashboardPageContent() {
           </button>
         </div>
 
-        {/* Period Selector Tabs & Chevron Navigation */}
-        <PeriodSelector
-          period={period}
-          onChangePeriod={setPeriod}
-          referenceDate={safeReferenceDate}
-          onChangeReferenceDate={setReferenceDate}
-        />
+        {/* Period Selector Tabs & Chevron Navigation — sticky while the modules scroll */}
+        <div className="sticky top-0 z-20 -mx-3 sm:-mx-4 md:-mx-8 px-3 sm:px-4 md:px-8 py-2 bg-[#0E0F12]/95 backdrop-blur-md">
+          <PeriodSelector
+            period={period}
+            onChangePeriod={setPeriod}
+            referenceDate={safeReferenceDate}
+            onChangeReferenceDate={setReferenceDate}
+          />
+        </div>
 
         {/* Dynamically configured modules in custom order */}
         <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
           {enabledModules.map((mod) => {
             return (
-              <div
-                key={mod.id}
-                className={mod.id === "MOMENTUM_WAVE" ? "lg:col-span-2" : "w-full"}
-              >
+              <div key={mod.id} className="w-full">
                 <DashboardErrorBoundary>
                   {renderModule(mod.id)}
                 </DashboardErrorBoundary>

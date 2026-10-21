@@ -1,5 +1,5 @@
-import { CustomReminder, NotificationPreference, InteractiveNotificationPayload } from "./types";
-import { getStoredTasks, getStoredCompletions, saveStoredCompletions, getEffectiveUserId } from "../tasks/actions";
+import { CustomReminder, NotificationPreference } from "./types";
+import { getStoredCompletions, saveStoredCompletions, getEffectiveUserId } from "../tasks/actions";
 import { getTodayDateString, convertLocalTimeToUtc, convertUtcTimeToLocal } from "@/lib/dates";
 import { createClient } from "@/utils/supabase/client";
 

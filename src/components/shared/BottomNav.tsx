@@ -3,14 +3,12 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ListTodo, TrendingUp, MessageSquare, User, Target } from "lucide-react";
+import { ListTodo, TrendingUp, User, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useDisplayMode } from "@/providers/DisplayModeProvider";
 import { TASK_TABS } from "./TasksHeaderWithNav";
 
 export const BottomNav: React.FC = () => {
   const pathname = usePathname();
-  const { displayMode } = useDisplayMode();
 
   // Hide navigation on auth pages
   if (pathname.startsWith("/auth")) {

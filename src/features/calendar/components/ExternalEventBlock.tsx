@@ -2,7 +2,7 @@
 
 import React from "react";
 import { ExternalCalendarEvent } from "../types";
-import { MapPin, Calendar, AlignLeft, Moon } from "lucide-react";
+import { MapPin, Moon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProjects } from "@/features/projects/hooks";
 import { isOvernightTimeRange, formatCrossDayTimeLabel } from "@/lib/dates";

@@ -138,11 +138,10 @@ export const BoardCard: React.FC<{
 };
 
 import {
-  getExternalEventStatus,
   isExternalEventDone,
   isExternalEventInProgress,
   isEventInDonePeriod,
-  isEventInRollingWeek,
+  isEventInRollingWeek
 } from "@/features/calendar/lib/status";
 
 export const BoardColumn: React.FC<{

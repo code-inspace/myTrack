@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from "react";
 import { Task, TaskCompletion } from "@/features/tasks/types";
 import { Project, getProjectColumns } from "../types";
-import { ArrowLeft, Tag, Calendar } from "lucide-react";
+import { ArrowLeft, Tag } from "lucide-react";
 import { BoardColumn, groupTasksByColumn } from "./KanbanBoard";
 import { cn } from "@/lib/utils";
 import {

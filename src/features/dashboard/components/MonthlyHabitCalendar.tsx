@@ -13,7 +13,7 @@ import {
   isToday,
 } from "date-fns";
 import { fr } from "date-fns/locale";
-import { Check, X, Flame, Calendar, Trophy, Sparkles, Filter } from "lucide-react";
+import { Check, X, Flame, Calendar, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface MonthlyHabitCalendarProps {

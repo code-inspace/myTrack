@@ -14,9 +14,7 @@ import {
   Edit2,
   Play,
   ChevronDown,
-  ChevronUp,
-  MapPin,
-  Clock,
+  ChevronUp
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CalendarSubscription, DEFAULT_CALENDAR_COLORS } from "../types";

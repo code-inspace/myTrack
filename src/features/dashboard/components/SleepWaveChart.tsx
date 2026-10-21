@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState, useEffect, useRef } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { isEveningBedtimeHour } from "@/features/sleep/sleepRules";
 import { Period } from "@/features/dashboard/types";
 import {

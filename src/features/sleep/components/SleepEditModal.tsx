@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { Moon, Sun, Sparkles, Clock, Calendar, X, Trash2, Check, Loader2 } from "lucide-react";
+import { Moon, Sun, Sparkles, Clock, X, Trash2, Check, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getStoredSleepLog, saveStoredSleepLog, setUserSleepObjective, getUserSleepObjective } from "../actions";
-import { DailySleepLog, NapSession } from "../types";
+import { NapSession } from "../types";
 import { format, parseISO, differenceInMinutes, subDays } from "date-fns";
 import { fr } from "date-fns/locale";
 

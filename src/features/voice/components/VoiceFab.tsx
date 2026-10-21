@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import Link from "next/link";
-import { Mic, Plus, MessageSquare, Camera } from "lucide-react";
+import { Mic, Plus, Camera } from "lucide-react";
 import { VoiceActionModal } from "./VoiceActionModal";
 import { PhotoTaskImportModal } from "@/features/tasks/components/PhotoTaskImportModal";
 import { useTaskMutations } from "@/features/tasks/hooks";
@@ -11,7 +10,6 @@ import { ParsedVoiceTask } from "../parser";
 import { ExtractedPhotoTask } from "@/app/api/tasks/import-photo/route";
 import { useProjects, useProjectMutations } from "@/features/projects/hooks";
 import { DEFAULT_PROJECT_COLUMNS } from "@/features/projects/types";
-import { useDisplayMode } from "@/providers/DisplayModeProvider";
 
 interface VoiceFabProps {
   selectedDate: string;
@@ -25,7 +23,6 @@ export const VoiceFab: React.FC<VoiceFabProps> = ({ selectedDate, allTasks, onNe
   const { createTask, closeTask } = useTaskMutations();
   const { projects } = useProjects();
   const { createProject } = useProjectMutations();
-  const { displayMode } = useDisplayMode();
 
   const handleAddTasks = async (tasks: ParsedVoiceTask[]) => {
     const projectCache = new Map<string, string>();
@@ -102,20 +99,8 @@ export const VoiceFab: React.FC<VoiceFabProps> = ({ selectedDate, allTasks, onNe
 
   return (
     <>
-      {/* Floating Action Buttons: Coach IA (modern mode only), Photo Import (Camera), Voice AI (Mic), New Task (+) */}
+      {/* Floating Action Buttons: Photo Import (Camera), Voice AI (Mic), New Task (+) */}
       <div className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+3.75rem)] right-4 sm:right-6 z-40 flex items-center gap-2.5">
-        {/* 0. Coach IA — only shown in "modern" display mode, where it's no longer in the bottom nav */}
-        {displayMode === "modern" && (
-          <Link
-            href="/chat"
-            aria-label="Coach IA"
-            title="Discuter avec le Coach IA"
-            className="w-11 h-11 rounded-full bg-[#1C1D22] hover:bg-[#252830] active:scale-95 text-[#D4F63D] border border-[#2E323D] flex items-center justify-center shadow-xl transition-all duration-200 cursor-pointer hover:scale-105 group"
-          >
-            <MessageSquare className="w-5 h-5 stroke-[2.2] group-hover:scale-110 transition-transform" />
-          </Link>
-        )}
-
         {/* 1. Photo OCR Import Button */}
         <button
           type="button"

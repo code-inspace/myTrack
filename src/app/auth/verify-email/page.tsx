@@ -2,7 +2,7 @@
 
 import React, { useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Mail, ArrowRight, CheckCircle2, RotateCcw, LogIn } from "lucide-react";
+import { Mail, RotateCcw, LogIn } from "lucide-react";
 import { resendConfirmationEmail } from "@/features/auth/actions";
 import Link from "next/link";
 

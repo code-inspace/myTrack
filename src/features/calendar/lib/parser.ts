@@ -1,5 +1,5 @@
 import { ExternalCalendarEvent } from "../types";
-import { format, parseISO, addDays, addWeeks, addMonths, addYears, isBefore, isAfter, isSameDay } from "date-fns";
+import { format, addDays, addWeeks, addMonths, addYears, isBefore, isAfter } from "date-fns";
 
 interface RawVEvent {
   summary?: string;

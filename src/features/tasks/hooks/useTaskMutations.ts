@@ -394,33 +394,23 @@ export function useTaskMutations() {
   });
 
   // --- Schedule & Reordering Mutations ---
-  const updateSchedule = useMutation({
-    mutationFn: async ({
-      taskId,
-      date,
-      originDate,
-      startTime,
-      endTime,
-      applyToAll,
-    }: {
-      taskId: string;
-      date: string;
-      originDate?: string;
-      startTime: string | null;
-      endTime: string | null;
-      applyToAll?: boolean;
-    }) => {
-      await updateTaskSchedule({
-        taskId,
-        date,
-        originDate,
-        startTime,
-        endTime,
-        applyToAll,
-        userId,
-      });
-    },
-    onMutate: async ({ taskId, date, originDate, startTime, endTime, applyToAll }) => {
+  // Optimistic cache update shared by every "reschedule / move to another day" mutation, so the
+  // agenda reflects the change at once instead of waiting for the server round trips.
+  const applyScheduleOptimistically = async ({
+    taskId,
+    date,
+    originDate,
+    startTime,
+    endTime,
+    applyToAll,
+  }: {
+    taskId: string;
+    date: string;
+    originDate?: string;
+    startTime: string | null;
+    endTime: string | null;
+    applyToAll?: boolean;
+  }) => {
       await queryClient.cancelQueries({ queryKey: ["tasks", userId] });
       await queryClient.cancelQueries({ queryKey: ["completions", userId] });
       const prevTasks = queryClient.getQueryData<Task[]>(["tasks", userId]);
@@ -479,7 +469,35 @@ export function useTaskMutations() {
       );
 
       return { prevTasks, prevCompletions };
+    };
+
+  const updateSchedule = useMutation({
+    mutationFn: async ({
+      taskId,
+      date,
+      originDate,
+      startTime,
+      endTime,
+      applyToAll,
+    }: {
+      taskId: string;
+      date: string;
+      originDate?: string;
+      startTime: string | null;
+      endTime: string | null;
+      applyToAll?: boolean;
+    }) => {
+      await updateTaskSchedule({
+        taskId,
+        date,
+        originDate,
+        startTime,
+        endTime,
+        applyToAll,
+        userId,
+      });
     },
+    onMutate: applyScheduleOptimistically,
     onError: (_err, _vars, context) => {
       if (context?.prevTasks) {
         queryClient.setQueryData(["tasks", userId], context.prevTasks);
@@ -533,8 +551,34 @@ export function useTaskMutations() {
     }) => {
       await moveTaskOccurrence(taskId, fromDate, toDate, userId);
     },
-    onSuccess: () => {
+    // Same optimistic update as an agenda move: the occurrence keeps its hours and lands on toDate
+    onMutate: async ({ taskId, fromDate, toDate }) => {
+      const task =
+        queryClient.getQueryData<Task[]>(["tasks", userId])?.find((t) => t.id === taskId) ||
+        getStoredTasks(userId).find((t) => t.id === taskId);
+      if (!task || fromDate === toDate) return undefined;
+      const isRecurring = task.recurrence !== "ONCE";
+      const override = isRecurring ? task.dateOverrides?.[fromDate] : undefined;
+      return applyScheduleOptimistically({
+        taskId,
+        date: toDate,
+        originDate: fromDate,
+        startTime: override?.startTime !== undefined ? override.startTime : task.startTime ?? null,
+        endTime: override?.endTime !== undefined ? override.endTime : task.endTime ?? null,
+        applyToAll: !isRecurring,
+      });
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.prevTasks) {
+        queryClient.setQueryData(["tasks", userId], context.prevTasks);
+      }
+      if (context?.prevCompletions) {
+        queryClient.setQueryData(["completions", userId], context.prevCompletions);
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["completions"] });
     },
   });
 

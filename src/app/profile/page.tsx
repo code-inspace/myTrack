@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { DataExportCard } from "@/features/profile/components/DataExportCard";
-import { NotificationSettingsCard } from "@/features/notifications/components/NotificationSettingsCard";
+
 import { LiveActivitySettingsCard } from "@/features/profile/components/LiveActivitySettingsCard";
 import { CustomReminderModal } from "@/features/notifications/components/CustomReminderModal";
 import { InteractiveNotificationSheet } from "@/features/notifications/components/InteractiveNotificationSheet";
@@ -16,7 +16,6 @@ import {
 import { useTasks } from "@/features/tasks/hooks";
 import { useDashboardStats } from "@/features/dashboard/hooks";
 import { useAuth } from "@/providers/AuthProvider";
-import { useDisplayMode, DisplayMode } from "@/providers/DisplayModeProvider";
 import { useNightMode } from "@/features/sleep/providers/NightModeProvider";
 import { getTodayDateString } from "@/lib/dates";
 import { cn } from "@/lib/utils";
@@ -24,36 +23,13 @@ import { CustomReminder } from "@/features/notifications/types";
 import { useCalendarEvents } from "@/features/calendar/hooks/useCalendarEvents";
 import { CalendarSubscriptionsModal } from "@/features/calendar/components/CalendarSubscriptionsModal";
 import { useOffline } from "@/providers/OfflineProvider";
-import { User, Flame, Trophy, Award, RotateCcw, ShieldCheck, LogOut, Sparkles, UserPlus, Bell, ChevronRight, LayoutPanelTop, PanelsTopLeft, Check, Moon, Calendar, Wifi, WifiOff, Zap } from "lucide-react";
+import { Flame, Trophy, RotateCcw, LogOut, Bell, ChevronRight, Moon, Calendar, Wifi, WifiOff } from "lucide-react";
 import Link from "next/link";
 import { AppHeader } from "@/components/shared/AppHeader";
-
-const DISPLAY_MODE_OPTIONS: Array<{
-  id: DisplayMode;
-  label: string;
-  description: string;
-  icon: typeof LayoutPanelTop;
-  isDefault?: boolean;
-}> = [
-  {
-    id: "modern",
-    label: "Nouveau",
-    description: "Onglets Liste, Agenda, Projets, Objectifs, Dashboard dans le menu du bas",
-    icon: PanelsTopLeft,
-    isDefault: true,
-  },
-  {
-    id: "classic",
-    label: "Classique",
-    description: "Onglets de navigation condensés en haut de l'écran avec barre d'accès rapide",
-    icon: LayoutPanelTop,
-  },
-];
 
 export default function ProfilePage() {
   const router = useRouter();
   const { user, logout } = useAuth();
-  const { displayMode, setDisplayMode } = useDisplayMode();
   const { isOnline, isLowDataMode, toggleLowDataMode } = useOffline();
   const {
     subscriptions,
@@ -168,7 +144,7 @@ export default function ProfilePage() {
       </div>
 
       {/* Stats Summary Badges */}
-      <div className="grid grid-cols-3 gap-2.5">
+      <div className="grid grid-cols-2 gap-2.5">
         <div className="bg-[#1C1D22] border border-[#282A30] rounded-2xl p-3 text-center">
           <Flame className="w-5 h-5 text-[#F97316] mx-auto mb-1" />
           <div className="text-lg font-extrabold text-white">{stats?.currentStreak ?? 0}j</div>
@@ -179,70 +155,6 @@ export default function ProfilePage() {
           <Trophy className="w-5 h-5 text-[#EAB308] mx-auto mb-1" />
           <div className="text-lg font-extrabold text-white">{stats?.bestStreak ?? 0}j</div>
           <div className="text-[10px] font-semibold text-[#8E929E]">Meilleure série</div>
-        </div>
-
-        <div className="bg-[#1C1D22] border border-[#282A30] rounded-2xl p-3 text-center">
-          <Award className="w-5 h-5 text-[#D4F63D] mx-auto mb-1" />
-          <div className="text-lg font-extrabold text-white">{stats?.totalWins ?? 0}</div>
-          <div className="text-[10px] font-semibold text-[#8E929E]">Victoires</div>
-        </div>
-      </div>
-
-      {/* Display Mode Selector: Nouveau (par défaut) vs Classique */}
-      <div className="bg-[#1C1D22] border border-[#282A30] rounded-3xl p-5 shadow-sm space-y-3">
-        <div>
-          <h3 className="text-sm font-bold text-white">Affichage</h3>
-          <p className="text-[11px] text-[#8E929E]">Organisation des onglets et de la navigation</p>
-        </div>
-
-        <div className="space-y-2">
-          {DISPLAY_MODE_OPTIONS.map((opt) => {
-            const Icon = opt.icon;
-            const isSelected = displayMode === opt.id;
-            return (
-              <button
-                key={opt.id}
-                type="button"
-                onClick={() => setDisplayMode(opt.id)}
-                className={cn(
-                  "w-full p-3.5 rounded-2xl border flex items-start gap-3 text-left transition-all cursor-pointer",
-                  isSelected
-                    ? "bg-[#D4F63D]/10 border-[#D4F63D]/50"
-                    : "bg-[#17181D] border-[#282A30] hover:border-[#3D4252]"
-                )}
-              >
-                <div
-                  className={cn(
-                    "w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0",
-                    isSelected ? "bg-[#D4F63D]/20 text-[#D4F63D]" : "bg-[#252830] text-[#8E929E]"
-                  )}
-                >
-                  <Icon className="w-4.5 h-4.5" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className={cn("text-xs font-bold", isSelected ? "text-white" : "text-[#D1D5DB]")}>
-                      {opt.label}
-                    </span>
-                    {opt.isDefault && (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[#252830] text-[#8E929E] font-mono font-bold">
-                        Par défaut
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-[10px] text-[#8E929E] mt-0.5 leading-snug">{opt.description}</p>
-                </div>
-                <div
-                  className={cn(
-                    "w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5",
-                    isSelected ? "border-[#D4F63D] bg-[#D4F63D]" : "border-[#3D4252]"
-                  )}
-                >
-                  {isSelected && <Check className="w-3 h-3 text-black stroke-[3]" />}
-                </div>
-              </button>
-            );
-          })}
         </div>
       </div>
 

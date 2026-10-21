@@ -3,7 +3,7 @@ import { getStoredCalendarSubscriptions, saveStoredCalendarSubscriptions } from 
 import { createClient } from "@/utils/supabase/client";
 import { getEffectiveUserId } from "@/features/tasks/actions/user";
 import { getStoredUserSession } from "@/features/auth/actions";
-import { encryptText, decryptText, isEncrypted } from "@/lib/crypto/encryption";
+import { decryptText, isEncrypted } from "@/lib/crypto/encryption";
 
 export async function mapDbSubscriptionToModel(row: any): Promise<CalendarSubscription> {
   let name = row.name;

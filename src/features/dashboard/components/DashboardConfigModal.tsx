@@ -24,7 +24,6 @@ import {
   EyeOff,
   RotateCcw,
   Check,
-  Zap,
   PieChart,
   Moon,
   Flame,
@@ -41,15 +40,9 @@ export interface DashboardModuleConfig {
 
 export const DEFAULT_DASHBOARD_MODULES: DashboardModuleConfig[] = [
   {
-    id: "MOMENTUM_WAVE",
-    label: "Momentum & Courbe de dynamique",
-    description: "Jauge de momentum et graphique d'évolution",
-    enabled: true,
-  },
-  {
     id: "METRICS",
-    label: "Complétion & Victoires",
-    description: "Pourcentage de réussite et victoires de la période",
+    label: "Complétion",
+    description: "Pourcentage de réussite de la période",
     enabled: true,
   },
   {
@@ -73,7 +66,6 @@ export const DEFAULT_DASHBOARD_MODULES: DashboardModuleConfig[] = [
 ];
 
 const MODULE_ICONS: Record<string, React.ReactNode> = {
-  MOMENTUM_WAVE: <Zap className="w-4 h-4 text-[#D4F63D]" />,
   METRICS: <Target className="w-4 h-4 text-[#60A5FA]" />,
   PROJECT_STATS: <PieChart className="w-4 h-4 text-[#A78BFA]" />,
   SLEEP_WAVE: <Moon className="w-4 h-4 text-[#38BDF8]" />,

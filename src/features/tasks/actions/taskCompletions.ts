@@ -1,6 +1,6 @@
 import { TaskCompletion } from "../types";
 import { getEffectiveUserId } from "./user";
-import { mapDbCompletionToModel, mapDbTaskToModel, COMPLETIONS_STORAGE_PREFIX } from "./mappers";
+import { mapDbCompletionToModel, mapDbTaskToModel } from "./mappers";
 import {
   getStoredTasks,
   getStoredCompletions,

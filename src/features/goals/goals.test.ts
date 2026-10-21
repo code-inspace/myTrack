@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { format, subDays, startOfWeek, addDays } from "date-fns";
+import { format, subDays } from "date-fns";
 import { computeGoalProgress } from "./actions";
 import { Goal } from "./types";
 import { Task, TaskCompletion } from "@/features/tasks/types";

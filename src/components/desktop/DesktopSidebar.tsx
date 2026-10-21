@@ -6,15 +6,11 @@ import { usePathname } from "next/navigation";
 import {
   ListTodo,
   Calendar,
-  Moon,
-  BookOpen,
   FolderKanban,
   TrendingUp,
-  MessageSquare,
   Settings,
   ChevronRight,
-  Zap,
-  Target,
+  Target
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TasksTab } from "@/components/shared/TasksHeaderWithNav";
@@ -35,7 +31,6 @@ const MAIN_NAV = [
 const SECONDARY_NAV = [
   { label: "Dashboard", icon: TrendingUp, href: "/dashboard", paths: ["/dashboard"] },
   { label: "Objectifs", icon: Target, href: "/goals", paths: ["/goals"] },
-  { label: "Coach IA", icon: MessageSquare, href: "/chat", paths: ["/chat"] },
 ];
 
 export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({

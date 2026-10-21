@@ -1,4 +1,4 @@
-import { Task, TaskCompletion, TaskFormValues } from "../types";
+import { Task, TaskFormValues } from "../types";
 import { getEffectiveUserId } from "./user";
 import {
   mapDbTaskToModel,
@@ -12,7 +12,7 @@ import { getStoredProjects } from "@/features/projects/actions";
 import { getStoredTasks, saveStoredTasks, getStoredCompletions, saveStoredCompletions } from "./storage";
 import { upsertDbCompletion } from "./taskCompletions";
 import { createClient } from "@/utils/supabase/client";
-import { encryptText, decryptText, isEncrypted } from "@/lib/crypto/encryption";
+import { encryptText } from "@/lib/crypto/encryption";
 import {
   getTodayDateString,
   convertLocalTimeToUtc,

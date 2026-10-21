@@ -7,7 +7,6 @@ import NotificationWatcherProvider from "@/providers/NotificationWatcherProvider
 import { BottomNav } from "@/components/shared/BottomNav";
 import { DesktopSidebar } from "@/components/desktop/DesktopSidebar";
 import { AuthGuard } from "@/components/shared/AuthGuard";
-import { DisplayModeProvider } from "@/providers/DisplayModeProvider";
 import { DateProvider } from "@/providers/DateProvider";
 import { NightModeProvider } from "@/features/sleep/providers/NightModeProvider";
 
@@ -26,7 +25,6 @@ export const metadata: Metadata = {
     "gestion du temps",
     "productivité",
     "streak",
-    "coach IA",
     "routine quotidienne",
   ],
   manifest: "/manifest.json",
@@ -93,7 +91,7 @@ export default function RootLayout({
                   <NotificationWatcherProvider>
                     <DeepLinkProvider>
                       <NightModeProvider>
-                        <DisplayModeProvider>
+                        
                           <DateProvider>
                           <AuthGuard>
                             {/* Desktop Sticky Left Sidebar (hidden on mobile) */}
@@ -108,7 +106,7 @@ export default function RootLayout({
                             <BottomNav />
                           </AuthGuard>
                         </DateProvider>
-                        </DisplayModeProvider>
+                        
                       </NightModeProvider>
                     </DeepLinkProvider>
                   </NotificationWatcherProvider>

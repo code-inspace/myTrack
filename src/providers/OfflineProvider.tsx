@@ -2,7 +2,6 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { WifiOff, Wifi, Zap } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 interface OfflineContextType {
   isOnline: boolean;

@@ -5,7 +5,7 @@ import {
   getStoredCompletions,
   saveStoredCompletions,
 } from "./storage";
-import { updateDbTask } from "./taskCrud";
+
 import { upsertDbCompletion } from "./taskCompletions";
 import { createClient } from "@/utils/supabase/client";
 import {

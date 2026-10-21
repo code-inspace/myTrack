@@ -5,18 +5,11 @@ import { getTodayDateString } from "@/lib/dates";
 import {
   getStoredSleepLog,
   fetchDbSleepLog,
-  saveStoredSleepLog,
-  applySleepStartNow,
-  applySleepEndNow,
   recordBedtimeNow,
-  recordWakeUpNow,
-  getEffectiveBedDate,
+  recordWakeUpNow
 } from "../actions";
 import { format, subDays } from "date-fns";
 import {
-  isCurrentlyInSleepWindow,
-  isNightModeDismissedUntilBedtime,
-  dismissNightModeUntilNextBedtime,
   isNightModeUnlockedForSession,
   setNightModeUnlockedForSession,
   clearNightModeSessionUnlock,
@@ -26,7 +19,7 @@ import {
   setNightModeFeatureEnabled,
   isNightModeInactivityAutoLockEnabled,
   setNightModeInactivityAutoLockEnabled,
-  getNightModeInactivityTimeoutMs,
+  getNightModeInactivityTimeoutMs
 } from "../nightModeUtils";
 import { NightModeOverlay } from "../components/NightModeOverlay";
 import { LiveActivityBridge } from "@/lib/native/liveActivity";

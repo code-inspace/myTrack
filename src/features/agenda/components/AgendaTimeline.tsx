@@ -82,9 +82,8 @@ import {
   parseTimeToMinutes,
   formatMinutesToTime,
   formatDurationMinutes,
-  calculateResizedDuration,
   calculateResizedEndMinutes,
-  calculateTopResizedStartMinutes,
+  calculateTopResizedStartMinutes
 } from "../lib/resize";
 import { AgendaTaskDetailModal } from "./AgendaTaskDetailModal";
 

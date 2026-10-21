@@ -30,9 +30,7 @@ vi.mock("@/features/notifications/reminderActions", () => ({
 
 import {
   DEFAULT_PREFERENCES,
-  handleInteractiveNotificationResponse,
-  getStoredPreferences,
-  saveStoredPreferences,
+  handleInteractiveNotificationResponse
 } from "./actions";
 
 describe("Notifications Feature Logic", () => {

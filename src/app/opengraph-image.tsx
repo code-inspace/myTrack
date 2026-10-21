@@ -136,7 +136,7 @@ export default async function Image() {
             "⚡ Agenda Timeline & Glisser-Déposer",
             "🎯 Habitudes & Streaks Quotidiens",
             "📈 Analytics & Statistiques Riches",
-            "🤖 Coach IA Personnalisé",
+            "📷 Import de listes papier & dictée vocale",
           ].map((pill, i) => (
             <div
               key={i}

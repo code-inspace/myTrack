@@ -10,13 +10,10 @@ import {
   Edit2,
   Trash2,
   CheckCircle2,
-  Flame,
   Clock,
-  ChevronRight,
   Sparkles,
-  Repeat,
+  Repeat
 } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 interface GoalCardProps {
   goal: Goal;

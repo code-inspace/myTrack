@@ -4,18 +4,14 @@ import React, { useMemo } from "react";
 import { TaskWithCompletion, Task } from "@/features/tasks/types";
 import {
   Compass,
-  Flame,
-  Clock,
   Moon,
-  TrendingUp,
-  CheckCircle2,
   Calendar,
   Sparkles,
   ArrowRight,
-  FolderKanban,
+  FolderKanban
 } from "lucide-react";
-import { format } from "date-fns";
-import { fr } from "date-fns/locale";
+
+
 import { cn } from "@/lib/utils";
 
 import { ExternalCalendarEvent } from "@/features/calendar/types";

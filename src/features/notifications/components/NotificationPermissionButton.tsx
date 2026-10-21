@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Bell, CheckCircle2, Smartphone, Sparkles, RefreshCw } from "lucide-react";
+import { Bell, CheckCircle2, Smartphone, Sparkles } from "lucide-react";
 import {
   enableCrossDeviceNotifications,
   isIosDevice,

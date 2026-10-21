@@ -1,10 +1,9 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { Moon, Sun, Lock, Check, Clock, Sparkles, BedDouble, AlertCircle } from "lucide-react";
+import { Moon, Sun, Lock, Check, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { fr } from "date-fns/locale";
 
 interface NightModeOverlayProps {
   bedtime: string; // e.g. "22:30"

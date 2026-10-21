@@ -3,7 +3,7 @@
 import React from "react";
 import { ExternalCalendarEvent } from "../types";
 import { getExternalEventStatus } from "../lib/status";
-import { Calendar, Clock, MapPin, Check } from "lucide-react";
+import { Clock, MapPin, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProjects } from "@/features/projects/hooks";
 

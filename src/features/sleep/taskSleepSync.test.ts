@@ -28,8 +28,7 @@ import {
   isNapTitle,
   isSleepOrNapTitle,
   extractTimesFromTitle,
-  syncTaskWithSleepLog,
-  removeTaskFromSleepLog,
+  syncTaskWithSleepLog
 } from "./taskSleepSync";
 import { getStoredSleepLog } from "./actions";
 
