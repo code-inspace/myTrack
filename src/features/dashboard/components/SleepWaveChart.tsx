@@ -208,11 +208,13 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
       const hasPrevBedtimeValidated = Boolean(
         prevLog?.bedtime && prevLog.bedtimeValidated
       );
+      // Only recorded (validated) times count: an unvalidated time is just the sleep target used to
+      // prefill forms, and a log merely having been saved says nothing about when the user slept.
       const hasPrevEveningBedtime = Boolean(
         prevLog?.bedtime &&
         prevBedHour !== null &&
         isEveningBedtimeHour(prevBedHour) &&
-        (prevLog.bedtimeValidated || prevLog.updatedAt || prevLog.bedtime !== "23:00")
+        prevLog.bedtimeValidated
       );
 
       // 2. Early morning bedtime from today (D): hour < 12
@@ -224,9 +226,7 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
       );
 
       // 3. Wake time from today (D)
-      const hasTodayWake = Boolean(
-        log?.wakeTime && (log.wakeTimeValidated || log.updatedAt || log.wakeTime !== "07:00")
-      );
+      const hasTodayWake = Boolean(log?.wakeTime && log.wakeTimeValidated);
 
       // 4. Tasks from agenda
       const primaryEveTask = eveSleepTasks[0];
@@ -249,25 +249,23 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
       } else if (hasTodayWake) {
         if (prevBedHour !== null && isEveningBedtimeHour(prevBedHour) && prevLog?.bedtime) {
           bedtime = prevLog.bedtime;
-        } else if (todayBedHour !== null && todayBedHour < 12 && log?.bedtime) {
+        } else if (todayBedHour !== null && todayBedHour < 12 && log?.bedtime && log.bedtimeValidated) {
           bedtime = log.bedtime;
-        } else {
-          bedtime = "23:00";
         }
+        // Wake-up recorded but no bedtime: nothing to draw (no invented 23:00)
       } else if (hasPrevEveningBedtime || hasTodayEarlyBedtimeValidated) {
-        bedtime = prevLog?.bedtime || log?.bedtime || "23:00";
+        bedtime = prevLog?.bedtime || log?.bedtime || null;
       }
 
       let wakeTime: string | null = null;
       if (hasTodayWake) {
-        wakeTime = log?.wakeTime || "07:00";
+        wakeTime = log?.wakeTime || null;
       } else if (primaryEarlyMorningTask?.endTime) {
         wakeTime = primaryEarlyMorningTask.endTime;
       } else if (primaryEveTask?.endTime) {
         wakeTime = primaryEveTask.endTime;
-      } else if (hasPrevBedtimeValidated || hasPrevEveningBedtime || hasTodayEarlyBedtimeValidated) {
-        wakeTime = log?.wakeTime || "07:00";
       }
+      // No recorded wake-up → no night block (a bedtime alone isn't a night of sleep)
 
       let nightBlock: {
         startTime: string;
@@ -316,7 +314,9 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
         const startHour = t.startTime ? parseInt(t.startTime.split(":")[0], 10) : 0;
         const isEarlyMorning = startHour < 7;
         const isPrimaryNight = isEarlyMorning && bedtime === t.startTime;
-        if (!isPrimaryNight && t.startTime) {
+        // A planned nap of today that hasn't started yet isn't recorded sleep
+        const notStartedYet = dateStr === todayStr && t.startTime! > format(new Date(), "HH:mm");
+        if (!isPrimaryNight && t.startTime && !notStartedYet) {
           const key = `${t.startTime}-${t.endTime || ""}`;
           if (!combinedNapsMap.has(key)) {
             combinedNapsMap.set(key, {

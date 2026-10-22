@@ -75,13 +75,13 @@ describe("Analytics Calculations", () => {
       { id: "2", taskId: "t1", date: "2026-08-22", completed: true },
     ];
 
-    const stats = calculateDashboardStats(tasks, completions, "week", referenceDate);
+    const stats = calculateDashboardStats(tasks, completions, referenceDate);
     expect(stats.last7DaysStatus.length).toBe(7);
     expect(stats.habitStreaks.length).toBe(1);
     expect(stats.habitStreaks[0].currentStreak).toBe(2);
   });
 
-  it("calculates dashboard stats accurately for day period", () => {
+  it("calculates the global streak from the day's completions", () => {
     const referenceDate = parseISO("2026-08-23");
     const tasks: TaskRecord[] = [
       {
@@ -96,7 +96,7 @@ describe("Analytics Calculations", () => {
       { id: "1", taskId: "t1", date: "2026-08-23", completed: true },
     ];
 
-    const stats = calculateDashboardStats(tasks, completions, "day", referenceDate);
-    expect(stats.completionRate).toBe(100);
+    const stats = calculateDashboardStats(tasks, completions, referenceDate);
+    expect(stats.currentStreak).toBe(1);
   });
 });

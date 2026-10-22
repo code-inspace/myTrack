@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from "react";
 import { PeriodSelector } from "@/features/dashboard/components/PeriodSelector";
-import { CircularMetricCard } from "@/features/dashboard/components/CircularProgressCard";
 import { StreakGridCard } from "@/features/dashboard/components/StreakGridCard";
 import { MonthlyHabitCalendar } from "@/features/dashboard/components/MonthlyHabitCalendar";
 import { SleepWaveChart } from "@/features/dashboard/components/SleepWaveChart";
@@ -223,17 +222,6 @@ function DashboardPageContent() {
   // Render individual modules based on ID
   const renderModule = (moduleId: string) => {
     switch (moduleId) {
-      case "METRICS":
-        return (
-          <div key="METRICS">
-            <CircularMetricCard
-              title="Complétion moyenne"
-              valueText={`${stats?.completionRate ?? 0}%`}
-              percentage={stats?.completionRate ?? 0}
-            />
-          </div>
-        );
-
       case "PROJECT_STATS":
         return (
           <DashboardProjectStatsWidget

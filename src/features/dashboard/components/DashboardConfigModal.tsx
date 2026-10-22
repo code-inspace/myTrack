@@ -26,8 +26,7 @@ import {
   Check,
   PieChart,
   Moon,
-  Flame,
-  Target,
+  Flame
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -39,12 +38,6 @@ export interface DashboardModuleConfig {
 }
 
 export const DEFAULT_DASHBOARD_MODULES: DashboardModuleConfig[] = [
-  {
-    id: "METRICS",
-    label: "Complétion",
-    description: "Pourcentage de réussite de la période",
-    enabled: true,
-  },
   {
     id: "PROJECT_STATS",
     label: "Statistiques des Projets",
@@ -66,7 +59,6 @@ export const DEFAULT_DASHBOARD_MODULES: DashboardModuleConfig[] = [
 ];
 
 const MODULE_ICONS: Record<string, React.ReactNode> = {
-  METRICS: <Target className="w-4 h-4 text-[#60A5FA]" />,
   PROJECT_STATS: <PieChart className="w-4 h-4 text-[#A78BFA]" />,
   SLEEP_WAVE: <Moon className="w-4 h-4 text-[#38BDF8]" />,
   HABITS_VIEW: <Flame className="w-4 h-4 text-[#F59E0B]" />,

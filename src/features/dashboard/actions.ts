@@ -17,9 +17,9 @@ export async function getDashboardData(
       fetchTasks(userId).catch(() => []),
       fetchCompletions(userId).catch(() => []),
     ]);
-    return calculateDashboardStats(tasks || [], completions || [], period, safeRefDate);
+    return calculateDashboardStats(tasks || [], completions || [], safeRefDate);
   } catch (error) {
     console.warn("Error calculating dashboard stats, returning fallback:", error);
-    return calculateDashboardStats([], [], period, safeRefDate);
+    return calculateDashboardStats([], [], safeRefDate);
   }
 }

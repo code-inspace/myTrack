@@ -29,7 +29,6 @@ export interface HabitStreakStat {
 }
 
 export interface DashboardStats {
-  completionRate: number; // e.g. 40 (%)
   currentStreak: number;
   bestStreak: number;
   last7DaysStatus: DayStatus[];

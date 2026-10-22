@@ -349,7 +349,6 @@ export function calculateLast7DaysStatus(
 export function calculateDashboardStats(
   tasks: TaskRecord[],
   completions: CompletionRecord[],
-  period: Period = "week",
   referenceDate: Date = new Date()
 ): DashboardStats {
   const safeTasks = (Array.isArray(tasks) ? tasks : []).filter((t): t is TaskRecord => Boolean(t && t.id));
@@ -361,32 +360,13 @@ export function calculateDashboardStats(
   const recurringTasks = safeTasks.filter((t) => t.recurrence && t.recurrence !== "ONCE" && !t.isArchived);
   const recurringTaskIds = new Set(recurringTasks.map((t) => t.id));
   const recurringCompletions = safeCompletions.filter((c) => recurringTaskIds.has(c.taskId));
-  const completedKeys = getCompletedKeys(recurringCompletions);
-
   const habitStreaks = calculateHabitStreakStats(recurringTasks, recurringCompletions, safeRefDate);
   const last7DaysStatus = calculateLast7DaysStatus(recurringTasks, recurringCompletions, safeRefDate);
-
-  // Period = same calendar range as goals (day / Mon–Sun week / month / all), up to the reference date
-  const sumRange = (start: Date, end: Date) => {
-    let scheduled = 0;
-    let completed = 0;
-    for (const day of eachDay(start, end)) {
-      const counts = getDayCounts(recurringTasks, completedKeys, day);
-      scheduled += counts.scheduled;
-      completed += counts.completed;
-    }
-    return { scheduled, completed };
-  };
-
-  const range = getPeriodRange(period, safeRefDate, recurringTasks);
-  const { scheduled: totalScheduledInPeriod, completed: totalCompletedInPeriod } = sumRange(range.start, range.end);
-  const completionRate = ratio(totalCompletedInPeriod, totalScheduledInPeriod);
 
   const globalStreak = calculateCurrentStreak(recurringCompletions, safeRefDate, recurringTasks);
   const bestGlobalStreak = calculateBestStreak(recurringCompletions, recurringTasks);
 
   return {
-    completionRate,
     currentStreak: globalStreak,
     bestStreak: Math.max(bestGlobalStreak, globalStreak),
     last7DaysStatus,
