@@ -194,7 +194,19 @@ export default function GoalsPage() {
         <AppHeader title="Objectifs" />
       </div>
 
-      {/* 2. Main Scrollable Container */}
+      {/* 2. Period selector: part of the fixed header (outside the scroll area, so content can't overlap it) */}
+      <div className="flex-shrink-0 z-30 bg-[#111214] border-b border-[#23242A] shadow-md">
+        <div className="max-w-md md:max-w-6xl mx-auto w-full px-4 md:px-8 py-2">
+          <PeriodSelector
+            period={period}
+            onChangePeriod={setPeriod}
+            referenceDate={referenceDate}
+            onChangeReferenceDate={setReferenceDate}
+          />
+        </div>
+      </div>
+
+      {/* 3. Main Scrollable Container */}
       <div
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
@@ -220,16 +232,6 @@ export default function GoalsPage() {
             <Plus className="w-4 h-4" />
             <span>Nouvel objectif</span>
           </button>
-        </div>
-
-        {/* Period Selector Tabs & Chevron Navigation (Jour / Semaine / Mois) — sticky while goals scroll */}
-        <div className="sticky top-0 z-20 -mx-4 md:-mx-8 px-4 md:px-8 py-2 bg-[#0E0F12]/95 backdrop-blur-md">
-          <PeriodSelector
-            period={period}
-            onChangePeriod={setPeriod}
-            referenceDate={referenceDate}
-            onChangeReferenceDate={setReferenceDate}
-          />
         </div>
 
         {/* Global Summary Header Widget */}

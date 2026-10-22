@@ -282,7 +282,19 @@ function DashboardPageContent() {
         />
       </div>
 
-      {/* 2. Scrollable Content Body */}
+      {/* 2. Period selector: part of the fixed header (outside the scroll area, so content can't overlap it) */}
+      <div className="flex-shrink-0 z-30 bg-[#111214] border-b border-[#23242A] shadow-md">
+        <div className="max-w-md md:max-w-6xl mx-auto w-full px-3 sm:px-4 md:px-8 py-2">
+          <PeriodSelector
+            period={period}
+            onChangePeriod={setPeriod}
+            referenceDate={safeReferenceDate}
+            onChangeReferenceDate={setReferenceDate}
+          />
+        </div>
+      </div>
+
+      {/* 3. Scrollable Content Body */}
       <div
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
@@ -308,16 +320,6 @@ function DashboardPageContent() {
             <Sliders className="w-4 h-4 text-[#D4F63D]" />
             <span>Personnaliser</span>
           </button>
-        </div>
-
-        {/* Period Selector Tabs & Chevron Navigation — sticky while the modules scroll */}
-        <div className="sticky top-0 z-20 -mx-3 sm:-mx-4 md:-mx-8 px-3 sm:px-4 md:px-8 py-2 bg-[#0E0F12]/95 backdrop-blur-md">
-          <PeriodSelector
-            period={period}
-            onChangePeriod={setPeriod}
-            referenceDate={safeReferenceDate}
-            onChangeReferenceDate={setReferenceDate}
-          />
         </div>
 
         {/* Dynamically configured modules in custom order */}
