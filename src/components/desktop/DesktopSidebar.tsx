@@ -4,6 +4,7 @@ import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Home,
   ListTodo,
   Calendar,
   FolderKanban,
@@ -23,7 +24,8 @@ interface DesktopSidebarProps {
 }
 
 const MAIN_NAV = [
-  { id: "habits" as TasksTab, label: "Liste", icon: ListTodo, href: "/tasks", paths: ["/tasks", "/"] },
+  { id: "home" as unknown as TasksTab, label: "Accueil", icon: Home, href: "/", paths: ["/"] },
+  { id: "habits" as TasksTab, label: "Liste", icon: ListTodo, href: "/tasks", paths: ["/tasks"] },
   { id: "agenda" as TasksTab, label: "Agenda", icon: Calendar, href: "/agenda", paths: ["/agenda"] },
   { id: "projects" as TasksTab, label: "Projets", icon: FolderKanban, href: "/projects", paths: ["/projects"] },
 ];
@@ -77,7 +79,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
       <nav className="flex-1 overflow-y-auto py-4 px-2 xl:px-3 space-y-0.5 min-h-0">
         {MAIN_NAV.map((item) => {
           const Icon = item.icon;
-          const isActive = currentTab === item.id;
+          const isActive = Boolean(activeTab) && currentTab === item.id;
           const isByPath = isPathActive(item.paths);
           const active = isActive || isByPath;
 

@@ -5,6 +5,7 @@ import { AuthProvider } from "@/providers/AuthProvider";
 import OneSignalProvider from "@/providers/OneSignalProvider";
 import NotificationWatcherProvider from "@/providers/NotificationWatcherProvider";
 import { BottomNav } from "@/components/shared/BottomNav";
+import { FloatingTimer } from "@/features/quicktimer/components/FloatingTimer";
 import { DesktopSidebar } from "@/components/desktop/DesktopSidebar";
 import { AuthGuard } from "@/components/shared/AuthGuard";
 import { ToastProvider } from "@/providers/ToastProvider";
@@ -105,6 +106,7 @@ export default function RootLayout({
                             </main>
 
                             {/* Fixed Thumb-friendly Navigation on Mobile */}
+                            <FloatingTimer />
                             <BottomNav />
                           </AuthGuard>
                           </ToastProvider>

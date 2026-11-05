@@ -1,5 +1,5 @@
-import TasksPage from "./tasks/page";
+import { HomeScreen } from "@/features/home/components/HomeScreen";
 
 export default function HomePage() {
-  return <TasksPage />;
+  return <HomeScreen />;
 }
