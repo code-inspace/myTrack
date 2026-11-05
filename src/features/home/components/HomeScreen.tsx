@@ -153,10 +153,17 @@ export const HomeScreen: React.FC = () => {
                 const running = timer?.key === target.key;
                 const autoRunning = liveProjectIds.has(item.goal.projectId);
                 return (
-                  <li key={item.goal.id} className="space-y-2.5 rounded-3xl border border-[#23252E] bg-[#141519] p-4">
+                  <li
+                    key={item.goal.id}
+                    className="space-y-2.5 rounded-3xl border border-[#23252E] border-l-4 bg-[#141519] p-4"
+                    style={{ borderLeftColor: target.color || "#D4F63D" }}
+                  >
                     <div className="flex items-center gap-3">
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-extrabold text-white">{target.label}</p>
+                        <p className="flex items-center gap-2 text-sm font-extrabold text-white">
+                          <span className="h-2.5 w-2.5 flex-shrink-0 rounded-full" style={{ backgroundColor: target.color || "#D4F63D" }} aria-hidden="true" />
+                          <span className="truncate">{target.label}</span>
+                        </p>
                         <p className="text-xs text-[#8E929E]">
                           <strong className="text-white">{item.progress.formattedActual}</strong> / {item.progress.formattedTarget}
                           {pace && <span className={`ml-2 font-bold ${pace.className}`}>· {pace.label}</span>}
