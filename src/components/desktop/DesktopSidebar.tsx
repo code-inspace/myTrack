@@ -8,6 +8,7 @@ import {
   Calendar,
   FolderKanban,
   TrendingUp,
+  Timer,
   Settings,
   ChevronRight,
   Target
@@ -31,6 +32,7 @@ const MAIN_NAV = [
 const SECONDARY_NAV = [
   { label: "Dashboard", icon: TrendingUp, href: "/dashboard", paths: ["/dashboard"] },
   { label: "Objectifs", icon: Target, href: "/goals", paths: ["/goals"] },
+  { label: "Session", icon: Timer, href: "/session", paths: ["/session"] },
 ];
 
 export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({

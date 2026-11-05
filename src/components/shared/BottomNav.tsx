@@ -33,7 +33,7 @@ export const BottomNav: React.FC = () => {
 
   const navItems = [
     // Liste and Agenda are two views of the same tasks: one entry, reopening the last used view
-    { href: lastTasksView, label: "Tâches", icon: ListTodo, activePaths: ["/tasks", "/agenda", "/"] },
+    { href: lastTasksView, label: "Tâches", icon: ListTodo, activePaths: ["/tasks", "/agenda", "/session", "/"] },
     { href: "/projects", label: "Projets", icon: TASK_TABS.find((t) => t.id === "projects")?.icon || ListTodo, activePaths: ["/projects"] },
     { href: "/goals", label: "Objectifs", icon: Target, activePaths: ["/goals"] },
     { href: "/dashboard", label: "Dashboard", icon: TrendingUp, activePaths: ["/dashboard"] },
