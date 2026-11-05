@@ -7,6 +7,10 @@ import { sendNativeNotification } from "@/lib/notifications/service";
 import { getTodayDateString, isTaskScheduledForDate } from "@/lib/dates";
 import { getStoredProjects } from "@/features/projects/actions";
 import { isTaskInDoneColumn } from "@/features/projects/types";
+import { getStoredGoals } from "@/features/goals/actions";
+import { buildGoalItems } from "@/features/bilan/goalItems";
+import { projectMinutesInRange } from "@/features/bilan/insights";
+import { eveningFocusMessage, morningFocusMessage, type FocusInput } from "@/features/notifications/focusMessages";
 
 function subtractMinutesFromTimeString(timeStr: string, minutesToSubtract: number): string {
   if (!timeStr || !timeStr.includes(":")) return "";
@@ -25,6 +29,33 @@ export default function NotificationWatcherProvider({ children }: { children: Re
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+
+    // What the goals say right now, for the morning and evening notifications
+    const focusInput = (nowDate: Date): FocusInput => {
+      const tasks = getStoredTasks();
+      const completions = getStoredCompletions();
+      const items = buildGoalItems({
+        goals: getStoredGoals(),
+        projects: getStoredProjects(),
+        tasks,
+        completions,
+        periodType: "week",
+        referenceDate: nowDate,
+        now: nowDate,
+      });
+      let todayMinutes = 0;
+      projectMinutesInRange({ tasks, completions }, nowDate, nowDate).forEach((m) => (todayMinutes += m));
+      return {
+        items: items.map(({ goal, project, pace }) => ({
+          goalId: goal.id,
+          name: goal.title || project?.name || "Objectif",
+          targetType: goal.targetType === "count" ? ("count" as const) : ("duration" as const),
+          pace,
+        })),
+        todayMinutes,
+        weekday: nowDate.getDay(),
+      };
+    };
 
     const checkAndDispatchReminders = () => {
       const now = new Date();
@@ -184,9 +215,10 @@ export default function NotificationWatcherProvider({ children }: { children: Re
             return !t.isArchived && isSched && !comp?.completed;
           }).length;
 
+          const focus = morningFocusMessage(focusInput(now));
           sendNativeNotification({
-            title: "Objectifs du jour",
-            body: `Tu as ${pendingCount} habitude${pendingCount > 1 ? "s" : ""} au programme aujourd'hui`,
+            title: focus?.title ?? "Objectifs du jour",
+            body: focus?.body ?? `Tu as ${pendingCount} habitude${pendingCount > 1 ? "s" : ""} au programme aujourd'hui`,
             tag: "morning-recap",
           });
         }
@@ -200,9 +232,10 @@ export default function NotificationWatcherProvider({ children }: { children: Re
 
           const todayCompletions = completions.filter((c) => c.date === todayDateStr && c.completed).length;
 
+          const focus = eveningFocusMessage(focusInput(now));
           sendNativeNotification({
-            title: "Bilan du soir",
-            body: `Tu as complété ${todayCompletions} habitude${todayCompletions > 1 ? "s" : ""} aujourd'hui`,
+            title: focus?.title ?? "Bilan du soir",
+            body: focus?.body ?? `Tu as complété ${todayCompletions} habitude${todayCompletions > 1 ? "s" : ""} aujourd'hui`,
             tag: "evening-recap",
           });
         }

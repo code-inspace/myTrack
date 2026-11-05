@@ -72,14 +72,15 @@ export function useQuickTimer() {
 
   /** Records `minutes` ending now, with an undo that removes the created task. */
   const record = useCallback(
-    async (target: QuickTarget, minutes: number, endMs = Date.now()) => {
+    async (target: QuickTarget, minutes: number, options: { endMs?: number; message?: string } = {}) => {
+      const endMs = options.endMs ?? Date.now();
       const clamped = clampMinutes(minutes);
       if (clamped < MIN_LOGGED_MINUTES || !userId) return false;
       try {
         const { taskId, minutes: logged } = await logWork({ target, endMs, minutes: clamped, userId });
         queryClient.invalidateQueries({ queryKey: ["tasks"] });
         showToast({
-          message: `${formatMinutes(logged)} enregistrées sur ${target.label}`,
+          message: options.message ?? `${formatMinutes(logged)} enregistrées sur ${target.label}`,
           action: {
             label: "Annuler",
             onClick: () => {

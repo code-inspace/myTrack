@@ -13,6 +13,10 @@ import { RunningTimerCard } from "@/features/quicktimer/components/RunningTimerC
 import { MinutesSheet } from "@/features/quicktimer/components/MinutesSheet";
 import type { QuickTarget } from "@/features/quicktimer/quickTimer";
 import { formatMinutes } from "@/features/session/plan";
+import { useTasks } from "@/features/tasks/hooks";
+import { useCalendarEvents } from "@/features/calendar/hooks/useCalendarEvents";
+import { projectMinutesInRange } from "@/features/bilan/insights";
+import { getTodayDateString } from "@/lib/dates";
 import { SetupDomains } from "./SetupDomains";
 import { useAutoActivity } from "@/features/activity/useAutoActivity";
 import { AutoTrackingStrip } from "@/features/activity/AutoTrackingStrip";
@@ -82,6 +86,14 @@ export const HomeScreen: React.FC = () => {
   const [reference] = useState(() => new Date());
   const { items, goals, projects, isLoading } = useGoalItems("week", reference);
   const { timer, start, record } = useQuickTimer();
+  const { allTasks = [], allCompletions = [] } = useTasks(getTodayDateString());
+  const { events: externalEvents = [] } = useCalendarEvents();
+  const todayMinutes = useMemo(() => {
+    const day = new Date();
+    let total = 0;
+    projectMinutesInRange({ tasks: allTasks, completions: allCompletions, externalEvents }, day, day).forEach((m) => (total += m));
+    return total;
+  }, [allTasks, allCompletions, externalEvents]);
   const auto = useAutoActivity();
   const liveProjectIds = new Set(auto.live.map((l) => l.projectId).filter((id): id is string => !!id));
   const [adding, setAdding] = useState<{ target: QuickTarget } | null>(null);
@@ -119,6 +131,12 @@ export const HomeScreen: React.FC = () => {
 
         <AutoTrackingStrip live={auto.live} unattached={auto.unattached} projectName={auto.projectName} />
 
+        <p className="text-sm text-[#A1A5B3]" aria-live="polite">
+          Aujourd&apos;hui :{" "}
+          <strong className="text-white">{todayMinutes > 0 ? formatMinutes(todayMinutes) : "rien encore"}</strong>
+          {todayMinutes === 0 && " — lance un chrono pour commencer."}
+        </p>
+
         <GoalsVerdictCard verdict={verdict} />
 
         <section aria-labelledby="home-week" className="space-y-3" hidden={items.length === 0 && looseProjects.length === 0}>
@@ -147,7 +165,7 @@ export const HomeScreen: React.FC = () => {
                       {isCount ? (
                         <button
                           type="button"
-                          onClick={() => record(target, 30)}
+                          onClick={() => record(target, 1, { message: `+1 sur ${target.label}` })}
                           aria-label={`Ajouter une séance sur ${target.label}`}
                           className="flex h-11 cursor-pointer items-center gap-1.5 rounded-2xl bg-[#D4F63D] px-4 text-sm font-extrabold text-black hover:bg-[#bce028]"
                         >

@@ -6,18 +6,23 @@ import { useGoals } from "@/features/goals/hooks";
 import { useProjectMutations } from "@/features/projects/hooks";
 import { DEFAULT_PROJECT_COLUMNS, type Project } from "@/features/projects/types";
 
+/** Category of the tasks logged by +1, matched by result goals */
+export const RESULT_CATEGORY = "Résultat";
+
 interface Domain {
   name: string;
   color: string;
   hours: number;
+  /** Optional weekly result target (applications sent, chapters done…), counted with +1 */
+  results: number;
   enabled: boolean;
 }
 
 const INITIAL: Domain[] = [
-  { name: "Candidatures", color: "#D4F63D", hours: 5, enabled: true },
-  { name: "Révisions", color: "#60A5FA", hours: 10, enabled: true },
-  { name: "Travail", color: "#A78BFA", hours: 20, enabled: true },
-  { name: "Maison", color: "#F59E0B", hours: 5, enabled: true },
+  { name: "Candidatures", color: "#D4F63D", hours: 5, results: 8, enabled: true },
+  { name: "Révisions", color: "#60A5FA", hours: 10, results: 0, enabled: true },
+  { name: "Travail", color: "#A78BFA", hours: 20, results: 0, enabled: true },
+  { name: "Maison", color: "#F59E0B", hours: 5, results: 0, enabled: true },
 ];
 
 /**
@@ -55,6 +60,22 @@ export const SetupDomains: React.FC<{ projects: Project[] }> = ({ projects }) =>
           targetMinutes: Math.round(domain.hours * 60),
           color: project.color || domain.color,
         });
+        if (domain.results > 0) {
+          // Results live in their own category so +1 never inflates the time target
+          await createGoal({
+            projectId: project.id,
+            title: `${name} — résultats`,
+            projectCategory: RESULT_CATEGORY,
+            projectCategories: [RESULT_CATEGORY],
+            periodType: "week",
+            isRecurring: true,
+            targetType: "count",
+            targetMinutes: 0,
+            targetCount: Math.round(domain.results),
+            unit: "séance",
+            color: project.color || domain.color,
+          });
+        }
       }
     } catch (err) {
       console.warn("setup domains error:", err);
@@ -80,7 +101,7 @@ export const SetupDomains: React.FC<{ projects: Project[] }> = ({ projects }) =>
 
       <ul className="space-y-2.5">
         {domains.map((d, i) => (
-          <li key={i} className="flex items-center gap-2.5">
+          <li key={i} className="flex flex-wrap items-center gap-2.5">
             <input
               type="checkbox"
               checked={d.enabled}
@@ -109,6 +130,20 @@ export const SetupDomains: React.FC<{ projects: Project[] }> = ({ projects }) =>
                 className="w-16 rounded-xl border border-[#343740] bg-[#0E0F12] px-2 py-2.5 text-center text-sm text-white"
               />
               h/sem
+            </label>
+            <label className="flex flex-shrink-0 items-center gap-1.5 text-xs text-[#8E929E]">
+              <input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                max={200}
+                value={d.results || ""}
+                placeholder="0"
+                onChange={(e) => patch(i, { results: Number(e.target.value) })}
+                aria-label={`Résultats par semaine pour ${d.name || "ce domaine"} (optionnel)`}
+                className="w-14 rounded-xl border border-[#343740] bg-[#0E0F12] px-2 py-2.5 text-center text-sm text-white"
+              />
+              +1/sem
             </label>
           </li>
         ))}
