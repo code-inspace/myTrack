@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AppHeader } from "@/components/shared/AppHeader";
 import { HorizontalDatePicker } from "@/features/tasks/components/HorizontalDatePicker";
@@ -62,6 +63,33 @@ export const TasksHeaderWithNav: React.FC<TasksHeaderWithNavProps> = ({
         title={title}
         isSyncing={isSyncing}
       />
+
+      {/* Liste / Agenda switch: one "Tâches" entry in the bottom nav, two views of the same day */}
+      {currentTab !== "projects" && (
+        <div className="px-3 pb-1.5">
+          <div
+            role="group"
+            aria-label="Affichage des tâches"
+            className="mx-auto flex w-full max-w-[220px] items-center rounded-full border border-[#282A30] bg-[#1C1D22] p-0.5"
+          >
+            {[
+              { id: "habits", label: "Liste", href: "/tasks" },
+              { id: "agenda", label: "Agenda", href: "/agenda" },
+            ].map((v) => (
+              <Link
+                key={v.id}
+                href={v.href}
+                aria-current={currentTab === v.id ? "page" : undefined}
+                className={`flex-1 rounded-full py-1 text-center text-[12px] font-semibold transition-colors ${
+                  currentTab === v.id ? "bg-white text-black font-bold" : "text-[#8E929E] hover:text-white"
+                }`}
+              >
+                {v.label}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 2. Horizontal Date Picker Day Strip (always visible on Tasks/Agenda/Projects) */}
       {currentTab !== "projects" && (

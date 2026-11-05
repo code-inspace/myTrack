@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Moon, Sun, Sparkles, Clock, X, Trash2, Check, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getStoredSleepLog, saveStoredSleepLog, setUserSleepObjective, getUserSleepObjective } from "../actions";
+import { getStoredSleepLog, saveStoredSleepLog, setUserSleepObjective } from "../actions";
 import { NapSession } from "../types";
 import { format, parseISO, differenceInMinutes, subDays } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -41,7 +41,6 @@ export const SleepEditModal: React.FC<SleepEditModalProps> = ({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
 
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isInitialMountRef = useRef(true);
   // Id of the nap being edited; set once a new nap is first saved so later autosaves update it
   // instead of appending a new nap on every change.
@@ -53,10 +52,6 @@ export const SleepEditModal: React.FC<SleepEditModalProps> = ({
   useEffect(() => {
     isObjectiveRef.current = Boolean(initialSession?.isObjective);
   }, [initialSession]);
-  // Lets the init effect (declared above performSave) trigger the first save of a new nap.
-  const performSaveRef = useRef<
-    ((type: "night" | "nap", sDate: string, sTime: string, eDate: string, eTime: string, napId?: string) => Promise<void>) | null
-  >(null);
 
   // Initialize session state on open
   useEffect(() => {
@@ -91,19 +86,9 @@ export const SleepEditModal: React.FC<SleepEditModalProps> = ({
       setSaveStatus("idle");
 
       // Mark mount complete after a short tick
+      // Nothing is created or saved on open: the form is a draft until "Enregistrer"
       setTimeout(() => {
         isInitialMountRef.current = false;
-        // A new nap is created right away (the modal only autosaves; delete removes it again),
-        // except on a future day, which can't hold recorded sleep.
-        const todayStr = format(new Date(), "yyyy-MM-dd");
-        if (initialSession.isObjective) {
-          // Opening "Objectif sommeil" without an objective yet creates it with the shown times
-          if (!getUserSleepObjective()) {
-            performSaveRef.current?.("night", initStartDate, initStartTime, initEndDate, initEndTime, undefined);
-          }
-        } else if (type === "nap" && !initialSession.napId && initStartDate <= todayStr) {
-          performSaveRef.current?.("nap", initStartDate, initStartTime, initEndDate, initEndTime, undefined);
-        }
       }, 50);
     }
   }, [isOpen, initialSession]);
@@ -217,47 +202,6 @@ export const SleepEditModal: React.FC<SleepEditModalProps> = ({
     [onSaved]
   );
 
-  useEffect(() => {
-    performSaveRef.current = performSave;
-  }, [performSave]);
-
-  // Trigger auto-save whenever fields change after initialization
-  const triggerAutoSave = useCallback(
-    (
-      newType: "night" | "nap",
-      newStartDate: string,
-      newStartTime: string,
-      newEndDate: string,
-      newEndTime: string,
-      immediate = false
-    ) => {
-      if (isInitialMountRef.current) return;
-
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
-
-      if (immediate) {
-        performSave(newType, newStartDate, newStartTime, newEndDate, newEndTime, napIdRef.current);
-      } else {
-        setSaveStatus("saving");
-        saveTimeoutRef.current = setTimeout(() => {
-          performSave(newType, newStartDate, newStartTime, newEndDate, newEndTime, napIdRef.current);
-        }, 400);
-      }
-    },
-    [performSave]
-  );
-
-  // Clean up timer on unmount
-  useEffect(() => {
-    return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
-    };
-  }, []);
-
   if (!isOpen || !initialSession) return null;
 
   // Future days only hold the sleep objective (see saveStoredSleepLog): say so instead of
@@ -276,18 +220,14 @@ export const SleepEditModal: React.FC<SleepEditModalProps> = ({
       targetStartDate = hour < 12 ? endDate : format(subDays(parseISO(endDate), 1), "yyyy-MM-dd");
       setStartDate(targetStartDate);
     }
-
-    triggerAutoSave(sessionType, targetStartDate, newTime, endDate, endTime);
   };
 
   const handleStartDateChange = (newDate: string) => {
     setStartDate(newDate);
-    triggerAutoSave(sessionType, newDate, startTime, endDate, endTime);
   };
 
   const handleEndTimeChange = (newTime: string) => {
     setEndTime(newTime);
-    triggerAutoSave(sessionType, startDate, startTime, endDate, newTime);
   };
 
   const handleEndDateChange = (newDate: string) => {
@@ -299,8 +239,6 @@ export const SleepEditModal: React.FC<SleepEditModalProps> = ({
       targetStartDate = hour < 12 ? newDate : format(subDays(parseISO(newDate), 1), "yyyy-MM-dd");
       setStartDate(targetStartDate);
     }
-
-    triggerAutoSave(sessionType, targetStartDate, startTime, newDate, endTime);
   };
 
   const handleQuickAdjust = (type: "start" | "end", minutesDelta: number) => {
@@ -312,7 +250,6 @@ export const SleepEditModal: React.FC<SleepEditModalProps> = ({
         const newStartTime = format(newDt, "HH:mm");
         setStartDate(newStartDate);
         setStartTime(newStartTime);
-        triggerAutoSave(sessionType, newStartDate, newStartTime, endDate, endTime, true);
       } else {
         const dt = parseISO(`${endDate}T${endTime}:00`);
         const newDt = new Date(dt.getTime() + minutesDelta * 60000);
@@ -327,8 +264,6 @@ export const SleepEditModal: React.FC<SleepEditModalProps> = ({
           targetStartDate = hour < 12 ? newEndDate : format(subDays(parseISO(newEndDate), 1), "yyyy-MM-dd");
           setStartDate(targetStartDate);
         }
-
-        triggerAutoSave(sessionType, targetStartDate, startTime, newEndDate, newEndTime, true);
       }
     } catch (e) {
       console.warn("Error adjusting sleep time:", e);
@@ -577,36 +512,29 @@ export const SleepEditModal: React.FC<SleepEditModalProps> = ({
             </div>
           </div>
 
-          {/* Autosave Status Indicator */}
-          <div className="pt-1">
-            {saveStatus === "saving" && (
-              <div className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-2xl bg-[#818CF8]/10 border border-[#818CF8]/25 text-[#818CF8] text-xs font-bold animate-pulse">
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                <span>Sauvegarde automatique...</span>
-              </div>
-            )}
-            {saveStatus === "saved" && (
-              <div className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-2xl bg-[#D4F63D]/10 border border-[#D4F63D]/30 text-[#D4F63D] text-xs font-bold animate-in fade-in duration-200">
-                <Check className="w-3.5 h-3.5 stroke-[3]" />
-                <span>Enregistré automatiquement</span>
-              </div>
-            )}
-            {saveStatus === "idle" && (
-              <div className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-2xl bg-[#20233B] border border-[#2E3352]/60 text-[#94A3B8] text-[11px] font-medium">
-                <Sparkles className="w-3 h-3 text-[#818CF8]" />
-                <span>Sauvegarde automatique en continu</span>
-              </div>
-            )}
+          {/* Explicit save: the form is a draft until validated (typing is never interrupted) */}
+          <div className="pt-1 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 py-2.5 rounded-2xl bg-[#242842] hover:bg-[#2F3456] text-white font-bold text-xs transition-all cursor-pointer shadow"
+            >
+              Annuler
+            </button>
+            <button
+              type="button"
+              data-testid="sleep-modal-save"
+              disabled={!durationInfo?.isValid || saveStatus === "saving"}
+              onClick={async () => {
+                await performSave(sessionType, startDate, startTime, endDate, endTime, napIdRef.current);
+                onClose();
+              }}
+              className="flex-1 py-2.5 rounded-2xl bg-[#D4F63D] hover:bg-[#c5e636] disabled:opacity-40 disabled:cursor-not-allowed text-black font-bold text-xs transition-all cursor-pointer shadow flex items-center justify-center gap-1.5"
+            >
+              {saveStatus === "saving" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5 stroke-[3]" />}
+              <span>Enregistrer</span>
+            </button>
           </div>
-
-          {/* Close Action */}
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-full py-2.5 rounded-2xl bg-[#242842] hover:bg-[#2F3456] text-white font-bold text-xs transition-all cursor-pointer shadow"
-          >
-            Fermer
-          </button>
 
           {/* Delete Option */}
           <div className="pt-2 border-t border-[#2E3352]">

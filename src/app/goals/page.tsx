@@ -196,7 +196,7 @@ export default function GoalsPage() {
 
       {/* 2. Period selector: part of the fixed header (outside the scroll area, so content can't overlap it) */}
       <div className="flex-shrink-0 z-30 bg-[#111214] border-b border-[#23242A] shadow-md">
-        <div className="max-w-md md:max-w-6xl mx-auto w-full px-4 md:px-8 py-2">
+        <div className="max-w-md md:max-w-6xl mx-auto w-full px-4 md:px-8 py-1.5 md:py-2">
           <PeriodSelector
             period={period}
             onChangePeriod={setPeriod}

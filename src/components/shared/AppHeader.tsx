@@ -41,7 +41,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
 }) => {
   if (!leftAction && !rightAction && !rightIconAction) {
     return (
-      <header className="w-full flex items-center justify-center py-3 px-1">
+      <header className="w-full flex items-center justify-center py-2.5 md:py-3 px-1">
         <div className="text-center">
           <h1 className="text-lg font-extrabold text-white tracking-tight inline-flex items-center gap-1.5">
             <span>{title}</span>
@@ -58,7 +58,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   }
 
   return (
-    <header className="w-full flex items-center justify-between py-3 px-3 gap-2">
+    <header className="w-full flex items-center justify-between py-2 md:py-3 px-3 gap-2">
       <div className="w-9 h-9 flex-shrink-0">
         {leftAction && (
           leftAction.onClick ? (

@@ -1,14 +1,30 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ListTodo, TrendingUp, User, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TASK_TABS } from "./TasksHeaderWithNav";
 
+const TASKS_VIEW_KEY = "mytrack_tasks_view";
+
 export const BottomNav: React.FC = () => {
   const pathname = usePathname();
+  const [lastTasksView, setLastTasksView] = useState<"/tasks" | "/agenda">("/tasks");
+
+  // Remember which of the two task views was used last
+  useEffect(() => {
+    try {
+      if (pathname === "/tasks" || pathname === "/agenda") {
+        localStorage.setItem(TASKS_VIEW_KEY, pathname);
+        setLastTasksView(pathname);
+      } else {
+        const stored = localStorage.getItem(TASKS_VIEW_KEY);
+        if (stored === "/agenda" || stored === "/tasks") setLastTasksView(stored);
+      }
+    } catch {}
+  }, [pathname]);
 
   // Hide navigation on auth pages
   if (pathname.startsWith("/auth")) {
@@ -16,13 +32,14 @@ export const BottomNav: React.FC = () => {
   }
 
   const navItems = [
-    { href: "/tasks", label: "Liste", icon: ListTodo, activePaths: ["/tasks", "/"] },
-    { href: "/agenda", label: "Agenda", icon: TASK_TABS.find((t) => t.id === "agenda")?.icon || ListTodo, activePaths: ["/agenda"] },
+    // Liste and Agenda are two views of the same tasks: one entry, reopening the last used view
+    { href: lastTasksView, label: "Tâches", icon: ListTodo, activePaths: ["/tasks", "/agenda", "/"] },
     { href: "/projects", label: "Projets", icon: TASK_TABS.find((t) => t.id === "projects")?.icon || ListTodo, activePaths: ["/projects"] },
     { href: "/goals", label: "Objectifs", icon: Target, activePaths: ["/goals"] },
     { href: "/dashboard", label: "Dashboard", icon: TrendingUp, activePaths: ["/dashboard"] },
     { href: "/profile", label: "Profil", icon: User, activePaths: ["/profile"] },
   ];
+
 
   return (
     <nav

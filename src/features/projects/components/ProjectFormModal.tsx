@@ -171,45 +171,18 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
     return promise;
   }, [getCleanPayload, onSubmit]);
 
-  // Debounced auto-save effect
-  useEffect(() => {
-    if (!isOpen) return;
-    const trimmed = name.trim();
-    if (!trimmed) {
-      setSaveStatus("idle");
-      return;
-    }
-
-    const payload = getCleanPayload();
-    const signature = JSON.stringify(payload);
-    if (signature === lastSavedSignatureRef.current) return;
-
-    if (autoSaveTimeoutRef.current) {
-      clearTimeout(autoSaveTimeoutRef.current);
-    }
-
-    autoSaveTimeoutRef.current = setTimeout(() => {
-      performSave();
-    }, 450);
-
-    return () => {
-      if (autoSaveTimeoutRef.current) {
-        clearTimeout(autoSaveTimeoutRef.current);
-        autoSaveTimeoutRef.current = null;
-      }
-    };
-  }, [isOpen, name, color, columns, categories, getCleanPayload, performSave]);
-
+  // Closing discards the draft; "Enregistrer" is the only thing that saves
   const handleClose = () => {
-    if (autoSaveTimeoutRef.current) {
-      clearTimeout(autoSaveTimeoutRef.current);
-      autoSaveTimeoutRef.current = null;
-    }
-    performSave();
     onClose();
   };
 
-  // Keyboard shortcut (Escape to close & flush)
+  const handleSaveAndClose = async () => {
+    if (!name.trim()) return;
+    await performSave();
+    onClose();
+  };
+
+  // Keyboard shortcut (Escape cancels)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape" && isOpen) {
@@ -238,10 +211,6 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
   const handleDelete = () => {
     const targetId = activeProjectId || initialProject?.id;
     if (targetId && onDelete) {
-      if (autoSaveTimeoutRef.current) {
-        clearTimeout(autoSaveTimeoutRef.current);
-        autoSaveTimeoutRef.current = null;
-      }
       onDelete(targetId);
       onClose();
     }
@@ -263,24 +232,6 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
               <h2 className="text-base font-bold text-white leading-tight">
                 {isEditing ? "Modifier le projet" : "Nouveau projet"}
               </h2>
-              {/* Auto-save status feedback */}
-              <div className="flex items-center gap-1.5 mt-0.5">
-                {saveStatus === "saving" ? (
-                  <span className="text-[11px] text-amber-400 font-medium flex items-center gap-1">
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                    Enregistrement...
-                  </span>
-                ) : saveStatus === "saved" ? (
-                  <span className="text-[11px] text-[#D4F63D] font-medium flex items-center gap-1">
-                    <Check className="w-3 h-3 text-[#D4F63D]" />
-                    Enregistré
-                  </span>
-                ) : (
-                  <span className="text-[11px] text-[#8E929E]">
-                    Enregistrement automatique
-                  </span>
-                )}
-              </div>
             </div>
           </div>
           <button
@@ -301,11 +252,9 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
             <input
               type="text"
               required
-              autoFocus
               placeholder="ex: Refonte site web"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              onBlur={() => performSave()}
               className="w-full px-4 py-2.5 rounded-2xl bg-[#252830] border border-[#343740] focus:border-[#D4F63D] focus:ring-1 focus:ring-[#D4F63D] text-white text-sm outline-none transition-all placeholder-[#8E929E]"
             />
           </div>
@@ -392,7 +341,7 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
           </div>
 
           {/* Board Columns Section */}
-          <ColumnsEditor columns={columns} onChange={setColumns} onCommit={() => performSave()} />
+          <ColumnsEditor columns={columns} onChange={setColumns} />
 
           {/* Delete Project Section (When editing an existing project) */}
           {isEditing && onDelete && (
@@ -432,6 +381,27 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
             </div>
           )}
         </form>
+
+        {/* Explicit save: the form is a draft until validated */}
+        <div className="flex items-center gap-2 pt-3 border-t border-[#282A30] flex-shrink-0">
+          <button
+            type="button"
+            onClick={handleClose}
+            className="flex-1 py-2.5 rounded-2xl bg-[#252830] hover:bg-[#343740] text-white font-bold text-xs transition-all cursor-pointer"
+          >
+            Annuler
+          </button>
+          <button
+            type="button"
+            data-testid="project-modal-save"
+            disabled={!name.trim() || saveStatus === "saving"}
+            onClick={handleSaveAndClose}
+            className="flex-1 py-2.5 rounded-2xl bg-[#D4F63D] hover:bg-[#c5e636] disabled:opacity-40 disabled:cursor-not-allowed text-black font-bold text-xs transition-all cursor-pointer flex items-center justify-center gap-1.5"
+          >
+            {saveStatus === "saving" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5 stroke-[3]" />}
+            <span>Enregistrer</span>
+          </button>
+        </div>
       </div>
     </div>
   );

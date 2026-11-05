@@ -70,7 +70,6 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
   // Day this occurrence is moved to ("Jour" field); equals the opened day when not moved
   const [dayDate, setDayDate] = useState<string>(selectedDate);
   const [isRemindersEnabled, setIsRemindersEnabled] = useState(Boolean(task?.enableReminders));
-  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
 
   const isDeletingRef = React.useRef(false);
   const activeTaskIdRef = React.useRef<string | null>(null);
@@ -104,7 +103,6 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
       setIsDone(Boolean(task.isCompletedToday));
       setIsRemindersEnabled(initReminders);
       setNewSubprojectInput("");
-      setSaveStatus("idle");
     } else {
       activeTaskIdRef.current = task.id;
       setIsDone(Boolean(task.isCompletedToday));
@@ -511,29 +509,12 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
             </div>
           )}
 
-          {/* Date & Timing Section (Auto-saved directly on change) */}
+          {/* Date & Timing Section (saved with "Valider") */}
           <div className="p-3.5 rounded-2xl bg-[#1C1E28] border border-[#2B2F40] flex flex-col gap-2.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-xs sm:text-sm text-[#CBD5E1] font-semibold">
                 <Clock className="w-4 h-4 text-[#D4F63D]" />
                 <span>Horaire</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                {saveStatus === "saving" && (
-                  <span className="text-[11px] text-[#38BDF8] flex items-center gap-1 animate-pulse font-medium">
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                    <span>Enregistrement...</span>
-                  </span>
-                )}
-                {saveStatus === "saved" && (
-                  <span className="text-[11px] text-[#D4F63D] flex items-center gap-1 font-medium animate-in fade-in duration-150">
-                    <Check className="w-3 h-3 text-[#D4F63D]" />
-                    <span>Enregistré</span>
-                  </span>
-                )}
-                {saveStatus === "idle" && (
-                  <span className="text-[11px] text-[#8E929E]">Sauvegarde auto</span>
-                )}
               </div>
             </div>
 
