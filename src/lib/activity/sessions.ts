@@ -73,3 +73,16 @@ export function normalizeSourceKey(raw: unknown): string | null {
   const key = raw.trim().toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 64);
   return key.length > 0 ? key : null;
 }
+
+/** A session still counts as running while its last ping is inside the idle window of its origin. */
+export function isSessionLive(lastPingAt: Date, origin: ActivityOrigin, now: Date): boolean {
+  return now.getTime() - lastPingAt.getTime() <= IDLE_WINDOW_MS[origin];
+}
+
+/**
+ * A source whose project was created for it (named after its key) is not attached to any domain:
+ * its minutes are tracked but count toward no weekly target.
+ */
+export function isAutoCreatedProject(sourceKey: string, projectName: string | null | undefined): boolean {
+  return !!projectName && normalizeSourceKey(projectName) === sourceKey;
+}

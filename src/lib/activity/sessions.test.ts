@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { evaluatePing, normalizeSourceKey, IDLE_WINDOW_MS } from "./sessions";
+import { evaluatePing, normalizeSourceKey, IDLE_WINDOW_MS, isSessionLive, isAutoCreatedProject } from "./sessions";
 
 const t = (s: number) => new Date(1_700_000_000_000 + s * 1000);
 const open = (lastPing: number, seconds = 0, credited = 0) => ({
@@ -47,5 +47,22 @@ describe("normalizeSourceKey", () => {
   it("rejects empty or non-string keys", () => {
     expect(normalizeSourceKey("***")).toBeNull();
     expect(normalizeSourceKey(42)).toBeNull();
+  });
+});
+
+describe("isSessionLive", () => {
+  it("is live inside the idle window of its origin only", () => {
+    expect(isSessionLive(t(0), "web", t(179))).toBe(true);
+    expect(isSessionLive(t(0), "web", t(181))).toBe(false);
+    expect(isSessionLive(t(0), "claude-code", t(600))).toBe(true);
+  });
+});
+
+describe("isAutoCreatedProject", () => {
+  it("recognises the project created from the key, not a domain it was mapped to", () => {
+    expect(isAutoCreatedProject("letscook", "letscook")).toBe(true);
+    expect(isAutoCreatedProject("my-app", "My App")).toBe(true);
+    expect(isAutoCreatedProject("letscook", "Travail")).toBe(false);
+    expect(isAutoCreatedProject("letscook", null)).toBe(false);
   });
 });

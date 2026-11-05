@@ -14,6 +14,8 @@ import { MinutesSheet } from "@/features/quicktimer/components/MinutesSheet";
 import type { QuickTarget } from "@/features/quicktimer/quickTimer";
 import { formatMinutes } from "@/features/session/plan";
 import { SetupDomains } from "./SetupDomains";
+import { useAutoActivity } from "@/features/activity/useAutoActivity";
+import { AutoTrackingStrip } from "@/features/activity/AutoTrackingStrip";
 import type { Project } from "@/features/projects/types";
 
 const PACE_TEXT: Record<string, { label: string; className: string } | undefined> = {
@@ -50,7 +52,7 @@ function ProjectTargetRow({ project, onStart, onAdd, running }: { project: Proje
   );
 }
 
-function ActionButtons({ label, running, onStart, onAdd }: { label: string; running: boolean; onStart: () => void; onAdd: () => void }) {
+function ActionButtons({ label, running, autoRunning, onStart, onAdd }: { label: string; running: boolean; autoRunning?: boolean; onStart: () => void; onAdd: () => void }) {
   return (
     <div className="flex flex-shrink-0 items-center gap-2">
       <button
@@ -64,12 +66,12 @@ function ActionButtons({ label, running, onStart, onAdd }: { label: string; runn
       <button
         type="button"
         onClick={onStart}
-        disabled={running}
-        aria-label={running ? `${label} en cours` : `Démarrer le chrono ${label}`}
+        disabled={running || autoRunning}
+        aria-label={running ? `${label} en cours` : autoRunning ? `${label} : suivi automatique en cours` : `Démarrer le chrono ${label}`}
         className="flex h-11 min-w-[44px] cursor-pointer items-center justify-center gap-1.5 rounded-2xl bg-[#D4F63D] px-3 text-sm font-extrabold text-black hover:bg-[#bce028] disabled:cursor-default disabled:bg-[#D4F63D]/30 disabled:text-[#D4F63D]"
       >
         <Play className="h-4 w-4 fill-current" aria-hidden="true" />
-        {running ? "En cours" : "Go"}
+        {running ? "En cours" : autoRunning ? "Auto" : "Go"}
       </button>
     </div>
   );
@@ -80,6 +82,8 @@ export const HomeScreen: React.FC = () => {
   const [reference] = useState(() => new Date());
   const { items, goals, projects, isLoading } = useGoalItems("week", reference);
   const { timer, start, record } = useQuickTimer();
+  const auto = useAutoActivity();
+  const liveProjectIds = new Set(auto.live.map((l) => l.projectId).filter((id): id is string => !!id));
   const [adding, setAdding] = useState<{ target: QuickTarget } | null>(null);
 
   const verdict = useMemo(
@@ -97,7 +101,7 @@ export const HomeScreen: React.FC = () => {
 
   // Projects without a weekly goal still get a button: tracking must never need a goal first
   const goalProjectIds = new Set(items.map((i) => i.goal.projectId));
-  const looseProjects = projects.filter((p) => !goalProjectIds.has(p.id)).slice(0, 6);
+  const looseProjects = projects.filter((p) => !goalProjectIds.has(p.id) && !auto.sourceProjectIds.has(p.id)).slice(0, 6);
   const projectTarget = (p: Project): QuickTarget => ({ key: `project:${p.id}`, label: p.name, projectId: p.id, color: p.color });
 
   return (
@@ -113,6 +117,8 @@ export const HomeScreen: React.FC = () => {
 
         {!isLoading && items.length === 0 && <SetupDomains projects={projects} />}
 
+        <AutoTrackingStrip live={auto.live} unattached={auto.unattached} projectName={auto.projectName} />
+
         <GoalsVerdictCard verdict={verdict} />
 
         <section aria-labelledby="home-week" className="space-y-3" hidden={items.length === 0 && looseProjects.length === 0}>
@@ -127,6 +133,7 @@ export const HomeScreen: React.FC = () => {
                 const isCount = item.goal.targetType === "count";
                 const pace = PACE_TEXT[item.pace.status];
                 const running = timer?.key === target.key;
+                const autoRunning = liveProjectIds.has(item.goal.projectId);
                 return (
                   <li key={item.goal.id} className="space-y-2.5 rounded-3xl border border-[#23252E] bg-[#141519] p-4">
                     <div className="flex items-center gap-3">
@@ -147,7 +154,7 @@ export const HomeScreen: React.FC = () => {
                           <Plus className="h-4 w-4" aria-hidden="true" /> 1
                         </button>
                       ) : (
-                        <ActionButtons label={target.label} running={running} onStart={() => start(target)} onAdd={() => setAdding({ target })} />
+                        <ActionButtons label={target.label} running={running} autoRunning={autoRunning} onStart={() => start(target)} onAdd={() => setAdding({ target })} />
                       )}
                     </div>
                     <div
@@ -163,6 +170,9 @@ export const HomeScreen: React.FC = () => {
                         <div aria-hidden="true" className="absolute inset-y-0 w-0.5 bg-white/80" style={{ left: `${item.pace.expectedPercent}%` }} />
                       )}
                     </div>
+                    {autoRunning && (
+                      <p className="text-[11px] text-[#D4F63D]">Suivi automatique en cours : le temps se compte tout seul, pas besoin du chrono.</p>
+                    )}
                     {item.pace.perDay && item.pace.perDay > 0 && item.pace.daysLeft >= 1 && !item.progress.isCompleted && (
                       <p className="text-[11px] text-[#8E929E]">
                         Encore {item.progress.formattedRemaining} — {isCount ? `${Math.round(item.pace.perDay * 10) / 10} séance/jour` : `${formatMinutes(Math.ceil(item.pace.perDay))}/jour`} pour y arriver
