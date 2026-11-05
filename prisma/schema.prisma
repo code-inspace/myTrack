@@ -44,6 +44,8 @@ model User {
   conversations           ChatConversation[]
   goals                   Goal[]
   calendarSubscriptions   CalendarSubscription[]
+  activitySources         ActivitySource[]
+  activitySessions        ActivitySession[]
 
   @@map("users")
 }
@@ -295,4 +297,40 @@ model CalendarSubscription {
 
   @@index([userId])
   @@map("calendar_subscriptions")
+}
+
+model ActivitySource {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  key       String
+  projectId String?  @map("project_id")
+  taskId    String?  @map("task_id")
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, key])
+  @@index([userId])
+  @@map("activity_sources")
+}
+
+model ActivitySession {
+  id              String    @id @default(uuid())
+  userId          String    @map("user_id")
+  sourceKey       String    @map("source_key")
+  origin          String
+  startedAt       DateTime  @map("started_at")
+  lastPingAt      DateTime  @map("last_ping_at")
+  endedAt         DateTime? @map("ended_at")
+  seconds         Int       @default(0)
+  creditedMinutes Int       @default(0) @map("credited_minutes")
+  endedBy         String?   @map("ended_by")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, sourceKey])
+  @@map("activity_sessions")
 }

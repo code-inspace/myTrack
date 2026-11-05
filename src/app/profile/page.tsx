@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { DataExportCard } from "@/features/profile/components/DataExportCard";
 
 import { LiveActivitySettingsCard } from "@/features/profile/components/LiveActivitySettingsCard";
+import { ActivityTrackingCard } from "@/features/profile/components/ActivityTrackingCard";
 import { CustomReminderModal } from "@/features/notifications/components/CustomReminderModal";
 import { InteractiveNotificationSheet } from "@/features/notifications/components/InteractiveNotificationSheet";
 import {
@@ -164,6 +165,7 @@ export default function ProfilePage() {
 
       {/* Live Activities & Dynamic Island Settings */}
       <LiveActivitySettingsCard />
+      <ActivityTrackingCard />
 
       {/* Night Mode & Inactivity Auto-Lock Settings */}
       <div className="bg-[#1C1D22] border border-[#282A30] rounded-3xl p-5 shadow-sm space-y-4">
