@@ -7,6 +7,8 @@ import NotificationWatcherProvider from "@/providers/NotificationWatcherProvider
 import { BottomNav } from "@/components/shared/BottomNav";
 import { DesktopSidebar } from "@/components/desktop/DesktopSidebar";
 import { AuthGuard } from "@/components/shared/AuthGuard";
+import { ToastProvider } from "@/providers/ToastProvider";
+import { DialogA11yEnhancer } from "@/components/shared/DialogA11yEnhancer";
 import { DateProvider } from "@/providers/DateProvider";
 import { NightModeProvider } from "@/features/sleep/providers/NightModeProvider";
 
@@ -65,8 +67,6 @@ export const viewport: Viewport = {
   themeColor: "#111214",
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
   viewportFit: "cover",
   interactiveWidget: "resizes-content",
 };
@@ -93,6 +93,8 @@ export default function RootLayout({
                       <NightModeProvider>
                         
                           <DateProvider>
+                          <ToastProvider>
+                          <DialogA11yEnhancer />
                           <AuthGuard>
                             {/* Desktop Sticky Left Sidebar (hidden on mobile) */}
                             <DesktopSidebar />
@@ -105,6 +107,7 @@ export default function RootLayout({
                             {/* Fixed Thumb-friendly Navigation on Mobile */}
                             <BottomNav />
                           </AuthGuard>
+                          </ToastProvider>
                         </DateProvider>
                         
                       </NightModeProvider>

@@ -178,3 +178,21 @@ div[class*="overflow-y-auto"] {
   }
 }
 
+
+/* Respect the user's "reduce motion" setting: no looping/pulsing animations or long transitions */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Keyboard focus ring for every interactive element (inputs keep their own border highlight) */
+:where(a, button, [role="button"], [tabindex]):focus-visible {
+  outline: 2px solid #d4f63d;
+  outline-offset: 2px;
+}

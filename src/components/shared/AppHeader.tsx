@@ -3,6 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
+import { SyncStatus } from "@/components/shared/SyncStatus";
 
 interface HeaderAction {
   href?: string;
@@ -21,7 +22,7 @@ interface HeaderAvatarAction {
 interface AppHeaderProps {
   title?: string;
   subtitle?: string;
-  /** True when background sync is in progress */
+  /** @deprecated the sync state now comes from the query client (SyncStatus) */
   isSyncing?: boolean;
   /** Icon button shown top-left (e.g. Dashboard access in "modern" display mode) */
   leftAction?: HeaderAction | null;
@@ -34,7 +35,6 @@ interface AppHeaderProps {
 export const AppHeader: React.FC<AppHeaderProps> = ({
   title = "Mes Tâches",
   subtitle,
-  isSyncing,
   leftAction,
   rightAction,
   rightIconAction,
@@ -45,12 +45,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         <div className="text-center">
           <h1 className="text-lg font-extrabold text-white tracking-tight inline-flex items-center gap-1.5">
             <span>{title}</span>
-            {isSyncing && (
-              <span
-                title="Synchronisation en arrière-plan..."
-                className="w-2 h-2 rounded-full bg-[#D4F63D] animate-ping"
-              />
-            )}
+            <SyncStatus />
           </h1>
           {subtitle && (
             <p className="text-[11px] font-medium text-[#8E929E] -mt-0.5">
@@ -92,12 +87,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
       <div className="text-center flex-1 min-w-0">
         <h1 className="text-lg font-extrabold text-white tracking-tight truncate inline-flex items-center justify-center gap-1.5">
           <span>{title}</span>
-          {isSyncing && (
-            <span
-              title="Synchronisation en cours..."
-              className="w-2 h-2 rounded-full bg-[#D4F63D] animate-pulse flex-shrink-0"
-            />
-          )}
+          <SyncStatus />
         </h1>
         {subtitle && (
           <p className="text-[11px] font-medium text-[#8E929E] -mt-0.5 truncate">
