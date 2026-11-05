@@ -26,7 +26,10 @@ import {
   Check,
   PieChart,
   Moon,
-  Flame
+  Flame,
+  Clock,
+  ListChecks,
+  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -39,15 +42,21 @@ export interface DashboardModuleConfig {
 
 export const DEFAULT_DASHBOARD_MODULES: DashboardModuleConfig[] = [
   {
-    id: "PROJECT_STATS",
-    label: "Statistiques des Projets",
-    description: "Camembert et répartition des tâches par projet",
+    id: "AT_RISK",
+    label: "Séries en danger",
+    description: "Habitudes à valider aujourd'hui pour garder ta série",
     enabled: true,
   },
   {
-    id: "SLEEP_WAVE",
-    label: "Suivi du Sommeil",
-    description: "Courbe d'onde et analyse du temps de sommeil",
+    id: "TIME_DELTAS",
+    label: "Où passe ton temps",
+    description: "Temps par projet et évolution vs la période précédente",
+    enabled: true,
+  },
+  {
+    id: "PLANNED_VS_DONE",
+    label: "Prévu / fait",
+    description: "Part des tâches planifiées réellement faites et reports",
     enabled: true,
   },
   {
@@ -56,9 +65,31 @@ export const DEFAULT_DASHBOARD_MODULES: DashboardModuleConfig[] = [
     description: "Calendrier mensuel ou matrice des 7 derniers jours",
     enabled: true,
   },
+  {
+    id: "SLEEP_WAVE",
+    label: "Suivi du Sommeil",
+    description: "Régularité, courbe d'onde et temps de sommeil",
+    enabled: true,
+  },
+  {
+    id: "FOCUS_HOURS",
+    label: "Meilleures heures",
+    description: "Les heures où tu termines le plus de travail",
+    enabled: true,
+  },
+  {
+    id: "PROJECT_STATS",
+    label: "Statistiques des Projets",
+    description: "Camembert et répartition des tâches par projet",
+    enabled: true,
+  },
 ];
 
 const MODULE_ICONS: Record<string, React.ReactNode> = {
+  AT_RISK: <Flame className="w-4 h-4 text-[#F97316]" />,
+  TIME_DELTAS: <Clock className="w-4 h-4 text-[#D4F63D]" />,
+  PLANNED_VS_DONE: <ListChecks className="w-4 h-4 text-[#60A5FA]" />,
+  FOCUS_HOURS: <Zap className="w-4 h-4 text-[#FBBF24]" />,
   PROJECT_STATS: <PieChart className="w-4 h-4 text-[#A78BFA]" />,
   SLEEP_WAVE: <Moon className="w-4 h-4 text-[#38BDF8]" />,
   HABITS_VIEW: <Flame className="w-4 h-4 text-[#F59E0B]" />,

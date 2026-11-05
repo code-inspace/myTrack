@@ -10,6 +10,7 @@ export interface PlanBlock {
   /** YYYY-MM-DD */
   deadline?: string | null;
   projectId?: string | null;
+  projectCategory?: string | null;
   /** Recurring tasks are rescheduled for today only, one-off tasks are moved */
   recurring?: boolean;
   /** Pinned blocks keep their place when an order is suggested */

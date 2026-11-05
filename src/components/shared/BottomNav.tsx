@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ListTodo, TrendingUp, User, Target } from "lucide-react";
+import { ListTodo, TrendingUp, User, Timer } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TASK_TABS } from "./TasksHeaderWithNav";
 
@@ -33,10 +33,10 @@ export const BottomNav: React.FC = () => {
 
   const navItems = [
     // Liste and Agenda are two views of the same tasks: one entry, reopening the last used view
-    { href: lastTasksView, label: "Tâches", icon: ListTodo, activePaths: ["/tasks", "/agenda", "/session", "/"] },
+    { href: lastTasksView, label: "Tâches", icon: ListTodo, activePaths: ["/tasks", "/agenda", "/"] },
     { href: "/projects", label: "Projets", icon: TASK_TABS.find((t) => t.id === "projects")?.icon || ListTodo, activePaths: ["/projects"] },
-    { href: "/goals", label: "Objectifs", icon: Target, activePaths: ["/goals"] },
-    { href: "/dashboard", label: "Dashboard", icon: TrendingUp, activePaths: ["/dashboard"] },
+    { href: "/bilan", label: "Bilan", icon: TrendingUp, activePaths: ["/bilan", "/goals", "/dashboard"] },
+    { href: "/session", label: "Session", icon: Timer, activePaths: ["/session"] },
     { href: "/profile", label: "Profil", icon: User, activePaths: ["/profile"] },
   ];
 

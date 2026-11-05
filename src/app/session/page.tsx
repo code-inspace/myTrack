@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { Suspense } from "react";
 import { Timer } from "lucide-react";
 import { AppHeader } from "@/components/shared/AppHeader";
 import { SessionPlanner } from "@/features/session/components/SessionPlanner";
@@ -26,7 +26,11 @@ export default function SessionPage() {
             Dis combien de temps tu as, choisis tes tâches : elles sont planifiées et un minuteur te guide.
           </p>
         </div>
-        {runner.hydrated && <SessionPlanner onLaunch={runner.start} />}
+        {runner.hydrated && (
+          <Suspense fallback={null}>
+            <SessionPlanner onLaunch={runner.start} />
+          </Suspense>
+        )}
       </div>
 
       {runner.state && (

@@ -11,7 +11,6 @@ import {
   Timer,
   Settings,
   ChevronRight,
-  Target
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TasksTab } from "@/components/shared/TasksHeaderWithNav";
@@ -30,8 +29,7 @@ const MAIN_NAV = [
 ];
 
 const SECONDARY_NAV = [
-  { label: "Dashboard", icon: TrendingUp, href: "/dashboard", paths: ["/dashboard"] },
-  { label: "Objectifs", icon: Target, href: "/goals", paths: ["/goals"] },
+  { label: "Bilan", icon: TrendingUp, href: "/bilan", paths: ["/bilan", "/goals", "/dashboard"] },
   { label: "Session", icon: Timer, href: "/session", paths: ["/session"] },
 ];
 

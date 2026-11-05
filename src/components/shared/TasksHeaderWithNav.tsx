@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AppHeader } from "@/components/shared/AppHeader";
 import { HorizontalDatePicker } from "@/features/tasks/components/HorizontalDatePicker";
-import { ListTodo, Calendar, FolderKanban, Timer, type LucideIcon } from "lucide-react";
+import { ListTodo, Calendar, FolderKanban, type LucideIcon } from "lucide-react";
 import { useAuth } from "@/providers/AuthProvider";
 
 export type TasksTab = "habits" | "agenda" | "projects";
@@ -88,13 +88,6 @@ export const TasksHeaderWithNav: React.FC<TasksHeaderWithNavProps> = ({
               </Link>
             ))}
           </div>
-          <Link
-            href="/session"
-            className="flex flex-shrink-0 items-center gap-1 rounded-full border border-[#D4F63D]/40 px-3 py-1 text-[12px] font-bold text-[#D4F63D] hover:bg-[#D4F63D]/10"
-          >
-            <Timer className="h-3.5 w-3.5" aria-hidden="true" />
-            Session
-          </Link>
         </div>
       )}
 

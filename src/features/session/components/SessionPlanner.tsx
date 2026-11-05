@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import {
@@ -38,6 +39,8 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/AuthProvider";
 import { useTasks } from "@/features/tasks/hooks";
 import { useProjects } from "@/features/projects/hooks";
+import { useGoals } from "@/features/goals/hooks";
+import { goalDisplayName } from "@/features/bilan/components/GoalsTab";
 import { createDbTask, updateTaskSchedule } from "@/features/tasks/actions";
 import { isSleepOrNapTitle } from "@/features/sleep/taskSleepSync";
 import { Task } from "@/features/tasks/types";
@@ -198,6 +201,8 @@ export const SessionPlanner: React.FC<SessionPlannerProps> = ({ onLaunch }) => {
   const todayStr = format(new Date(), "yyyy-MM-dd");
   const { allTasks = [], allCompletions = [] } = useTasks(todayStr);
   const { projects = [] } = useProjects();
+  const { goals = [] } = useGoals();
+  const searchParams = useSearchParams();
 
   const [availableMinutes, setAvailableMinutes] = useState(180);
   const [untilTime, setUntilTime] = useState("");
@@ -247,6 +252,35 @@ export const SessionPlanner: React.FC<SessionPlannerProps> = ({ onLaunch }) => {
       .slice(0, 6);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allTasks, query, blocks, doneIds]);
+
+  // Arriving from a goal ("Planifier une session"): start with one block for that goal
+  const prefilled = useRef(false);
+  useEffect(() => {
+    const goalId = searchParams.get("goal");
+    if (prefilled.current || !goalId || goals.length === 0) return;
+    const goal = goals.find((g) => g.id === goalId);
+    if (!goal) return;
+    prefilled.current = true;
+    const requested = Number(searchParams.get("minutes"));
+    const minutes = Number.isFinite(requested) && requested > 0 ? Math.min(240, Math.max(5, Math.round(requested / 5) * 5)) : 60;
+    const project = projectById.get(goal.projectId);
+    const categories = Array.isArray(goal.projectCategories) && goal.projectCategories.length > 0 ? goal.projectCategories : goal.projectCategory ? [goal.projectCategory] : [];
+    /* eslint-disable react-hooks/set-state-in-effect */
+    setBlocks((prev) => [
+      ...prev,
+      {
+        id: newId(),
+        taskId: null,
+        title: goalDisplayName(goal, project?.name),
+        minutes,
+        color: goal.color || project?.color || null,
+        projectId: goal.projectId,
+        projectCategory: categories[0] ?? null,
+      },
+    ]);
+    setAvailableMinutes((cur) => Math.max(cur, minutes));
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [searchParams, goals, projectById]);
 
   const addTask = (task: Task) => {
     setBlocks((prev) => [
@@ -339,6 +373,8 @@ export const SessionPlanner: React.FC<SessionPlannerProps> = ({ onLaunch }) => {
             description: null,
             tag: "General",
             category: "General",
+            projectId: block?.projectId ?? null,
+            projectCategory: block?.projectCategory ?? null,
             startTime,
             endTime,
             recurrence: "ONCE",

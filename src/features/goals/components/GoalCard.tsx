@@ -4,6 +4,8 @@ import React, { useState } from "react";
 import { Goal, GoalProgressResult } from "../types";
 import { Project } from "@/features/projects/types";
 import { Period } from "@/features/dashboard/types";
+import type { GoalPace } from "@/features/bilan/insights";
+import { formatMinutes } from "@/features/session/plan";
 import {
   Target,
   MoreVertical,
@@ -12,14 +14,26 @@ import {
   CheckCircle2,
   Clock,
   Sparkles,
-  Repeat
+  Repeat,
+  TrendingUp,
+  AlertTriangle,
 } from "lucide-react";
+
+/** Pace status as text + icon (never color alone) */
+const PACE_BADGE: Record<string, { label: string; className: string; icon: React.ElementType } | undefined> = {
+  ahead: { label: "En avance", className: "text-[#D4F63D] border-[#D4F63D]/30 bg-[#D4F63D]/10", icon: TrendingUp },
+  on_track: { label: "En bonne voie", className: "text-[#D1D5DB] border-white/15 bg-white/5", icon: Clock },
+  behind: { label: "En retard", className: "text-amber-300 border-amber-400/30 bg-amber-400/10", icon: AlertTriangle },
+  missed: { label: "Manqué", className: "text-red-300 border-red-400/30 bg-red-400/10", icon: AlertTriangle },
+};
 
 interface GoalCardProps {
   goal: Goal;
   progress: GoalProgressResult;
   project?: Project | null;
   period: Period;
+  /** Where the goal stands against the time elapsed (shown as a status and a marker on the bar) */
+  pace?: GoalPace;
   onEdit: (goal: Goal) => void;
   onDelete: (goalId: string) => void;
 }
@@ -29,6 +43,7 @@ export const GoalCard: React.FC<GoalCardProps> = ({
   progress,
   project,
   period,
+  pace,
   onEdit,
   onDelete,
 }) => {
@@ -203,6 +218,21 @@ export const GoalCard: React.FC<GoalCardProps> = ({
         </div>
       </div>
 
+      {pace && PACE_BADGE[pace.status] && (
+        <div className="pb-1.5">
+          {(() => {
+            const badge = PACE_BADGE[pace.status]!;
+            const Icon = badge.icon;
+            return (
+              <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-bold ${badge.className}`}>
+                <Icon className="h-3 w-3" aria-hidden="true" />
+                {badge.label}
+              </span>
+            );
+          })()}
+        </div>
+      )}
+
       {/* 3. The requested Goal Bar: Semi-transparent Target Bar + Solid Opaque Realized Gauge */}
       <div className="w-full py-1.5">
         <div
@@ -225,7 +255,21 @@ export const GoalCard: React.FC<GoalCardProps> = ({
             {/* Subtle inner highlight shine */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-white/20 rounded-full" />
           </div>
+
+          {/* Where you should be by now */}
+          {pace && pace.expectedPercent > 0 && pace.expectedPercent < 100 && !progress.isCompleted && (
+            <div
+              aria-hidden="true"
+              className="absolute inset-y-0 w-0.5 bg-white/80"
+              style={{ left: `${pace.expectedPercent}%` }}
+            />
+          )}
         </div>
+        {pace && pace.expectedPercent > 0 && pace.expectedPercent < 100 && !progress.isCompleted && (
+          <p className="mt-1 text-[11px] text-[#8E929E]">
+            Repère : tu devrais en être à <strong className="text-white">{pace.expectedPercent}%</strong> aujourd&apos;hui
+          </p>
+        )}
       </div>
 
       {/* 4. Bottom Contextual Footer */}
@@ -241,7 +285,11 @@ export const GoalCard: React.FC<GoalCardProps> = ({
               ? progress.isOverachieved
                 ? `Objectif dépassé (${progress.formattedActual}) !`
                 : "Objectif atteint avec succès 🎉"
-              : `Encore ${progress.formattedRemaining} pour valider`}
+              : `Encore ${progress.formattedRemaining} pour valider${
+                  pace && pace.perDay && pace.perDay > 0 && pace.daysLeft > 1
+                    ? ` · ${pace.isCount ? `${Math.round(pace.perDay * 10) / 10} séance/jour` : `${formatMinutes(Math.ceil(pace.perDay))}/jour`}`
+                    : ""
+                }`}
           </span>
         </div>
 
