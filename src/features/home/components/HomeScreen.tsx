@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
-import { Plus, Play, Target, Timer } from "lucide-react";
+import { Plus, Play, Timer } from "lucide-react";
 import { AppHeader } from "@/components/shared/AppHeader";
 import { useGoalItems, type GoalItem } from "@/features/bilan/useGoalItems";
 import { goalDisplayName } from "@/features/bilan/components/GoalsTab";
@@ -13,6 +13,7 @@ import { RunningTimerCard } from "@/features/quicktimer/components/RunningTimerC
 import { MinutesSheet } from "@/features/quicktimer/components/MinutesSheet";
 import type { QuickTarget } from "@/features/quicktimer/quickTimer";
 import { formatMinutes } from "@/features/session/plan";
+import { SetupDomains } from "./SetupDomains";
 import type { Project } from "@/features/projects/types";
 
 const PACE_TEXT: Record<string, { label: string; className: string } | undefined> = {
@@ -77,7 +78,7 @@ function ActionButtons({ label, running, onStart, onAdd }: { label: string; runn
 /** Home: where do I stand this week, and one tap to start working on something. */
 export const HomeScreen: React.FC = () => {
   const [reference] = useState(() => new Date());
-  const { items, goals, projects } = useGoalItems("week", reference);
+  const { items, goals, projects, isLoading } = useGoalItems("week", reference);
   const { timer, start, record } = useQuickTimer();
   const [adding, setAdding] = useState<{ target: QuickTarget } | null>(null);
 
@@ -110,22 +111,16 @@ export const HomeScreen: React.FC = () => {
 
         <RunningTimerCard />
 
+        {!isLoading && items.length === 0 && <SetupDomains projects={projects} />}
+
         <GoalsVerdictCard verdict={verdict} />
 
-        <section aria-labelledby="home-week" className="space-y-3">
+        <section aria-labelledby="home-week" className="space-y-3" hidden={items.length === 0 && looseProjects.length === 0}>
           <h2 id="home-week" className="text-sm font-bold uppercase tracking-wider text-white">
             Cette semaine
           </h2>
 
-          {items.length === 0 && projects.length === 0 ? (
-            <div className="space-y-3 rounded-3xl border border-dashed border-[#343740] p-6 text-center">
-              <Target className="mx-auto h-8 w-8 text-[#D4F63D]" aria-hidden="true" />
-              <p className="text-sm text-[#A1A5B3]">Crée un projet par domaine (Candidatures, Révisions…), puis fixe-lui une cible hebdo.</p>
-              <Link href="/projects" className="inline-block text-sm font-bold text-[#D4F63D] hover:underline">
-                Créer mes projets
-              </Link>
-            </div>
-          ) : (
+          {(
             <ul className="space-y-3">
               {items.map((item) => {
                 const target = targetOf(item);

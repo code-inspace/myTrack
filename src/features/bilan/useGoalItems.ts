@@ -20,7 +20,7 @@ export interface GoalItem {
 
 /** The goals of one period (recurring ones included) with their progress and pace, riskiest first. */
 export function useGoalItems(periodType: "day" | "week" | "month", referenceDate: Date) {
-  const { goals } = useGoals();
+  const { goals, isLoading } = useGoals();
   const { projects } = useProjects();
   const { allTasks, allCompletions } = useTasks(getTodayDateString());
   const { events: externalEvents } = useCalendarEvents();
@@ -46,5 +46,5 @@ export function useGoalItems(periodType: "day" | "week" | "month", referenceDate
     return sortByRisk(list);
   }, [goals, periodType, referenceDate, allTasks, allCompletions, externalEvents, projects]);
 
-  return { items, goals, projects };
+  return { items, goals, projects, isLoading };
 }
