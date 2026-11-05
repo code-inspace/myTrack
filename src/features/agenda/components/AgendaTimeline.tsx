@@ -852,7 +852,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
               <CalendarIcon className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Agendas</span>
               {enabledSubsCount > 0 && (
-                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-[#3B82F6]/20 text-[#60A5FA]">
+                <span className="px-1.5 py-0.2 rounded-full text-[11px] font-bold bg-[#3B82F6]/20 text-[#60A5FA]">
                   {enabledSubsCount}
                 </span>
               )}
@@ -949,7 +949,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
                 onClick={() => setIsAllDayExpanded(!isAllDayExpanded)}
                 className="w-14 md:w-16 flex-shrink-0 border-r border-[#202228] p-1 flex flex-col justify-center items-center text-center bg-[#111214] hover:bg-[#1C1D24] sticky left-0 z-35 transition-colors cursor-pointer group"
               >
-                <span className="text-[9px] md:text-[10px] font-bold text-[#8E929E] group-hover:text-white uppercase tracking-tighter leading-tight">
+                <span className="text-[11px] md:text-[11px] font-bold text-[#8E929E] group-hover:text-white uppercase tracking-tighter leading-tight">
                   Jour<br />entier
                 </span>
                 <ChevronDown
@@ -993,7 +993,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
                     )}
                   >
                     {!hasAnyAllDay ? (
-                      <div className="text-[10px] text-[#555866] italic px-1 flex items-center gap-1">
+                      <div className="text-[11px] text-[#8E929E] italic px-1 flex items-center gap-1">
                         {viewMode === "day" ? (
                           <>
                             <Sparkles className="w-3 h-3 text-[#D4F63D]" />
@@ -1030,7 +1030,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
                                 style={{ backgroundColor: calColor }}
                               />
                               {project && (
-                                <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full bg-black/40 text-white font-medium text-[9px] border border-white/10 flex-shrink-0">
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full bg-black/40 text-white font-medium text-[11px] border border-white/10 flex-shrink-0">
                                   <span
                                     className="w-1.5 h-1.5 rounded-full flex-shrink-0"
                                     style={{ backgroundColor: project.color || "#D4F63D" }}
@@ -1092,7 +1092,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
                                 )}
                               </button>
                               {project && (
-                                <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full bg-black/40 text-white font-medium text-[9px] border border-white/10 flex-shrink-0">
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full bg-black/40 text-white font-medium text-[11px] border border-white/10 flex-shrink-0">
                                   <span
                                     className="w-1.5 h-1.5 rounded-full flex-shrink-0"
                                     style={{ backgroundColor: project.color || "#D4F63D" }}
@@ -1152,7 +1152,7 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
                 <div
                   key={hour}
                   style={{ height: `${HOUR_ROW_HEIGHT}px` }}
-                  className="text-right pr-2 text-[10px] md:text-[11px] font-mono font-medium text-[#717684] flex items-start justify-end pt-1"
+                  className="text-right pr-2 text-[11px] md:text-[11px] font-mono font-medium text-[#8E929E] flex items-start justify-end pt-1"
                 >
                   <span>{hour.toString().padStart(2, "0")}:00</span>
                 </div>
@@ -1261,8 +1261,8 @@ export const AgendaTimeline: React.FC<AgendaTimelineProps> = ({
           onEditTask?.(t);
         }}
         onUpdateTask={onUpdateTask}
-        onUpdateTimes={(taskId, start, end, date) => {
-          onMoveTaskToTime(taskId, start, end, date);
+        onUpdateTimes={(taskId, start, end, date, originDate) => {
+          onMoveTaskToTime(taskId, start, end, date, originDate);
         }}
       />
 
@@ -1296,10 +1296,10 @@ const SleepDayButtons: React.FC<{
   const isFuture = dayStr > getTodayDateString();
   const futureTitle = "Jour futur : on ne peut pas y enregistrer de sommeil";
   const buttonClass = cn(
-    "inline-flex items-center gap-1 rounded-lg border text-[10px] font-semibold transition-colors",
+    "inline-flex items-center gap-1 rounded-lg border text-[11px] font-semibold transition-colors",
     withLabel ? "px-3 py-1.5 text-xs rounded-xl" : "px-1.5 py-0.5",
     isFuture
-      ? "border-[#282B36] text-[#4B5563] cursor-not-allowed"
+      ? "border-[#282B36] text-[#8E929E] cursor-not-allowed"
       : "border-[#A855F7]/40 text-[#C084FC] hover:bg-[#A855F7]/15 cursor-pointer"
   );
   return (
@@ -1554,7 +1554,7 @@ const DayGridColumn: React.FC<DayGridColumnProps> = ({
           style={{ top: `${dragHoverMinute}px` }}
           className="absolute inset-x-0 z-40 pointer-events-none flex items-center"
         >
-          <div className="bg-[#D4F63D] text-black font-mono font-extrabold text-[9px] md:text-[10px] py-0.5 px-1.5 rounded-full shadow-lg ml-1">
+          <div className="bg-[#D4F63D] text-black font-mono font-extrabold text-[11px] md:text-[11px] py-0.5 px-1.5 rounded-full shadow-lg ml-1">
             ⏱ {formatMinutesToTime(dragHoverMinute)}
           </div>
           <div className="flex-1 border-b-2 border-dashed border-[#D4F63D]" />

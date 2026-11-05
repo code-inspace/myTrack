@@ -136,7 +136,7 @@ export const DailyBilanView: React.FC<DailyBilanViewProps> = ({ selectedDate }) 
                 value={log.gratitude || ""}
                 onChange={(e) => handleFieldChange("gratitude", e.target.value)}
                 placeholder="Ex : Je suis reconnaissant(e) pour le temps passé avec mes proches, cette séance d'entraînement réussie, cette opportunité..."
-                className="w-full p-4 rounded-2xl bg-[#252830] border border-[#343740] text-sm text-white focus:border-[#EC4899] focus:ring-1 focus:ring-[#EC4899] outline-none placeholder-[#6B7280] resize-none transition-all"
+                className="w-full p-4 rounded-2xl bg-[#252830] border border-[#343740] text-sm text-white focus:border-[#EC4899] focus:ring-1 focus:ring-[#EC4899] outline-none placeholder-[#8E929E] resize-none transition-all"
               />
             </div>
           </div>
@@ -163,7 +163,7 @@ export const DailyBilanView: React.FC<DailyBilanViewProps> = ({ selectedDate }) 
                 value={log.manifestation || ""}
                 onChange={(e) => handleFieldChange("manifestation", e.target.value)}
                 placeholder="Ex : J'attire la clarté et l'énergie nécessaire pour accomplir mes projets. Je progresse chaque jour vers..."
-                className="w-full p-4 rounded-2xl bg-[#252830] border border-[#343740] text-sm text-white focus:border-[#8B5CF6] focus:ring-1 focus:ring-[#8B5CF6] outline-none placeholder-[#6B7280] resize-none transition-all"
+                className="w-full p-4 rounded-2xl bg-[#252830] border border-[#343740] text-sm text-white focus:border-[#8B5CF6] focus:ring-1 focus:ring-[#8B5CF6] outline-none placeholder-[#8E929E] resize-none transition-all"
               />
             </div>
           </div>
@@ -193,7 +193,7 @@ export const DailyBilanView: React.FC<DailyBilanViewProps> = ({ selectedDate }) 
                 value={log.notes || ""}
                 onChange={(e) => handleFieldChange("notes", e.target.value)}
                 placeholder="Comment s'est passée ta journée ? Qu'as-tu accompli, quelles leçons en tires-tu ?"
-                className="w-full p-4 rounded-2xl bg-[#252830] border border-[#343740] text-sm text-white focus:border-[#D4F63D] focus:ring-1 focus:ring-[#D4F63D] outline-none placeholder-[#6B7280] resize-none transition-all"
+                className="w-full p-4 rounded-2xl bg-[#252830] border border-[#343740] text-sm text-white focus:border-[#D4F63D] focus:ring-1 focus:ring-[#D4F63D] outline-none placeholder-[#8E929E] resize-none transition-all"
               />
             </div>
           </div>

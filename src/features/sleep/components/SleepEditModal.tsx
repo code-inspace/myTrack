@@ -489,7 +489,7 @@ export const SleepEditModal: React.FC<SleepEditModalProps> = ({
 
             <div className={cn("grid gap-2", isObjective ? "grid-cols-1" : "grid-cols-2")}>
               <div className={cn("space-y-1", isObjective && "hidden")}>
-                <span className="text-[10px] text-[#64748B] uppercase font-semibold">Date</span>
+                <span className="text-[11px] text-[#94A3B8] uppercase font-semibold">Date</span>
                 <input
                   type="date"
                   value={startDate}
@@ -498,7 +498,7 @@ export const SleepEditModal: React.FC<SleepEditModalProps> = ({
                 />
               </div>
               <div className="space-y-1">
-                <span className="text-[10px] text-[#64748B] uppercase font-semibold">Heure</span>
+                <span className="text-[11px] text-[#94A3B8] uppercase font-semibold">Heure</span>
                 <input
                   type="time"
                   value={startTime}
@@ -512,14 +512,14 @@ export const SleepEditModal: React.FC<SleepEditModalProps> = ({
               <button
                 type="button"
                 onClick={() => handleQuickAdjust("start", -15)}
-                className="flex-1 py-1 rounded-lg bg-[#242842] hover:bg-[#2F3456] text-[10px] font-semibold text-[#94A3B8] hover:text-white transition-colors cursor-pointer"
+                className="flex-1 py-1 rounded-lg bg-[#242842] hover:bg-[#2F3456] text-[11px] font-semibold text-[#94A3B8] hover:text-white transition-colors cursor-pointer"
               >
                 -15 min
               </button>
               <button
                 type="button"
                 onClick={() => handleQuickAdjust("start", 15)}
-                className="flex-1 py-1 rounded-lg bg-[#242842] hover:bg-[#2F3456] text-[10px] font-semibold text-[#94A3B8] hover:text-white transition-colors cursor-pointer"
+                className="flex-1 py-1 rounded-lg bg-[#242842] hover:bg-[#2F3456] text-[11px] font-semibold text-[#94A3B8] hover:text-white transition-colors cursor-pointer"
               >
                 +15 min
               </button>
@@ -540,7 +540,7 @@ export const SleepEditModal: React.FC<SleepEditModalProps> = ({
 
             <div className={cn("grid gap-2", isObjective ? "grid-cols-1" : "grid-cols-2")}>
               <div className={cn("space-y-1", isObjective && "hidden")}>
-                <span className="text-[10px] text-[#64748B] uppercase font-semibold">Date</span>
+                <span className="text-[11px] text-[#94A3B8] uppercase font-semibold">Date</span>
                 <input
                   type="date"
                   value={endDate}
@@ -549,7 +549,7 @@ export const SleepEditModal: React.FC<SleepEditModalProps> = ({
                 />
               </div>
               <div className="space-y-1">
-                <span className="text-[10px] text-[#64748B] uppercase font-semibold">Heure</span>
+                <span className="text-[11px] text-[#94A3B8] uppercase font-semibold">Heure</span>
                 <input
                   type="time"
                   value={endTime}
@@ -563,14 +563,14 @@ export const SleepEditModal: React.FC<SleepEditModalProps> = ({
               <button
                 type="button"
                 onClick={() => handleQuickAdjust("end", -15)}
-                className="flex-1 py-1 rounded-lg bg-[#242842] hover:bg-[#2F3456] text-[10px] font-semibold text-[#94A3B8] hover:text-white transition-colors cursor-pointer"
+                className="flex-1 py-1 rounded-lg bg-[#242842] hover:bg-[#2F3456] text-[11px] font-semibold text-[#94A3B8] hover:text-white transition-colors cursor-pointer"
               >
                 -15 min
               </button>
               <button
                 type="button"
                 onClick={() => handleQuickAdjust("end", 15)}
-                className="flex-1 py-1 rounded-lg bg-[#242842] hover:bg-[#2F3456] text-[10px] font-semibold text-[#94A3B8] hover:text-white transition-colors cursor-pointer"
+                className="flex-1 py-1 rounded-lg bg-[#242842] hover:bg-[#2F3456] text-[11px] font-semibold text-[#94A3B8] hover:text-white transition-colors cursor-pointer"
               >
                 +15 min
               </button>

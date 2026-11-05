@@ -90,7 +90,7 @@ export const GoalCard: React.FC<GoalCardProps> = ({
                   {targetCategories.map((cat) => (
                     <span
                       key={cat}
-                      className="text-[10px] font-bold px-2 py-0.5 rounded-full border border-white/10"
+                      className="text-[11px] font-bold px-2 py-0.5 rounded-full border border-white/10"
                       style={{
                         backgroundColor: `${projectColor}15`,
                         color: projectColor,
@@ -232,9 +232,9 @@ export const GoalCard: React.FC<GoalCardProps> = ({
       <div className="flex items-center justify-between pt-2 text-[11px] text-[#8E929E]">
         <div className="flex items-center gap-1.5">
           {progress.targetType === "count" ? (
-            <Target className="w-3.5 h-3.5 text-[#717684]" />
+            <Target className="w-3.5 h-3.5 text-[#8E929E]" />
           ) : (
-            <Clock className="w-3.5 h-3.5 text-[#717684]" />
+            <Clock className="w-3.5 h-3.5 text-[#8E929E]" />
           )}
           <span>
             {progress.isCompleted

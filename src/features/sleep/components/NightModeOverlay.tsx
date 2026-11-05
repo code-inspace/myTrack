@@ -212,7 +212,7 @@ export const NightModeOverlay: React.FC<NightModeOverlayProps> = ({
                 <span className="text-2xl sm:text-3xl font-black tracking-tight text-[#16122C] drop-shadow-[0_1px_4px_rgba(255,255,255,0.6)] font-mono">
                   {currentTime || bedtime}
                 </span>
-                <span className="text-[9px] sm:text-[10px] font-extrabold text-[#5B21B6] tracking-wider uppercase mt-0.5 px-2 py-0.5 rounded-full bg-[#EDE9FE]/85 shadow-xs">
+                <span className="text-[11px] sm:text-[11px] font-extrabold text-[#5B21B6] tracking-wider uppercase mt-0.5 px-2 py-0.5 rounded-full bg-[#EDE9FE]/85 shadow-xs">
                   {isSleeping ? "En sommeil" : "Mode Nuit"}
                 </span>
               </div>
@@ -300,9 +300,9 @@ export const NightModeOverlay: React.FC<NightModeOverlayProps> = ({
                 </>
               ) : (
                 <>
-                  <Lock className="w-3.5 h-3.5 text-[#6B7088] relative z-10" />
+                  <Lock className="w-3.5 h-3.5 text-[#8E929E] relative z-10" />
                   <span className="relative z-10">Je veux voir mes tâches</span>
-                  <span className="relative z-10 text-[10px] text-[#6B7088] font-normal">
+                  <span className="relative z-10 text-[11px] text-[#8E929E] font-normal">
                     (Maintenir 5s)
                   </span>
                 </>
@@ -310,7 +310,7 @@ export const NightModeOverlay: React.FC<NightModeOverlayProps> = ({
             </button>
 
             {isHolding && (
-              <p className="text-[10px] text-[#A5A8B6] text-center mt-1 animate-pulse">
+              <p className="text-[11px] text-[#A5A8B6] text-center mt-1 animate-pulse">
                 Ne relâchez pas le bouton pour quitter le mode nuit
               </p>
             )}

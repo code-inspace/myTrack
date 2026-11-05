@@ -97,7 +97,7 @@ function SortableModuleItem({
       <div
         {...attributes}
         {...listeners}
-        className="p-1.5 -ml-1 text-[#6B7280] hover:text-[#D4F63D] cursor-grab active:cursor-grabbing rounded-lg hover:bg-white/5 touch-none flex-shrink-0"
+        className="p-1.5 -ml-1 text-[#8E929E] hover:text-[#D4F63D] cursor-grab active:cursor-grabbing rounded-lg hover:bg-white/5 touch-none flex-shrink-0"
         title="Glisser pour réorganiser"
       >
         <GripVertical className="w-4 h-4" />
@@ -112,7 +112,7 @@ function SortableModuleItem({
           <div className="text-xs sm:text-sm font-bold text-white truncate">
             {module.label}
           </div>
-          <div className="text-[10px] sm:text-[11px] text-[#8E929E] truncate">
+          <div className="text-[11px] sm:text-[11px] text-[#8E929E] truncate">
             {module.description}
           </div>
         </div>
@@ -126,7 +126,7 @@ function SortableModuleItem({
           "px-2.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer flex-shrink-0",
           module.enabled
             ? "bg-[#D4F63D]/15 text-[#D4F63D] border border-[#D4F63D]/30"
-            : "bg-[#202228] text-[#6B7280] border border-transparent hover:text-white"
+            : "bg-[#202228] text-[#8E929E] border border-transparent hover:text-white"
         )}
       >
         {module.enabled ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}

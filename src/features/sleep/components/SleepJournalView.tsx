@@ -216,7 +216,7 @@ export const SleepJournalView: React.FC<SleepJournalViewProps> = ({ selectedDate
               return (
                 <span
                   key={nap.id}
-                  className="px-2.5 py-1 rounded-lg bg-[#17181D] border border-[#282A30] text-[10px] font-mono text-[#8E929E]"
+                  className="px-2.5 py-1 rounded-lg bg-[#17181D] border border-[#282A30] text-[11px] font-mono text-[#8E929E]"
                 >
                   Sieste {nap.startTime}–{nap.endTime}
                   {dur ? ` (${dur.text})` : ""}
@@ -240,7 +240,7 @@ export const SleepJournalView: React.FC<SleepJournalViewProps> = ({ selectedDate
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-bold text-white">Heure de coucher</h3>
                 {isPastMidnightBedtime && (
-                  <span className="px-2 py-0.5 rounded-md bg-[#818CF8]/20 border border-[#818CF8]/40 text-[#818CF8] font-bold text-[10px]">
+                  <span className="px-2 py-0.5 rounded-md bg-[#818CF8]/20 border border-[#818CF8]/40 text-[#818CF8] font-bold text-[11px]">
                     +1 jour
                   </span>
                 )}
@@ -300,7 +300,7 @@ export const SleepJournalView: React.FC<SleepJournalViewProps> = ({ selectedDate
                   </span>
                 </div>
 
-                <p className="text-[10px] text-[#6B7280]">
+                <p className="text-[11px] text-[#8E929E]">
                   Coucher hier à <strong>{nightSleep.yesterdayBedtime}</strong> → Réveil ce matin à <strong>{nightSleep.todayWakeTime}</strong>
                 </p>
               </div>

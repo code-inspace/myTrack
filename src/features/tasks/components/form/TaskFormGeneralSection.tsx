@@ -75,7 +75,7 @@ export const TaskFormGeneralSection: React.FC<TaskFormGeneralSectionProps> = ({
           placeholder="ex: Pompes, Lire 20 pages, Deep work..."
           value={form.title}
           onChange={(e) => form.setTitle(e.target.value)}
-          className="w-full px-4 py-3 rounded-2xl bg-[#252830] border border-[#343740] focus:border-[#D4F63D] focus:ring-1 focus:ring-[#D4F63D] text-white text-sm outline-none transition-all placeholder-[#6B7280]"
+          className="w-full px-4 py-3 rounded-2xl bg-[#252830] border border-[#343740] focus:border-[#D4F63D] focus:ring-1 focus:ring-[#D4F63D] text-white text-sm outline-none transition-all placeholder-[#8E929E]"
         />
         {isSleepTitle(form.title) && (
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#8B5CF6]/15 border border-[#8B5CF6]/40 text-[#C4B5FD] text-xs font-medium animate-in fade-in duration-200">
@@ -98,7 +98,7 @@ export const TaskFormGeneralSection: React.FC<TaskFormGeneralSectionProps> = ({
           placeholder="Description ou notes (optionnel)"
           value={form.description}
           onChange={(e) => form.setDescription(e.target.value)}
-          className="w-full px-3.5 py-2.5 rounded-xl bg-[#252830]/60 border border-[#343740] focus:border-[#D4F63D] text-xs text-white outline-none transition-all placeholder-[#6B7280]"
+          className="w-full px-3.5 py-2.5 rounded-xl bg-[#252830]/60 border border-[#343740] focus:border-[#D4F63D] text-xs text-white outline-none transition-all placeholder-[#8E929E]"
         />
       </div>
 
@@ -108,7 +108,7 @@ export const TaskFormGeneralSection: React.FC<TaskFormGeneralSectionProps> = ({
           <CalendarDays className="w-4 h-4 text-[#D4F63D]" />
           <div>
             <div className="text-xs font-bold text-white">Date de la tâche</div>
-            <div className="text-[10px] text-[#8E929E]">
+            <div className="text-[11px] text-[#8E929E]">
               Jour d'exécution ou départ
             </div>
           </div>
@@ -127,7 +127,7 @@ export const TaskFormGeneralSection: React.FC<TaskFormGeneralSectionProps> = ({
           <Flag className="w-4 h-4 text-[#D4F63D]" />
           <div>
             <div className="text-xs font-bold text-white">Deadline</div>
-            <div className="text-[10px] text-[#8E929E]">
+            <div className="text-[11px] text-[#8E929E]">
               Optionnel — date limite
             </div>
           </div>
@@ -455,7 +455,7 @@ export const TaskFormGeneralSection: React.FC<TaskFormGeneralSectionProps> = ({
                       <span className="block text-[11px] font-semibold text-[#8E929E]">
                         Catégorie du projet
                       </span>
-                      <span className="text-[10px] text-[#6B7280]">
+                      <span className="text-[11px] text-[#8E929E]">
                         Propre à ce projet
                       </span>
                     </div>
@@ -463,7 +463,7 @@ export const TaskFormGeneralSection: React.FC<TaskFormGeneralSectionProps> = ({
                       <button
                         type="button"
                         onClick={() => form.setProjectCategory("")}
-                        className="text-[10px] font-semibold text-[#8E929E] hover:text-[#EF4444] transition-colors cursor-pointer"
+                        className="text-[11px] font-semibold text-[#8E929E] hover:text-[#EF4444] transition-colors cursor-pointer"
                       >
                         Effacer
                       </button>
@@ -515,7 +515,7 @@ export const TaskFormGeneralSection: React.FC<TaskFormGeneralSectionProps> = ({
                           handleAddNewProjectCategory();
                         }
                       }}
-                      className="flex-1 px-3 py-1.5 rounded-xl bg-[#1C1D22] border border-[#343740] focus:border-[#818CF8] text-xs text-white outline-none placeholder-[#6B7280]"
+                      className="flex-1 px-3 py-1.5 rounded-xl bg-[#1C1D22] border border-[#343740] focus:border-[#818CF8] text-xs text-white outline-none placeholder-[#8E929E]"
                     />
                     <button
                       type="button"

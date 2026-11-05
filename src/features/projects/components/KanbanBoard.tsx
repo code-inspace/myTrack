@@ -81,7 +81,7 @@ export const BoardCard: React.FC<{
         isDragging ? "opacity-40 ring-2 ring-[#D4F63D]/50 z-10 relative" : ""
       )}
     >
-      <div {...attributes} {...listeners} className="text-[#6B7280] cursor-grab active:cursor-grabbing mt-0.5 touch-none">
+      <div {...attributes} {...listeners} className="text-[#8E929E] cursor-grab active:cursor-grabbing mt-0.5 touch-none">
         <GripVertical className="w-3.5 h-3.5" />
       </div>
       {task.priority && task.priority !== "NORMAL" && (
@@ -99,7 +99,7 @@ export const BoardCard: React.FC<{
         </button>
         <div className="flex items-center gap-1.5 flex-wrap mt-1">
           {projectBadge && (
-            <span className="flex items-center gap-1 text-[10px] text-[#8E929E] truncate">
+            <span className="flex items-center gap-1 text-[11px] text-[#8E929E] truncate">
               <span
                 className="w-1.5 h-1.5 rounded-full flex-shrink-0"
                 style={{ backgroundColor: projectBadge.color }}
@@ -108,18 +108,18 @@ export const BoardCard: React.FC<{
             </span>
           )}
           {task.projectCategory ? (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-semibold bg-[#818CF8]/15 border border-[#818CF8]/30 text-[#A5B4FC]">
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[11px] font-semibold bg-[#818CF8]/15 border border-[#818CF8]/30 text-[#A5B4FC]">
               <Tag className="w-2.5 h-2.5 flex-shrink-0" />
               <span className="truncate">{task.projectCategory}</span>
             </span>
           ) : (task.tag || task.category) ? (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-medium bg-white/5 border border-white/10 text-[#A0A5B5]">
-              <Tag className="w-2.5 h-2.5 flex-shrink-0 text-[#6B7280]" />
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[11px] font-medium bg-white/5 border border-white/10 text-[#A0A5B5]">
+              <Tag className="w-2.5 h-2.5 flex-shrink-0 text-[#8E929E]" />
               <span className="truncate">{task.tag || task.category}</span>
             </span>
           ) : null}
           {task.projectCategory && (task.tag || task.category) && (task.tag || task.category) !== task.projectCategory && (task.tag || task.category) !== "General" && (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-medium bg-white/5 border border-white/10 text-[#8E929E]">
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[11px] font-medium bg-white/5 border border-white/10 text-[#8E929E]">
               <span className="truncate">{task.tag || task.category}</span>
             </span>
           )}
@@ -129,7 +129,7 @@ export const BoardCard: React.FC<{
         type="button"
         onClick={() => onEditTask(task)}
         title="Modifier la tâche"
-        className="p-1 rounded-lg text-[#6B7280] hover:text-[#D4F63D] hover:bg-[#22242B] transition-colors cursor-pointer flex-shrink-0"
+        className="p-1 rounded-lg text-[#8E929E] hover:text-[#D4F63D] hover:bg-[#22242B] transition-colors cursor-pointer flex-shrink-0"
       >
         <Pencil className="w-3 h-3" />
       </button>
@@ -222,7 +222,7 @@ export const BoardColumn: React.FC<{
           {column.label}
         </span>
         <div className="flex items-center gap-1.5 flex-shrink-0">
-          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#22242B] text-[#8E929E]">
+          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-[#22242B] text-[#8E929E]">
             {totalCount}
           </span>
           {onAddTask && (
@@ -244,7 +244,7 @@ export const BoardColumn: React.FC<{
             type="button"
             onClick={() => setDonePeriod("1d")}
             className={cn(
-              "flex-1 py-1 text-[10px] font-medium rounded-md transition-all text-center cursor-pointer",
+              "flex-1 py-1 text-[11px] font-medium rounded-md transition-all text-center cursor-pointer",
               donePeriod === "1d"
                 ? "bg-[#22242B] text-[#D4F63D] font-bold shadow-sm"
                 : "text-[#8E929E] hover:text-white"
@@ -256,7 +256,7 @@ export const BoardColumn: React.FC<{
             type="button"
             onClick={() => setDonePeriod("7d")}
             className={cn(
-              "flex-1 py-1 text-[10px] font-medium rounded-md transition-all text-center cursor-pointer",
+              "flex-1 py-1 text-[11px] font-medium rounded-md transition-all text-center cursor-pointer",
               donePeriod === "7d"
                 ? "bg-[#22242B] text-[#D4F63D] font-bold shadow-sm"
                 : "text-[#8E929E] hover:text-white"
@@ -268,7 +268,7 @@ export const BoardColumn: React.FC<{
             type="button"
             onClick={() => setDonePeriod("30d")}
             className={cn(
-              "flex-1 py-1 text-[10px] font-medium rounded-md transition-all text-center cursor-pointer",
+              "flex-1 py-1 text-[11px] font-medium rounded-md transition-all text-center cursor-pointer",
               donePeriod === "30d"
                 ? "bg-[#22242B] text-[#D4F63D] font-bold shadow-sm"
                 : "text-[#8E929E] hover:text-white"
@@ -303,7 +303,7 @@ export const BoardColumn: React.FC<{
         </div>
       ) : (
         column.isDone && (
-          <div className="text-[11px] text-[#6B7280] text-center py-6 italic">
+          <div className="text-[11px] text-[#8E929E] text-center py-6 italic">
             Aucun élément terminé
           </div>
         )

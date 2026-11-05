@@ -182,6 +182,18 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
       // cancels the resize interaction). On touch the long press that selects the block is also
       // what starts the native drag, so it must stay draggable there.
       draggable={!(isSelected && isMousePointer)}
+      role="button"
+      tabIndex={0}
+      aria-label={`${task.title}${timeLabel ? `, ${timeLabel}` : ""}${task.isCompletedToday ? ", terminée" : ""}${
+        task.priority === "VERY_URGENT" ? ", très urgente" : task.priority === "URGENT" ? ", urgente" : ""
+      }`}
+      onKeyDown={(e) => {
+        // Keyboard users open the task like a click (move it via the "Jour" / hours fields)
+        if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
+          e.preventDefault();
+          onClick?.();
+        }
+      }}
       data-agenda-block="true"
       data-task-id={task.id}
       data-testid={`agenda-task-block-${task.id}`}
@@ -299,7 +311,7 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
             )}
             <span
               className={cn(
-                "text-[9px] font-semibold text-white truncate leading-none",
+                "text-[10px] font-semibold text-white truncate leading-none",
                 task.isCompletedToday && "text-[#8E929E]"
               )}
             >
@@ -333,10 +345,10 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
                 {task.title}
               </h4>
             </div>
-            <span className="text-[9px] font-mono text-[#94A3B8] flex-shrink-0 flex items-center gap-0.5">
+            <span className="text-[10px] font-mono text-[#94A3B8] flex-shrink-0 flex items-center gap-0.5">
               {isOvernightEnd ? `→ ${endTime}` : isOvernightStart ? `${startTime} →` : startTime}
               {isOvernight && (
-                <span className="text-[8px] text-[#A78BFA] font-bold">
+                <span className="text-[10px] text-[#A78BFA] font-bold">
                   {isOvernightEnd ? "(Veille)" : "(+1j)"}
                 </span>
               )}
@@ -352,12 +364,12 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
                 <span className="w-1.5 h-1.5 rounded-full bg-[#D4F63D] animate-pulse flex-shrink-0" />
               )}
               {isOvernight ? (
-                <span className="inline-flex items-center gap-0.5 px-1 py-0.2 rounded bg-[#7C3AED]/20 text-[#C4B5FD] text-[8px] font-bold border border-[#7C3AED]/30 flex-shrink-0">
+                <span className="inline-flex items-center gap-0.5 px-1 py-0.2 rounded bg-[#7C3AED]/20 text-[#C4B5FD] text-[10px] font-bold border border-[#7C3AED]/30 flex-shrink-0">
                   <Moon className="w-2 h-2" />
                   <span>{isOvernightEnd ? "Veille" : "+1j"}</span>
                 </span>
               ) : (isSleep || isNap) ? (
-                <span className="inline-flex items-center gap-0.5 px-1 py-0.2 rounded bg-[#7C3AED]/20 text-[#C4B5FD] text-[8px] font-bold border border-[#7C3AED]/30 flex-shrink-0">
+                <span className="inline-flex items-center gap-0.5 px-1 py-0.2 rounded bg-[#7C3AED]/20 text-[#C4B5FD] text-[10px] font-bold border border-[#7C3AED]/30 flex-shrink-0">
                   <Moon className="w-2 h-2" />
                   <span>{isNap ? "Sieste" : "Sommeil"}</span>
                 </span>
@@ -374,7 +386,7 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
                 {task.title}
               </h4>
             </div>
-            <div className="flex items-center gap-1.5 text-[9px] text-[#94A3B8] font-mono truncate">
+            <div className="flex items-center gap-1.5 text-[10px] text-[#94A3B8] font-mono truncate">
               <span>{timeLabel}</span>
               {project && (
                 <span className="inline-flex items-center gap-0.5 truncate text-white/90 font-medium">
@@ -395,12 +407,12 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
                   <span className="w-2 h-2 rounded-full bg-[#D4F63D] animate-pulse flex-shrink-0" />
                 )}
                 {isOvernight ? (
-                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-[#7C3AED]/25 text-[#DDD6FE] text-[9px] font-bold border border-[#7C3AED]/40 flex-shrink-0">
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-[#7C3AED]/25 text-[#DDD6FE] text-[10px] font-bold border border-[#7C3AED]/40 flex-shrink-0">
                     <Moon className="w-2.5 h-2.5 text-[#C4B5FD]" />
                     <span>{isOvernightEnd ? "Débuté la veille" : "Nuit (+1j)"}</span>
                   </span>
                 ) : (isSleep || isNap) ? (
-                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-[#7C3AED]/25 text-[#DDD6FE] text-[9px] font-bold border border-[#7C3AED]/40 flex-shrink-0">
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-[#7C3AED]/25 text-[#DDD6FE] text-[10px] font-bold border border-[#7C3AED]/40 flex-shrink-0">
                     <Moon className="w-2.5 h-2.5 text-[#C4B5FD]" />
                     <span>{isNap ? "Sieste" : "Journal de sommeil"}</span>
                   </span>
@@ -427,11 +439,11 @@ export const AgendaTaskBlock: React.FC<AgendaTaskBlockProps> = ({
             </div>
 
             <div className="flex items-center justify-between gap-1 text-[10px] text-[#94A3B8] font-medium pt-1 border-t border-white/5 mt-0.5">
-              <span className="font-mono text-[9px] text-[#CBD5E1]">
+              <span className="font-mono text-[10px] text-[#CBD5E1]">
                 {timeLabel}
               </span>
               {project && (
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-black/40 text-white font-medium text-[9px] border border-white/10 truncate max-w-[90px]">
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-black/40 text-white font-medium text-[10px] border border-white/10 truncate max-w-[90px]">
                   <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: project.color || "#D4F63D" }} />
                   <span className="truncate">{project.name}</span>
                 </span>

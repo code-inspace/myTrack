@@ -157,7 +157,7 @@ export const ProjectBoardView: React.FC<ProjectBoardViewProps> = ({
               >
                 <Tag className="w-3 h-3" />
                 <span>{cat}</span>
-                <span className="text-[10px] opacity-75">({count})</span>
+                <span className="text-[11px] opacity-75">({count})</span>
               </button>
             );
           })}

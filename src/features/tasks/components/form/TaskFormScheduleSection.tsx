@@ -149,7 +149,7 @@ export const TaskFormScheduleSection: React.FC<TaskFormScheduleSectionProps> = (
                 <CalendarDays className="w-4 h-4 text-[#D4F63D] flex-shrink-0" />
                 <div>
                   <div className="text-xs font-bold text-white">Jour entier</div>
-                  <div className="text-[10px] text-[#8E929E]">Sans heure fixe</div>
+                  <div className="text-[11px] text-[#8E929E]">Sans heure fixe</div>
                 </div>
               </button>
 
@@ -166,7 +166,7 @@ export const TaskFormScheduleSection: React.FC<TaskFormScheduleSectionProps> = (
                 <Clock className="w-4 h-4 text-[#D4F63D] flex-shrink-0" />
                 <div>
                   <div className="text-xs font-bold text-white">Heure précise</div>
-                  <div className="text-[10px] text-[#8E929E]">Plage horaire</div>
+                  <div className="text-[11px] text-[#8E929E]">Plage horaire</div>
                 </div>
               </button>
             </div>
@@ -338,7 +338,7 @@ export const TaskFormScheduleSection: React.FC<TaskFormScheduleSectionProps> = (
                               "p-1.5 rounded-lg transition-colors",
                               form.reminderTimes.length > 1
                                 ? "text-[#8E929E] hover:text-red-400 hover:bg-[#252830] cursor-pointer"
-                                : "text-[#4B5563] cursor-not-allowed opacity-40",
+                                : "text-[#8E929E] cursor-not-allowed opacity-40",
                             )}
                           >
                             <Trash2 className="w-3.5 h-3.5" />

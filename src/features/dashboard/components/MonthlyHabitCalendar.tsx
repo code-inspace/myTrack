@@ -141,7 +141,7 @@ export const MonthlyHabitCalendar: React.FC<MonthlyHabitCalendarProps> = ({
       <div className="grid grid-cols-2 gap-2.5">
         <div className="bg-[#141518] p-3 rounded-2xl border border-[#262932] flex items-center justify-between">
           <div>
-            <span className="text-[10px] font-semibold text-[#8E929E] uppercase">
+            <span className="text-[11px] font-semibold text-[#8E929E] uppercase">
               Taux de complétion
             </span>
             <div className="text-xl font-extrabold text-white mt-0.5">{monthRate}%</div>
@@ -153,7 +153,7 @@ export const MonthlyHabitCalendar: React.FC<MonthlyHabitCalendarProps> = ({
 
         <div className="bg-[#141518] p-3 rounded-2xl border border-[#262932] flex items-center justify-between">
           <div>
-            <span className="text-[10px] font-semibold text-[#8E929E] uppercase">
+            <span className="text-[11px] font-semibold text-[#8E929E] uppercase">
               Jours réussis
             </span>
             <div className="text-xl font-extrabold text-[#D4F63D] mt-0.5">
@@ -207,7 +207,7 @@ export const MonthlyHabitCalendar: React.FC<MonthlyHabitCalendarProps> = ({
               return (
                 <div
                   key={index}
-                  className="aspect-square rounded-xl bg-[#141518]/30 flex items-center justify-center text-[10px] text-[#4B5563] font-medium opacity-30 pointer-events-none"
+                  className="aspect-square rounded-xl bg-[#141518]/30 flex items-center justify-center text-[11px] text-[#8E929E] font-medium opacity-30 pointer-events-none"
                 >
                   {format(d, "d")}
                 </div>
@@ -230,7 +230,7 @@ export const MonthlyHabitCalendar: React.FC<MonthlyHabitCalendarProps> = ({
                   isDone ? "✓ Fait" : isScheduled ? "✗ Non fait" : "Non planifié"
                 }`}
               >
-                <span className="text-[10px] font-mono leading-none">
+                <span className="text-[11px] font-mono leading-none">
                   {format(d, "d")}
                 </span>
 
@@ -240,7 +240,7 @@ export const MonthlyHabitCalendar: React.FC<MonthlyHabitCalendarProps> = ({
                   ) : isScheduled ? (
                     <X className="w-2.5 h-2.5 text-[#8E929E] stroke-[2]" />
                   ) : (
-                    <span className="text-[10px] opacity-20">•</span>
+                    <span className="text-[11px] opacity-20">•</span>
                   )}
                 </div>
               </div>
@@ -250,7 +250,7 @@ export const MonthlyHabitCalendar: React.FC<MonthlyHabitCalendarProps> = ({
       </div>
 
       {/* Legend */}
-      <div className="pt-2 border-t border-[#282A30] flex items-center justify-center gap-4 text-[10px] text-[#8E929E]">
+      <div className="pt-2 border-t border-[#282A30] flex items-center justify-center gap-4 text-[11px] text-[#8E929E]">
         <div className="flex items-center gap-1">
           <div className="w-2.5 h-2.5 rounded-full bg-[#D4F63D]" />
           <span>Fait</span>

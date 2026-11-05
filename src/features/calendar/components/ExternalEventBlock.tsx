@@ -79,7 +79,7 @@ export const ExternalEventBlock: React.FC<ExternalEventBlockProps> = ({
 
         {event.startTime && (
           <span
-            className="text-[10px] font-mono font-semibold flex-shrink-0 px-1 py-0.2 rounded"
+            className="text-[11px] font-mono font-semibold flex-shrink-0 px-1 py-0.2 rounded"
             style={{ color: calColor, backgroundColor: `${calColor}20` }}
           >
             {timeLabel}
@@ -89,10 +89,10 @@ export const ExternalEventBlock: React.FC<ExternalEventBlockProps> = ({
 
       {/* Bottom details if height permits */}
       {!isShort && (
-        <div className="flex items-center justify-between gap-1 text-[10px] text-[#9CA3AF] mt-1 pt-1 border-t border-white/5">
+        <div className="flex items-center justify-between gap-1 text-[11px] text-[#9CA3AF] mt-1 pt-1 border-t border-white/5">
           <div className="flex items-center gap-1.5 truncate">
             {project && (
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-black/40 text-white font-medium text-[9px] border border-white/10 truncate max-w-[100px]">
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-black/40 text-white font-medium text-[11px] border border-white/10 truncate max-w-[100px]">
                 <span
                   className="w-1.5 h-1.5 rounded-full flex-shrink-0"
                   style={{ backgroundColor: project.color || "#D4F63D" }}
@@ -109,7 +109,7 @@ export const ExternalEventBlock: React.FC<ExternalEventBlockProps> = ({
           </div>
 
           <span
-            className="text-[9px] font-medium px-1.5 py-0.2 rounded-full border text-white/80 whitespace-nowrap"
+            className="text-[11px] font-medium px-1.5 py-0.2 rounded-full border text-white/80 whitespace-nowrap"
             style={{ borderColor: `${calColor}30`, backgroundColor: `${calColor}15` }}
           >
             {event.calendarName}

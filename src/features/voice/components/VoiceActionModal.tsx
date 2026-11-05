@@ -349,7 +349,7 @@ export const VoiceActionModal: React.FC<VoiceActionModalProps> = ({
               value={transcript}
               onChange={(e) => setTranscript(e.target.value)}
               placeholder="Ex: Nouvelle tâche mardi prochain envoyer un email à Laurent. Nouvelle tâche tous les mercredis cours de danse à 17h..."
-              className="w-full bg-[#1C1E24] border border-[#2B2E38] rounded-xl p-2.5 text-xs text-white placeholder-[#6B7280] focus:border-[#D4F63D] outline-none resize-none"
+              className="w-full bg-[#1C1E24] border border-[#2B2E38] rounded-xl p-2.5 text-xs text-white placeholder-[#8E929E] focus:border-[#D4F63D] outline-none resize-none"
             />
           </div>
         </div>
@@ -408,7 +408,7 @@ export const VoiceActionModal: React.FC<VoiceActionModalProps> = ({
               <span className="text-xs font-bold text-white">
                 {resolvedActions.length} action{resolvedActions.length > 1 ? "s" : ""} détectée{resolvedActions.length > 1 ? "s" : ""} :
               </span>
-              <span className="text-[10px] text-[#D4F63D] font-mono font-bold">
+              <span className="text-[11px] text-[#D4F63D] font-mono font-bold">
                 {confirmableActions.length === resolvedActions.length
                   ? "✓ Prêtes à être ajoutées"
                   : `${confirmableActions.length}/${resolvedActions.length} prêtes`}
@@ -438,14 +438,14 @@ export const VoiceActionModal: React.FC<VoiceActionModalProps> = ({
                           ? `Terminer : ${action.matchedTask.title}`
                           : `Aucune tâche trouvée pour « ${action.query} »`}
                       </span>
-                      <span className="text-[10px] text-[#8E929E]">Marquer comme terminée</span>
+                      <span className="text-[11px] text-[#8E929E]">Marquer comme terminée</span>
                     </div>
                   </div>
 
                   <button
                     type="button"
                     onClick={() => handleRemoveTask(idx)}
-                    className="p-1 text-[#6B7280] hover:text-red-400 transition-colors rounded-lg hover:bg-[#252830] cursor-pointer"
+                    className="p-1 text-[#8E929E] hover:text-red-400 transition-colors rounded-lg hover:bg-[#252830] cursor-pointer"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -462,7 +462,7 @@ export const VoiceActionModal: React.FC<VoiceActionModalProps> = ({
                       </span>
                       <span
                         className={cn(
-                          "text-[10px] px-2 py-0.2 rounded-md font-semibold border flex-shrink-0",
+                          "text-[11px] px-2 py-0.2 rounded-md font-semibold border flex-shrink-0",
                           TAG_COLORS[action.task.tag || action.task.category] || TAG_COLORS.General
                         )}
                       >
@@ -477,13 +477,13 @@ export const VoiceActionModal: React.FC<VoiceActionModalProps> = ({
                           <FolderKanban className="w-3 h-3 text-[#60A5FA]" />
                           <span>Projet : {action.task.projectName}</span>
                           {action.task.isNewProject && (
-                            <span className="text-[9px] bg-[#3B82F6]/30 px-1 rounded text-white font-bold">Nouveau</span>
+                            <span className="text-[11px] bg-[#3B82F6]/30 px-1 rounded text-white font-bold">Nouveau</span>
                           )}
                         </span>
                       )}
 
                       <span className="inline-flex items-center gap-1 bg-[#141518] px-2 py-0.5 rounded-lg border border-[#252830]">
-                        <Repeat className="w-3 h-3 text-[#6B7280]" />
+                        <Repeat className="w-3 h-3 text-[#8E929E]" />
                         <span>{RECURRENCE_LABEL_MAP[action.task.recurrence] || "1 fois"}</span>
                       </span>
 
@@ -516,7 +516,7 @@ export const VoiceActionModal: React.FC<VoiceActionModalProps> = ({
                   <button
                     type="button"
                     onClick={() => handleRemoveTask(idx)}
-                    className="p-1 text-[#6B7280] hover:text-red-400 transition-colors rounded-lg hover:bg-[#252830] cursor-pointer"
+                    className="p-1 text-[#8E929E] hover:text-red-400 transition-colors rounded-lg hover:bg-[#252830] cursor-pointer"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -536,7 +536,7 @@ export const VoiceActionModal: React.FC<VoiceActionModalProps> = ({
               "w-full py-3.5 rounded-2xl font-extrabold text-sm shadow-xl flex items-center justify-center gap-2 transition-all cursor-pointer",
               confirmableActions.length > 0
                 ? "bg-[#D4F63D] hover:bg-[#c2e432] text-black active:scale-98"
-                : "bg-[#252830] text-[#6B7280] cursor-not-allowed"
+                : "bg-[#252830] text-[#8E929E] cursor-not-allowed"
             )}
           >
             <Check className="w-4 h-4 stroke-[3]" />

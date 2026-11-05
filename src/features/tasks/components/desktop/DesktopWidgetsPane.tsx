@@ -104,7 +104,7 @@ export const DesktopWidgetsPane: React.FC<DesktopWidgetsPaneProps> = ({
             </div>
             <div>
               <h3 className="text-xs font-bold text-white">Rythme & Discipline</h3>
-              <p className="text-[10px] text-[#8E929E]">Score de progression du jour</p>
+              <p className="text-[11px] text-[#8E929E]">Score de progression du jour</p>
             </div>
           </div>
           <span className="px-2.5 py-1 rounded-full bg-[#D4F63D]/15 text-[#D4F63D] border border-[#D4F63D]/30 text-[11px] font-mono font-bold">
@@ -139,7 +139,7 @@ export const DesktopWidgetsPane: React.FC<DesktopWidgetsPaneProps> = ({
                 <span className="text-sm font-bold font-mono text-white">{rate}%</span>
               </div>
             </div>
-            <span className="text-[10px] font-medium text-[#8E929E] mt-1">Complétion</span>
+            <span className="text-[11px] font-medium text-[#8E929E] mt-1">Complétion</span>
           </div>
 
           {/* Gauge 2: Total Completed Ratio */}
@@ -169,7 +169,7 @@ export const DesktopWidgetsPane: React.FC<DesktopWidgetsPaneProps> = ({
                 </span>
               </div>
             </div>
-            <span className="text-[10px] font-medium text-[#8E929E] mt-1">Victoires</span>
+            <span className="text-[11px] font-medium text-[#8E929E] mt-1">Victoires</span>
           </div>
         </div>
 
@@ -230,7 +230,7 @@ export const DesktopWidgetsPane: React.FC<DesktopWidgetsPaneProps> = ({
                   />
                   <span className="font-medium text-white truncate text-xs">{t.title}</span>
                 </div>
-                <span className="font-mono text-[10px] text-[#8E929E] bg-[#222530] px-2 py-0.5 rounded-md flex-shrink-0 ml-2">
+                <span className="font-mono text-[11px] text-[#8E929E] bg-[#222530] px-2 py-0.5 rounded-md flex-shrink-0 ml-2">
                   {t.time}
                 </span>
               </div>

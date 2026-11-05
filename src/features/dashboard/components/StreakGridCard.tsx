@@ -35,17 +35,17 @@ export const StreakGridCard: React.FC<StreakGridCardProps> = ({
           <div className="grid grid-cols-7 gap-1.5 p-2.5 bg-[#141518] rounded-2xl border border-[#252830]">
             {safeDailyStatus.map((d, i) => (
               <div key={i} className="flex flex-col items-center gap-1">
-                <span className="text-[10px] font-semibold text-[#8E929E]">
+                <span className="text-[11px] font-semibold text-[#8E929E]">
                   {d?.dayName || "—"}
                 </span>
                 <div
                   className={cn(
-                    "w-full py-1 rounded-lg text-[10px] font-mono font-extrabold text-center transition-all",
+                    "w-full py-1 rounded-lg text-[11px] font-mono font-extrabold text-center transition-all",
                     (d?.completionPercentage ?? 0) >= 100
                       ? "bg-[#D4F63D] text-black shadow-sm"
                       : (d?.completionPercentage ?? 0) > 0
                         ? "bg-[#D4F63D]/20 text-[#D4F63D] border border-[#D4F63D]/30"
-                        : "bg-[#202228] text-[#6B7280]"
+                        : "bg-[#202228] text-[#8E929E]"
                   )}
                 >
                   {d?.completionPercentage ?? 0}%
@@ -80,7 +80,7 @@ export const StreakGridCard: React.FC<StreakGridCardProps> = ({
                 <span className="text-xs font-bold text-white truncate">
                   {habit.taskTitle || "Habitude"}
                 </span>
-                <span className="text-[10px] px-2 py-0.5 rounded-md bg-[#252830] text-[#8E929E] font-semibold flex-shrink-0">
+                <span className="text-[11px] px-2 py-0.5 rounded-md bg-[#252830] text-[#8E929E] font-semibold flex-shrink-0">
                   {habit.tag || habit.category || "Général"}
                 </span>
               </div>
@@ -109,8 +109,8 @@ export const StreakGridCard: React.FC<StreakGridCardProps> = ({
                         isDone
                           ? "bg-[#D4F63D] text-black shadow-sm scale-105"
                           : isScheduled
-                            ? "bg-[#282A30] text-[#6B7280]"
-                            : "bg-[#18191E] border border-[#282A30] text-[#4B5563]"
+                            ? "bg-[#282A30] text-[#8E929E]"
+                            : "bg-[#18191E] border border-[#282A30] text-[#8E929E]"
                       )}
                       title={`${d.dayName || "Jour"}: ${isDone ? "Accomplie" : isScheduled ? "Non faite" : "Non planifiée"}`}
                     >
@@ -123,7 +123,7 @@ export const StreakGridCard: React.FC<StreakGridCardProps> = ({
                       )}
                     </div>
 
-                    <span className="text-[10px] font-semibold text-[#8E929E]">
+                    <span className="text-[11px] font-semibold text-[#8E929E]">
                       {d.dayName || "—"}
                     </span>
                   </div>

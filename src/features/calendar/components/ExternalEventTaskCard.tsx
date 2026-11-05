@@ -102,7 +102,7 @@ export const ExternalEventTaskCard: React.FC<ExternalEventTaskCardProps> = ({
             {...attributes}
             {...listeners}
             onClick={(e) => e.stopPropagation()}
-            className="p-1 -ml-1 text-[#6B7280] hover:text-[#D4F63D] cursor-grab active:cursor-grabbing flex-shrink-0 transition-colors mt-0.5 touch-none"
+            className="p-1 -ml-1 text-[#8E929E] hover:text-[#D4F63D] cursor-grab active:cursor-grabbing flex-shrink-0 transition-colors mt-0.5 touch-none"
             title="Glisser pour réorganiser"
           >
             <GripVertical className="w-4 h-4" />
@@ -150,7 +150,7 @@ export const ExternalEventTaskCard: React.FC<ExternalEventTaskCardProps> = ({
                 {project.name}
               </span>
               {event.projectCategory && (
-                <span className="text-[10px] text-[#A5B4FC] bg-[#818CF8]/15 border border-[#818CF8]/30 px-1.5 py-0.2 rounded-md font-semibold truncate max-w-[120px]">
+                <span className="text-[11px] text-[#A5B4FC] bg-[#818CF8]/15 border border-[#818CF8]/30 px-1.5 py-0.2 rounded-md font-semibold truncate max-w-[120px]">
                   {event.projectCategory}
                 </span>
               )}
@@ -169,7 +169,7 @@ export const ExternalEventTaskCard: React.FC<ExternalEventTaskCardProps> = ({
 
             {/* LIVE / EN COURS pulsing badge */}
             {isInProgress && (
-              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-[#3B82F6]/20 text-[#60A5FA] border border-[#3B82F6]/40 shadow-sm animate-pulse">
+              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-[#3B82F6]/20 text-[#60A5FA] border border-[#3B82F6]/40 shadow-sm animate-pulse">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#60A5FA]" />
                 <span>EN COURS</span>
               </span>
@@ -178,7 +178,7 @@ export const ExternalEventTaskCard: React.FC<ExternalEventTaskCardProps> = ({
             {/* DONE badge */}
             {isDone && (
               <span
-                className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-bold border"
+                className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[11px] font-bold border"
                 style={
                   project?.color
                     ? { color: project.color, backgroundColor: `${project.color}15`, borderColor: `${project.color}30` }
@@ -224,7 +224,7 @@ export const ExternalEventTaskCard: React.FC<ExternalEventTaskCardProps> = ({
             {/* Project badge */}
             {project && (
               <span
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border"
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold border"
                 style={{
                   borderColor: `${project.color || "#D4F63D"}40`,
                   backgroundColor: `${project.color || "#D4F63D"}15`,
@@ -249,7 +249,7 @@ export const ExternalEventTaskCard: React.FC<ExternalEventTaskCardProps> = ({
 
             {/* Calendar name badge */}
             <span
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border"
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold border"
               style={{
                 borderColor: `${calColor}40`,
                 backgroundColor: `${calColor}15`,

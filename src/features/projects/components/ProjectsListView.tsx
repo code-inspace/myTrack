@@ -55,7 +55,7 @@ export const ProjectsListView: React.FC<ProjectsListViewProps> = ({
             <div className="text-sm font-bold text-white">Tous les projets</div>
             <div className="text-[11px] text-[#8E929E]">Toutes les tâches, filtrables par catégorie ou projet</div>
           </div>
-          <ChevronRight className="w-4 h-4 text-[#6B7280] flex-shrink-0" />
+          <ChevronRight className="w-4 h-4 text-[#8E929E] flex-shrink-0" />
         </button>
       </div>
 
@@ -76,7 +76,7 @@ export const ProjectsListView: React.FC<ProjectsListViewProps> = ({
         </div>
       ) : projects.length === 0 ? (
         <div className="p-8 text-center bg-[#1C1D22] border border-[#282A30] rounded-3xl my-4">
-          <FolderKanban className="w-10 h-10 text-[#6B7280] mx-auto mb-2" />
+          <FolderKanban className="w-10 h-10 text-[#8E929E] mx-auto mb-2" />
           <h4 className="text-base font-bold text-white">Aucun projet</h4>
           <p className="text-xs text-[#8E929E] mt-1 mb-4">Crée un projet pour organiser tes tâches.</p>
           <button
@@ -113,7 +113,7 @@ export const ProjectsListView: React.FC<ProjectsListViewProps> = ({
                       </div>
                     </div>
                   </div>
-                  <ChevronRight className="w-4 h-4 text-[#6B7280] flex-shrink-0" />
+                  <ChevronRight className="w-4 h-4 text-[#8E929E] flex-shrink-0" />
                 </button>
                 <button
                   type="button"

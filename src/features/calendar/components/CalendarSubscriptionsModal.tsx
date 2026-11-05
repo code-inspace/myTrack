@@ -279,22 +279,22 @@ export const CalendarSubscriptionsModal: React.FC<CalendarSubscriptionsModalProp
                 <div>
                   <p className="text-xs font-bold leading-tight">{syncSummary.message}</p>
                   {syncSummary.syncedAt && (
-                    <p className="text-[10px] text-[#8E929E] mt-0.5">Dernière synchronisation à {syncSummary.syncedAt}</p>
+                    <p className="text-[11px] text-[#8E929E] mt-0.5">Dernière synchronisation à {syncSummary.syncedAt}</p>
                   )}
                 </div>
               </div>
 
               {syncSummary.status === "success" && (
                 <div className="flex items-center gap-1.5 flex-shrink-0">
-                  <span className="px-2 py-0.5 rounded-lg bg-[#10B981]/20 text-[#10B981] text-[10px] font-mono font-bold">
+                  <span className="px-2 py-0.5 rounded-lg bg-[#10B981]/20 text-[#10B981] text-[11px] font-mono font-bold">
                     {syncSummary.totalRetrieved} récupéré{syncSummary.totalRetrieved > 1 ? "s" : ""}
                   </span>
                   {syncSummary.addedCount > 0 ? (
-                    <span className="px-2 py-0.5 rounded-lg bg-[#D4F63D]/20 text-[#D4F63D] text-[10px] font-mono font-bold">
+                    <span className="px-2 py-0.5 rounded-lg bg-[#D4F63D]/20 text-[#D4F63D] text-[11px] font-mono font-bold">
                       +{syncSummary.addedCount} nouveau{syncSummary.addedCount > 1 ? "x" : ""}
                     </span>
                   ) : (
-                    <span className="px-2 py-0.5 rounded-lg bg-[#252830] text-[#8E929E] text-[10px] font-mono font-bold">
+                    <span className="px-2 py-0.5 rounded-lg bg-[#252830] text-[#8E929E] text-[11px] font-mono font-bold">
                       0 nouveau
                     </span>
                   )}
@@ -316,7 +316,7 @@ export const CalendarSubscriptionsModal: React.FC<CalendarSubscriptionsModalProp
 
             {subscriptions.length === 0 ? (
               <div className="p-5 rounded-2xl bg-[#1A1B22] border border-[#282B38] text-center space-y-2">
-                <Calendar className="w-8 h-8 text-[#6B7280] mx-auto opacity-60" />
+                <Calendar className="w-8 h-8 text-[#8E929E] mx-auto opacity-60" />
                 <p className="text-sm font-semibold text-white">Aucun calendrier connecté</p>
                 <p className="text-xs text-[#8E929E]">
                   Ajoutez ci-dessous le lien de votre Google Calendar, Apple iCal ou CalDAV d&apos;entreprise pour synchroniser vos événements.
@@ -350,13 +350,13 @@ export const CalendarSubscriptionsModal: React.FC<CalendarSubscriptionsModalProp
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-sm font-bold text-white truncate">{sub.name}</span>
                             {sub.username && (
-                              <span className="text-[9px] px-1.5 py-0.2 rounded bg-[#3B82F6]/20 text-[#60A5FA] font-medium border border-[#3B82F6]/30">
+                              <span className="text-[11px] px-1.5 py-0.2 rounded bg-[#3B82F6]/20 text-[#60A5FA] font-medium border border-[#3B82F6]/30">
                                 CalDAV Auth
                               </span>
                             )}
                             {errorMsg && (
                               <span
-                                className="inline-flex items-center gap-1 text-[10px] text-red-400 font-medium px-2 py-0.5 rounded-md bg-red-500/10 border border-red-500/20"
+                                className="inline-flex items-center gap-1 text-[11px] text-red-400 font-medium px-2 py-0.5 rounded-md bg-red-500/10 border border-red-500/20"
                                 title={errorMsg}
                               >
                                 <AlertCircle className="w-3 h-3" />
@@ -364,7 +364,7 @@ export const CalendarSubscriptionsModal: React.FC<CalendarSubscriptionsModalProp
                               </span>
                             )}
                           </div>
-                          <p className="text-[11px] text-[#6B7280] truncate font-mono mt-0.5">
+                          <p className="text-[11px] text-[#8E929E] truncate font-mono mt-0.5">
                             {sub.url}
                           </p>
                         </div>
@@ -400,6 +400,9 @@ export const CalendarSubscriptionsModal: React.FC<CalendarSubscriptionsModalProp
                         {/* Toggle active switch */}
                         <button
                           type="button"
+                          role="switch"
+                          aria-checked={Boolean(sub.enabled)}
+                          aria-label={`Afficher l'agenda ${sub.name}`}
                           onClick={() => onToggleSubscription(sub.id)}
                           className={cn(
                             "relative inline-flex h-6 w-10 items-center rounded-full transition-colors cursor-pointer ml-1",
@@ -419,7 +422,7 @@ export const CalendarSubscriptionsModal: React.FC<CalendarSubscriptionsModalProp
                         <button
                           type="button"
                           onClick={() => onDeleteSubscription(sub.id)}
-                          className="p-1.5 rounded-lg text-[#6B7280] hover:text-red-400 hover:bg-[#282A34] transition-colors cursor-pointer"
+                          className="p-1.5 rounded-lg text-[#8E929E] hover:text-red-400 hover:bg-[#282A34] transition-colors cursor-pointer"
                           title="Supprimer ce calendrier"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -477,7 +480,7 @@ export const CalendarSubscriptionsModal: React.FC<CalendarSubscriptionsModalProp
                   placeholder="Ex : Google Pro, Événements Travail, iCloud..."
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#121318] border border-[#2C3040] text-sm text-white placeholder-[#6B7280] focus:border-[#D4F63D] outline-none transition-colors"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#121318] border border-[#2C3040] text-sm text-white placeholder-[#8E929E] focus:border-[#D4F63D] outline-none transition-colors"
                 />
               </div>
 
@@ -490,7 +493,7 @@ export const CalendarSubscriptionsModal: React.FC<CalendarSubscriptionsModalProp
                   placeholder="https://calendar.google.com/calendar/ical/.../basic.ics"
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#121318] border border-[#2C3040] text-xs font-mono text-white placeholder-[#6B7280] focus:border-[#D4F63D] outline-none transition-colors"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#121318] border border-[#2C3040] text-xs font-mono text-white placeholder-[#8E929E] focus:border-[#D4F63D] outline-none transition-colors"
                 />
               </div>
 
@@ -519,7 +522,7 @@ export const CalendarSubscriptionsModal: React.FC<CalendarSubscriptionsModalProp
                           placeholder="votre_identifiant"
                           value={username}
                           onChange={(e) => setUsername(e.target.value)}
-                          className="w-full px-3 py-2 rounded-lg bg-[#181920] border border-[#2C3040] text-xs text-white placeholder-[#6B7280] focus:border-[#D4F63D] outline-none"
+                          className="w-full px-3 py-2 rounded-lg bg-[#181920] border border-[#2C3040] text-xs text-white placeholder-[#8E929E] focus:border-[#D4F63D] outline-none"
                         />
                       </div>
                       <div>
@@ -531,7 +534,7 @@ export const CalendarSubscriptionsModal: React.FC<CalendarSubscriptionsModalProp
                           placeholder="••••••••••••••••"
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
-                          className="w-full px-3 py-2 rounded-lg bg-[#181920] border border-[#2C3040] text-xs text-white placeholder-[#6B7280] focus:border-[#D4F63D] outline-none font-mono"
+                          className="w-full px-3 py-2 rounded-lg bg-[#181920] border border-[#2C3040] text-xs text-white placeholder-[#8E929E] focus:border-[#D4F63D] outline-none font-mono"
                         />
                       </div>
                     </div>
@@ -611,7 +614,7 @@ export const CalendarSubscriptionsModal: React.FC<CalendarSubscriptionsModalProp
                         {testResult.message || testResult.error}
                       </p>
                       {testResult.preview && (
-                        <pre className="mt-2 p-2 rounded bg-black/40 text-[10px] font-mono text-gray-300 overflow-x-auto whitespace-pre-wrap">
+                        <pre className="mt-2 p-2 rounded bg-black/40 text-[11px] font-mono text-gray-300 overflow-x-auto whitespace-pre-wrap">
                           {testResult.preview}
                         </pre>
                       )}
@@ -631,7 +634,7 @@ export const CalendarSubscriptionsModal: React.FC<CalendarSubscriptionsModalProp
                             className="flex items-center justify-between gap-2 p-2 rounded-xl bg-black/30 border border-emerald-500/20 text-white text-xs"
                           >
                             <span className="font-semibold truncate">{evt.title}</span>
-                            <div className="flex items-center gap-2 text-[10px] text-emerald-300 font-mono flex-shrink-0">
+                            <div className="flex items-center gap-2 text-[11px] text-emerald-300 font-mono flex-shrink-0">
                               <span>{evt.date}</span>
                               {evt.startTime && <span>{evt.startTime}</span>}
                             </div>

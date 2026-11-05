@@ -253,7 +253,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                           <div className={cn("text-sm truncate", isSelected ? "font-bold text-white" : "text-[#8E929E] hover:text-white")}>
                             {project.name}
                           </div>
-                          <div className="text-[10px] text-[#6B7280]">
+                          <div className="text-[11px] text-[#8E929E]">
                             {projectTasks.length} tâche{projectTasks.length !== 1 ? "s" : ""}
                           </div>
                         </div>

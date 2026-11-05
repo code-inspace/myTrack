@@ -82,7 +82,7 @@ class PageErrorBoundary extends React.Component<
             Une erreur est survenue lors du chargement des statistiques.
           </p>
           {this.state.error?.message && (
-            <p className="text-[10px] text-red-400/80 font-mono max-w-xs break-words">
+            <p className="text-[11px] text-red-400/80 font-mono max-w-xs break-words">
               {this.state.error.message}
             </p>
           )}

@@ -175,7 +175,7 @@ export const ExternalEventDetailModal: React.FC<ExternalEventDetailModalProps> =
                     <MapPin className="w-4 h-4 text-[#F87171] flex-shrink-0 mt-0.5" />
                   )}
                   <div className="min-w-0 flex-1 break-words">
-                    <span className="text-[10px] uppercase font-bold tracking-wider text-[#8E929E] block mb-0.5">
+                    <span className="text-[11px] uppercase font-bold tracking-wider text-[#8E929E] block mb-0.5">
                       {isLocationUrl ? "Lien de visioconférence" : "Lieu"}
                     </span>
                     <div className="text-xs">{renderTextWithClickableLinks(event.location)}</div>
@@ -220,7 +220,7 @@ export const ExternalEventDetailModal: React.FC<ExternalEventDetailModalProps> =
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {/* Project Select */}
               <div>
-                <label className="block text-[10px] text-[#8E929E] font-semibold mb-1">
+                <label className="block text-[11px] text-[#8E929E] font-semibold mb-1">
                   Projet
                 </label>
                 <div className="relative">
@@ -248,7 +248,7 @@ export const ExternalEventDetailModal: React.FC<ExternalEventDetailModalProps> =
               {/* Category Select */}
               {selectedProjectId && (
                 <div>
-                  <label className="block text-[10px] text-[#8E929E] font-semibold mb-1">
+                  <label className="block text-[11px] text-[#8E929E] font-semibold mb-1">
                     Sous-catégorie
                   </label>
                   <select
@@ -279,11 +279,11 @@ export const ExternalEventDetailModal: React.FC<ExternalEventDetailModalProps> =
                   <span className="font-bold text-white truncate">
                     {currentAssignedProject.name}
                   </span>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-[#8E929E]">
+                  <span className="text-[11px] px-1.5 py-0.5 rounded bg-white/10 text-[#8E929E]">
                     {selectedCategory}
                   </span>
                 </div>
-                <span className="text-[10px] text-[#D4F63D] font-semibold flex items-center gap-1">
+                <span className="text-[11px] text-[#D4F63D] font-semibold flex items-center gap-1">
                   <Check className="w-3 h-3" />
                   Comptabilisé dans les stats
                 </span>

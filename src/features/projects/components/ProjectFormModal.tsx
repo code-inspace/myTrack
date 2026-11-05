@@ -276,7 +276,7 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
                     Enregistré
                   </span>
                 ) : (
-                  <span className="text-[10px] text-[#8E929E]">
+                  <span className="text-[11px] text-[#8E929E]">
                     Enregistrement automatique
                   </span>
                 )}
@@ -306,7 +306,7 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
               value={name}
               onChange={(e) => setName(e.target.value)}
               onBlur={() => performSave()}
-              className="w-full px-4 py-2.5 rounded-2xl bg-[#252830] border border-[#343740] focus:border-[#D4F63D] focus:ring-1 focus:ring-[#D4F63D] text-white text-sm outline-none transition-all placeholder-[#6B7280]"
+              className="w-full px-4 py-2.5 rounded-2xl bg-[#252830] border border-[#343740] focus:border-[#D4F63D] focus:ring-1 focus:ring-[#D4F63D] text-white text-sm outline-none transition-all placeholder-[#8E929E]"
             />
           </div>
 
@@ -319,6 +319,8 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
                 <button
                   type="button"
                   key={c}
+                  aria-label={`Couleur ${c}`}
+                  aria-pressed={color === c}
                   onClick={() => setColor(c)}
                   className={cn(
                     "w-7 h-7 rounded-full transition-all cursor-pointer hover:scale-110",
@@ -337,7 +339,7 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
                 <Tag className="w-3.5 h-3.5 text-[#D4F63D]" />
                 <span>Sous-catégories ({categories.length})</span>
               </label>
-              <span className="text-[10px] text-[#6B7280]">Optionnel</span>
+              <span className="text-[11px] text-[#8E929E]">Optionnel</span>
             </div>
 
             {/* Category badges list */}
@@ -376,7 +378,7 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
                     handleAddCategory();
                   }
                 }}
-                className="flex-1 px-3 py-2 rounded-xl bg-[#252830] border border-[#343740] focus:border-[#D4F63D] text-white text-xs outline-none transition-all placeholder-[#6B7280]"
+                className="flex-1 px-3 py-2 rounded-xl bg-[#252830] border border-[#343740] focus:border-[#D4F63D] text-white text-xs outline-none transition-all placeholder-[#8E929E]"
               />
               <button
                 type="button"

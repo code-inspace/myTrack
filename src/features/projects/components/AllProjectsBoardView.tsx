@@ -174,7 +174,7 @@ export const AllProjectsBoardView: React.FC<AllProjectsBoardViewProps> = ({
               "h-9 px-3 rounded-xl flex items-center gap-1.5 text-xs font-semibold transition-all cursor-pointer border",
               showCalendar
                 ? "bg-[#3B82F6]/15 border-[#3B82F6]/40 text-[#60A5FA]"
-                : "bg-[#17181F] border-[#282B36] text-[#6B7280] hover:text-[#9CA3AF]"
+                : "bg-[#17181F] border-[#282B36] text-[#8E929E] hover:text-[#9CA3AF]"
             )}
           >
             <Calendar className="w-3.5 h-3.5" />

@@ -194,7 +194,7 @@ export const PhotoTaskImportModal: React.FC<PhotoTaskImportModalProps> = ({
             <div>
               <h2 className="text-base font-extrabold text-white tracking-tight flex items-center gap-2">
                 <span>Scanner une liste papier</span>
-                <span className="text-[10px] bg-[#D4F63D]/20 text-[#D4F63D] px-2 py-0.5 rounded-full font-bold">
+                <span className="text-[11px] bg-[#D4F63D]/20 text-[#D4F63D] px-2 py-0.5 rounded-full font-bold">
                   IA Vision
                 </span>
               </h2>
@@ -380,7 +380,7 @@ export const PhotoTaskImportModal: React.FC<PhotoTaskImportModalProps> = ({
                         value={task.title}
                         placeholder="Titre de l'action..."
                         onChange={(e) => updateTaskField(task.id, "title", e.target.value)}
-                        className="w-full bg-transparent text-sm font-bold text-white placeholder-[#6B7280] outline-none border-b border-transparent focus:border-[#D4F63D] transition-colors"
+                        className="w-full bg-transparent text-sm font-bold text-white placeholder-[#8E929E] outline-none border-b border-transparent focus:border-[#D4F63D] transition-colors"
                       />
 
                       <div className="flex items-center gap-2 flex-wrap text-xs">
@@ -417,7 +417,7 @@ export const PhotoTaskImportModal: React.FC<PhotoTaskImportModalProps> = ({
                     <button
                       type="button"
                       onClick={() => removeTask(task.id)}
-                      className="p-1.5 rounded-lg text-[#6B7280] hover:text-[#F87171] hover:bg-[#2A1D20] transition-colors cursor-pointer"
+                      className="p-1.5 rounded-lg text-[#8E929E] hover:text-[#F87171] hover:bg-[#2A1D20] transition-colors cursor-pointer"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -457,7 +457,7 @@ export const PhotoTaskImportModal: React.FC<PhotoTaskImportModalProps> = ({
                 "py-3 px-6 rounded-2xl font-black text-xs transition-all flex items-center gap-2 shadow-xl cursor-pointer active:scale-98",
                 selectedCount > 0
                   ? "bg-[#D4F63D] hover:bg-[#c3e533] text-[#111214] shadow-[#D4F63D]/20"
-                  : "bg-[#2A2C35] text-[#6B7280] cursor-not-allowed"
+                  : "bg-[#2A2C35] text-[#8E929E] cursor-not-allowed"
               )}
             >
               <Check className="w-4 h-4 stroke-[3]" />

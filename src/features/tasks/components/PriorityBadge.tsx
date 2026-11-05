@@ -22,8 +22,8 @@ export const PriorityBadge: React.FC<{
       data-testid={`priority-badge-${priority}`}
       className={cn(
         "inline-flex items-center justify-center flex-shrink-0 rounded-md font-black leading-none tracking-tighter border border-current/60",
-        size === "xs" && "h-3 min-w-[12px] px-0.5 text-[8px]",
-        size === "sm" && "h-4 min-w-[16px] px-1 text-[10px]",
+        size === "xs" && "h-3 min-w-[12px] px-0.5 text-[11px]",
+        size === "sm" && "h-4 min-w-[16px] px-1 text-[11px]",
         size === "md" && "h-5 min-w-[20px] px-1 text-xs",
         priority === "VERY_URGENT" && "bg-white text-[#111214] border-white",
         className,

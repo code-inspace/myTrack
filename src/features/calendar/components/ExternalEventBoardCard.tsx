@@ -39,14 +39,14 @@ export const ExternalEventBoardCard: React.FC<ExternalEventBoardCardProps> = ({
       )}
     >
       {project && (
-        <div className="flex items-center gap-1.5 text-[10px] font-semibold text-[#D4F63D]">
+        <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#D4F63D]">
           <span
             className="w-1.5 h-1.5 rounded-full flex-shrink-0"
             style={{ backgroundColor: project.color || "#D4F63D" }}
           />
           <span className="truncate">{project.name}</span>
           {event.projectCategory && (
-            <span className="text-[9px] text-[#A5B4FC] bg-[#818CF8]/15 border border-[#818CF8]/30 px-1 py-0.2 rounded font-semibold truncate">
+            <span className="text-[11px] text-[#A5B4FC] bg-[#818CF8]/15 border border-[#818CF8]/30 px-1 py-0.2 rounded font-semibold truncate">
               {event.projectCategory}
             </span>
           )}
@@ -60,7 +60,7 @@ export const ExternalEventBoardCard: React.FC<ExternalEventBoardCardProps> = ({
             style={{ backgroundColor: calColor }}
           />
           <span
-            className="text-[10px] font-bold uppercase tracking-wider truncate"
+            className="text-[11px] font-bold uppercase tracking-wider truncate"
             style={{ color: calColor }}
           >
             {event.calendarName}
@@ -68,14 +68,14 @@ export const ExternalEventBoardCard: React.FC<ExternalEventBoardCardProps> = ({
         </div>
 
         {isInProgress && (
-          <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full text-[9px] font-extrabold bg-[#3B82F6]/20 text-[#60A5FA] border border-[#3B82F6]/40 animate-pulse">
+          <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full text-[11px] font-extrabold bg-[#3B82F6]/20 text-[#60A5FA] border border-[#3B82F6]/40 animate-pulse">
             <span className="w-1.5 h-1.5 rounded-full bg-[#60A5FA]" />
             <span>EN COURS</span>
           </span>
         )}
 
         {isDone && (
-          <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-[#D4F63D] px-1 rounded bg-[#D4F63D]/10">
+          <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-[#D4F63D] px-1 rounded bg-[#D4F63D]/10">
             <Check className="w-2.5 h-2.5 stroke-[3]" />
             <span>Fait</span>
           </span>
@@ -91,7 +91,7 @@ export const ExternalEventBoardCard: React.FC<ExternalEventBoardCardProps> = ({
         {event.title}
       </h5>
 
-      <div className="flex items-center gap-2 text-[10px] text-[#8E929E] flex-wrap mt-0.5">
+      <div className="flex items-center gap-2 text-[11px] text-[#8E929E] flex-wrap mt-0.5">
         {event.startTime ? (
           <span className="inline-flex items-center gap-1 font-mono font-medium">
             <Clock className="w-2.5 h-2.5 text-[#D4F63D]" />

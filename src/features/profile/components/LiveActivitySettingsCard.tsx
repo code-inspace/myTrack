@@ -143,7 +143,7 @@ export const LiveActivitySettingsCard: React.FC = () => {
             <span className="text-sm font-bold text-white">
               Widget permanent en veille (Écran verrouillé)
             </span>
-            <span className="px-2 py-0.5 rounded-md bg-[#D4F63D]/15 border border-[#D4F63D]/30 text-[#D4F63D] font-extrabold text-[10px]">
+            <span className="px-2 py-0.5 rounded-md bg-[#D4F63D]/15 border border-[#D4F63D]/30 text-[#D4F63D] font-extrabold text-[11px]">
               NOUVEAU
             </span>
           </div>
@@ -156,6 +156,7 @@ export const LiveActivitySettingsCard: React.FC = () => {
           type="button"
           role="switch"
           aria-checked={isStandbyEnabled}
+          aria-label="Écran de veille (StandBy)"
           onClick={() => handleToggleStandby(!isStandbyEnabled)}
           className={cn(
             "relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none",

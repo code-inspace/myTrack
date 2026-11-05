@@ -133,7 +133,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             <div
               {...attributes}
               {...listeners}
-              className="p-1 -ml-1 text-[#6B7280] hover:text-[#D4F63D] cursor-grab active:cursor-grabbing flex-shrink-0 transition-colors mt-0.5 touch-none"
+              className="p-1 -ml-1 text-[#8E929E] hover:text-[#D4F63D] cursor-grab active:cursor-grabbing flex-shrink-0 transition-colors mt-0.5 touch-none"
               title="Glisser pour réorganiser par priorité"
             >
               <GripVertical className="w-4 h-4" />
@@ -182,7 +182,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                   {project.name}
                 </span>
                 {task.projectCategory && (
-                  <span className="text-[10px] text-[#A5B4FC] bg-[#818CF8]/15 border border-[#818CF8]/30 px-1.5 py-0.2 rounded-md font-semibold truncate max-w-[120px]">
+                  <span className="text-[11px] text-[#A5B4FC] bg-[#818CF8]/15 border border-[#818CF8]/30 px-1.5 py-0.2 rounded-md font-semibold truncate max-w-[120px]">
                     {task.projectCategory}
                   </span>
                 )}
@@ -229,7 +229,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                 "p-1.5 rounded-lg transition-all cursor-pointer",
                 isRemindersEnabled
                   ? "text-[#D4F63D] hover:bg-[#D4F63D]/10"
-                  : "text-[#6B7280] hover:text-white hover:bg-[#282A30]"
+                  : "text-[#8E929E] hover:text-white hover:bg-[#282A30]"
               )}
             >
               {isRemindersEnabled ? (
@@ -265,7 +265,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               onDeleteTask(task.id);
             }}
             title="Supprimer la tâche"
-            className="p-1.5 text-[#6B7280] hover:text-[#EF4444] transition-colors rounded-lg hover:bg-[#282A30] cursor-pointer"
+            className="p-1.5 text-[#8E929E] hover:text-[#EF4444] transition-colors rounded-lg hover:bg-[#282A30] cursor-pointer"
           >
             <Trash2 className="w-3.5 h-3.5" />
           </button>
@@ -287,7 +287,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               />
               <span className="truncate max-w-[110px] text-white font-medium">{project.name}</span>
               {task.projectCategory && (
-                <span className="text-[10px] text-[#9CA3AF] font-normal border-l border-[#343740] pl-1.5">
+                <span className="text-[11px] text-[#9CA3AF] font-normal border-l border-[#343740] pl-1.5">
                   {task.projectCategory}
                 </span>
               )}
@@ -317,26 +317,26 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             }
             return (
               <span className="inline-flex items-center gap-1 bg-[#141518] px-2 py-1 rounded-lg border border-[#252830] text-[#8E929E] text-[11px] font-medium whitespace-nowrap">
-                <Clock className="w-3 h-3 text-[#6B7280]" />
+                <Clock className="w-3 h-3 text-[#8E929E]" />
                 <span>Jour entier</span>
               </span>
             );
           })()}
 
           {isOvernightTimeRange(displayStart, displayEnd) && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#7C3AED]/20 text-[#DDD6FE] text-[10px] font-bold border border-[#7C3AED]/35 whitespace-nowrap">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#7C3AED]/20 text-[#DDD6FE] text-[11px] font-bold border border-[#7C3AED]/35 whitespace-nowrap">
               <Moon className="w-2.5 h-2.5 text-[#C4B5FD]" />
               <span>{task.overnightPart === "end" ? "Débuté la veille" : "Nuit (+1j)"}</span>
             </span>
           )}
 
           <span className="inline-flex items-center gap-1 bg-[#141518] px-2 py-1 rounded-lg border border-[#252830] text-[#8E929E] text-[11px] font-medium whitespace-nowrap">
-            <Repeat className="w-3 h-3 text-[#6B7280]" />
+            <Repeat className="w-3 h-3 text-[#8E929E]" />
             <span>{RECURRENCE_LABEL_MAP[task.recurrence] || "Quotidien"}</span>
           </span>
 
           {task.category && task.category !== "General" && (
-            <span className="px-2 py-0.5 rounded-md bg-[#252830] text-[#9CA3AF] text-[10px] font-semibold whitespace-nowrap">
+            <span className="px-2 py-0.5 rounded-md bg-[#252830] text-[#9CA3AF] text-[11px] font-semibold whitespace-nowrap">
               {task.category}
             </span>
           )}
@@ -351,7 +351,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               )}
               title={isDeadlinePassed ? "Deadline dépassée" : "Deadline"}
             >
-              <Flag className={cn("w-3 h-3", isDeadlinePassed ? "text-red-400" : "text-[#6B7280]")} />
+              <Flag className={cn("w-3 h-3", isDeadlinePassed ? "text-red-400" : "text-[#8E929E]")} />
               <span>{task.deadline}</span>
             </span>
           )}
@@ -372,9 +372,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                 {task.currentValue ?? 0}
               </span>
               {task.targetValue && (
-                <span className="text-[#6B7280]">/ {task.targetValue}</span>
+                <span className="text-[#8E929E]">/ {task.targetValue}</span>
               )}
-              {task.unit && <span className="text-[#9CA3AF] text-[10px]">{task.unit}</span>}
+              {task.unit && <span className="text-[#9CA3AF] text-[11px]">{task.unit}</span>}
               <Plus className="w-3 h-3 text-[#D4F63D] ml-0.5" />
             </button>
           )}

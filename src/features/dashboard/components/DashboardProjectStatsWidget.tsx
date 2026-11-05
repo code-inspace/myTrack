@@ -724,7 +724,7 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
         <div className="space-y-4 animate-in fade-in duration-200">
           <div className="grid grid-cols-3 gap-2">
             <div className="p-2.5 rounded-2xl bg-[#252830]/80 border border-[#343740] flex flex-col items-center text-center">
-              <span className="text-[10px] text-[#8E929E] uppercase font-bold tracking-wider">
+              <span className="text-[11px] text-[#8E929E] uppercase font-bold tracking-wider">
                 Temps passé
               </span>
               <span className="text-sm md:text-base font-black text-[#D4F63D] mt-0.5">
@@ -732,7 +732,7 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
               </span>
             </div>
             <div className="p-2.5 rounded-2xl bg-[#252830]/80 border border-[#343740] flex flex-col items-center text-center">
-              <span className="text-[10px] text-[#8E929E] uppercase font-bold tracking-wider">
+              <span className="text-[11px] text-[#8E929E] uppercase font-bold tracking-wider">
                 Éléments
               </span>
               <span className="text-sm md:text-base font-black text-white mt-0.5">
@@ -740,7 +740,7 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
               </span>
             </div>
             <div className="p-2.5 rounded-2xl bg-[#252830]/80 border border-[#343740] flex flex-col items-center text-center">
-              <span className="text-[10px] text-[#8E929E] uppercase font-bold tracking-wider">
+              <span className="text-[11px] text-[#8E929E] uppercase font-bold tracking-wider">
                 Progression
               </span>
               <span className="text-sm md:text-base font-black text-[#60A5FA] mt-0.5">
@@ -750,7 +750,7 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
           </div>
 
           <div className="space-y-2">
-            <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-[#8E929E] pb-1 border-b border-[#282A30]">
+            <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-[#8E929E] pb-1 border-b border-[#282A30]">
               <span>Sous-catégorie</span>
               <span>Temps & Détail</span>
             </div>
@@ -770,6 +770,7 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
                 >
                   <button
                     type="button"
+                    aria-expanded={isExpanded}
                     onClick={() => toggleExpandCategory(cat.id)}
                     className="w-full flex items-center justify-between text-xs p-2.5 cursor-pointer text-left transition-colors hover:bg-white/5"
                   >
@@ -779,7 +780,7 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
                         style={{ backgroundColor: cat.color }}
                       />
                       <span className="text-white truncate font-bold text-xs">{cat.name}</span>
-                      <span className="text-[10px] text-[#8E929E] bg-[#252832] px-1.5 py-0.2 rounded-md">
+                      <span className="text-[11px] text-[#8E929E] bg-[#252832] px-1.5 py-0.2 rounded-md">
                         {cat.count}
                       </span>
                     </div>
@@ -802,7 +803,7 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
                   {isExpanded && (
                     <div className="px-3 pb-3 pt-1 border-t border-[#2A2D3A] bg-[#14151B] space-y-1.5 animate-in fade-in duration-200">
                       {cat.items.length === 0 ? (
-                        <div className="text-[11px] text-[#6B7280] italic py-2 text-center">
+                        <div className="text-[11px] text-[#8E929E] italic py-2 text-center">
                           Aucune tâche ni événement dans cette sous-catégorie
                         </div>
                       ) : (
@@ -817,7 +818,7 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
                               ) : item.isDone ? (
                                 <CheckCircle2 className="w-3.5 h-3.5 text-[#D4F63D] flex-shrink-0" />
                               ) : (
-                                <Circle className="w-3.5 h-3.5 text-[#6B7280] flex-shrink-0" />
+                                <Circle className="w-3.5 h-3.5 text-[#8E929E] flex-shrink-0" />
                               )}
                               <span
                                 className={cn(
@@ -924,10 +925,10 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
                   <span className="text-sm font-black text-white leading-none">
                     {formatDurationHoursMinutes(globalProjectData[hoveredIndex].durationMinutes)}
                   </span>
-                  <span className="text-[10px] text-[#D4F63D] font-bold mt-0.5 truncate max-w-[90px]">
+                  <span className="text-[11px] text-[#D4F63D] font-bold mt-0.5 truncate max-w-[90px]">
                     {globalProjectData[hoveredIndex].name}
                   </span>
-                  <span className="text-[9px] text-[#8E929E]">
+                  <span className="text-[11px] text-[#8E929E]">
                     ({globalProjectData[hoveredIndex].count} élém.)
                   </span>
                 </>
@@ -936,7 +937,7 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
                   <span className="text-base font-black text-white leading-none">
                     {formatDurationHoursMinutes(totalGlobalMinutes)}
                   </span>
-                  <span className="text-[10px] text-[#D4F63D] font-bold mt-0.5">
+                  <span className="text-[11px] text-[#D4F63D] font-bold mt-0.5">
                     {allProjectTasks.length + allProjectEvents.length} élément
                     {allProjectTasks.length + allProjectEvents.length !== 1 ? "s" : ""}
                   </span>
@@ -947,7 +948,7 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
 
           {/* Project List with duration & click-to-drilldown */}
           <div className="flex-1 w-full space-y-1.5">
-            <div className="text-[10px] font-semibold text-[#8E929E] flex items-center justify-between pb-1">
+            <div className="text-[11px] font-semibold text-[#8E929E] flex items-center justify-between pb-1">
               <span>Projet (clique pour détails)</span>
               <span>Temps & Part</span>
             </div>
@@ -988,9 +989,9 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
                     <span className="font-bold text-[#D4F63D]">
                       {formatDurationHoursMinutes(p.durationMinutes)}
                     </span>
-                    <span className="text-[10px] text-[#8E929E]">({p.count} élém.)</span>
-                    <span className="text-[10px] text-[#6B7280] w-7 text-right">{percent}%</span>
-                    <ChevronRight className="w-3.5 h-3.5 text-[#6B7280] group-hover:text-white group-hover:translate-x-0.5 transition-all" />
+                    <span className="text-[11px] text-[#8E929E]">({p.count} élém.)</span>
+                    <span className="text-[11px] text-[#8E929E] w-7 text-right">{percent}%</span>
+                    <ChevronRight className="w-3.5 h-3.5 text-[#8E929E] group-hover:text-white group-hover:translate-x-0.5 transition-all" />
                   </div>
                 </button>
               );
@@ -1016,7 +1017,7 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
                 {ticks.map((tick, idx) => (
                   <span
                     key={idx}
-                    className="text-[10px] font-mono font-medium text-[#8E929E] text-right"
+                    className="text-[11px] font-mono font-medium text-[#8E929E] text-right"
                   >
                     {formatTickLabel(tick)}
                   </span>
@@ -1055,12 +1056,12 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
                       {/* Top duration label over the bar (e.g. 15h, 4h, 0h) */}
                       <span
                         className={cn(
-                          "text-[10px] sm:text-xs font-mono mb-1.5 transition-colors text-center whitespace-nowrap",
+                          "text-[11px] sm:text-xs font-mono mb-1.5 transition-colors text-center whitespace-nowrap",
                           col.totalMinutes > 0
                             ? isSelected
                               ? "font-bold text-[#D4F63D]"
                               : "font-bold text-white group-hover:text-[#D4F63D]"
-                            : "font-medium text-[#6B7280]"
+                            : "font-medium text-[#8E929E]"
                         )}
                       >
                         {formatChartDurationBadge(col.totalMinutes)}
@@ -1123,7 +1124,7 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
                   >
                     <span
                       className={cn(
-                        "text-[10px] sm:text-[11px] font-semibold leading-tight truncate max-w-full transition-colors",
+                        "text-[11px] sm:text-[11px] font-semibold leading-tight truncate max-w-full transition-colors",
                         isSelected || col.isHighlighted
                           ? "text-[#D4F63D] font-bold"
                           : "text-white/90 group-hover:text-white"
@@ -1133,7 +1134,7 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
                     </span>
                     <span
                       className={cn(
-                        "text-[9px] sm:text-[10px] text-[#8E929E] leading-tight truncate max-w-full mt-0.5 transition-colors",
+                        "text-[11px] sm:text-[11px] text-[#8E929E] leading-tight truncate max-w-full mt-0.5 transition-colors",
                         isSelected ? "text-white font-semibold" : "group-hover:text-[#CBD5E1]"
                       )}
                     >
@@ -1147,7 +1148,7 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
 
           {/* Project List underneath matching Day view format and adapting to clicked column */}
           <div className="w-full space-y-1.5 pt-1">
-            <div className="text-[10px] font-semibold text-[#8E929E] flex items-center justify-between pb-1 border-b border-[#282A30]">
+            <div className="text-[11px] font-semibold text-[#8E929E] flex items-center justify-between pb-1 border-b border-[#282A30]">
               {activeSelectedColumn ? (
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="text-white font-bold capitalize truncate text-xs">
@@ -1156,7 +1157,7 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
                   <button
                     type="button"
                     onClick={() => setSelectedColumnId(null)}
-                    className="text-[10px] text-[#818CF8] hover:text-[#A5B4FC] hover:underline cursor-pointer flex-shrink-0"
+                    className="text-[11px] text-[#818CF8] hover:text-[#A5B4FC] hover:underline cursor-pointer flex-shrink-0"
                   >
                     (Voir toute la {period === "month" ? "période" : "semaine"})
                   </button>
@@ -1232,10 +1233,10 @@ export const DashboardProjectStatsWidget: React.FC<DashboardProjectStatsWidgetPr
                       <span className="font-bold text-[#D4F63D]">
                         {formatDurationHoursMinutes(p.durationMinutes)}
                       </span>
-                      <span className="text-[10px] text-[#6B7280] w-7 text-right font-mono">
+                      <span className="text-[11px] text-[#8E929E] w-7 text-right font-mono">
                         {p.percent}%
                       </span>
-                      <ChevronRight className="w-3.5 h-3.5 text-[#6B7280] group-hover:text-white group-hover:translate-x-0.5 transition-all" />
+                      <ChevronRight className="w-3.5 h-3.5 text-[#8E929E] group-hover:text-white group-hover:translate-x-0.5 transition-all" />
                     </div>
                   </button>
                 );

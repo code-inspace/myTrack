@@ -167,6 +167,10 @@ export default function NotificationSettingsPage() {
           </div>
 
           <button
+            type="button"
+            role="switch"
+            aria-checked={Boolean(prefs.allDisabled)}
+            aria-label="Couper toutes les notifications"
             onClick={handleToggleMasterMute}
             className={cn(
               "w-11 h-6 rounded-full transition-colors relative cursor-pointer flex-shrink-0",
@@ -202,7 +206,7 @@ export default function NotificationSettingsPage() {
               <div>
                 <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
                   <span>Rappel d'action actuelle</span>
-                  <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-[#D4F63D]/20 text-[#D4F63D] font-mono font-bold">
+                  <span className="text-[11px] px-1.5 py-0.2 rounded-full bg-[#D4F63D]/20 text-[#D4F63D] font-mono font-bold">
                     PRO
                   </span>
                 </h3>
@@ -211,6 +215,10 @@ export default function NotificationSettingsPage() {
             </div>
 
             <button
+              type="button"
+              role="switch"
+              aria-checked={Boolean(prefs.currentActionCheckinEnabled)}
+              aria-label="Rappel « Que fais-tu actuellement ? »"
               onClick={() => handleTogglePref("currentActionCheckinEnabled")}
               className={cn(
                 "w-10 h-5 rounded-full transition-colors relative cursor-pointer",
@@ -254,7 +262,7 @@ export default function NotificationSettingsPage() {
               {/* Start and End Window */}
               <div className="grid grid-cols-2 gap-2.5 p-3 rounded-2xl bg-[#141518] border border-[#2F323E]">
                 <div className="space-y-1">
-                  <span className="block text-[10px] font-semibold text-[#8E929E]">De (début) :</span>
+                  <span className="block text-[11px] font-semibold text-[#8E929E]">De (début) :</span>
                   <input
                     type="time"
                     value={prefs.currentActionStartTime || "09:00"}
@@ -263,7 +271,7 @@ export default function NotificationSettingsPage() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <span className="block text-[10px] font-semibold text-[#8E929E]">À (fin) :</span>
+                  <span className="block text-[11px] font-semibold text-[#8E929E]">À (fin) :</span>
                   <input
                     type="time"
                     value={prefs.currentActionEndTime || "22:00"}
@@ -322,7 +330,7 @@ export default function NotificationSettingsPage() {
                 <Sun className="w-4 h-4 text-amber-400" />
                 <div>
                   <div className="text-xs font-bold text-white">Rappel matinal</div>
-                  <div className="text-[10px] text-[#8E929E]">Objectifs du jour</div>
+                  <div className="text-[11px] text-[#8E929E]">Objectifs du jour</div>
                 </div>
               </div>
 
@@ -334,6 +342,10 @@ export default function NotificationSettingsPage() {
                   className="h-7 px-2 rounded-lg bg-[#22242B] border border-[#343740] text-white text-xs font-mono font-bold outline-none text-center"
                 />
                 <button
+                  type="button"
+                  role="switch"
+                  aria-checked={Boolean(prefs.morningReminder)}
+                  aria-label="Rappel matinal"
                   onClick={() => handleTogglePref("morningReminder")}
                   className={cn(
                     "w-9 h-5 rounded-full transition-colors relative cursor-pointer",
@@ -356,7 +368,7 @@ export default function NotificationSettingsPage() {
                 <Moon className="w-4 h-4 text-indigo-400" />
                 <div>
                   <div className="text-xs font-bold text-white">Bilan du soir</div>
-                  <div className="text-[10px] text-[#8E929E]">Récapitulatif des habitudes</div>
+                  <div className="text-[11px] text-[#8E929E]">Récapitulatif des habitudes</div>
                 </div>
               </div>
 
@@ -368,6 +380,10 @@ export default function NotificationSettingsPage() {
                   className="h-7 px-2 rounded-lg bg-[#22242B] border border-[#343740] text-white text-xs font-mono font-bold outline-none text-center"
                 />
                 <button
+                  type="button"
+                  role="switch"
+                  aria-checked={Boolean(prefs.eveningRecap)}
+                  aria-label="Bilan du soir"
                   onClick={() => handleTogglePref("eveningRecap")}
                   className={cn(
                     "w-9 h-5 rounded-full transition-colors relative cursor-pointer",
@@ -390,11 +406,15 @@ export default function NotificationSettingsPage() {
                 <ShieldAlert className="w-4 h-4 text-orange-400" />
                 <div>
                   <div className="text-xs font-bold text-white">Alerte protection de streak</div>
-                  <div className="text-[10px] text-[#8E929E]">Sauvegarde de série en danger</div>
+                  <div className="text-[11px] text-[#8E929E]">Sauvegarde de série en danger</div>
                 </div>
               </div>
 
               <button
+                type="button"
+                role="switch"
+                aria-checked={Boolean(prefs.streakReminder)}
+                aria-label="Alerte protection de série"
                 onClick={() => handleTogglePref("streakReminder")}
                 className={cn(
                   "w-9 h-5 rounded-full transition-colors relative cursor-pointer",

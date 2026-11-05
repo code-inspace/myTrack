@@ -161,7 +161,7 @@ export const TaskAutoCompleteSuggestions: React.FC<TaskAutoCompleteSuggestionsPr
           <Sparkles className="w-3.5 h-3.5 text-[#D4F63D]" />
           <span>Tâche existante détectée • Répéter l&apos;habitude</span>
         </div>
-        <span className="text-[10px] text-[#6B7280]">
+        <span className="text-[11px] text-[#8E929E]">
           Entrée pour valider • ↑↓ naviguer
         </span>
       </div>
@@ -233,7 +233,7 @@ export const TaskAutoCompleteSuggestions: React.FC<TaskAutoCompleteSuggestionsPr
               )}
 
               {/* Row 2: Metadata pills (Project, Sub-project, Category, Priority, Reminders, Habit badge) */}
-              <div className="flex flex-wrap items-center gap-1.5 pl-8 text-[10px]">
+              <div className="flex flex-wrap items-center gap-1.5 pl-8 text-[11px]">
                 {/* Project Badge */}
                 {project && (
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#111216] border border-[#2B2E3A] text-white font-semibold shadow-sm">

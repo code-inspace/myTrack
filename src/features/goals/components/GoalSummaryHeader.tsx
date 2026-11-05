@@ -131,7 +131,7 @@ export const GoalSummaryHeader: React.FC<GoalSummaryHeaderProps> = ({
               <TrendingUp className="w-4 h-4" />
             </div>
             <div>
-              <p className="text-[10px] uppercase font-bold text-[#717684]">
+              <p className="text-[11px] uppercase font-bold text-[#8E929E]">
                 {hasDurationGoals ? "Temps réalisé" : "Séances réalisées"}
               </p>
               <p className="text-sm font-black text-white">
@@ -147,7 +147,7 @@ export const GoalSummaryHeader: React.FC<GoalSummaryHeaderProps> = ({
               <Clock className="w-4 h-4" />
             </div>
             <div>
-              <p className="text-[10px] uppercase font-bold text-[#717684]">
+              <p className="text-[11px] uppercase font-bold text-[#8E929E]">
                 {hasDurationGoals ? "Temps visé" : "Séances visées"}
               </p>
               <p className="text-sm font-black text-white">
@@ -163,7 +163,7 @@ export const GoalSummaryHeader: React.FC<GoalSummaryHeaderProps> = ({
               <CheckCircle2 className="w-4 h-4" />
             </div>
             <div>
-              <p className="text-[10px] uppercase font-bold text-[#717684]">Objectifs validés</p>
+              <p className="text-[11px] uppercase font-bold text-[#8E929E]">Objectifs validés</p>
               <p className="text-sm font-black text-white">
                 {completedGoalsCount} / {totalGoalsCount}
               </p>

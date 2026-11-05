@@ -137,7 +137,7 @@ export const DesktopDatePicker: React.FC<DesktopDatePickerProps> = ({
         <ChevronLeft
           className={cn(
             "w-3.5 h-3.5 rotate-[-90deg] transition-transform duration-200",
-            isOpen ? "rotate-90 text-[#D4F63D]" : "text-[#5C6070]"
+            isOpen ? "rotate-90 text-[#D4F63D]" : "text-[#8E929E]"
           )}
         />
       </button>
@@ -181,7 +181,7 @@ export const DesktopDatePicker: React.FC<DesktopDatePickerProps> = ({
               <button
                 type="button"
                 onClick={() => setViewMonth((m) => subMonths(m, 1))}
-                className="w-7 h-7 flex items-center justify-center rounded-lg text-[#6B7280] hover:text-white hover:bg-[#252830] transition-colors cursor-pointer"
+                className="w-7 h-7 flex items-center justify-center rounded-lg text-[#8E929E] hover:text-white hover:bg-[#252830] transition-colors cursor-pointer"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
@@ -192,14 +192,14 @@ export const DesktopDatePicker: React.FC<DesktopDatePickerProps> = ({
                 <button
                   type="button"
                   onClick={() => setViewMonth((m) => addMonths(m, 1))}
-                  className="w-7 h-7 flex items-center justify-center rounded-lg text-[#6B7280] hover:text-white hover:bg-[#252830] transition-colors cursor-pointer"
+                  className="w-7 h-7 flex items-center justify-center rounded-lg text-[#8E929E] hover:text-white hover:bg-[#252830] transition-colors cursor-pointer"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
                 <button
                   type="button"
                   onClick={() => setIsOpen(false)}
-                  className="w-7 h-7 flex items-center justify-center rounded-lg text-[#6B7280] hover:text-white hover:bg-[#252830] transition-colors cursor-pointer"
+                  className="w-7 h-7 flex items-center justify-center rounded-lg text-[#8E929E] hover:text-white hover:bg-[#252830] transition-colors cursor-pointer"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -209,7 +209,7 @@ export const DesktopDatePicker: React.FC<DesktopDatePickerProps> = ({
             {/* Weekday labels */}
             <div className="grid grid-cols-7 mb-1.5">
               {WEEKDAYS.map((w, i) => (
-                <div key={i} className="text-center text-[10px] font-bold text-[#5C6070] py-1">
+                <div key={i} className="text-center text-[11px] font-bold text-[#8E929E] py-1">
                   {w}
                 </div>
               ))}
@@ -258,7 +258,7 @@ export const DesktopDatePicker: React.FC<DesktopDatePickerProps> = ({
                 <RotateCcw className="w-3 h-3 stroke-[2.5]" />
                 Aller à aujourd&apos;hui
               </button>
-              <span className="text-[10px] text-[#5C6070]">
+              <span className="text-[11px] text-[#8E929E]">
                 {format(currentDate, "dd/MM/yyyy")}
               </span>
             </div>

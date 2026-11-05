@@ -359,7 +359,7 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
           )}
         >
           <span>Toutes</span>
-          <span className={cn("px-1.5 py-0.2 rounded-full text-[10px]", statusFilter === "all" ? "bg-black/15 text-black" : "bg-[#282A34] text-[#8E929E]")}>
+          <span className={cn("px-1.5 py-0.2 rounded-full text-[11px]", statusFilter === "all" ? "bg-black/15 text-black" : "bg-[#282A34] text-[#8E929E]")}>
             {counts.all}
           </span>
         </button>
@@ -375,7 +375,7 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
           )}
         >
           <span>En cours</span>
-          <span className={cn("px-1.5 py-0.2 rounded-full text-[10px]", statusFilter === "active" ? "bg-black/15 text-black" : "bg-[#282A34] text-[#8E929E]")}>
+          <span className={cn("px-1.5 py-0.2 rounded-full text-[11px]", statusFilter === "active" ? "bg-black/15 text-black" : "bg-[#282A34] text-[#8E929E]")}>
             {counts.active}
           </span>
         </button>
@@ -392,7 +392,7 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
         >
           <PriorityBadge priority="URGENT" size="xs" />
           <span>Prioritaires</span>
-          <span className={cn("px-1.5 py-0.2 rounded-full text-[10px]", statusFilter === "urgent" ? "bg-black/15 text-black" : "bg-[#282A34] text-[#8E929E]")}>
+          <span className={cn("px-1.5 py-0.2 rounded-full text-[11px]", statusFilter === "urgent" ? "bg-black/15 text-black" : "bg-[#282A34] text-[#8E929E]")}>
             {counts.urgent}
           </span>
         </button>
@@ -408,7 +408,7 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
           )}
         >
           <span>À faire</span>
-          <span className={cn("px-1.5 py-0.2 rounded-full text-[10px]", statusFilter === "todo" ? "bg-black/15 text-black" : "bg-[#282A34] text-[#8E929E]")}>
+          <span className={cn("px-1.5 py-0.2 rounded-full text-[11px]", statusFilter === "todo" ? "bg-black/15 text-black" : "bg-[#282A34] text-[#8E929E]")}>
             {counts.todo}
           </span>
         </button>
@@ -425,7 +425,7 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
         >
           <CheckCircle2 className="w-3 h-3 text-[#D4F63D]" />
           <span>Terminées</span>
-          <span className={cn("px-1.5 py-0.2 rounded-full text-[10px]", statusFilter === "done" ? "bg-black/15 text-black" : "bg-[#282A34] text-[#8E929E]")}>
+          <span className={cn("px-1.5 py-0.2 rounded-full text-[11px]", statusFilter === "done" ? "bg-black/15 text-black" : "bg-[#282A34] text-[#8E929E]")}>
             {counts.done}
           </span>
         </button>
@@ -453,7 +453,7 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
               "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer border",
               showCalendar
                 ? "bg-[#3B82F6]/15 border-[#3B82F6]/40 text-[#60A5FA]"
-                : "bg-[#181920] border-[#282A34] text-[#6B7280] hover:text-[#9CA3AF]"
+                : "bg-[#181920] border-[#282A34] text-[#8E929E] hover:text-[#9CA3AF]"
             )}
           >
             <Calendar className="w-3.5 h-3.5" />
@@ -476,7 +476,7 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-bold text-white">Mode Sommeil en cours</span>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-[#7C3AED]/30 text-[#C4B5FD] font-mono">
+                    <span className="px-2 py-0.5 rounded text-[11px] font-extrabold bg-[#7C3AED]/30 text-[#C4B5FD] font-mono">
                       {bedtime}
                     </span>
                   </div>
@@ -554,7 +554,7 @@ export const DesktopTasksView: React.FC<DesktopTasksViewProps> = ({
                   }
                 }}
                 className={cn(
-                  "w-full pl-11 py-3.5 rounded-2xl bg-[#17181F] border border-[#282B36] text-sm text-white focus:border-[#D4F63D] outline-none placeholder-[#6B7280] shadow-sm transition-all",
+                  "w-full pl-11 py-3.5 rounded-2xl bg-[#17181F] border border-[#282B36] text-sm text-white focus:border-[#D4F63D] outline-none placeholder-[#8E929E] shadow-sm transition-all",
                   quickTitle.trim() ? "pr-48" : "pr-24"
                 )}
               />

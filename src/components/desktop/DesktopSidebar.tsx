@@ -69,7 +69,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
         </div>
         <div className="hidden xl:block min-w-0">
           <span className="text-white font-black text-base tracking-tight block leading-tight" style={{ fontVariant: 'small-caps', letterSpacing: '-0.02em' }}>MyTrack</span>
-          <span className="text-[#555] text-[10px] font-medium block">Tracker personnel</span>
+          <span className="text-[#555] text-[11px] font-medium block">Tracker personnel</span>
         </div>
       </div>
 
@@ -85,7 +85,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
             "group w-full flex items-center gap-3 py-2.5 px-2.5 rounded-xl transition-all duration-150 cursor-pointer relative",
             active
               ? "bg-[#D4F63D]/10 text-white"
-              : "text-[#5C6070] hover:text-[#B8BCCA] hover:bg-[#13141A]"
+              : "text-[#8E929E] hover:text-[#B8BCCA] hover:bg-[#13141A]"
           );
 
           const inner = (
@@ -113,14 +113,14 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
 
           if (onChangeTab) {
             return (
-              <button key={item.id} type="button" onClick={() => onChangeTab(item.id)} className={cls} title={item.label}>
+              <button key={item.id} type="button" onClick={() => onChangeTab(item.id)} className={cls} title={item.label} aria-current={active ? "page" : undefined}>
                 {inner}
               </button>
             );
           }
 
           return (
-            <Link key={item.id} href={item.href} className={cls} title={item.label}>
+            <Link key={item.id} href={item.href} className={cls} title={item.label} aria-current={active ? "page" : undefined}>
               {inner}
             </Link>
           );
@@ -139,11 +139,12 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
               key={item.href}
               href={item.href}
               title={item.label}
+              aria-current={active ? "page" : undefined}
               className={cn(
                 "group w-full flex items-center gap-3 py-2.5 px-2.5 rounded-xl transition-all duration-150 cursor-pointer",
                 active
                   ? "bg-[#D4F63D]/10 text-white"
-                  : "text-[#5C6070] hover:text-[#B8BCCA] hover:bg-[#13141A]"
+                  : "text-[#8E929E] hover:text-[#B8BCCA] hover:bg-[#13141A]"
               )}
             >
               <div
@@ -172,7 +173,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
           </div>
           <div className="hidden xl:block min-w-0 flex-1">
             <div className="text-xs font-bold text-[#D1D5DB] truncate">{userName}</div>
-            <div className="text-[10px] text-[#555] truncate">Voir le profil</div>
+            <div className="text-[11px] text-[#555] truncate">Voir le profil</div>
           </div>
           <ChevronRight className="hidden xl:block w-3.5 h-3.5 text-[#444] group-hover:text-[#888] flex-shrink-0 transition-colors" />
         </Link>
@@ -183,9 +184,9 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
           className="group flex items-center gap-3 py-2 px-2 rounded-xl hover:bg-[#13141A] transition-all duration-150 cursor-pointer mt-0.5"
         >
           <div className="w-8 h-8 rounded-lg bg-[#17181F] flex items-center justify-center flex-shrink-0 group-hover:bg-[#1E1F27] transition-all">
-            <Settings className="w-3.5 h-3.5 text-[#5C6070] group-hover:text-[#B8BCCA]" />
+            <Settings className="w-3.5 h-3.5 text-[#8E929E] group-hover:text-[#B8BCCA]" />
           </div>
-          <span className="hidden xl:block text-xs font-medium text-[#5C6070] group-hover:text-[#B8BCCA] truncate transition-colors">
+          <span className="hidden xl:block text-xs font-medium text-[#8E929E] group-hover:text-[#B8BCCA] truncate transition-colors">
             Paramètres
           </span>
         </Link>

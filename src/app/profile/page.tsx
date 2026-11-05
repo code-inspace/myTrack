@@ -148,13 +148,13 @@ export default function ProfilePage() {
         <div className="bg-[#1C1D22] border border-[#282A30] rounded-2xl p-3 text-center">
           <Flame className="w-5 h-5 text-[#F97316] mx-auto mb-1" />
           <div className="text-lg font-extrabold text-white">{stats?.currentStreak ?? 0}j</div>
-          <div className="text-[10px] font-semibold text-[#8E929E]">Série actuelle</div>
+          <div className="text-[11px] font-semibold text-[#8E929E]">Série actuelle</div>
         </div>
 
         <div className="bg-[#1C1D22] border border-[#282A30] rounded-2xl p-3 text-center">
           <Trophy className="w-5 h-5 text-[#EAB308] mx-auto mb-1" />
           <div className="text-lg font-extrabold text-white">{stats?.bestStreak ?? 0}j</div>
-          <div className="text-[10px] font-semibold text-[#8E929E]">Meilleure série</div>
+          <div className="text-[11px] font-semibold text-[#8E929E]">Meilleure série</div>
         </div>
       </div>
 
@@ -177,7 +177,7 @@ export default function ProfilePage() {
               <p className="text-[11px] text-[#8E929E]">Protection du sommeil et réactivation nocturne</p>
             </div>
           </div>
-          <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#252830] text-[#C084FC] font-mono font-bold">
+          <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#252830] text-[#C084FC] font-mono font-bold">
             {bedtime} - {wakeTime}
           </span>
         </div>
@@ -187,12 +187,15 @@ export default function ProfilePage() {
           <div className="flex items-center justify-between p-3 rounded-2xl bg-[#17181D] border border-[#282A30]">
             <div className="space-y-0.5 pr-3">
               <span className="text-xs font-bold text-white block">Mode Nuit automatique</span>
-              <p className="text-[10px] text-[#8E929E] leading-snug">
+              <p className="text-[11px] text-[#8E929E] leading-snug">
                 Affiche l'écran noir de repos pendant vos heures de sommeil
               </p>
             </div>
             <button
               type="button"
+              role="switch"
+              aria-checked={isNightModeEnabled}
+              aria-label="Mode nuit"
               onClick={() => toggleNightModeEnabled(!isNightModeEnabled)}
               className={cn(
                 "w-12 h-6.5 rounded-full transition-colors relative cursor-pointer flex-shrink-0",
@@ -218,16 +221,19 @@ export default function ProfilePage() {
             <div className="space-y-0.5 pr-3">
               <div className="flex items-center gap-1.5">
                 <span className="text-xs font-bold text-white block">Retour au Mode Nuit après 1 min</span>
-                <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-[#D4F63D]/20 text-[#D4F63D] font-mono font-bold">
+                <span className="text-[11px] px-1.5 py-0.2 rounded-full bg-[#D4F63D]/20 text-[#D4F63D] font-mono font-bold">
                   Inactivité
                 </span>
               </div>
-              <p className="text-[10px] text-[#8E929E] leading-snug">
+              <p className="text-[11px] text-[#8E929E] leading-snug">
                 Si vous déverrouillez l'app la nuit puis restez inactif 1 minute, l'écran de sommeil se réactive
               </p>
             </div>
             <button
               type="button"
+              role="switch"
+              aria-checked={isNightModeAutoLockEnabled}
+              aria-label="Verrouillage automatique du mode nuit"
               onClick={() => toggleNightModeAutoLockEnabled(!isNightModeAutoLockEnabled)}
               className={cn(
                 "w-12 h-6.5 rounded-full transition-colors relative cursor-pointer flex-shrink-0",
@@ -257,7 +263,7 @@ export default function ProfilePage() {
               <p className="text-[11px] text-[#8E929E]">Synchronisation iCal, Google, Apple & CalDAV</p>
             </div>
           </div>
-          <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#252830] text-[#60A5FA] font-mono font-bold">
+          <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#252830] text-[#60A5FA] font-mono font-bold">
             {subscriptions.length} connecté{subscriptions.length > 1 ? "s" : ""}
           </span>
         </div>
@@ -286,7 +292,7 @@ export default function ProfilePage() {
           </div>
           <span
             className={cn(
-              "text-[10px] px-2 py-0.5 rounded-full font-mono font-bold",
+              "text-[11px] px-2 py-0.5 rounded-full font-mono font-bold",
               isOnline ? "bg-[#10B981]/15 text-[#10B981]" : "bg-[#EF4444]/15 text-[#EF4444]"
             )}
           >
@@ -300,16 +306,19 @@ export default function ProfilePage() {
             <div className="space-y-0.5 pr-3">
               <div className="flex items-center gap-1.5">
                 <span className="text-xs font-bold text-white block">Mode Économie de données (Low Data)</span>
-                <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-[#F59E0B]/20 text-[#F59E0B] font-mono font-bold">
+                <span className="text-[11px] px-1.5 py-0.2 rounded-full bg-[#F59E0B]/20 text-[#F59E0B] font-mono font-bold">
                   Réseau lent
                 </span>
               </div>
-              <p className="text-[10px] text-[#8E929E] leading-snug">
+              <p className="text-[11px] text-[#8E929E] leading-snug">
                 Limite les requêtes d'arrière-plan et prolonge la mise en cache locale.
               </p>
             </div>
             <button
               type="button"
+              role="switch"
+              aria-checked={isLowDataMode}
+              aria-label="Mode économie de données"
               onClick={() => toggleLowDataMode(!isLowDataMode)}
               className={cn(
                 "w-12 h-6.5 rounded-full transition-colors relative cursor-pointer flex-shrink-0",
@@ -339,7 +348,7 @@ export default function ProfilePage() {
           <div>
             <div className="text-sm font-bold text-white flex items-center gap-1.5">
               <span>Gestion des Notifications</span>
-              <span className="text-[10px] px-2 py-0.2 rounded-full bg-[#D4F63D]/15 text-[#D4F63D] font-mono font-bold">
+              <span className="text-[11px] px-2 py-0.2 rounded-full bg-[#D4F63D]/15 text-[#D4F63D] font-mono font-bold">
                 Nouveau
               </span>
             </div>

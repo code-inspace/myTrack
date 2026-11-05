@@ -118,7 +118,7 @@ export const ActiveTaskBanner: React.FC<ActiveTaskBannerProps> = ({
                   {project.name}
                 </span>
                 {task.projectCategory && (
-                  <span className="text-[10px] text-[#111214] bg-black/10 px-1.5 py-0.2 rounded font-semibold truncate max-w-[100px]">
+                  <span className="text-[11px] text-[#111214] bg-black/10 px-1.5 py-0.2 rounded font-semibold truncate max-w-[100px]">
                     {task.projectCategory}
                   </span>
                 )}

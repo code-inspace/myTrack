@@ -498,18 +498,18 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
           <div className="min-w-0">
             <h3 className="text-xs font-bold text-white flex items-center gap-1.5 truncate">
               <span>Sommeil</span>
-              <span className="text-[10px] font-semibold text-[#8E929E]">
+              <span className="text-[11px] font-semibold text-[#8E929E]">
                 {period === "day" ? "(Jour)" : period === "week" ? "(Semaine)" : "(Mois)"}
               </span>
             </h3>
-            <p className="text-[10px] text-[#8E929E] truncate">
+            <p className="text-[11px] text-[#8E929E] truncate">
               Moyenne : <strong className="text-[#D4F63D]">{averageText}</strong>
               {validNightsCount > 0 ? ` (${validNightsCount} nuit${validNightsCount > 1 ? "s" : ""})` : ""}
             </p>
           </div>
         </div>
 
-        <div className="px-2 py-0.5 rounded-full bg-[#7B82EE]/15 border border-[#7B82EE]/30 text-[#7B82EE] text-[10px] font-bold flex items-center gap-1 shrink-0">
+        <div className="px-2 py-0.5 rounded-full bg-[#7B82EE]/15 border border-[#7B82EE]/30 text-[#7B82EE] text-[11px] font-bold flex items-center gap-1 shrink-0">
           <Sparkles className="w-3 h-3" />
           <span>8h visé</span>
         </div>
@@ -521,7 +521,7 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
           {/* Tag "AU LIT" with purple bullet */}
           <div className="flex items-center gap-1.5 mb-0.5">
             <div className="w-2 h-2 rounded-full bg-[#7B82EE] shadow-[0_0_6px_#7B82EE]" />
-            <span className="text-[10px] font-bold tracking-wider uppercase text-[#7B82EE]">
+            <span className="text-[11px] font-bold tracking-wider uppercase text-[#7B82EE]">
               AU LIT
             </span>
           </div>
@@ -547,7 +547,7 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
           </div>
 
           {/* Date Range: ex: Nuit du 25 au 26 sept. */}
-          <span className="text-[10px] font-medium text-[#8E929E] capitalize truncate max-w-full text-center">
+          <span className="text-[11px] font-medium text-[#8E929E] capitalize truncate max-w-full text-center">
             {activeSelectedPoint?.night
               ? `Nuit du ${format(subDays(activeSelectedPoint.date, 1), "d MMM", { locale: fr })} au ${format(activeSelectedPoint.date, "d MMM", { locale: fr })}`
               : activeSelectedPoint?.fullDateLabel || "—"}
@@ -555,7 +555,7 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
 
           {/* All phases breakdown */}
           {activeSelectedPoint && activeSelectedPoint.totalSleepMinutes > 0 && (
-            <div className="flex flex-col items-center gap-0.5 mt-1 w-full text-[9px] font-mono">
+            <div className="flex flex-col items-center gap-0.5 mt-1 w-full text-[11px] font-mono">
               {activeSelectedPoint.night && (
                 <div className="flex items-center gap-1.5 text-[#7B82EE] font-medium">
                   {activeSelectedPoint.naps.length > 0 && <span className="text-[#8E929E]">Phase 1 :</span>}
@@ -600,7 +600,7 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
                 className="absolute right-0 flex items-center -translate-y-1/2 pointer-events-none z-20 pr-1"
                 style={{ top: `${axis.offsetPct}%` }}
               >
-                <span className="text-[10px] font-mono font-medium text-[#555A6E] bg-[#000000] px-1 py-0.2 rounded">
+                <span className="text-[11px] font-mono font-medium text-[#8E929E] bg-[#000000] px-1 py-0.2 rounded">
                   {axis.label}
                 </span>
               </div>
@@ -786,7 +786,7 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
                       wIdx > 0 && "border-l border-dashed border-[#232634] pl-1"
                     )}
                   >
-                    <span className="text-[11px] font-mono font-bold text-[#555A6E] block">
+                    <span className="text-[11px] font-mono font-bold text-[#8E929E] block">
                       {week.startDayNum}
                     </span>
                   </div>
@@ -800,7 +800,7 @@ export const SleepWaveChart: React.FC<SleepWaveChartProps> = ({
                         <span
                           className={cn(
                             "text-[11px] font-mono font-bold transition-colors",
-                            isSelected ? "text-[#7B82EE]" : "text-[#555A6E]"
+                            isSelected ? "text-[#7B82EE]" : "text-[#8E929E]"
                           )}
                         >
                           {pt.weekdayInitial}

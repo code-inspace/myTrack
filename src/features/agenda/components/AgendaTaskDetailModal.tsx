@@ -41,7 +41,7 @@ interface AgendaTaskDetailModalProps {
   onDuplicateTask?: (task: TaskWithCompletion) => void;
   onEditTask?: (task: TaskWithCompletion) => void;
   onDeleteTask?: (taskId: string) => void;
-  onUpdateTimes?: (taskId: string, startTime: string, endTime: string, date?: string) => void;
+  onUpdateTimes?: (taskId: string, startTime: string, endTime: string, date?: string, originDate?: string) => void;
   onUpdateTask?: (taskId: string, values: Partial<TaskFormValues>) => void;
 }
 
@@ -67,6 +67,8 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
   const [startTime, setStartTime] = useState(task?.effectiveStartTime || task?.startTime || "09:00");
   const [endTime, setEndTime] = useState(task?.effectiveEndTime || task?.endTime || "10:00");
   const [isDone, setIsDone] = useState(Boolean(task?.isCompletedToday));
+  // Day this occurrence is moved to ("Jour" field); equals the opened day when not moved
+  const [dayDate, setDayDate] = useState<string>(selectedDate);
   const [isRemindersEnabled, setIsRemindersEnabled] = useState(Boolean(task?.enableReminders));
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
 
@@ -98,6 +100,7 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
       setProjectCategory(initCat);
       setStartTime(initStart);
       setEndTime(initEnd);
+      setDayDate(selectedDate);
       setIsDone(Boolean(task.isCompletedToday));
       setIsRemindersEnabled(initReminders);
       setNewSubprojectInput("");
@@ -138,8 +141,10 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
     const hasStartTimeChanged = startTime !== initStart;
     const hasEndTimeChanged = endTime !== initEnd;
     const hasRemindersChanged = isRemindersEnabled !== initReminders;
+    const movedDay = Boolean(dayDate) && dayDate !== selectedDate;
 
     if (
+      movedDay ||
       hasTitleChanged ||
       hasProjectChanged ||
       hasCategoryChanged ||
@@ -148,7 +153,7 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
       hasRemindersChanged
     ) {
       const updates: Partial<TaskFormValues> = {
-        date: selectedDate,
+        date: movedDay ? undefined : selectedDate,
       };
 
       if (hasTitleChanged) updates.title = effectiveTitle;
@@ -159,8 +164,9 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
       if (hasCategoryChanged || hasProjectChanged) {
         updates.projectCategory = projectCategory || null;
       }
-      if (hasStartTimeChanged) updates.startTime = startTime;
-      if (hasEndTimeChanged) updates.endTime = endTime;
+      // A day move carries the hours itself (updateSchedule: optimistic, undoable)
+      if (hasStartTimeChanged && !movedDay) updates.startTime = startTime;
+      if (hasEndTimeChanged && !movedDay) updates.endTime = endTime;
       if (hasRemindersChanged) updates.enableReminders = isRemindersEnabled;
 
       if (isSleep || isNap) {
@@ -176,7 +182,13 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
         if (parsed.endTime) updates.endTime = parsed.endTime;
       }
 
-      onUpdateTask?.(task.id, updates);
+      if (movedDay) {
+        onUpdateTimes?.(task.id, startTime, endTime, dayDate, selectedDate);
+      }
+      const hasOtherUpdates = Object.entries(updates).some(([k, v]) => k !== "date" && v !== undefined);
+      if (!movedDay || hasOtherUpdates) {
+        onUpdateTask?.(task.id, updates);
+      }
 
       if (isSleep || isNap) {
         syncTaskWithSleepLog(
@@ -203,7 +215,9 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
     endTime,
     isRemindersEnabled,
     selectedDate,
+    dayDate,
     onUpdateTask,
+    onUpdateTimes,
     onClose,
   ]);
 
@@ -383,7 +397,7 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
                 <PriorityBadge priority={task.priority} size="md" className="mt-6 text-white" />
               )}
               <div className="flex-1 min-w-0">
-                <label className="text-[10px] uppercase font-bold text-[#8E929E] tracking-wider block mb-1">
+                <label className="text-[11px] uppercase font-bold text-[#8E929E] tracking-wider block mb-1">
                   Nom de la tâche
                 </label>
                 <input
@@ -430,7 +444,7 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
                   <button
                     type="button"
                     onClick={() => handleSelectSubproject("")}
-                    className="text-[10px] font-semibold text-[#8E929E] hover:text-[#EF4444] transition-colors cursor-pointer"
+                    className="text-[11px] font-semibold text-[#8E929E] hover:text-[#EF4444] transition-colors cursor-pointer"
                   >
                     Effacer
                   </button>
@@ -483,7 +497,7 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
                       handleAddNewSubproject();
                     }
                   }}
-                  className="flex-1 px-3 py-1.5 rounded-xl bg-[#14161F] border border-[#2D3142] focus:border-[#818CF8] text-xs text-white outline-none placeholder-[#6B7280]"
+                  className="flex-1 px-3 py-1.5 rounded-xl bg-[#14161F] border border-[#2D3142] focus:border-[#818CF8] text-xs text-white outline-none placeholder-[#8E929E]"
                 />
                 <button
                   type="button"
@@ -523,9 +537,29 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
               </div>
             </div>
 
+            <div className="flex flex-col gap-1">
+              <label
+                htmlFor="agenda-detail-day-input"
+                className="text-[11px] uppercase font-bold text-[#8E929E] tracking-wider"
+              >
+                Jour
+              </label>
+              <input
+                id="agenda-detail-day-input"
+                data-testid="agenda-detail-day-input"
+                type="date"
+                value={dayDate}
+                onChange={(e) => setDayDate(e.target.value)}
+                className="w-full bg-[#14161F] border border-[#2D3142] hover:border-[#38BDF8] focus:border-[#38BDF8] rounded-xl px-3 py-2 text-white font-mono text-sm font-semibold focus:outline-none transition-colors"
+              />
+              {dayDate !== selectedDate && (
+                <span className="text-[11px] text-[#D4F63D]">Sera déplacée à cette date en validant</span>
+              )}
+            </div>
+
             <div className="flex items-center gap-2.5">
               <div className="flex-1 flex flex-col gap-1">
-                <label className="text-[10px] uppercase font-bold text-[#8E929E] tracking-wider">Début</label>
+                <label className="text-[11px] uppercase font-bold text-[#8E929E] tracking-wider">Début</label>
                 <input
                   data-testid="agenda-detail-start-time-input"
                   type="time"
@@ -536,7 +570,7 @@ export const AgendaTaskDetailModal: React.FC<AgendaTaskDetailModalProps> = ({
               </div>
               <span className="text-[#8E929E] text-xs pt-4 font-bold">à</span>
               <div className="flex-1 flex flex-col gap-1">
-                <label className="text-[10px] uppercase font-bold text-[#8E929E] tracking-wider">Fin</label>
+                <label className="text-[11px] uppercase font-bold text-[#8E929E] tracking-wider">Fin</label>
                 <input
                   data-testid="agenda-detail-end-time-input"
                   type="time"

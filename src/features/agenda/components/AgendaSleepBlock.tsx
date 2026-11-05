@@ -83,7 +83,7 @@ export const AgendaSleepBlock: React.FC<AgendaSleepBlockProps> = ({
           {subLabel && !isSmall && (
             <span
               className={cn(
-                "text-[10px] font-mono truncate ml-auto",
+                "text-[11px] font-mono truncate ml-auto",
                 isObjective
                   ? "font-medium text-[#94A3B8]"
                   : "font-bold text-[#D4F63D]"
@@ -98,7 +98,7 @@ export const AgendaSleepBlock: React.FC<AgendaSleepBlockProps> = ({
           <span
             className={cn(
               "text-[9.5px] font-mono truncate",
-              isObjective ? "text-[#64748B]" : "text-[#C4B5FD]"
+              isObjective ? "text-[#94A3B8]" : "text-[#C4B5FD]"
             )}
           >
             {subLabel}
@@ -109,7 +109,7 @@ export const AgendaSleepBlock: React.FC<AgendaSleepBlockProps> = ({
           <div
             className={cn(
               "text-[9.5px] truncate mt-0.5",
-              isObjective ? "text-[#64748B]" : "text-[#C4B5FD] font-medium"
+              isObjective ? "text-[#94A3B8]" : "text-[#C4B5FD] font-medium"
             )}
           >
             {isObjective

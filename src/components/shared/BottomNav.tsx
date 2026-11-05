@@ -40,6 +40,7 @@ export const BottomNav: React.FC = () => {
             <Link
               key={item.href}
               href={item.href}
+              aria-current={isActive ? "page" : undefined}
               className={cn(
                 "flex flex-col items-center justify-center py-1 px-1 sm:px-2 rounded-xl transition-all duration-200 min-w-[44px] flex-1",
                 isActive
@@ -55,7 +56,7 @@ export const BottomNav: React.FC = () => {
               />
               <span
                 className={cn(
-                  "text-[10px] font-semibold tracking-tight mt-0.5 transition-colors",
+                  "text-[11px] font-semibold tracking-tight mt-0.5 transition-colors",
                   isActive ? "text-white font-bold" : "text-[#8E929E]"
                 )}
               >

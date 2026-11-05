@@ -80,6 +80,10 @@ export const NotificationSettingsCard: React.FC<NotificationSettingsCardProps> =
           <div className="flex items-center justify-between text-xs">
             <span className="text-[#D1D5DB]">Rappel matinal (08:00)</span>
             <button
+              type="button"
+              role="switch"
+              aria-checked={Boolean(prefs.morningReminder)}
+              aria-label="Rappel matinal"
               onClick={() => handleToggle("morningReminder")}
               className={`w-9 h-5 rounded-full transition-colors relative cursor-pointer ${
                 prefs.morningReminder ? "bg-[#D4F63D]" : "bg-[#282A30]"
@@ -96,6 +100,10 @@ export const NotificationSettingsCard: React.FC<NotificationSettingsCardProps> =
           <div className="flex items-center justify-between text-xs">
             <span className="text-[#D1D5DB]">Bilan du soir (21:00)</span>
             <button
+              type="button"
+              role="switch"
+              aria-checked={Boolean(prefs.eveningRecap)}
+              aria-label="Bilan du soir"
               onClick={() => handleToggle("eveningRecap")}
               className={`w-9 h-5 rounded-full transition-colors relative cursor-pointer ${
                 prefs.eveningRecap ? "bg-[#D4F63D]" : "bg-[#282A30]"
@@ -112,6 +120,10 @@ export const NotificationSettingsCard: React.FC<NotificationSettingsCardProps> =
           <div className="flex items-center justify-between text-xs">
             <span className="text-[#D1D5DB]">Alerte protection de streak</span>
             <button
+              type="button"
+              role="switch"
+              aria-checked={Boolean(prefs.streakReminder)}
+              aria-label="Alerte protection de série"
               onClick={() => handleToggle("streakReminder")}
               className={`w-9 h-5 rounded-full transition-colors relative cursor-pointer ${
                 prefs.streakReminder ? "bg-[#D4F63D]" : "bg-[#282A30]"
@@ -162,7 +174,7 @@ export const NotificationSettingsCard: React.FC<NotificationSettingsCardProps> =
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => onDeleteReminder(rem.id)}
-                  className="p-1 text-[#6B7280] hover:text-[#F87171] transition-colors cursor-pointer"
+                  className="p-1 text-[#8E929E] hover:text-[#F87171] transition-colors cursor-pointer"
                   title="Supprimer ce rappel"
                 >
                   <Trash2 className="w-4 h-4" />

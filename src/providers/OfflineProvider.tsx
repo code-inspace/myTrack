@@ -71,7 +71,7 @@ export const OfflineProvider: React.FC<{ children: React.ReactNode }> = ({ child
             <WifiOff className="w-4 h-4 flex-shrink-0 animate-pulse" />
             <span>Mode hors ligne actif — Vos modifications sont conservées localement</span>
           </div>
-          <span className="bg-black/20 px-2 py-0.5 rounded-full text-[10px] uppercase font-mono">
+          <span className="bg-black/20 px-2 py-0.5 rounded-full text-[11px] uppercase font-mono">
             Local First
           </span>
         </div>
@@ -87,7 +87,7 @@ export const OfflineProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       {/* Low Data Mode Floating Indicator */}
       {isLowDataMode && isOnline && (
-        <div className="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-40 bg-[#17181F]/90 backdrop-blur-md border border-[#F59E0B]/40 text-[#F59E0B] px-3 py-1 rounded-full flex items-center gap-1.5 text-[10px] font-bold shadow-lg pointer-events-none select-none">
+        <div className="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-40 bg-[#17181F]/90 backdrop-blur-md border border-[#F59E0B]/40 text-[#F59E0B] px-3 py-1 rounded-full flex items-center gap-1.5 text-[11px] font-bold shadow-lg pointer-events-none select-none">
           <Zap className="w-3 h-3" />
           <span>Low Data</span>
         </div>

@@ -559,7 +559,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
                         "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold transition-all cursor-pointer border",
                         showCalendar
                           ? "bg-[#3B82F6]/15 border-[#3B82F6]/40 text-[#60A5FA]"
-                          : "bg-[#1C1D22] border-[#282A30] text-[#6B7280]"
+                          : "bg-[#1C1D22] border-[#282A30] text-[#8E929E]"
                       )}
                     >
                       <CalendarDays className="w-3.5 h-3.5" />
@@ -653,7 +653,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
                         }
                       }}
                       className={cn(
-                        "w-full pl-11 py-3 rounded-2xl bg-[#1C1D22] border border-[#282A30] text-sm text-white focus:border-[#D4F63D] outline-none placeholder-[#6B7280] shadow-sm transition-all",
+                        "w-full pl-11 py-3 rounded-2xl bg-[#1C1D22] border border-[#282A30] text-sm text-white focus:border-[#D4F63D] outline-none placeholder-[#8E929E] shadow-sm transition-all",
                         quickTitle.trim() ? "pr-28" : "pr-4"
                       )}
                     />
@@ -722,7 +722,7 @@ export const UnifiedTasksAgendaView: React.FC<UnifiedTasksAgendaViewProps> = ({
                     <TaskCardSkeleton count={3} />
                   ) : unifiedStream.length === 0 ? (
                     <div className="p-8 text-center bg-[#1C1D22] border border-[#282A30] rounded-3xl my-4">
-                      <Inbox className="w-10 h-10 text-[#6B7280] mx-auto mb-2" />
+                      <Inbox className="w-10 h-10 text-[#8E929E] mx-auto mb-2" />
                       <h4 className="text-base font-bold text-white">Aucun élément programmé</h4>
                       <p className="text-xs text-[#8E929E] mt-1 mb-4">
                         Tu n&apos;as aucune tâche ni événement pour cette date.

@@ -125,13 +125,13 @@ export const NotificationPermissionButton: React.FC<NotificationPermissionButton
                 <div className="text-xs font-bold text-white flex items-center gap-1.5">
                   <span>Notifications actives sur cet appareil</span>
                 </div>
-                <div className="text-[10px] text-[#8E929E]">
+                <div className="text-[11px] text-[#8E929E]">
                   Rappels programmés & bilans opérationnels
                 </div>
               </div>
             </div>
 
-            <span className="px-2 py-0.5 rounded-full bg-[#D4F63D]/20 border border-[#D4F63D]/30 text-[#D4F63D] text-[10px] font-bold">
+            <span className="px-2 py-0.5 rounded-full bg-[#D4F63D]/20 border border-[#D4F63D]/30 text-[#D4F63D] text-[11px] font-bold">
               Connecté
             </span>
           </div>

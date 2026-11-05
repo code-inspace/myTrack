@@ -316,7 +316,7 @@ export const HorizontalDatePicker: React.FC<HorizontalDatePickerProps> = ({
             </div>
 
             {/* Weekdays row */}
-            <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-[#8E929E] mb-1.5">
+            <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-bold text-[#8E929E] mb-1.5">
               {WEEKDAYS_SHORT.map((w, idx) => (
                 <div key={idx} className="py-0.5">
                   {w}
@@ -345,7 +345,7 @@ export const HorizontalDatePicker: React.FC<HorizontalDatePickerProps> = ({
                         ? "bg-[#D4F63D]/20 text-[#D4F63D] font-bold border border-[#D4F63D]/50"
                         : isCurrentViewMonth
                         ? "text-[#E5E7EB] hover:bg-[#252830]"
-                        : "text-[#4B5162] hover:bg-[#1E2028] opacity-40"
+                        : "text-[#8E929E] hover:bg-[#1E2028] opacity-40"
                     )}
                   >
                     <span>{dayNum}</span>
@@ -367,7 +367,7 @@ export const HorizontalDatePicker: React.FC<HorizontalDatePickerProps> = ({
                 <RotateCcw className="w-3 h-3 stroke-[2.5]" />
                 <span>Aller à aujourd'hui</span>
               </button>
-              <span className="text-[10px] text-[#6B7280]">
+              <span className="text-[11px] text-[#8E929E]">
                 {format(currentDate, "dd/MM/yyyy")}
               </span>
             </div>
@@ -408,7 +408,7 @@ export const HorizontalDatePicker: React.FC<HorizontalDatePickerProps> = ({
               >
                 <span
                   className={cn(
-                    "text-[10px] font-bold tracking-tight uppercase mb-1",
+                    "text-[11px] font-bold tracking-tight uppercase mb-1",
                     isSelected ? "text-white" : "text-[#8E929E]"
                   )}
                 >
