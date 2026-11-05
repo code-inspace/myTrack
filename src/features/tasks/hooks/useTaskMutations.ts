@@ -26,11 +26,20 @@ import { addHoursToTimeString, getTodayDateString, isTaskInThePast } from "@/lib
 import { format, addMinutes } from "date-fns";
 import { LiveActivityBridge } from "@/lib/native/liveActivity";
 import { cancelTaskPushNotifications } from "@/lib/onesignal/client";
+import { useToast } from "@/providers/ToastProvider";
 
 export function useTaskMutations() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { toast } = useToast();
   const userId = user?.id || "";
+
+  // Light haptic tick on supported devices (Android; iOS ignores it)
+  const haptic = (ms = 12) => {
+    try {
+      navigator.vibrate?.(ms);
+    } catch {}
+  };
 
   // --- CRUD Mutations ---
   const createTask = useMutation({
@@ -377,7 +386,32 @@ export function useTaskMutations() {
         Array.isArray(old) ? old.filter((c) => c.taskId !== deletedId) : old,
       );
 
-      return { prevTasks, prevCompletions };
+      const deletedTask = prevTasks?.find((t) => t.id === deletedId);
+      const deletedCompletions = (prevCompletions || []).filter((c) => c.taskId === deletedId);
+      return { prevTasks, prevCompletions, deletedTask, deletedCompletions };
+    },
+    onSuccess: (_data, _deletedId, context) => {
+      const task = context?.deletedTask;
+      if (!task) return;
+      toast({
+        message: `« ${task.title} » supprimée`,
+        action: {
+          label: "Annuler",
+          onClick: () => {
+            // Put the task back (same id) with its history
+            createDbTask({ ...task, completed: false } as Parameters<typeof createDbTask>[0])
+              .then(async () => {
+                for (const c of context?.deletedCompletions || []) {
+                  await upsertDbCompletion({ ...c, userId });
+                }
+              })
+              .finally(() => {
+                queryClient.invalidateQueries({ queryKey: ["tasks"] });
+                queryClient.invalidateQueries({ queryKey: ["completions"] });
+              });
+          },
+        },
+      });
     },
     onError: (_err, _vars, context) => {
       if (context?.prevTasks) {
@@ -471,6 +505,30 @@ export function useTaskMutations() {
       return { prevTasks, prevCompletions };
     };
 
+  // Where an occurrence is before a change (for "Annuler"): its day and hours
+  const snapshotSchedule = (taskId: string, date: string, originDate?: string) => {
+    const task =
+      queryClient.getQueryData<Task[]>(["tasks", userId])?.find((t) => t.id === taskId) ||
+      getStoredTasks(userId).find((t) => t.id === taskId);
+    if (!task) return null;
+    if (task.recurrence !== "ONCE") {
+      const from = originDate || date;
+      const override = task.dateOverrides?.[from];
+      return {
+        title: task.title,
+        date: from,
+        startTime: override?.startTime !== undefined ? override.startTime : task.startTime ?? null,
+        endTime: override?.endTime !== undefined ? override.endTime : task.endTime ?? null,
+      };
+    }
+    return {
+      title: task.title,
+      date: (task as Task & { date?: string }).date || task.createdAt?.split("T")[0] || date,
+      startTime: task.startTime ?? null,
+      endTime: task.endTime ?? null,
+    };
+  };
+
   const updateSchedule = useMutation({
     mutationFn: async ({
       taskId,
@@ -486,6 +544,8 @@ export function useTaskMutations() {
       startTime: string | null;
       endTime: string | null;
       applyToAll?: boolean;
+      /** Skip the "Annuler" toast (used by the undo itself) */
+      silent?: boolean;
     }) => {
       await updateTaskSchedule({
         taskId,
@@ -497,7 +557,33 @@ export function useTaskMutations() {
         userId,
       });
     },
-    onMutate: applyScheduleOptimistically,
+    onMutate: async (vars) => {
+      const prevSchedule = snapshotSchedule(vars.taskId, vars.date, vars.originDate);
+      const context = await applyScheduleOptimistically(vars);
+      return { ...context, prevSchedule };
+    },
+    onSuccess: (_data, vars, context) => {
+      const prev = context?.prevSchedule;
+      if (!prev || vars.silent) return;
+      const movedDay = prev.date !== vars.date;
+      if (!movedDay && prev.startTime === vars.startTime && prev.endTime === vars.endTime) return;
+      toast({
+        message: movedDay ? `« ${prev.title} » déplacée` : `Horaire de « ${prev.title} » modifié`,
+        action: {
+          label: "Annuler",
+          onClick: () =>
+            updateSchedule.mutate({
+              taskId: vars.taskId,
+              date: prev.date,
+              originDate: movedDay ? vars.date : undefined,
+              startTime: prev.startTime,
+              endTime: prev.endTime,
+              applyToAll: vars.applyToAll,
+              silent: true,
+            }),
+        },
+      });
+    },
     onError: (_err, _vars, context) => {
       if (context?.prevTasks) {
         queryClient.setQueryData(["tasks", userId], context.prevTasks);
@@ -548,8 +634,22 @@ export function useTaskMutations() {
       taskId: string;
       fromDate: string;
       toDate: string;
+      /** Skip the "Annuler" toast (used by the undo itself) */
+      silent?: boolean;
     }) => {
       await moveTaskOccurrence(taskId, fromDate, toDate, userId);
+    },
+    onSuccess: (_data, vars) => {
+      if (vars.silent || vars.fromDate === vars.toDate) return;
+      const task = (queryClient.getQueryData<Task[]>(["tasks", userId]) || []).find((t) => t.id === vars.taskId);
+      toast({
+        message: task ? `« ${task.title} » déplacée` : "Tâche déplacée",
+        action: {
+          label: "Annuler",
+          onClick: () =>
+            moveOccurrence.mutate({ taskId: vars.taskId, fromDate: vars.toDate, toDate: vars.fromDate, silent: true }),
+        },
+      });
     },
     // Same optimistic update as an agenda move: the occurrence keeps its hours and lands on toDate
     onMutate: async ({ taskId, fromDate, toDate }) => {
@@ -641,6 +741,8 @@ export function useTaskMutations() {
       date: string;
       value?: number | null;
       duration?: number | null;
+      /** Skip the "Annuler" toast (used by the undo itself) */
+      silent?: boolean;
     }) => {
       const completions = getStoredCompletions(userId);
       const existing = completions.find(
@@ -669,6 +771,7 @@ export function useTaskMutations() {
         (c) => c.taskId === taskId && c.date === date,
       );
       const newStatus = existing ? !existing.completed : true;
+      haptic(newStatus ? 18 : 8);
 
       // Optimistically update tasks: update projectStatus
       const targetTask = prevTasks?.find((t) => t.id === taskId);
@@ -737,7 +840,18 @@ export function useTaskMutations() {
 
       queryClient.setQueryData<TaskCompletion[]>(["completions", userId], nextCompletions);
 
-      return { prevTasks, prevCompletions };
+      return { prevTasks, prevCompletions, newStatus, title: targetTask?.title };
+    },
+    onSuccess: (_data, vars, context) => {
+      if (!context?.newStatus || vars.silent) return;
+      toast({
+        message: context.title ? `« ${context.title} » validée` : "Tâche validée",
+        action: {
+          label: "Annuler",
+          onClick: () => toggleCompletion.mutate({ taskId: vars.taskId, date: vars.date, silent: true }),
+        },
+        duration: 4500,
+      });
     },
     onError: (_err, _vars, context) => {
       if (context?.prevTasks) {
