@@ -854,6 +854,7 @@ export function useTaskMutations() {
       });
     },
     onError: (_err, _vars, context) => {
+      toast({ message: "Impossible d'enregistrer, la tâche n'a pas été validée. Réessaie." });
       if (context?.prevTasks) {
         queryClient.setQueryData(["tasks", userId], context.prevTasks);
       }

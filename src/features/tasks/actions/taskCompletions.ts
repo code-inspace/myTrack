@@ -173,6 +173,7 @@ export async function upsertDbCompletion(
   saveStoredCompletions(updated, targetId);
 
   // 2. Persist to API endpoint
+  let rejected: Error | null = null;
   try {
     const dbPayload = {
       ...completion,
@@ -190,11 +191,18 @@ export async function upsertDbCompletion(
         : null,
     };
 
-    await fetch("/api/completions", {
+    const res = await fetch("/api/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ completion: dbPayload, userId: targetId }),
     });
+    if (!res.ok) {
+      // The server answered and refused: undo the local write so the task does not look done
+      // here while the server never recorded it (it would flip back at the next refresh).
+      saveStoredCompletions(completions, targetId);
+      rejected = new Error(`Completion rejected (${res.status})`);
+      throw rejected;
+    }
 
     // If marked as completed, immediately cancel any scheduled push notifications
     if (completion.completed) {
@@ -205,6 +213,8 @@ export async function upsertDbCompletion(
     }
   } catch (err) {
     console.warn("API upsertDbCompletion error:", err);
+    // Offline / network failure keeps the local write (synced later); a refusal is reported.
+    if (err === rejected) throw err;
   }
 }
 
@@ -264,19 +274,6 @@ export async function closeTaskAsCompleted(
   const scheduledEndTime =
     effectiveEnd || existing?.scheduledEndTime || actualEndTime;
 
-  // ONLY if the task had NO explicit schedule anywhere and was unstarted, position this day's occurrence in the Agenda timeline
-  if (!wasStarted && !effectiveStart && !effectiveEnd) {
-    const isRecurring = target?.recurrence && target.recurrence !== "ONCE";
-    await updateTaskSchedule({
-      taskId,
-      date,
-      startTime: actualStartTime,
-      endTime: actualEndTime,
-      applyToAll: !isRecurring,
-      userId: targetId,
-    });
-  }
-
   await upsertDbCompletion({
     taskId,
     userId: targetId,
@@ -294,6 +291,19 @@ export async function closeTaskAsCompleted(
     actualEndTime,
     notes: null,
   });
+
+  // Only once the completion is saved, so a failed save never leaves a ghost slot behind: if the task had NO explicit schedule anywhere and was unstarted, position this day's occurrence in the Agenda timeline
+  if (!wasStarted && !effectiveStart && !effectiveEnd) {
+    const isRecurring = target?.recurrence && target.recurrence !== "ONCE";
+    await updateTaskSchedule({
+      taskId,
+      date,
+      startTime: actualStartTime,
+      endTime: actualEndTime,
+      applyToAll: !isRecurring,
+      userId: targetId,
+    });
+  }
 
   await syncProjectStatusToDoneColumn(taskId, targetId);
 }
