@@ -179,7 +179,7 @@ export function goalsVerdict(items: GoalInsightItem[]): GoalsVerdict {
 
 export const NO_PROJECT_KEY = "__none__";
 
-function completionMinutes(c: TaskCompletion, task: Task | undefined): number {
+export function completionMinutes(c: TaskCompletion, task: Task | undefined): number {
   return (
     getCompletionMinutes(c) ??
     (minutesBetween(c.scheduledStartTime, c.scheduledEndTime) || null) ??

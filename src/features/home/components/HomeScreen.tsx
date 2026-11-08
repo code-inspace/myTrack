@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { format } from "date-fns";
 import { Plus, Play, Timer } from "lucide-react";
 import { AppHeader } from "@/components/shared/AppHeader";
 import { useGoalItems, type GoalItem } from "@/features/bilan/useGoalItems";
@@ -18,6 +19,17 @@ import { useCalendarEvents } from "@/features/calendar/hooks/useCalendarEvents";
 import { projectMinutesInRange } from "@/features/bilan/insights";
 import { getTodayDateString } from "@/lib/dates";
 import { SetupDomains } from "./SetupDomains";
+import { DailyFocus } from "./DailyFocus";
+import { FocusSettingsSheet } from "./FocusSettingsSheet";
+import {
+  DEFAULT_FOCUS_SETTINGS,
+  dailyStreak,
+  loadFocusSettings,
+  minutesByDate,
+  saveFocusSettings,
+  type FocusSettings,
+} from "../dailyTarget";
+import { useAuth } from "@/providers/AuthProvider";
 import { useAutoActivity } from "@/features/activity/useAutoActivity";
 import { AutoTrackingStrip } from "@/features/activity/AutoTrackingStrip";
 import type { Project } from "@/features/projects/types";
@@ -94,9 +106,25 @@ export const HomeScreen: React.FC = () => {
     projectMinutesInRange({ tasks: allTasks, completions: allCompletions, externalEvents }, day, day).forEach((m) => (total += m));
     return total;
   }, [allTasks, allCompletions, externalEvents]);
+  const { user } = useAuth();
+  const userId = user?.id || "";
+  const [focus, setFocus] = useState<FocusSettings>(DEFAULT_FOCUS_SETTINGS);
+  const [editingFocus, setEditingFocus] = useState(false);
+  useEffect(() => {
+    if (userId) setFocus(loadFocusSettings(userId)); // eslint-disable-line react-hooks/set-state-in-effect
+  }, [userId]);
   const auto = useAutoActivity();
   const liveProjectIds = new Set(auto.live.map((l) => l.projectId).filter((id): id is string => !!id));
   const [adding, setAdding] = useState<{ target: QuickTarget } | null>(null);
+
+  // The daily target is about the projects that carry a goal
+  const goalProjectIdSet = useMemo(() => new Set(items.map((i) => i.goal.projectId)), [items]);
+  const workByDate = useMemo(
+    () => minutesByDate({ tasks: allTasks, completions: allCompletions }, goalProjectIdSet),
+    [allTasks, allCompletions, goalProjectIdSet],
+  );
+  const goalTodayMinutes = workByDate.get(format(new Date(), "yyyy-MM-dd")) || 0;
+  const streak = useMemo(() => dailyStreak(workByDate, focus, new Date()), [workByDate, focus]);
 
   const verdict = useMemo(
     () =>
@@ -124,6 +152,8 @@ export const HomeScreen: React.FC = () => {
 
       <div className="mx-auto min-h-0 w-full max-w-md flex-1 space-y-4 overflow-y-auto overflow-x-hidden overscroll-y-contain px-3 pb-28 pt-4 sm:px-4 md:max-w-3xl md:px-8 md:pb-10 md:pt-8">
         <h1 className="hidden text-2xl font-extrabold tracking-tight text-white md:block">Accueil</h1>
+
+        <DailyFocus settings={focus} todayMinutes={goalTodayMinutes} streak={streak} onEdit={() => setEditingFocus(true)} />
 
         <RunningTimerCard />
 
@@ -243,6 +273,18 @@ export const HomeScreen: React.FC = () => {
           <Timer className="h-4 w-4" aria-hidden="true" /> Planifier une session
         </Link>
       </div>
+
+      {editingFocus && (
+        <FocusSettingsSheet
+          initial={focus}
+          onClose={() => setEditingFocus(false)}
+          onSave={(next) => {
+            setFocus(next);
+            if (userId) saveFocusSettings(userId, next);
+            setEditingFocus(false);
+          }}
+        />
+      )}
 
       {adding && (
         <MinutesSheet
