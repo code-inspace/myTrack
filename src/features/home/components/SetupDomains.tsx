@@ -13,16 +13,18 @@ interface Domain {
   name: string;
   color: string;
   hours: number;
+  /** Comma separated sub-categories that all count toward this one target (optional) */
+  categories: string;
   /** Optional weekly result target (applications sent, chapters done…), counted with +1 */
   results: number;
   enabled: boolean;
 }
 
 const INITIAL: Domain[] = [
-  { name: "Candidatures", color: "#D4F63D", hours: 5, results: 8, enabled: true },
-  { name: "Révisions", color: "#60A5FA", hours: 10, results: 0, enabled: true },
-  { name: "Travail", color: "#A78BFA", hours: 20, results: 0, enabled: true },
-  { name: "Maison", color: "#F59E0B", hours: 5, results: 0, enabled: true },
+  { name: "Recherche d'emploi", color: "#D4F63D", hours: 25, categories: "Postuler, Formation, Entretiens", results: 8, enabled: true },
+  { name: "Révisions", color: "#60A5FA", hours: 10, categories: "", results: 0, enabled: false },
+  { name: "Travail", color: "#A78BFA", hours: 20, categories: "", results: 0, enabled: false },
+  { name: "Maison", color: "#F59E0B", hours: 5, categories: "", results: 0, enabled: false },
 ];
 
 /**
@@ -49,11 +51,21 @@ export const SetupDomains: React.FC<{ projects: Project[] }> = ({ projects }) =>
       for (const domain of chosen) {
         const name = domain.name.trim();
         const existing = projects.find((p) => p.name.trim().toLowerCase() === name.toLowerCase());
+        const categories = domain.categories
+          .split(",")
+          .map((c) => c.trim())
+          .filter(Boolean);
         const project =
           existing ??
-          (await createProject.mutateAsync({ name, color: domain.color, columns: DEFAULT_PROJECT_COLUMNS }));
+          (await createProject.mutateAsync({
+            name,
+            color: domain.color,
+            columns: DEFAULT_PROJECT_COLUMNS,
+            categories,
+          }));
         await createGoal({
           projectId: project.id,
+          ...(categories.length > 0 ? { title: name, projectCategory: categories[0], projectCategories: categories } : {}),
           periodType: "week",
           isRecurring: true,
           targetType: "duration",
@@ -145,6 +157,14 @@ export const SetupDomains: React.FC<{ projects: Project[] }> = ({ projects }) =>
               />
               +1/sem
             </label>
+            <input
+              type="text"
+              value={d.categories}
+              onChange={(e) => patch(i, { categories: e.target.value })}
+              placeholder="Sous-catégories qui comptent (séparées par des virgules)"
+              aria-label={`Sous-catégories pour ${d.name || "ce domaine"}`}
+              className="w-full rounded-xl border border-[#343740] bg-[#0E0F12] px-3 py-2 text-xs text-white placeholder:text-[#6B7280]"
+            />
           </li>
         ))}
       </ul>

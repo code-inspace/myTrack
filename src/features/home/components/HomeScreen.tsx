@@ -116,6 +116,8 @@ export const HomeScreen: React.FC = () => {
   const auto = useAutoActivity();
   const liveProjectIds = new Set(auto.live.map((l) => l.projectId).filter((id): id is string => !!id));
   const [adding, setAdding] = useState<{ target: QuickTarget } | null>(null);
+  // A goal that groups several categories asks which one the time belongs to
+  const [picking, setPicking] = useState<{ target: QuickTarget; categories: string[]; add?: boolean } | null>(null);
 
   // The daily target is about the projects that carry a goal
   const goalProjectIdSet = useMemo(() => new Set(items.map((i) => i.goal.projectId)), [items]);
@@ -180,8 +182,10 @@ export const HomeScreen: React.FC = () => {
                 const target = targetOf(item);
                 const isCount = item.goal.targetType === "count";
                 const pace = PACE_TEXT[item.pace.status];
-                const running = timer?.key === target.key;
+                const running = !!timer && (timer.key === target.key || timer.key.startsWith(`${target.key}:`));
                 const autoRunning = liveProjectIds.has(item.goal.projectId);
+                const goalCategories =
+                  Array.isArray(item.goal.projectCategories) && item.goal.projectCategories.length > 1 ? item.goal.projectCategories : [];
                 return (
                   <li
                     key={item.goal.id}
@@ -209,7 +213,13 @@ export const HomeScreen: React.FC = () => {
                           <Plus className="h-4 w-4" aria-hidden="true" /> 1
                         </button>
                       ) : (
-                        <ActionButtons label={target.label} running={running} autoRunning={autoRunning} onStart={() => start(target)} onAdd={() => setAdding({ target })} />
+                        <ActionButtons
+                          label={target.label}
+                          running={running}
+                          autoRunning={autoRunning}
+                          onStart={() => (goalCategories.length > 0 ? setPicking({ target, categories: goalCategories }) : start(target))}
+                          onAdd={() => (goalCategories.length > 0 ? setPicking({ target, categories: goalCategories, add: true }) : setAdding({ target }))}
+                        />
                       )}
                     </div>
                     <div
@@ -273,6 +283,38 @@ export const HomeScreen: React.FC = () => {
           <Timer className="h-4 w-4" aria-hidden="true" /> Planifier une session
         </Link>
       </div>
+
+      {picking && (
+        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/60 md:items-center" role="presentation" onClick={() => setPicking(null)}>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Quelle catégorie pour ${picking.target.label} ?`}
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md space-y-3 rounded-t-3xl border border-[#282A30] bg-[#17181D] p-5 pb-[max(env(safe-area-inset-bottom),20px)] md:rounded-3xl"
+          >
+            <h2 className="text-base font-extrabold text-white">{picking.add ? "Ajouter du temps sur…" : "Je travaille sur…"}</h2>
+            <div className="flex flex-wrap gap-2">
+              {picking.categories.map((cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => {
+                    const target: QuickTarget = { ...picking.target, key: `${picking.target.key}:${cat}`, label: `${picking.target.label} · ${cat}`, projectCategory: cat };
+                    const wasAdd = picking.add;
+                    setPicking(null);
+                    if (wasAdd) setAdding({ target });
+                    else start(target);
+                  }}
+                  className="min-h-[48px] cursor-pointer rounded-2xl bg-[#D4F63D] px-5 text-sm font-extrabold text-black hover:bg-[#bce028]"
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {editingFocus && (
         <FocusSettingsSheet
