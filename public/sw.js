@@ -1,52 +1,18 @@
-const CACHE_NAME = "mytrack-cache-v1";
-const STATIC_ASSETS = [
-  "/",
-  "/tasks",
-  "/dashboard",
-  "/chat",
-  "/profile",
-  "/manifest.json",
-];
+// Ce service worker ne sert qu'aux notifications. Il ne met RIEN en cache :
+// l'ancienne version servait les pages en cache-first à vie, ce qui figeait la
+// PWA sur une vieille version (ou une page supprimée) sans jamais se mettre à jour.
 
-self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(STATIC_ASSETS);
-    })
-  );
+self.addEventListener("install", () => {
   self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => {
-      return Promise.all(
-        keys.map((key) => {
-          if (key !== CACHE_NAME) {
-            return caches.delete(key);
-          }
-        })
-      );
-    })
-  );
-  self.clients.claim();
-});
-
-self.addEventListener("fetch", (event) => {
-  if (event.request.method !== "GET") return;
-
-  event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-      return fetch(event.request).catch(() => {
-        // Return offline fallback if navigating
-        if (event.request.mode === "navigate") {
-          return caches.match("/tasks");
-        }
-      });
-    })
+    // Purge tous les anciens caches (v1 et suivants) laissés par l'ancienne version.
+    caches
+      .keys()
+      .then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
+      .then(() => self.clients.claim())
   );
 });
 
