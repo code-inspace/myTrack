@@ -491,7 +491,7 @@
 				);
 				MARKETING_VERSION = 1.0;
 				OTHER_SWIFT_FLAGS = "$(inherited) \"-D\" \"COCOAPODS\" \"-DDEBUG\"";
-				PRODUCT_BUNDLE_IDENTIFIER = com.mytrack.app;
+				PRODUCT_BUNDLE_IDENTIFIER = com.axelcoudair.mytrack;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_VERSION = 5.0;
@@ -515,7 +515,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.mytrack.app;
+				PRODUCT_BUNDLE_IDENTIFIER = com.axelcoudair.mytrack;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "";
 				SWIFT_VERSION = 5.0;
@@ -554,7 +554,7 @@
 				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = com.mytrack.app.MyTrackWidget;
+				PRODUCT_BUNDLE_IDENTIFIER = com.axelcoudair.mytrack.MyTrackWidget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -597,7 +597,7 @@
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MARKETING_VERSION = 1.0;
 				MTL_FAST_MATH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = com.mytrack.app.MyTrackWidget;
+				PRODUCT_BUNDLE_IDENTIFIER = com.axelcoudair.mytrack.MyTrackWidget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;

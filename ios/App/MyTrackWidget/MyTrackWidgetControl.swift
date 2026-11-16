@@ -12,7 +12,7 @@ import WidgetKit
 struct MyTrackWidgetControl: ControlWidget {
     var body: some ControlWidgetConfiguration {
         StaticControlConfiguration(
-            kind: "com.mytrack.app.MyTrackWidget",
+            kind: "com.axelcoudair.mytrack.MyTrackWidget",
             provider: Provider()
         ) { value in
             ControlWidgetToggle(

@@ -79,7 +79,7 @@ struct MyTrackTimelineProvider: TimelineProvider {
 
     private func fetchCurrentData() -> MyTrackWidgetEntry {
         // Lecture des données partagées via App Groups / UserDefaults
-        let defaults = UserDefaults(suiteName: "group.com.mytrack.app")
+        let defaults = UserDefaults(suiteName: "group.com.axelcoudair.mytrack")
         
         var activeTask: WidgetTaskItem? = nil
         var tasks: [WidgetTaskItem] = []
@@ -116,7 +116,7 @@ struct ToggleTaskIntent: AppIntent {
     }
 
     func perform() async throws -> some IntentResult {
-        let defaults = UserDefaults(suiteName: "group.com.mytrack.app")
+        let defaults = UserDefaults(suiteName: "group.com.axelcoudair.mytrack")
         if let data = defaults?.data(forKey: "widget_today_tasks"),
            var decoded = try? JSONDecoder().decode([WidgetTaskItem].self, from: data) {
             if let index = decoded.firstIndex(where: { $0.id == taskId }) {

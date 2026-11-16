@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from "@capacitor/cli";
 
 const config: CapacitorConfig = {
-  appId: "com.mytrack.app",
+  appId: "com.axelcoudair.mytrack",
   appName: "myTrack",
   webDir: "out",
   server: {

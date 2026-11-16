@@ -21,7 +21,7 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
     ]
 
     @objc func getActiveTask(_ call: CAPPluginCall) {
-        let suite = UserDefaults(suiteName: "group.com.mytrack.app") ?? UserDefaults.standard
+        let suite = UserDefaults(suiteName: "group.com.axelcoudair.mytrack") ?? UserDefaults.standard
         let lastStoppedTaskId = suite.string(forKey: "mytrack_last_stopped_task_id")
         
         var activeList: [[String: Any]] = []
@@ -81,7 +81,7 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     @objc func syncTasks(_ call: CAPPluginCall) {
-        let suite = UserDefaults(suiteName: "group.com.mytrack.app") ?? UserDefaults.standard
+        let suite = UserDefaults(suiteName: "group.com.axelcoudair.mytrack") ?? UserDefaults.standard
 
         if let tasksArray = call.getArray("tasks") as? [[String: Any]],
            let data = try? JSONSerialization.data(withJSONObject: tasksArray),
@@ -184,7 +184,7 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
         projectColor: String?,
         projectName: String?
     ) {
-        let suite = UserDefaults(suiteName: "group.com.mytrack.app") ?? UserDefaults.standard
+        let suite = UserDefaults(suiteName: "group.com.axelcoudair.mytrack") ?? UserDefaults.standard
         suite.removeObject(forKey: "mytrack_last_stopped_task_id")
         suite.removeObject(forKey: "mytrack_selected_widget_task_id")
 
@@ -237,7 +237,7 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     private func clearActiveTaskForWidget(taskId: String? = nil) {
-        let suite = UserDefaults(suiteName: "group.com.mytrack.app") ?? UserDefaults.standard
+        let suite = UserDefaults(suiteName: "group.com.axelcoudair.mytrack") ?? UserDefaults.standard
         suite.removeObject(forKey: "mytrack_selected_widget_task_id")
         UserDefaults.standard.removeObject(forKey: "mytrack_selected_widget_task_id")
 
@@ -393,7 +393,7 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
         // 1. Update Widget / App Group Storage
         if let rawTs = rawTimestamp {
             let startedAtTimestamp = rawTs > 10000000000 ? rawTs / 1000.0 : rawTs
-            let suite = UserDefaults(suiteName: "group.com.mytrack.app") ?? UserDefaults.standard
+            let suite = UserDefaults(suiteName: "group.com.axelcoudair.mytrack") ?? UserDefaults.standard
             
             var currentActiveList: [[String: Any]] = []
             if let rawListJson = suite.string(forKey: "mytrack_active_tasks"),
@@ -473,7 +473,7 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
             }
 
             // Si le mode veille est activé et qu'aucune autre activité ne tourne, démarrer le standby
-            let suite = UserDefaults(suiteName: "group.com.mytrack.app") ?? UserDefaults.standard
+            let suite = UserDefaults(suiteName: "group.com.axelcoudair.mytrack") ?? UserDefaults.standard
             let isStandbyEnabled = suite.object(forKey: "mytrack_lockscreen_standby") as? Bool ?? true
             if isStandbyEnabled {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
@@ -532,7 +532,7 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
         let nextTaskTitle = call.getString("nextTaskTitle")
         let nextTaskCategory = call.getString("nextTaskCategory")
 
-        let suite = UserDefaults(suiteName: "group.com.mytrack.app") ?? UserDefaults.standard
+        let suite = UserDefaults(suiteName: "group.com.axelcoudair.mytrack") ?? UserDefaults.standard
         suite.set(enabled, forKey: "mytrack_lockscreen_standby")
         UserDefaults.standard.set(enabled, forKey: "mytrack_lockscreen_standby")
 
@@ -622,7 +622,7 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
         let phaseIndex = call.getInt("phaseIndex") ?? 1
         let startedAtTimestamp = call.getDouble("startedAtTimestamp") ?? Date().timeIntervalSince1970
 
-        let suite = UserDefaults(suiteName: "group.com.mytrack.app") ?? UserDefaults.standard
+        let suite = UserDefaults(suiteName: "group.com.axelcoudair.mytrack") ?? UserDefaults.standard
         suite.set(isActive, forKey: "mytrack_sleep_is_active")
         UserDefaults.standard.set(isActive, forKey: "mytrack_sleep_is_active")
         suite.set(bedtime, forKey: "mytrack_sleep_current_bedtime")
@@ -734,7 +734,7 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
     /// Stores the per-user widget token (sent as `X-Widget-Token` by the intents) and the device
     /// timezone in the App Group, or clears them on logout.
     @objc func setWidgetAuth(_ call: CAPPluginCall) {
-        let suite = UserDefaults(suiteName: "group.com.mytrack.app") ?? UserDefaults.standard
+        let suite = UserDefaults(suiteName: "group.com.axelcoudair.mytrack") ?? UserDefaults.standard
         if let token = call.getString("token"), !token.isEmpty {
             suite.set(token, forKey: "mytrack_widget_token")
         } else {

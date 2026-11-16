@@ -24,7 +24,7 @@ public struct StopTaskIntent: AppIntent {
     public func perform() async throws -> some IntentResult {
         print("[StopTaskIntent] Performing background stop for task ID: \(taskId)")
 
-        let suite = UserDefaults(suiteName: "group.com.mytrack.app") ?? UserDefaults.standard
+        let suite = UserDefaults(suiteName: "group.com.axelcoudair.mytrack") ?? UserDefaults.standard
 
         // 1. Enregistrer l'ID de la tâche arrêtée
         if !taskId.isEmpty {
@@ -125,7 +125,7 @@ public struct StopLiveActivityIntent: LiveActivityIntent {
     public func perform() async throws -> some IntentResult {
         print("[StopLiveActivityIntent] Stopping Live Activity for task ID: \(taskId)")
 
-        let suite = UserDefaults(suiteName: "group.com.mytrack.app") ?? UserDefaults.standard
+        let suite = UserDefaults(suiteName: "group.com.axelcoudair.mytrack") ?? UserDefaults.standard
 
         if !taskId.isEmpty && taskId != "standby" {
             suite.set(taskId, forKey: "mytrack_last_stopped_task_id")
@@ -219,7 +219,7 @@ public struct SelectTaskIntent: AppIntent {
     }
 
     public func perform() async throws -> some IntentResult {
-        let suite = UserDefaults(suiteName: "group.com.mytrack.app") ?? UserDefaults.standard
+        let suite = UserDefaults(suiteName: "group.com.axelcoudair.mytrack") ?? UserDefaults.standard
         let currentSelected = suite.string(forKey: "mytrack_selected_widget_task_id")
 
         if currentSelected == taskId {
@@ -273,7 +273,7 @@ public struct StartTaskIntent: AppIntent {
 
     public func perform() async throws -> some IntentResult {
         let startedAtTimestamp = Date().timeIntervalSince1970
-        let suite = UserDefaults(suiteName: "group.com.mytrack.app") ?? UserDefaults.standard
+        let suite = UserDefaults(suiteName: "group.com.axelcoudair.mytrack") ?? UserDefaults.standard
 
         // 1. Sauvegarder localement pour le widget (conserve jusqu'à 2 tâches actives)
         var dict: [String: Any] = [
@@ -407,7 +407,7 @@ public struct ChangeTaskPageIntent: AppIntent {
     }
 
     public func perform() async throws -> some IntentResult {
-        let suite = UserDefaults(suiteName: "group.com.mytrack.app") ?? UserDefaults.standard
+        let suite = UserDefaults(suiteName: "group.com.axelcoudair.mytrack") ?? UserDefaults.standard
         let currentPage = suite.integer(forKey: "mytrack_widget_task_page")
 
         var totalTasks = 0
@@ -445,7 +445,7 @@ public struct ResetWidgetIntent: AppIntent {
     public init() {}
 
     public func perform() async throws -> some IntentResult {
-        let suite = UserDefaults(suiteName: "group.com.mytrack.app") ?? UserDefaults.standard
+        let suite = UserDefaults(suiteName: "group.com.axelcoudair.mytrack") ?? UserDefaults.standard
         suite.removeObject(forKey: "mytrack_active_tasks")
         UserDefaults.standard.removeObject(forKey: "mytrack_active_tasks")
         suite.removeObject(forKey: "mytrack_active_task")
@@ -485,7 +485,7 @@ public struct SleepStartNowIntent: AppIntent, LiveActivityIntent {
         let nowTimeStr = formatter.string(from: now)
         let nowTs = now.timeIntervalSince1970
 
-        let suite = UserDefaults(suiteName: "group.com.mytrack.app") ?? UserDefaults.standard
+        let suite = UserDefaults(suiteName: "group.com.axelcoudair.mytrack") ?? UserDefaults.standard
 
         // Lire les sessions de sommeil déjà terminées pour aujourd'hui/cette nuit
         var sessions: [[String: Any]] = []
@@ -584,7 +584,7 @@ public struct SleepWakeNowIntent: AppIntent, LiveActivityIntent {
         let nowTimeStr = formatter.string(from: now)
         let nowTs = now.timeIntervalSince1970
 
-        let suite = UserDefaults(suiteName: "group.com.mytrack.app") ?? UserDefaults.standard
+        let suite = UserDefaults(suiteName: "group.com.axelcoudair.mytrack") ?? UserDefaults.standard
 
         let currentBedtime = suite.string(forKey: "mytrack_sleep_current_bedtime") ?? nowTimeStr
         let phaseIndex = max(1, suite.integer(forKey: "mytrack_sleep_phase_index"))
@@ -664,7 +664,7 @@ public struct SleepWakeNowIntent: AppIntent, LiveActivityIntent {
 /// Les routes /api/widget/* exigent le jeton par utilisateur transmis par l'app (setWidgetAuth).
 enum MyTrackWidgetAuth {
     static func apply(to request: inout URLRequest) {
-        let suite = UserDefaults(suiteName: "group.com.mytrack.app") ?? UserDefaults.standard
+        let suite = UserDefaults(suiteName: "group.com.axelcoudair.mytrack") ?? UserDefaults.standard
         if let token = suite.string(forKey: "mytrack_widget_token"), !token.isEmpty {
             request.setValue(token, forHTTPHeaderField: "X-Widget-Token")
         }

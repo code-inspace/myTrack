@@ -158,7 +158,7 @@ public struct ActiveTaskEntry: TimelineEntry {
 // MARK: - 2. Provider de données
 struct Provider: TimelineProvider {
     private func fetchSleepState() -> (isSleepMode: Bool, bedtime: String?, wakeTime: String?, phaseIndex: Int, phaseCount: Int, isAwake: Bool, isSecondSleep: Bool) {
-        let suite = UserDefaults(suiteName: "group.com.mytrack.app") ?? UserDefaults.standard
+        let suite = UserDefaults(suiteName: "group.com.axelcoudair.mytrack") ?? UserDefaults.standard
         let isActive = suite.bool(forKey: "mytrack_sleep_is_active")
         let isAwake = suite.bool(forKey: "mytrack_sleep_is_awake_between_phases")
         let isSecondSleepStored = suite.bool(forKey: "mytrack_sleep_is_second_sleep")
@@ -197,7 +197,7 @@ struct Provider: TimelineProvider {
     private func fetchLocalActiveTasks(tasks: [TaskItemWidgetModel]) -> [ActiveTaskWidgetModel] {
         var activeList: [ActiveTaskWidgetModel] = []
 
-        let suite = UserDefaults(suiteName: "group.com.mytrack.app") ?? UserDefaults.standard
+        let suite = UserDefaults(suiteName: "group.com.axelcoudair.mytrack") ?? UserDefaults.standard
 
         // 1. Lire la liste des tâches actives (supporte jusqu'à 2 tâches)
         if let rawListJson = suite.string(forKey: "mytrack_active_tasks"),
@@ -239,7 +239,7 @@ struct Provider: TimelineProvider {
     }
 
     private func fetchLocalTasksList() -> [TaskItemWidgetModel] {
-        if let rawJson = UserDefaults(suiteName: "group.com.mytrack.app")?.string(forKey: "mytrack_tasks_list")
+        if let rawJson = UserDefaults(suiteName: "group.com.axelcoudair.mytrack")?.string(forKey: "mytrack_tasks_list")
             ?? UserDefaults.standard.string(forKey: "mytrack_tasks_list"),
            let data = rawJson.data(using: .utf8),
            let list = try? JSONDecoder().decode([TaskItemWidgetModel].self, from: data),
@@ -258,12 +258,12 @@ struct Provider: TimelineProvider {
     }
 
     private func getSelectedTaskId() -> String? {
-        return UserDefaults(suiteName: "group.com.mytrack.app")?.string(forKey: "mytrack_selected_widget_task_id")
+        return UserDefaults(suiteName: "group.com.axelcoudair.mytrack")?.string(forKey: "mytrack_selected_widget_task_id")
             ?? UserDefaults.standard.string(forKey: "mytrack_selected_widget_task_id")
     }
 
     private func getCurrentPage() -> Int {
-        return UserDefaults(suiteName: "group.com.mytrack.app")?.integer(forKey: "mytrack_widget_task_page")
+        return UserDefaults(suiteName: "group.com.axelcoudair.mytrack")?.integer(forKey: "mytrack_widget_task_page")
             ?? UserDefaults.standard.integer(forKey: "mytrack_widget_task_page")
     }
 
