@@ -6,6 +6,7 @@ import OneSignalProvider from "@/providers/OneSignalProvider";
 import NotificationWatcherProvider from "@/providers/NotificationWatcherProvider";
 import { BottomNav } from "@/components/shared/BottomNav";
 import { FloatingTimer } from "@/features/quicktimer/components/FloatingTimer";
+import { WorkActivitySync } from "@/features/quicktimer/WorkActivitySync";
 import { DesktopSidebar } from "@/components/desktop/DesktopSidebar";
 import { AuthGuard } from "@/components/shared/AuthGuard";
 import { ToastProvider } from "@/providers/ToastProvider";
@@ -107,6 +108,7 @@ export default function RootLayout({
 
                             {/* Fixed Thumb-friendly Navigation on Mobile */}
                             <FloatingTimer />
+                            <WorkActivitySync />
                             <BottomNav />
                           </AuthGuard>
                           </ToastProvider>

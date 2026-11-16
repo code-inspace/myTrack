@@ -54,7 +54,7 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
             Task {
                 for activity in Activity<TaskActivityAttributes>.activities {
                     let actTaskId = activity.attributes.taskId
-                    if actTaskId != "standby" && actTaskId != "sleep" && !activeTaskIds.contains(actTaskId) {
+                    if actTaskId != "standby" && actTaskId != "sleep" && !actTaskId.hasPrefix("work:") && !activeTaskIds.contains(actTaskId) {
                         print("[LiveActivityPlugin] getActiveTask: Ending orphan Live Activity for task: \(actTaskId)")
                         await activity.end(nil, dismissalPolicy: .immediate)
                     }
@@ -116,6 +116,16 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
             normalizedActiveList.append(item)
         }
 
+        // Une session de travail (minuteur en un tap) n'est pas une tâche : elle ne vient jamais de
+        // `activeTasks`, donc on la conserve au lieu de la traiter comme périmée.
+        if let rawListJson = suite.string(forKey: "mytrack_active_tasks"),
+           let data = rawListJson.data(using: .utf8),
+           let existing = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
+            let workSessions = existing.filter { (($0["taskId"] as? String) ?? "").hasPrefix("work:") }
+            normalizedActiveList.removeAll { (($0["taskId"] as? String) ?? "").hasPrefix("work:") }
+            normalizedActiveList = Array((workSessions + normalizedActiveList).prefix(2))
+        }
+
         if !normalizedActiveList.isEmpty {
             if let listData = try? JSONSerialization.data(withJSONObject: normalizedActiveList),
                let listJsonString = String(data: listData, encoding: .utf8) {
@@ -150,7 +160,7 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
                 for activity in Activity<TaskActivityAttributes>.activities {
                     let actTaskId = activity.attributes.taskId
                     // Si l'activité n'est pas dans la liste des tâches actives et n'est ni standby ni sleep, on la ferme immédiatement
-                    if actTaskId != "standby" && actTaskId != "sleep" && !activeTaskIds.contains(actTaskId) {
+                    if actTaskId != "standby" && actTaskId != "sleep" && !actTaskId.hasPrefix("work:") && !activeTaskIds.contains(actTaskId) {
                         print("[LiveActivityPlugin] syncTasks: Terminating orphan Live Activity for task ID: \(actTaskId)")
                         await activity.end(nil, dismissalPolicy: .immediate)
                     }
@@ -297,6 +307,8 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
         let progress = call.getDouble("progress") ?? 0.0
         let projectColor = call.getString("projectColor")
         let projectName = call.getString("projectName")
+        // "WORK" = session de travail (minuteur en un tap) ; sinon une tâche classique.
+        let currentStatus = call.getString("currentStatus") == "WORK" ? "WORK" : "IN_PROGRESS"
 
         // Synchroniser immédiatement pour le Widget macOS & iOS Home Screen (garde jusqu'à 2 tâches)
         saveActiveTaskForWidget(
@@ -324,7 +336,7 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
         )
 
         let initialContentState = TaskActivityAttributes.ContentState(
-            currentStatus: "IN_PROGRESS",
+            currentStatus: currentStatus,
             startedAtTimestamp: startedAtTimestamp,
             elapsedSeconds: 0,
             targetDurationSeconds: nil,

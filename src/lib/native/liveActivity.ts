@@ -9,7 +9,7 @@ export interface TaskActivityAttributes {
 }
 
 export interface TaskActivityState {
-  currentStatus: "IN_PROGRESS" | "PAUSED" | "COMPLETED";
+  currentStatus: "IN_PROGRESS" | "PAUSED" | "COMPLETED" | "WORK";
   startedAtTimestamp: number;
   elapsedSeconds: number;
   targetDurationSeconds?: number;

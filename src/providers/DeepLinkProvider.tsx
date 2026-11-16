@@ -120,6 +120,15 @@ export function DeepLinkProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
+        // Live Activity / widget d'une session de travail : « Terminer et enregistrer »
+        if (url.hostname === "work" || url.pathname.startsWith("/work")) {
+          if (url.searchParams.get("action") === "stop") {
+            router.push("/");
+            window.dispatchEvent(new CustomEvent("mytrack:work-stop"));
+          }
+          return;
+        }
+
         const isNewTask =
           url.pathname.includes("new-task") ||
           url.pathname.includes("create-task") ||

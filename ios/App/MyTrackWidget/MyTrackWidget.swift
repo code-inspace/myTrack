@@ -21,6 +21,9 @@ public struct ActiveTaskWidgetModel: Codable, Identifiable {
     public let projectColor: String?
     public let projectName: String?
 
+    /// Session de travail (minuteur en un tap), pas une tâche : on l'arrête depuis l'app.
+    public var isWork: Bool { taskId.hasPrefix("work:") }
+
     public var safeStartedAt: Date {
         let ts = startedAtTimestamp > 10000000000 ? startedAtTimestamp / 1000.0 : startedAtTimestamp
         let d = Date(timeIntervalSince1970: ts)
@@ -953,7 +956,7 @@ struct MediumActiveTaskView: View {
 
                 Spacer()
 
-                Button(intent: StopTaskIntent(taskId: task.taskId)) {
+                StopControl(taskId: task.taskId) {
                     HStack(spacing: 5) {
                         Image(systemName: "square.fill")
                             .font(.system(size: 10, weight: .bold))
@@ -1064,7 +1067,7 @@ struct SmallActiveTaskView: View {
                 HStack(spacing: 6) {
                     AppLogoView(size: 16)
 
-                    Text("EN COURS")
+                    Text(task.isWork ? "TRAVAIL" : "EN COURS")
                         .font(.system(size: 9, weight: .heavy))
                         .foregroundColor(darkBg.opacity(0.8))
 
@@ -1091,7 +1094,7 @@ struct SmallActiveTaskView: View {
 
                 Spacer()
 
-                Button(intent: StopTaskIntent(taskId: task.taskId)) {
+                StopControl(taskId: task.taskId) {
                     Image(systemName: "square.fill")
                         .font(.system(size: 12, weight: .bold))
                         .foregroundColor(darkBg)
@@ -1152,7 +1155,7 @@ struct DualMediumActiveTasksView: View {
                     .shadow(color: Color.black.opacity(0.12), radius: 2, x: 0, y: 1)
 
                     // Bouton Stop
-                    Button(intent: StopTaskIntent(taskId: task.taskId)) {
+                    StopControl(taskId: task.taskId) {
                         HStack(spacing: 3) {
                             Image(systemName: "square.fill")
                                 .font(.system(size: 7.5, weight: .bold))
@@ -1214,7 +1217,7 @@ struct DualLargeActiveTasksView: View {
 
                         Spacer()
 
-                        Button(intent: StopTaskIntent(taskId: task.taskId)) {
+                        StopControl(taskId: task.taskId) {
                             HStack(spacing: 4) {
                                 Image(systemName: "square.fill")
                                     .font(.system(size: 9, weight: .bold))
@@ -1814,5 +1817,21 @@ extension Color {
             blue: Double(b) / 255,
             opacity: Double(a) / 255
         )
+    }
+}
+
+
+/// Bouton « Arrêter » d'un widget : une tâche s'arrête par intent, une session de travail
+/// s'ouvre dans l'app qui enregistre le temps passé.
+struct StopControl<Label: View>: View {
+    let taskId: String
+    @ViewBuilder let label: () -> Label
+
+    var body: some View {
+        if taskId.hasPrefix("work:") {
+            Link(destination: URL(string: "mytrack://work?action=stop")!) { label() }
+        } else {
+            Button(intent: StopTaskIntent(taskId: taskId)) { label() }
+        }
     }
 }

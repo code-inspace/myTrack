@@ -100,6 +100,22 @@ struct MyTrackWidgetLiveActivity: Widget {
                             }
                         }
                         .padding(.leading, 4)
+                    } else if context.state.currentStatus == "WORK" {
+                        let wa = workSessionAccent(context.attributes.projectColor)
+                        HStack(spacing: 8) {
+                            WorkSessionBadge(accent: wa, size: 26)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text("SESSION DE TRAVAIL")
+                                    .font(.system(size: 9, weight: .heavy))
+                                    .tracking(0.6)
+                                    .foregroundColor(wa)
+                                Text(context.attributes.taskTitle)
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .lineLimit(1)
+                            }
+                        }
+                        .padding(.leading, 4)
                     } else {
                         HStack(spacing: 6) {
                             AppLogoView(size: 20)
@@ -133,6 +149,13 @@ struct MyTrackWidgetLiveActivity: Widget {
                             }
                         }
                         .padding(.trailing, 4)
+                    } else if context.state.currentStatus == "WORK" {
+                        Text(timerInterval: Date(timeIntervalSince1970: context.state.startedAtTimestamp)...Date(timeIntervalSinceNow: 86400), countsDown: false)
+                            .font(.system(size: 22, weight: .heavy, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundColor(workSessionAccent(context.attributes.projectColor))
+                            .multilineTextAlignment(.trailing)
+                            .padding(.trailing, 4)
                     } else if context.state.currentStatus == "STANDBY" {
                         Link(destination: URL(string: "mytrack://tasks?action=new-task")!) {
                             HStack(spacing: 4) {
@@ -203,6 +226,22 @@ struct MyTrackWidgetLiveActivity: Widget {
                         }
                         .padding(.horizontal, 4)
                         .padding(.top, 4)
+                    } else if context.state.currentStatus == "WORK" {
+                        Link(destination: URL(string: "mytrack://work?action=stop")!) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .font(.system(size: 12, weight: .bold))
+                                Text("Terminer et enregistrer")
+                                    .font(.system(size: 12, weight: .bold))
+                            }
+                            .foregroundColor(Color(red: 0.07, green: 0.07, blue: 0.08))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 7)
+                            .background(workSessionAccent(context.attributes.projectColor))
+                            .clipShape(Capsule())
+                        }
+                        .padding(.horizontal, 4)
+                        .padding(.top, 6)
                     } else if context.state.currentStatus == "STANDBY" {
                         if let nextTitle = context.state.nextTaskTitle, let nextId = context.state.nextTaskId {
                             HStack(spacing: 8) {
@@ -297,6 +336,10 @@ struct MyTrackWidgetLiveActivity: Widget {
                     Image(systemName: "moon.stars.fill")
                         .font(.system(size: 10, weight: .bold))
                         .foregroundColor(sleepIndigo)
+                } else if context.state.currentStatus == "WORK" {
+                    Image(systemName: "briefcase.fill")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(workSessionAccent(context.attributes.projectColor))
                 } else {
                     AppLogoView(size: 13)
                         .frame(width: 13, height: 13)
@@ -332,6 +375,10 @@ struct MyTrackWidgetLiveActivity: Widget {
                     Image(systemName: "moon.stars.fill")
                         .font(.system(size: 10, weight: .bold))
                         .foregroundColor(sleepIndigo)
+                } else if context.state.currentStatus == "WORK" {
+                    Image(systemName: "briefcase.fill")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(workSessionAccent(context.attributes.projectColor))
                 } else {
                     AppLogoView(size: 12)
                         .frame(width: 12, height: 12)
@@ -468,6 +515,12 @@ struct LockScreenLiveActivityView: View {
             .background(Color(red: 0.08, green: 0.09, blue: 0.13).opacity(0.97))
             .cornerRadius(20)
 
+        } else if context.state.currentStatus == "WORK" {
+            WorkSessionLockScreenView(
+                title: context.attributes.taskTitle,
+                startedAt: Date(timeIntervalSince1970: context.state.startedAtTimestamp),
+                accent: accentColor
+            )
         } else if context.state.currentStatus == "STANDBY" {
             // ============================================================
             // MODE EN ATTENTE (STANDBY) : Aucune tâche active en cours
@@ -670,5 +723,111 @@ struct LockScreenLiveActivityView: View {
             .background(Color(red: 0.10, green: 0.11, blue: 0.14).opacity(0.95))
             .cornerRadius(20)
         }
+    }
+}
+
+
+// MARK: - Session de travail (minuteur en un tap)
+
+/// Couleur de l'objectif (hex) ou le néon myTrack par défaut.
+func workSessionAccent(_ hex: String?) -> Color {
+    if let hex = hex, !hex.isEmpty { return Color(hexString: hex) }
+    return Color(red: 0.83, green: 0.96, blue: 0.24)
+}
+
+/// Pastille arrondie avec la mallette, teintée de la couleur de l'objectif.
+struct WorkSessionBadge: View {
+    let accent: Color
+    var size: CGFloat = 30
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: size * 0.32, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [accent.opacity(0.38), accent.opacity(0.14)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+            RoundedRectangle(cornerRadius: size * 0.32, style: .continuous)
+                .stroke(accent.opacity(0.45), lineWidth: 1)
+            Image(systemName: "briefcase.fill")
+                .font(.system(size: size * 0.46, weight: .bold))
+                .foregroundColor(accent)
+        }
+        .frame(width: size, height: size)
+    }
+}
+
+/// Carte de l'écran verrouillé pour une session de travail : gros chrono, objectif, bouton Terminer.
+struct WorkSessionLockScreenView: View {
+    let title: String
+    let startedAt: Date
+    let accent: Color
+
+    private let ink = Color(red: 0.07, green: 0.07, blue: 0.08)
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .center, spacing: 11) {
+                WorkSessionBadge(accent: accent, size: 36)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 5) {
+                        Circle()
+                            .fill(accent)
+                            .frame(width: 6, height: 6)
+                        Text("SESSION DE TRAVAIL")
+                            .font(.system(size: 10, weight: .heavy))
+                            .tracking(0.7)
+                            .foregroundColor(accent)
+                    }
+                    Text(title)
+                        .font(.system(size: 17, weight: .bold))
+                        .foregroundColor(.white)
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 8)
+
+                Text(timerInterval: startedAt...Date(timeIntervalSinceNow: 86400), countsDown: false)
+                    .font(.system(size: 30, weight: .heavy, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundColor(.white)
+                    .multilineTextAlignment(.trailing)
+                    .minimumScaleFactor(0.7)
+                    .lineLimit(1)
+                    .frame(maxWidth: 124, alignment: .trailing)
+            }
+
+            Link(destination: URL(string: "mytrack://work?action=stop")!) {
+                HStack(spacing: 7) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 14, weight: .bold))
+                    Text("Terminer et enregistrer")
+                        .font(.system(size: 14, weight: .bold))
+                }
+                .foregroundColor(ink)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .background(accent)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .shadow(color: accent.opacity(0.28), radius: 6, x: 0, y: 2)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .background(
+            ZStack {
+                Color(red: 0.08, green: 0.09, blue: 0.11)
+                LinearGradient(
+                    colors: [accent.opacity(0.22), accent.opacity(0.0)],
+                    startPoint: .topLeading,
+                    endPoint: .center
+                )
+            }
+        )
+        .cornerRadius(22)
     }
 }
