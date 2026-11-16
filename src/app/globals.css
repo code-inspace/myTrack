@@ -137,6 +137,16 @@ body {
   --visual-viewport-height: 100dvh;
 }
 
+/* iOS Safari/WKWebView zooms into any text field under 16px on focus, which shifts the whole
+   page sideways. Keep fields at 16px on touch devices (pinch zoom itself stays available). */
+@media (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
 /* Ensure all scroll containers have scroll padding so scrollIntoView keeps inputs comfortably visible */
 html,
 body,
